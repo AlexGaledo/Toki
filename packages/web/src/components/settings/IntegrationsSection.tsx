@@ -5,15 +5,13 @@
  * are not here: those are used through a bot's browser. See docs/research/oauth-loopback.md.
  *
  * Every credential stays in the hub's encrypted vault; this page only ever sees whether one is stored.
- * Account names are masked with `Private` (people screen-share). A connection is shared, but each bot has
- * to be switched on here before it gets the provider's tools.
+ * Account names are masked with `Private` (people screen-share). A connection is shared by every bot.
  */
 import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { ChevronRight, ExternalLink } from 'lucide-react';
-import type { Bot, IntegrationInfo, IntegrationProvider, IntegrationsState, OAuthAppStatus, PendingConnect } from '@pocketrocket/shared';
-import { useStore } from '../../store';
+import type { IntegrationInfo, IntegrationProvider, IntegrationsState, OAuthAppStatus, PendingConnect } from '@pocketrocket/shared';
 import { api } from '../../lib/api';
-import { Avatar, Badge, Button, Field, Input, Label, Switch, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '../ui';
+import { Badge, Button, Field, Input, Label, Tabs, TabsContent, TabsList, TabsTrigger, cn } from '../ui';
 import { ApiKeyField } from './ApiKeyField';
 import { Card, Group, InlineError, Private, SectionHeader, maskEmail } from './parts';
 
@@ -433,11 +431,9 @@ function Connected({ provider, conn, onChange, onReconnect, reconnecting }: {
   provider: IntegrationProvider; conn: IntegrationInfo; onChange: () => Promise<void>; onReconnect: () => void; reconnecting: boolean;
 }) {
   const meta = PROVIDERS[provider];
-  const bots = useStore((s) => s.bots);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const grantsId = useId();
 
   const run = async (fn: () => Promise<unknown>, fallback: string) => {
     setBusy(true);
@@ -450,10 +446,6 @@ function Connected({ provider, conn, onChange, onReconnect, reconnecting }: {
     } finally {
       setBusy(false);
     }
-  };
-  const toggle = (bot: Bot, on: boolean) => {
-    const next = on ? [...conn.botIds, bot.id] : conn.botIds.filter((id) => id !== bot.id);
-    void run(() => api.integrations.setGrants(conn.id, next), "Couldn't change that bot's access.");
   };
 
   return (
@@ -501,21 +493,7 @@ function Connected({ provider, conn, onChange, onReconnect, reconnecting }: {
         </div>
       )}
 
-      <div className="mt-4">
-        <p id={grantsId} className="mb-1 text-label text-fg">Bots that may use it</p>
-        <p className={cn('mb-2 text-hint', conn.botIds.length ? 'text-muted' : 'text-warn')}>{conn.botIds.length ? 'Other bots get no ' + meta.name + ' tools.' : 'No bot can use it until you turn one on.'}</p>
-        {bots.length ? (
-          <ul aria-labelledby={grantsId} className="divide-y divide-line">
-            {bots.map((b) => (
-              <li key={b.id} className="flex items-center gap-3 py-2">
-                <Avatar bot={b} size={24} />
-                <span className="min-w-0 flex-1 truncate text-ui">{b.name}</span>
-                <Switch checked={conn.botIds.includes(b.id)} aria-label={b.name + ' may use ' + meta.name} onChange={(on) => toggle(b, on)} />
-              </li>
-            ))}
-          </ul>
-        ) : <p className="text-ui text-muted">No bots yet.</p>}
-      </div>
+      <p className="mt-3 text-hint text-muted">Every bot can use it. Sending or posting still asks you first.</p>
       {error && <InlineError>{error}</InlineError>}
     </div>
   );

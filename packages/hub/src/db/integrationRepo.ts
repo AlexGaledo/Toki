@@ -78,11 +78,9 @@ export class IntegrationRepo {
   grantedBots(integrationId: string): string[] {
     return this.db.all<{ bot_id: string }>('SELECT bot_id FROM bot_integrations WHERE integration_id=? ORDER BY created_at', integrationId).map((r) => r.bot_id);
   }
-  /** Connections this bot may use. */
-  forBot(botId: string): IntegrationInfo[] {
-    return this.db
-      .all('SELECT i.* FROM integrations i JOIN bot_integrations g ON g.integration_id = i.id WHERE g.bot_id=? ORDER BY i.created_at', botId)
-      .map((r) => this.rowTo(r));
+  /** Connections this bot may use: every connection is shared by all bots. */
+  forBot(_botId: string): IntegrationInfo[] {
+    return this.list();
   }
   setGrants(integrationId: string, botIds: string[]) {
     const t = Date.now();

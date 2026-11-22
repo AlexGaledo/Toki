@@ -174,11 +174,11 @@ export class TriggerService {
     }
   }
 
-  /** Whether this trigger's bot may hear from its source: the provider is connected and the bot is granted. */
+  /** Whether this trigger may hear from its source: the provider is connected (connections are shared by all bots). */
   private live(t: Trigger): boolean {
     if (!t.enabled) return false;
     const info = this.o.integrations.repo.byProvider(TRIGGER_SOURCE_PROVIDER[t.source]);
-    return !!info && info.status !== 'expired' && info.botIds.includes(t.botId);
+    return !!info && info.status !== 'expired';
   }
 
   /** Streams to poll right now (Slack excluded: it pushes). */
@@ -442,7 +442,7 @@ export class TriggerService {
     if (!bot || !room) return skip('The bot or room no longer exists.');
     if (!o.test) {
       const info = this.o.integrations.repo.byProvider(TRIGGER_SOURCE_PROVIDER[t.source]);
-      if (!info || !info.botIds.includes(bot.id)) return skip('@' + bot.handle + ' has no access to this connection.');
+      if (!info) return skip('The connection is gone; reconnect it in Settings → Connections.');
     }
     const fired = this.repo.firesLastHour(t.id, now);
     if (fired >= t.maxPerHour) return skip('Rate limit: ' + t.maxPerHour + ' per hour.');

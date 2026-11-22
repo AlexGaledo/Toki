@@ -49,39 +49,27 @@ function answerCards(broker: PermissionBroker, d: 'allow' | 'always' | 'deny') {
 
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-describe('integration tools and per-bot grants', () => {
-  it('a bot without a grant gets no integration tools at all', async () => {
+describe('integration tools (shared by every bot)', () => {
+  it('every bot gets the tools of a connected provider, no grant needed', async () => {
     const s = await setup();
-    expect(s.tools()).toEqual([]);
-    s.svc.setGrants(s.conn.id, [s.other.id]);
-    expect(s.tools()).toEqual([]);
-    expect(s.tools(s.other.id).map((t) => t.name)).toEqual([...INTEGRATION_TOOLS.github.read, ...INTEGRATION_TOOLS.github.write]);
+    const all = [...INTEGRATION_TOOLS.github.read, ...INTEGRATION_TOOLS.github.write];
+    expect(s.tools().map((t) => t.name)).toEqual(all);
+    expect(s.tools(s.other.id).map((t) => t.name)).toEqual(all);
   });
 
-  it('only the granted provider shows up', async () => {
+  it('only the connected provider shows up', async () => {
     const s = await setup();
-    s.svc.setGrants(s.conn.id, [s.bot.id]);
     const names = s.tools().map((t) => t.name);
     expect(names).toContain('github_notifications');
     expect(names.some((n) => n.startsWith('gmail_') || n.startsWith('slack_'))).toBe(false);
   });
 
-  it('revoking the grant (or disconnecting) removes the tools from the next turn', async () => {
+  it('disconnecting removes the tools from the next turn', async () => {
     const s = await setup();
-    s.svc.setGrants(s.conn.id, [s.bot.id]);
     expect(s.tools().length).toBeGreaterThan(0);
-    s.svc.setGrants(s.conn.id, []);
-    expect(s.tools()).toEqual([]);
-    s.svc.setGrants(s.conn.id, [s.bot.id]);
     s.svc.disconnect(s.conn.id);
     expect(s.tools()).toEqual([]);
-  });
-
-  it('grants of deleted bots are pruned', async () => {
-    const s = await setup();
-    s.svc.setGrants(s.conn.id, [s.bot.id, s.other.id]);
-    s.svc.pruneGrants([s.bot.id]);
-    expect(s.svc.repo.get(s.conn.id)?.botIds).toEqual([s.bot.id]);
+    expect(s.tools(s.other.id)).toEqual([]);
   });
 
   it('read tools run silently, label output as untrusted and never contain the token', async () => {

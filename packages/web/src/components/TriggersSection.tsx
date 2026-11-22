@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { History, Play, Plus, Trash2, Zap } from 'lucide-react';
 import {
-  TRIGGER_FILTERS, TRIGGER_SOURCE_LABEL, TRIGGER_SOURCE_PROVIDER,
-  type IntegrationsState, type Trigger, type TriggerFire, type TriggerSource, type TriggersState,
+  TRIGGER_FILTERS, TRIGGER_SOURCE_LABEL,
+  type Trigger, type TriggerFire, type TriggerSource, type TriggersState,
 } from '@pocketrocket/shared';
 import { useStore, botById, selectActiveRoom } from '../store';
 import { api } from '../lib/api';
@@ -45,7 +45,6 @@ export function TriggersSection({ botId }: { botId: string | null }) {
   const rev = useStore((s) => s.triggersRev);
   const room = useStore(selectActiveRoom);
   const [state, setState] = useState<TriggersState | null>(null);
-  const [integ, setInteg] = useState<IntegrationsState | null>(null);
   const [fires, setFires] = useState<Record<string, TriggerFire[] | undefined>>({});
   const blank = (): Form => ({
     open: false, name: '', source: state?.available[0] ?? '', filter: {}, botId: botId ?? bots[0]?.id ?? '',
@@ -56,9 +55,7 @@ export function TriggersSection({ botId }: { botId: string | null }) {
 
   const load = async () => {
     try {
-      const [s, i] = await Promise.all([api.triggers.get(), api.integrations.get().catch(() => null)]);
-      setState(s);
-      setInteg(i);
+      setState(await api.triggers.get());
     } catch (e) { toast((e as Error).message, true); }
   };
   // Refetch on triggers.changed / trigger.fired / integrations.changed, and refresh any open history.
@@ -70,9 +67,6 @@ export function TriggersSection({ botId }: { botId: string | null }) {
 
   const available = state?.available ?? [];
   const sources: TriggerSource[] = form.source && !available.includes(form.source) ? [form.source, ...available] : available;
-  const conn = form.source ? integ?.connections.find((c) => c.provider === TRIGGER_SOURCE_PROVIDER[form.source as TriggerSource]) : undefined;
-  const formBot = botById(bots, form.botId);
-  const noAccess = !!conn && !!formBot && !conn.botIds.includes(formBot.id);
   const fields = form.source ? TRIGGER_FILTERS[form.source] : [];
   const missingRequired = fields.some((f) => f.required && !form.filter[f.key]?.trim());
   const valid = !!form.name.trim() && !!form.source && !!form.botId && !!form.roomId && !!form.prompt.trim() && !missingRequired;
@@ -167,11 +161,6 @@ export function TriggersSection({ botId }: { botId: string | null }) {
             <Select aria-label="Bot" value={form.botId} onChange={(e) => set({ botId: e.target.value })}>{bots.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select>
             <Select aria-label="Chat" value={form.roomId} onChange={(e) => set({ roomId: e.target.value })}>{rooms.map((r) => <option key={r.id} value={r.id}>{r.kind === 'group' ? '# ' : ''}{r.name}</option>)}</Select>
           </div>
-          {noAccess && (
-            <p className="px-1 text-hint text-warn">
-              @{formBot!.handle} can't use this. Allow in Connections.
-            </p>
-          )}
           <Textarea placeholder="What should the bot do?" aria-label="Prompt" rows={4} value={form.prompt} onChange={(e) => set({ prompt: e.target.value })} />
           <div className="flex flex-wrap items-center gap-1 px-1" role="group" aria-label="Insert an event field">
             {[...BASE_PLACEHOLDERS, ...fields.map((f) => f.key).filter((k) => !BASE_PLACEHOLDERS.includes(k))].map((k) => (

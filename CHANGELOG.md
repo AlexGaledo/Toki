@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Connections are shared by every bot
+
+- Once GitHub, Google, Slack, ClickUp or Teams is connected, every bot can use it. No more switching each bot on under the connection, and the long bot list is gone from Settings › Connections. Sending or posting still shows an approval card every time.
+- Triggers no longer need the bot to be allowed on the connection; a trigger only skips when the connection is gone.
+
 ## [0.5.4] - 2026-11-21
 
 ### Toki rebrand and cozy theme
