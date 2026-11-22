@@ -103,7 +103,7 @@ Systemd units `pocketrocket` and `pocketrocket-screen` run as the unprivileged `
 
 ## 7. Integrations (Settings → Connections; `<data>/integrations.json` + `<data>/vault.key`)
 
-Connections to GitHub, Google (Gmail, Calendar, Drive), Slack, ClickUp and Microsoft Teams. One connection per provider, shared by all bots; a bot gets a provider's tools only after it is switched on under that connection ("Bots that may use it"). Read tools run silently; every write tool (`gmail_send`, `calendar_create_event`, `slack_post_message`, `github_create_issue`, `github_comment`, `clickup_create_task`, `clickup_comment`, `teams_send_chat`) shows an approval card on **every** call, also when approvals are bypassed.
+Connections to GitHub, Google (Gmail, Calendar, Drive), Slack, ClickUp and Microsoft Teams. One connection per provider, shared by all bots: once a provider is connected, every bot gets its tools. Read tools run silently; every write tool (`gmail_send`, `calendar_create_event`, `slack_post_message`, `github_create_issue`, `github_comment`, `clickup_create_task`, `clickup_comment`, `teams_send_chat`) shows an approval card on **every** call, also when approvals are bypassed.
 
 | Provider | Connect with | Notes |
 |---|---|---|

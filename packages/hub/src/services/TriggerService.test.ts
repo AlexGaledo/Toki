@@ -160,14 +160,12 @@ describe('GitHub repo events poller', () => {
 });
 
 describe('what gets polled', () => {
-  it('only polls providers that are connected and granted to an enabled trigger\'s bot', async () => {
+  it('only polls providers that are connected and used by an enabled trigger', async () => {
     const h = setup();
     h.f.on('GET', GH + '/notifications', () => ({ json: [] }));
     const t = h.trigger({ source: 'github.notifications' });
     expect(h.svc.streams()).toEqual([]); // not connected
     const info = h.connect('github', false);
-    expect(h.svc.streams()).toEqual([]); // connected, but the bot has no grant
-    h.integrations.setGrants(info.id, [h.bot.id]);
     expect(h.svc.streams().map((s) => s.key)).toEqual(['github.notifications']);
     h.svc.update(t.id, { enabled: false });
     expect(h.svc.streams()).toEqual([]);
@@ -423,14 +421,14 @@ describe('limits', () => {
     expect(h.svc.testFire(t.id)!.status).toBe('running');
   });
 
-  it('a real event for a bot that lost its grant is skipped, not fired', () => {
+  it('a real event after the connection is gone is skipped, not fired', () => {
     const h = setup();
     const info = h.connect('github');
     const t = h.trigger({ source: 'github.repo', filter: { repo: 'acme/app' } });
-    h.integrations.setGrants(info.id, []);
+    h.integrations.disconnect(info.id);
     const f = h.svc.fire(t, { source: 'github.repo', id: '1', title: 'x', text: '', from: '', url: '', at: '', fields: {} }, { eventId: 'e' });
     expect(f.status).toBe('skipped');
-    expect(f.note).toContain('no access');
+    expect(f.note).toContain('connection is gone');
     expect(h.reqs).toHaveLength(0);
   });
 });

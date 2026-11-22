@@ -16,8 +16,8 @@ export type ConfirmWrite = (a: { tool: string; reason: string; input: Record<str
 const LIMIT = (max: number) => z.number().int().min(1).max(max).optional().describe('How many to return (max ' + max + ')');
 
 /**
- * Hub tools for the connections this bot has been granted (decision Q7). A bot without a grant gets no
- * tools for that provider at all, so it cannot even see them.
+ * Hub tools for every connected provider. Connections are shared by all bots; a provider that is not
+ * connected adds no tools, so bots cannot even see it.
  *
  * Credentials never reach the bot: the tools run in the hub process, the clients read the token from the
  * vault per call, and every output is passed through `redact()` (the vault registers each stored value).
