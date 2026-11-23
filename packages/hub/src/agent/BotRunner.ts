@@ -721,6 +721,7 @@ export class BotRunner {
       fileGuard: fileRoot || this.projects
         ? (name, input, cwd) => (fileRoot ? decisionsWriteDenied(name, input, cwd, [fileRoot]) : null) ?? (this.projects ? reposFileWriteDenied(name, input, cwd, this.projects.root) : null)
         : undefined,
+      ruleGuard: (name, input) => this.broker.learnedRule(bot.id, name, input),
       fileWritten: fileRoot && this.revisions
         ? (name, input, cwd) => {
             const p = input.file_path ?? input.notebook_path;
@@ -1161,6 +1162,7 @@ export class BotRunner {
           ])
         : undefined,
       fileGuard: this.projects ? (name, input, cwd) => reposFileWriteDenied(name, input, cwd, this.projects!.root) : undefined,
+      ruleGuard: (name, input) => this.broker.learnedRule(bot.id, name, input),
     };
     this.activeTurns.add(turnId);
     this.aborts.set(turnId, ac);
