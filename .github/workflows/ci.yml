@@ -75,6 +75,8 @@ jobs:
       - name: Web logic tests
         run: node --test "packages/web/test/*.test.mjs"
 
+      - name: Model-check the cut-off retry (TLA+)
+        run: node scripts/formal.mjs
       - name: Syntax-check the kill switch
         run: bash -n deploy/keys.sh
 
