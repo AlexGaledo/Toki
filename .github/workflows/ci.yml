@@ -53,7 +53,7 @@ jobs:
         run: pnpm -r build
 
       - name: DEBUG recorder x12
-        run: for i in $(seq 1 12); do (cd packages/hub && npx vitest run src/services/Recorder.chrome.test.ts 2>&1 | grep -E 'DBG-FAIL|Tests ' ) || true; done
+        run: for n in 1 2 3 4 5 6; do (yes > /dev/null &); done; for i in $(seq 1 15); do (cd packages/hub && npx vitest run src/services/Recorder.chrome.test.ts 2>&1 | grep -E 'DBG-FAIL|Tests ' ) || true; done; pkill yes || true
       - name: Server hub bundle (what scripts/deploy.sh runs)
         run: |
           pnpm hub:server-bundle

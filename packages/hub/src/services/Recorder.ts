@@ -205,6 +205,7 @@ export class Recorder {
     try {
       await this.attachBrowser(s);
     } catch (e) {
+      console.log('DBG-FAIL attachBrowser: ' + (e as Error).message);
       s.info.error = 'Browser not recorded: ' + clip((e as Error).message, 200);
     }
     const poll = this.deps.windowPollMs ?? WINDOW_POLL_MS;
@@ -264,7 +265,7 @@ export class Recorder {
     if (!s.cdp || s.stopping || (t.type !== 'page' && t.type !== 'iframe')) return Promise.resolve();
     let p = s.attached.get(t.targetId);
     if (!p) {
-      p = this.attachNow(s, t).catch(() => undefined);
+      p = this.attachNow(s, t).catch((e) => { console.log('DBG-FAIL attach ' + t.type + ' ' + t.targetId + ': ' + (e as Error).message); });
       s.attached.set(t.targetId, p);
     }
     return p;
@@ -297,6 +298,9 @@ export class Recorder {
   private onCdp(s: Session, method: string, params: Record<string, unknown>, sessionId?: string) {
     if (s.stopping) return;
     switch (method) {
+      case 'Target.detachedFromTarget': case 'Target.targetDestroyed': case 'Target.targetCrashed': case 'Inspector.detached':
+        console.log('DBG-FAIL event ' + method + ' ' + JSON.stringify(params));
+        return;
       case 'Target.targetCreated': {
         const info = params.targetInfo as { targetId: string; type: string } | undefined;
         if (info) void this.attachTarget(s, info);
@@ -310,6 +314,7 @@ export class Recorder {
         return;
       }
       case 'Page.frameNavigated': {
+        if (process.env.DBG_REC) console.log('DBG nav ' + sessionId + ' ' + JSON.stringify((params.frame as {url?:string})?.url));
         const frame = params.frame as { parentId?: string; url?: string } | undefined;
         if (!frame || frame.parentId) return;
         s.visibleSecret.set(sessionId ?? '', !!frame.url && urlHasSecret(frame.url));
