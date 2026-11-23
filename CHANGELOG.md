@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Bots keep working longer and show their proof
+
+- A bot now gets 100 steps per run instead of 30, and up to 3 continuations instead of 1. When it still runs out, it carries on in the same conversation instead of starting over from a summary, so long design or coding work keeps its place. Only the token limit starts a fresh session.
+- When a bot edits files and runs no test, build or screenshot afterwards, its reply gets a small "unverified" label with the reason.
+- New built-in skill, prove-it, adapted from Lauren Tan's pstack: prove a task against the real thing before saying done, question the approach after two failed fixes, report only problems it reproduced.
+- When you correct a bot twice for the same thing, it can propose a rule (a command or folder it must not touch, and what to do instead). You approve the exact rule on a card; after that the hub refuses the action in every approval mode and tells the bot what to do instead.
+- The bots' instructions are about 16% shorter: text that only repeated what tools and approval cards already enforce is gone.
+
+### Creating a bot or group chat no longer freezes the page
+
+- After New › New bot or New group chat, the page ignored every click until a reload. Fixed.
+
+### Checks instead of written rules (development)
+
+- ESLint runs in CI with today's issues frozen, so only new ones fail; each custom rule's message names what to use instead. Web and shared code can't import hub internals.
+- Tests now enforce what the contributor notes only asked for: additive migrations, the phone route allowlist, design tokens matching across app, splash and site, WCAG AA contrast, pinned CI actions, SSH host-key checking.
+- `scripts/deploy.sh` refuses to deploy anything but a clean, current origin/main. CI refuses edits to released CHANGELOG sections and newly mixed line endings.
+- `scripts/control-toki.mjs` and the verify-toki skill run a throwaway Toki, drive the UI and keep screenshots as evidence.
+- AGENTS.md pairs each rule with the check that enforces it; the agent notes shrank from about 4,200 words to under 1,000.
+
 ### Connections are shared by every bot
 
 - Once GitHub, Google, Slack, ClickUp or Teams is connected, every bot can use it. No more switching each bot on under the connection, and the long bot list is gone from Settings › Connections. Sending or posting still shows an approval card every time.
