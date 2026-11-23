@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { nanoid } from 'nanoid';
-import { AUTO_MODEL, type Bot, type BotBackup, type BotState, type CauseKind, type ProviderId, type Room, type ToolPayload } from '@pocketrocket/shared';
+import { AUTO_MODEL, type Bot, type BotBackup, type BotState, type CauseKind, type Message, type ProviderId, type Room, type ToolPayload } from '@pocketrocket/shared';
 import path from 'node:path';
 import { ATTACHMENTS_DIR, CLAUDE_EXE, DESKTOP_AVAILABLE, MAX_TURNS_PER_QUERY, MAX_TURN_CONTINUATIONS, ROTATE_IDLE_MS, TURN_CACHE_READ_CAP, WORKSPACE_DIR, botHome, spendCapsOff } from '../config.js';
 import { SUPPORT_HANDLE, supportSourceDirs } from '../services/SeedBots.js';
@@ -41,6 +41,7 @@ import type { ComputerControlService } from '../services/ComputerControl.js';
 import { takeoverTool } from './takeoverTool.js';
 import type { FormBroker } from '../services/FormBroker.js';
 import { turnFailureNote } from './turnFailure.js';
+import { classifyVerification, type TurnToolCall } from './verification.js';
 import { outsideMcpFor, registerOutsideMcpSecrets, vpsMountable } from '../services/outsideMcp.js';
 import { loadKeyRegistry } from '../services/keyRegistry.js';
 import { computerToolGuard } from '../permissions/controlInterlock.js';
@@ -84,7 +85,7 @@ export interface TurnRequest {
   strictApprovals?: boolean;
   /** What this turn belongs to (`routine:<runId>`, `workflow:<runId>:<nodeId>`), so a parked turn can still settle it when it resumes. */
   ownerRef?: string;
-  /** The last turn here was cut off (token brake, step limit): start a fresh, small session instead of resuming the big one. */
+  /** The last turn here was cut off by the token brake: start a fresh, small session instead of resuming the big one. */
   freshSession?: boolean;
   /**
    * M8 (P3-1): run this turn on this provider and model instead of the bot's own: its backup, after the owner pressed
@@ -121,6 +122,8 @@ export interface TurnResult {
   limit?: TurnLimit;
   /** M8: the provider the turn ran on (the bot's own, or `providerOverride`). */
   provider?: ProviderId;
+  /** The token brake stopped a continuation (the error stays the step limit's): a retry must not resume this session. */
+  braked?: boolean;
 }
 /** Bridge P6: one turn of a moved PC session, run at the VPS (BotRunner.runOffloadTurn). */
 export interface OffloadTurnRequest {
@@ -739,6 +742,8 @@ export class BotRunner {
 
     const texts: string[] = [];
     const toolMsgIds = new Map<string, string>();
+    // B1: every tool call of the turn, in order, across its runs (retries, move-ups, continuations).
+    const toolCalls: TurnToolCall[] = [];
     let lastMessageId: string | undefined;
     // Text is held, not posted, until we know what follows it. A text block followed by a tool call is
     // narration ("Let's click the mascot to test…") — posting each one turned a browser test into dozens of
@@ -785,6 +790,7 @@ export class BotRunner {
         pending = pending === undefined ? text : pending + '\n\n' + text;
       },
       onToolUse: (id, name, input) => {
+        toolCalls.push({ name, input });
         if (pending !== undefined) {
           setState('working', narrationNote(pending));
           pending = undefined;
@@ -850,12 +856,14 @@ export class BotRunner {
     let cacheRead = 0;
     const brakeOn = TURN_CACHE_READ_CAP > 0;
     const braked = () => brakeOn && cacheRead >= TURN_CACHE_READ_CAP;
+    let brakeHit = false;
     /** What the next run of this turn needs: the session's cost baseline and what is left of the token brake. */
     const nextRun = () => ({
       sessionCostUsd: this.repos.getSessionState(bot.id, room.id).costTotal,
       cacheReadBudget: brakeOn ? Math.max(0, TURN_CACHE_READ_CAP - cacheRead) : undefined,
     });
     const brakeNote = () => {
+      brakeHit = true;
       const line = this.repos.insertMessage({
         roomId: room.id, authorType: 'system', authorId: bot.id, kind: 'system',
         text: bot.name + ' stopped instead of continuing: this turn already read ' + cacheRead.toLocaleString('en-US') +
@@ -1033,6 +1041,14 @@ export class BotRunner {
       setState('done', 'parked');
       return { ok: false, parked: true, turnId, finalText: texts.join('\n\n'), costUsd, model: route.model, modelReason: route.detail, ...steerResult() };
     }
+    // B1: the turn changed files and checked nothing after: its last reply carries an "unverified" label.
+    const verification = lastMessageId ? classifyVerification(toolCalls) : undefined;
+    const last = verification && lastMessageId ? this.repos.getMessage(lastMessageId) : undefined;
+    if (verification && last?.kind === 'text') {
+      const payload = { ...((last.payload as object | null) ?? {}), verification } as Message['payload'];
+      this.repos.updateMessage(last.id, { payload });
+      events.emitEvent({ type: 'message.update', id: last.id, roomId: room.id, patch: { payload } });
+    }
     if (!ok && !error) error = 'Turn ended without a result';
     if (error) error = redact(error);
     if (stoppedByOwner) {
@@ -1064,7 +1080,7 @@ export class BotRunner {
     return {
       ok, turnId, finalText: texts.join('\n\n'), costUsd, error, model: route.model, modelReason: route.detail,
       ...(ac.signal.aborted ? { stopped: true } : {}), ...steerResult(),
-      ...(limit ? { limit } : {}), provider: provider.id,
+      ...(limit ? { limit } : {}), provider: provider.id, ...(brakeHit ? { braked: true } : {}),
     };
   }
 
