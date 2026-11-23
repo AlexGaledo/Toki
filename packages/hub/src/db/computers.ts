@@ -1,7 +1,6 @@
 import type { ComputerState } from '@pocketrocket/shared';
 import type { Db } from './db.js';
 
-/** One row of the `computers` table (migration 10). */
 export interface ComputerRow {
   botId: string;
   slot: number;
@@ -22,10 +21,6 @@ const toRow = (r: Raw): ComputerRow => ({
   lastUsedAt: r.last_used_at, diskBytes: r.disk_bytes, quotaBytes: r.quota_bytes, keepAwake: !!r.keep_awake, createdAt: r.created_at,
 });
 
-/**
- * Data access for per-bot computers. Kept out of `repos.ts` so this phase's table lives in one file of its own
- * (parallel phases append to repos.ts); it follows the same pattern and goes through the same `Db`.
- */
 export class ComputersRepo {
   constructor(readonly db: Db) {}
 
@@ -36,10 +31,6 @@ export class ComputersRepo {
   list(): ComputerRow[] {
     return this.db.all<Raw>('SELECT * FROM computers ORDER BY slot').map(toRow);
   }
-  /**
-   * The bot's row, creating it on the lowest free slot in [1, maxSlot] when it has none. Returns null when
-   * every slot is taken. Runs in one transaction so two bots can never be handed the same slot.
-   */
   allocate(botId: string, maxSlot: number, quotaBytes: number, now: number): ComputerRow | null {
     return this.db.tx(() => {
       const cur = this.get(botId);

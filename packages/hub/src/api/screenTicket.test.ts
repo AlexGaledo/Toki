@@ -22,7 +22,6 @@ afterAll(async () => {
 
 interface Res { status: number; headers: http.IncomingHttpHeaders; body: string }
 
-/** Raw request so we can forge Host / Cookie and read Set-Cookie back verbatim. */
 function req(path: string, headers: Record<string, string> = {}, method = 'GET'): Promise<Res> {
   return new Promise((resolve, reject) => {
     const r = http.request({ host: '127.0.0.1', port, path, method, headers: { host: '127.0.0.1:' + port, ...headers } }, (res) => {
@@ -63,8 +62,6 @@ const cookieFrom = (r: Res): string => {
   return set![0].split(';')[0];
 };
 
-// A successful auth clears this hub's rate limiter, so each test starts from a clean slate and cannot be
-// tipped over the 10-failure block by whatever ran before it.
 beforeEach(async () => {
   expect((await req('/api/health')).status).toBe(200);
 });
@@ -79,7 +76,6 @@ describe('screen ticket handshake', () => {
   it('redeems a ticket for an httpOnly cookie scoped to /screen and redirects to the viewer', async () => {
     const r = await req(await mint());
     expect(r.status).toBe(302);
-    // P2: nobody has taken the screen over, so the viewer lands view-only.
     expect(r.headers.location).toBe(SCREEN_VIEWER_PATH + '&view_only=1');
     expect(r.headers['cache-control']).toBe('no-store');
     expect(r.headers['referrer-policy']).toBe('no-referrer');
@@ -105,7 +101,6 @@ describe('screen ticket handshake', () => {
   });
 
   it('refuses /screen/* with no cookie and no bearer, over HTTP and on the upgrade', async () => {
-    // 401 rather than the proxy's 502: the guard answered before noVNC was reached.
     expect((await req('/screen/vnc.html')).status).toBe(401);
     expect((await req('/screen/websockify')).status).toBe(401);
     expect(await upgrade('/screen/websockify')).toBe('closed');
@@ -118,10 +113,8 @@ describe('screen ticket handshake', () => {
 
   it('lets the cookie and a bearer header through to the proxy', async () => {
     const cookie = cookieFrom(await req(await mint()));
-    // noVNC is not running in the suite, so reaching it means a 502 from the proxy — anything but a 401.
     expect((await req('/screen/vnc.html', { cookie })).status).not.toBe(401);
     expect((await req('/screen/vnc.html', { authorization: 'Bearer ' + TOKEN })).status).not.toBe(401);
-    // A stale or invented cookie is still refused.
     expect((await req('/screen/vnc.html', { cookie: SCREEN_COOKIE + '=made-up' })).status).toBe(401);
   });
 
@@ -135,15 +128,12 @@ describe('screen ticket handshake', () => {
     expect((await req('/api/health')).status).toBe(200);
     expect((await req('/api/bots')).status).toBe(401);
     expect((await req('/api/bots', { authorization: 'Bearer ' + TOKEN })).status).toBe(200);
-    // /api/* still takes the token in the query string; only /screen/* lost that.
     expect((await req('/api/bots?token=' + TOKEN)).status).toBe(200);
     expect(await upgrade('/ws?token=' + TOKEN)).toBe('open');
     expect(await upgrade('/ws')).toBe('closed');
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
-// P1 (task 1.4): per-bot computers at /screen/<botId>/*, with tickets scoped to one bot.
 describe('per-bot screens', () => {
   const T2 = 'screen-token-p1';
   let hub2: Hub;
@@ -216,7 +206,6 @@ describe('per-bot screens', () => {
   it('redeems a bot ticket for a cookie named and pathed for that bot only, landing on its viewer', async () => {
     const r = await r2(await ticketFor(A));
     expect(r.status).toBe(302);
-    // P2: the bot has control, so the viewer lands view-only.
     expect(r.headers.location).toBe(screenViewerPath(A, true));
     expect(r.headers.location).toContain('path=screen%2F' + A + '%2Fwebsockify');
     const set = r.headers['set-cookie']![0];
@@ -229,13 +218,11 @@ describe('per-bot screens', () => {
   it('refuses a ticket for bot A on the screen of bot B, however the cookie is presented', async () => {
     const cookieA = cookieOf(await r2(await ticketFor(A)));
     const valueA = cookieA.split('=')[1];
-    // On A's own screen it gets through the guard (the proxy then answers 502: no noVNC in the suite).
     expect((await r2('/screen/' + A + '/vnc.html', { cookie: cookieA })).status).not.toBe(401);
     expect((await r2('/screen/' + B + '/vnc.html', { cookie: cookieA })).status).toBe(401);
     expect((await r2('/screen/' + B + '/vnc.html', { cookie: screenCookieName(B) + '=' + valueA })).status).toBe(401);
     expect(await up2('/screen/' + B + '/websockify', { cookie: cookieA })).toBe('closed');
     expect(await up2('/screen/' + B + '/websockify', { cookie: screenCookieName(B) + '=' + valueA })).toBe('closed');
-    // Nor does it open the shared screen.
     expect((await r2('/screen/vnc.html', { cookie: 'pr_screen=' + valueA })).status).toBe(401);
   });
 

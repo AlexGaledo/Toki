@@ -11,14 +11,13 @@ export interface ContextMeta {
 }
 export interface ContextItem extends ContextMeta { body: string }
 
-/** The public connector can only ever queue this many unreviewed items, so a leaked URL cannot fill the disk. */
+/** Capped, so a leaked connector URL cannot fill the disk. */
 export const MAX_PENDING_CONTEXT = 200;
 const COLUMNS = 'id,project,title,length(body) AS bytes,created_at';
 
 const meta = (r: Row): ContextMeta => ({ id: r.id as string, project: r.project as string, title: r.title as string, bytes: Number(r.bytes), createdAt: Number(r.created_at) });
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 
-/** What the Claude connector has sent and the owner has not reviewed. Approved text becomes a file in the project. */
 export class ContextRepo {
   constructor(private db: Db, private now: () => number = Date.now) {}
 

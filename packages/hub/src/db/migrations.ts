@@ -3,29 +3,14 @@ import { isBotIconKey } from '@pocketrocket/shared';
 import { nanoid } from 'nanoid';
 import { MIGRATION_BACKFILL_ROWS, backfillMessagesFts } from './historyIndex.js';
 
-/**
- * Versioned schema migrations. See the header of `db.ts` for how phases add theirs.
- *
- * A migration runs once per database, in version order, inside a transaction together with the
- * `schema_version` row that records it. "Applied" is tracked per version, not as a high-water mark,
- * so blocks merged out of order (P3's 30s before P1's 10s) still run on a database that already has
- * the later ones.
- */
 export interface Migration {
-  /** Unique, inside the phase's reserved block (P0 1–9, P1 10–19, … P9 90–99). */
   version: number;
-  /** Short description, stored in `schema_version.name`. */
   name: string;
-  /** Additive only: CREATE TABLE/INDEX IF NOT EXISTS, ADD COLUMN, backfills. Never drop or rename. */
   up(db: DatabaseSync): void;
 }
 
 export const MIGRATIONS: Migration[] = [];
 
-/**
- * Registers one phase's migrations. `block` is the phase's reserved version range (inclusive), e.g.
- * `[10, 19]` for P1; every version must fall inside it and be unused.
- */
 export function registerMigrations(block: readonly [number, number], list: readonly Migration[]): void {
   const [lo, hi] = block;
   for (const m of list) {
@@ -38,36 +23,21 @@ export function registerMigrations(block: readonly [number, number], list: reado
   MIGRATIONS.sort((a, b) => a.version - b.version);
 }
 
-/** True when `table` has a column named `column`. */
 export function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
   const cols = db.prepare('PRAGMA table_info(' + table + ')').all() as { name: string }[];
   return cols.some((c) => c.name === column);
 }
 
-/**
- * `ALTER TABLE <table> ADD COLUMN <column> <ddl>` unless the column already exists (a fresh database
- * gets it from SCHEMA_SQL, an old one from this).
- */
 export function addColumnIfMissing(db: DatabaseSync, table: string, column: string, ddl: string): void {
   if (!hasColumn(db, table, column)) db.exec('ALTER TABLE ' + table + ' ADD COLUMN ' + column + ' ' + ddl);
 }
 
-// ---------------------------------------------------------------------------------------------------
-// P0 (1–9): the ad-hoc column checks that predate the runner. SCHEMA_SQL already creates these
-// columns on a fresh database, so on one they are recorded without changing anything.
 registerMigrations([1, 9], [
   { version: 1, name: 'sessions.provider', up: (db) => addColumnIfMissing(db, 'sessions', 'provider', 'TEXT') },
   { version: 2, name: 'bots.auto_memory', up: (db) => addColumnIfMissing(db, 'bots', 'auto_memory', 'INTEGER NOT NULL DEFAULT 1') },
   { version: 3, name: 'bots.auto_memory_every', up: (db) => addColumnIfMissing(db, 'bots', 'auto_memory_every', 'INTEGER NOT NULL DEFAULT 10') },
 ]);
 
-// Later phases: append one clearly separated block per phase below, e.g.
-//   // P1 (10–19): per-bot computers
-//   registerMigrations([10, 19], [{ version: 10, name: 'computers table', up: (db) => db.exec('CREATE TABLE IF NOT EXISTS computers (...)') }]);
-// or keep the list in its own file (importing only `type Migration` from here) and register it here.
-
-// ---------------------------------------------------------------------------------------------------
-// P1 (10–19): per-bot computers (services/ComputerManager.ts, db/computers.ts).
 registerMigrations([10, 19], [
   {
     version: 10,
@@ -82,10 +52,7 @@ registerMigrations([10, 19], [
   },
 ]);
 
-// P2 (20–29): take over, hand back, approvals while away (db/approvalStore.ts).
 registerMigrations([20, 29], [
-  // A routine/trigger turn that stopped waiting on a card ("parked") keeps what it needs to resume: the
-  // thread it belongs to, its hop, its routine run, and when it parked (a parked card expires after 24 h).
   {
     version: 20,
     name: 'approvals parking columns',
@@ -97,9 +64,6 @@ registerMigrations([20, 29], [
       addColumnIfMissing(db, 'approvals', 'message_id', 'TEXT');
     },
   },
-  // Approval rules. `scope` 'always' rows are the user's persisted rules (Settings › Bots › Approvals);
-  // 'session' rows are "Allow for this session" answers and are dropped at every hub start. Only REST and the
-  // approval card write here; no bot tool or MCP route reaches it.
   {
     version: 21,
     name: 'approval_policies table',
@@ -114,13 +78,8 @@ registerMigrations([20, 29], [
   },
 ]);
 
-// P3 (30–39): routines v2 and proactive follow-up.
 registerMigrations([30, 39], [
-  // One-shot routines: epoch ms the routine fires at once; NULL for a cron routine.
   { version: 30, name: 'routines.once_at', up: (db) => addColumnIfMissing(db, 'routines', 'once_at', 'INTEGER') },
-  // Lane items queued or running, so a hub restart can resume them (services/FollowUp.ts). A row lives from
-  // enqueue until its turn settles; `attempts` counts restarts it was resumed across, so a turn that kills
-  // the hub is resumed once, not forever.
   {
     version: 31,
     name: 'lane_journal table',
@@ -133,9 +92,6 @@ registerMigrations([30, 39], [
   },
 ]);
 
-// P4 (40–49): integrations. Credentials are NOT here: they live encrypted in the IntegrationVault
-// (data/integrations.json + data/vault.key), keyed by `integrations.id`. These rows hold only what the UI
-// may see. `bot_integrations` is the per-bot grant (decision Q7): no row, no tools.
 registerMigrations([40, 49], [
   {
     version: 40,
@@ -156,9 +112,6 @@ registerMigrations([40, 49], [
   },
 ]);
 
-// P5 (50–59): event triggers (services/TriggerService.ts, db/triggerRepo.ts). Events arrive by outbound polling
-// and Slack Socket Mode only (decision Q5). Cursors and the inbox are persisted so a restart neither replays
-// nor loses events; `events_inbox.dedupe_key` is what makes a re-polled event a no-op.
 registerMigrations([50, 59], [
   {
     version: 50,
@@ -176,7 +129,6 @@ registerMigrations([50, 59], [
   {
     version: 51,
     name: 'events_inbox table',
-    // status: new (stored, not yet matched) → matched | ignored. A row left `new` by a crash is matched on start.
     up: (db) => db.exec(`
       CREATE TABLE IF NOT EXISTS events_inbox (
         id TEXT PRIMARY KEY, source TEXT NOT NULL, poll_key TEXT NOT NULL, dedupe_key TEXT NOT NULL UNIQUE,
@@ -199,8 +151,6 @@ registerMigrations([50, 59], [
   {
     version: 53,
     name: 'trigger_cursors table',
-    // One row per poll stream ('gmail', 'github.repo:owner/name', 'calendar:primary', ...): the provider cursor,
-    // its ETag, and the schedule/backoff state.
     up: (db) => db.exec(`
       CREATE TABLE IF NOT EXISTS trigger_cursors (
         key TEXT PRIMARY KEY, source TEXT NOT NULL, cursor TEXT, etag TEXT, last_polled_at INTEGER, next_poll_at INTEGER,
@@ -210,7 +160,6 @@ registerMigrations([50, 59], [
   },
 ]);
 
-// P7 (70–79): knowledge repo sync status, voice proposals from AutoMemory.
 registerMigrations([70, 79], [
   {
     version: 70,
@@ -230,8 +179,6 @@ registerMigrations([70, 79], [
   },
 ]);
 
-// P8 (80–89): model router and usage. Which model ran each turn, why the router picked it, and what kind of
-// cause started it, on the usage row (for the Usage tab) and on the bot's messages (for the chat chip).
 registerMigrations([80, 89], [
   { version: 80, name: 'usage.model', up: (db) => addColumnIfMissing(db, 'usage', 'model', 'TEXT') },
   { version: 81, name: 'usage.route_reason', up: (db) => addColumnIfMissing(db, 'usage', 'route_reason', 'TEXT') },
@@ -240,15 +187,12 @@ registerMigrations([80, 89], [
     name: 'usage.cause_kind',
     up: (db) => {
       addColumnIfMissing(db, 'usage', 'cause_kind', 'TEXT');
-      // Best-effort backfill so old spend shows up in the breakdown: memory passes have `mem-` turn ids, bot
-      // hops wrote messages with hop > 0, routines and user messages are told apart by the cause message.
       db.exec(`UPDATE usage SET cause_kind = CASE
         WHEN turn_id LIKE 'mem-%' THEN 'memory'
         WHEN EXISTS (SELECT 1 FROM messages m WHERE m.turn_id = usage.turn_id AND m.hop > 0) THEN 'bot'
         WHEN EXISTS (SELECT 1 FROM messages m WHERE m.id = usage.cause_id AND m.kind = 'routine') THEN 'routine'
         WHEN EXISTS (SELECT 1 FROM messages m WHERE m.id = usage.cause_id AND m.author_type = 'user') THEN 'user'
       END WHERE cause_kind IS NULL`);
-      // And the model, from the provider's own per-model report: the one that cost the most.
       db.exec(`UPDATE usage SET model = (
         SELECT j.key FROM json_each(usage.model_usage) j
         ORDER BY COALESCE(json_extract(j.value, '$.costUSD'), json_extract(j.value, '$.costUsd'), 0) DESC LIMIT 1
@@ -259,9 +203,7 @@ registerMigrations([80, 89], [
   { version: 84, name: 'messages.model_reason', up: (db) => addColumnIfMissing(db, 'messages', 'model_reason', 'TEXT') },
 ]);
 
-// P9 (90–99): paired devices (phones) and their Web Push subscriptions. A device row holds only the SHA-256 of
-// its token; the token itself is shown to the phone once and never stored. Revoking keeps the row (so the list
-// can say so) and drops its push subscriptions.
+// A device row holds only the SHA-256 of its token; the token itself is never stored.
 registerMigrations([90, 99], [
   {
     version: 90,
@@ -282,10 +224,6 @@ registerMigrations([90, 99], [
   },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// P6 (60–69): teach by demonstration and skill refinement (services/Recorder.ts, SkillDistiller.ts,
-// SkillReflection.ts, SkillService versions). A candidate version is a row in `skills` with `parent_id` set to
-// the pool skill it revises; `listSkills` leaves those rows out, so nothing else sees them.
 registerMigrations([60, 69], [
   { version: 60, name: 'skills.version', up: (db) => addColumnIfMissing(db, 'skills', 'version', 'INTEGER NOT NULL DEFAULT 1') },
   { version: 61, name: 'skills.parent_id', up: (db) => addColumnIfMissing(db, 'skills', 'parent_id', 'TEXT') },
@@ -315,20 +253,15 @@ registerMigrations([60, 69], [
   },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// [100, 109]: past the P0-P9 blocks. Bot avatars become line icon keys.
-/** Emoji with an obvious icon, without variation selectors: our presets and common picks. The rest derive from the id. */
 const LEGACY_AVATARS: Record<string, string> = {
   '🧭': 'compass', '🔎': 'search', '🛠': 'wrench', '✍': 'pen', '🙂': 'smile', '🤖': '',
   '🔍': 'search', '🚀': 'rocket', '💻': 'terminal', '🧑‍💻': 'terminal', '⚙': 'wrench', '🎨': 'palette',
 };
-/** Seeded before they had icons, with `''`. By handle alone, so a seeded bot the owner renamed still gets its icon. */
 const SEEDED_ICONS: Record<string, string> = { 'pocketrocket-support': 'shield', 'data-engineer': 'database' };
 registerMigrations([100, 109], [
   {
     version: 100,
     name: 'bots.avatar to icon keys',
-    // Custom emoji and short text are replaced too: the owner chose that over keeping a legacy column.
     up: (db) => {
       const rows = db.prepare('SELECT id, handle, avatar FROM bots').all() as { id: string; handle: string; avatar: string | null }[];
       const set = db.prepare('UPDATE bots SET avatar=? WHERE id=?');
@@ -341,13 +274,9 @@ registerMigrations([100, 109], [
     },
   },
   { version: 101, name: 'rooms.chat_model', up: (db) => addColumnIfMissing(db, 'rooms', 'chat_model', 'TEXT') },
-  // bots.avatar needs no change: it is plain TEXT, and only BotInputSchema ever held it to 8 characters.
   { version: 102, name: 'rooms.avatar', up: (db) => addColumnIfMissing(db, 'rooms', 'avatar', "TEXT NOT NULL DEFAULT ''") },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// [110, 119]: bot training pilot (services/Training.ts). `heading_added`: this approved rule owns the "## Lessons"
-// heading it created, so undoing the last lesson can take the heading away too.
 registerMigrations([110, 119], [
   {
     version: 110,
@@ -369,10 +298,8 @@ registerMigrations([110, 119], [
     version: 111,
     name: 'training window, unjudged proposals, who answered an approval',
     up: (db) => {
-      // Evidence only counts from when training was last switched on. Bots already on start from now.
       addColumnIfMissing(db, 'training_config', 'window_start', 'INTEGER');
       db.prepare('UPDATE training_config SET window_start=? WHERE enabled=1 AND window_start IS NULL').run(Date.now());
-      // retry: blocked only because the verifier never judged it, so it may be proposed again.
       addColumnIfMissing(db, 'training_proposals', 'retry', 'INTEGER NOT NULL DEFAULT 0');
       addColumnIfMissing(db, 'approvals', 'decided_by', 'TEXT');
     },
@@ -392,7 +319,6 @@ registerMigrations([110, 119], [
       try { name = stored?.value ? String(JSON.parse(stored.value)) : ''; } catch { /* left empty; the hub fills it in at start */ }
       const id = nanoid(10);
       db.prepare("INSERT INTO users (id, display_name, role, created_at) VALUES (?,?,'owner',?)").run(id, name, Date.now());
-      // Every human message so far came from the one login this hub has ever had.
       db.prepare("UPDATE messages SET author_id=? WHERE author_type='user' AND author_id IS NULL").run(id);
     },
   },
@@ -414,12 +340,10 @@ registerMigrations([110, 119], [
   },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
 registerMigrations([120, 129], [
   { version: 120, name: 'messages.attachments', up: (db) => addColumnIfMissing(db, 'messages', 'attachments', 'TEXT') },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
 registerMigrations([130, 139], [
   {
     version: 130,
@@ -438,15 +362,10 @@ registerMigrations([130, 139], [
   },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// Memory fixes: when auto-memory last wrote to a bot's memory.md (the Memory tab shows it).
 registerMigrations([150, 159], [
   { version: 150, name: 'auto_memory.saved_at', up: (db) => addColumnIfMissing(db, 'auto_memory', 'saved_at', 'INTEGER') },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// PC runner: Claude Code jobs a bot asks the owner's PC to run (services/PcRunner.ts). Only `queued` rows
-// (the owner approved the card) are ever served to the PC.
 registerMigrations([160, 169], [
   {
     version: 160,
@@ -461,7 +380,6 @@ registerMigrations([160, 169], [
       ),
   },
   {
-    // Settings > PC runner shows when a job started and finished, and how long the PC says it ran.
     version: 161,
     name: 'pc_jobs.started_at, finished_at, duration_ms',
     up: (db) => {
@@ -472,9 +390,6 @@ registerMigrations([160, 169], [
     },
   },
   {
-    // Bridge P4: the app can start a job itself (origin 'owner', no bot or room: stored as '', shown as null) and
-    // @persona can resume a mirrored Claude Code session (mode 'resume': folder '' and the runner resolves it).
-    // Additive: the NOT NULL bot_id / room_id / folder columns stay, so rows from before read as mode 'new', origin 'bot'.
     version: 162,
     name: 'pc_jobs.mode, session_id, origin, resolved_folder, new_session_id',
     up: (db) => {
@@ -486,8 +401,6 @@ registerMigrations([160, 169], [
     },
   },
   {
-    // Bridge P5: a sync job (mode 'sync') carries which project repo to sync, what the PC reported (commit, branch,
-    // pre-push scan) and what the hub imported from an uploaded bundle. All JSON, all NULL for older rows and other modes.
     version: 163,
     name: 'pc_jobs.sync_json, sync_result_json, sync_import_json',
     up: (db) => {
@@ -498,15 +411,6 @@ registerMigrations([160, 169], [
   },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// Token efficiency (agent/BotRunner.ts, services/SessionRotation.ts). Per (bot, room) session:
-//   cost_total         the SDK's cumulative total_cost_usd last reported for this session (it is cumulative across
-//                      resumes), so a turn's own cost is the difference; NULL on rows from before this migration.
-//   context_tokens     input size of the last top-level model call of the last turn; NULL = unknown, which makes a
-//   context_at         resumed legacy session rotate once. context_at is when it was measured (idle check).
-//   memory_snapshot    memory.md and identity as they were when the session started, so the system prompt stays
-//   identity_snapshot  byte-identical (prompt-cache hits) across resumed turns.
-//   summary            the hub's running summary of the room, written when a session rotates and replayed into the next.
 registerMigrations([170, 179], [
   {
     version: 170,
@@ -520,13 +424,9 @@ registerMigrations([170, 179], [
       addColumnIfMissing(db, 'sessions', 'summary', 'TEXT');
     },
   },
-  // P4-2: the context window the provider last reported for the session's model, for the context meter. NULL = not reported.
   { version: 171, name: 'sessions.context_window', up: (db) => addColumnIfMissing(db, 'sessions', 'context_window', 'INTEGER') },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// Send journal (B5). A client numbers each message it sends; the hub keeps one message per (room, id) so a replay
-// after a reconnect cannot post twice. NULL for every message that did not come with an id.
 registerMigrations([180, 189], [
   {
     version: 180,
@@ -538,12 +438,6 @@ registerMigrations([180, 189], [
   },
 ]);
 
-// ---------------------------------------------------------------------------------------------------
-// Tasks, history search and bot reports (G1, G2, G5).
-//   200  tasks: a room's board. Local only.
-//   201  messages_fts: full-text index over messages.text, kept in sync by triggers. Rows that existed before are
-//        indexed in bounded batches: the first here, the rest by startHistoryBackfill after the hub is up.
-//   202  bot_reports: report_blocked items and the send_feedback rate-limit log (feedback text lives in a file).
 registerMigrations([200, 209], [
   {
     version: 200,
@@ -585,10 +479,6 @@ registerMigrations([200, 209], [
   },
 ]);
 
-// 240  messages_fts only indexes the kinds searchHistory reads (text, handoff, routine, trigger), so tool/approval/form
-//      cards and system rows no longer cost index space and trigger work. The update trigger fires only when the
-//      text or kind changed. Rows of other kinds that 201 already indexed are removed. Migration 201 itself is
-//      shipped on this branch and stays as it is.
 const FTS_KINDS = "('text','handoff','routine','trigger')";
 registerMigrations([240, 249], [
   {
@@ -606,9 +496,6 @@ registerMigrations([240, 249], [
   },
 ]);
 
-// Machines (B4). One row per machine the owner set a policy for (never | ask | always); no row means 'ask'.
-// A table rather than a settings field: machines are keyed by id and there will be more than the two that
-// exist today. Approval rules also gain an optional machine scope and an expiry (NULL = any machine / never).
 registerMigrations([190, 199], [
   {
     version: 190,
@@ -631,8 +518,7 @@ registerMigrations([190, 199], [
   },
 ]);
 
-// Credential vault (G4). Name, origin and username of each saved login; the secret is in the encrypted vault file
-// (data/credentials.json, key in vault.key), keyed by `credentials.id`, never in this table.
+// The secret lives in the encrypted vault, never in this table.
 registerMigrations([210, 219], [
   {
     version: 210,
@@ -647,11 +533,6 @@ registerMigrations([210, 219], [
   },
 ]);
 
-// 250-259  Steering and queue controls (spec 02 Phase 1-2). A person's message pushed into a running turn gets a
-//          `lane_journal` row of its own (status 'steered'), so a hub that dies before the bot answers it re-queues it
-//          once after restart even when the turn's own item has used its one resume. Once a turn consumed it the row
-//          stays as 'consumed' (with the message id) until the lane's read cursor passes it: the cursor stays at the
-//          turn's start, so the next turn would otherwise be shown the steer again (RoomRouter `unreadForLane`).
 registerMigrations([250, 259], [
   {
     version: 250,
@@ -661,9 +542,6 @@ registerMigrations([250, 259], [
       addColumnIfMissing(db, 'lane_journal', 'message_id', 'TEXT');
     },
   },
-  // Queue controls (Phase 2). A cancelled or edited queued message keeps that state across restarts. A lane row the
-  // owner cancelled stays as status 'cancelled' (like a consumed steer) until the lane's cursor passes it, so that
-  // bot is never shown the message even while another bot still holds it. A paused queue is a row in `lane_pauses`.
   {
     version: 251,
     name: 'messages.cancelled_at + edited_at, lane_pauses (queue controls)',
@@ -677,9 +555,6 @@ registerMigrations([250, 259], [
   },
 ]);
 
-// Claude Code bridge P1 (docs/specs/claude-code-bridge.md 6.1, 6.3): who changed each shared file, and from where.
-// One row per revision of a file in a room, project or direct-chat folder. `hash` null = deleted. Small text files
-// keep their content for diffs. `services/FileRevisions.ts` writes it.
 registerMigrations([260, 269], [
   {
     version: 260,
@@ -709,10 +584,6 @@ registerMigrations([260, 269], [
   },
 ]);
 
-// Claude Code bridge P3 (docs/specs/claude-code-bridge.md 3.1): the PC session mirror. `pc_sessions` is one row per
-// Claude Code transcript on the owner's PC (a subagent transcript is a child row, `parent_id`); `offset` is how many
-// bytes of the source file the hub has consumed, so the runner resumes where it stopped. `pc_session_entries` holds
-// the compact, redacted entries. Only the owner's app reads these tables (services/PcSessions.ts); no bot tool does.
 registerMigrations([270, 279], [
   {
     version: 270,
@@ -767,11 +638,6 @@ registerMigrations([270, 279], [
   },
 ]);
 
-// Claude Code bridge P6 (docs/specs/claude-code-bridge.md 3.4): a PC session moved to the VPS and pulled back.
-// `pc_session_moves` is one row per session that ever moved: where it is now (`state`), the repos that travelled (JSON:
-// project, repo, vps folder, remote, branch, base commit, worktree), the PC toplevel the paths were rewritten from, the
-// worktree the VPS turns run in and how many bytes of its jsonl the mirror has already read. A job row carries the move or
-// pull it is (JSON, NULL for the other modes), and a mirrored entry the hub itself fed from the VPS says so in `machine`.
 registerMigrations([280, 289], [
   {
     version: 280,
@@ -808,11 +674,6 @@ registerMigrations([280, 289], [
   { version: 282, name: 'pc_session_entries.machine', up: (db) => addColumnIfMissing(db, 'pc_session_entries', 'machine', 'TEXT') },
 ]);
 
-// Workflows v1 (docs/specs/openbot-gaps/02-steering-workflows.md, Phase 3). 290 generalises the routine run id that a lane
-// journal row and a parked approval carry into an owner ref (`routine:<runId>`, `workflow:<runId>:<nodeId>`), so the
-// turn's `onDone` can be rebuilt after a restart or a parked approval whoever started it. `run_id` stays (older hubs read
-// it) and is still written for routine refs. 291-292: the workflow definitions and their runs. A run keeps a snapshot of
-// the graph and budget it started with, so editing the workflow never changes a run in flight.
 registerMigrations([290, 299], [
   {
     version: 290,
@@ -869,13 +730,10 @@ registerMigrations([290, 299], [
       db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status)');
     },
   },
-  // The room the run's thread lives in, fixed when it starts (the workflow may be moved to another chat meanwhile).
   { version: 293, name: 'workflow_runs.room_id', up: (db) => addColumnIfMissing(db, 'workflow_runs', 'room_id', 'TEXT') },
 ]);
 
-// 300-309  Telegram notifications (spec 03 Phase A). One row (id 1): which bot is set up and which private chat is
-//          linked. The token itself is in the encrypted vault (`telegram` entry), never here. The link stores the
-//          numeric Telegram user id only; `linked_name` is a display label for Settings and is not an identity.
+// The bot token is in the encrypted vault, never here.
 registerMigrations([300, 309], [
   {
     version: 300,
@@ -893,18 +751,10 @@ registerMigrations([300, 309], [
   },
 ]);
 
-// 310-319  Gap 1 Phase 1: provider per bot (docs/specs/openbot-gaps/01-providers-failover.md P1-1). The spec planned
-//          270-279, but the PC session mirror took 270-271 first, so this block moved here (docs/specs/decisions.md).
-//          `bots.provider` NULL = follow settings.provider; `bots.backup` is JSON {provider, model} or NULL;
-//          `usage.provider` is the provider that ran the turn (NULL on rows from before it existed).
 registerMigrations([310, 319], [
   { version: 310, name: 'bots.provider', up: (db) => addColumnIfMissing(db, 'bots', 'provider', 'TEXT') },
   { version: 311, name: 'bots.backup', up: (db) => addColumnIfMissing(db, 'bots', 'backup', 'TEXT') },
   { version: 312, name: 'usage.provider', up: (db) => addColumnIfMissing(db, 'usage', 'provider', 'TEXT') },
-  // M8 (P3-1): failover cards. One row per card; `status` leaves 'pending' once. A 'continued' row whose `expires_at` is
-  // still ahead is what sends the bot's attended turns to its backup. `from_seq`/`to_seq` are the read window of the
-  // limited turn, so Continue can show the bot the messages it never answered; `budget_usd` is what that turn had left
-  // (NULL = no dollar cap), so Continue never raises it.
   {
     version: 313,
     name: 'failover_cards',
@@ -934,8 +784,6 @@ registerMigrations([310, 319], [
   },
 ]);
 
-// 320-329  Corrections become checks: a deny rule the owner approved from a bot's `propose_rule` card carries what the
-//          bot does instead. NULL on every other rule (agent/botTools.ts propose_rule, PermissionBroker.learnedRule).
 registerMigrations([320, 329], [
   { version: 320, name: 'approval_policies.message', up: (db) => addColumnIfMissing(db, 'approval_policies', 'message', 'TEXT') },
 ]);

@@ -2,13 +2,6 @@ import { createHash } from 'node:crypto';
 import { PC_ENTRY_TEXT_CAPS, type PcEntry } from '@pocketrocket/shared';
 import { redact } from '../providers/redact.js';
 
-/**
- * The hub's copy of the PC runner's compact-entry mapping (scripts/pc-runner/mirror.mjs `mapLine`), for the lines a Claude
- * Code turn appends to a moved session's file on the VPS (bridge P6). The entries are the same shape, so the app shows
- * one conversation. `SessionCompact.test.ts` runs both on the same lines and fails when they drift. Text is redacted with
- * the hub's `redact()` instead of the runner's scrub(); PcSessions redacts and caps again on the way in.
- */
-
 const CAPS = { text: PC_ENTRY_TEXT_CAPS.user, toolUse: PC_ENTRY_TEXT_CAPS.tool_use, toolResult: PC_ENTRY_TEXT_CAPS.tool_result, summary: PC_ENTRY_TEXT_CAPS.summary };
 const TOOL_NAMES_MAX = 5000;
 
@@ -49,13 +42,11 @@ function userText(raw: string): string {
 }
 
 export interface CompactCtx {
-  /** tool_use id -> tool name, filled by tool_use blocks and read by later tool_result blocks. */
   toolNames?: Map<string, string>;
   lineKey?: string | number;
   fallbackAt?: number;
 }
 
-/** One parsed JSONL line to 0..n entries. */
 export function compactLine(o: unknown, ctx: CompactCtx = {}): PcEntry[] {
   if (!o || typeof o !== 'object') return [];
   const line = o as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -129,10 +120,6 @@ export function compactLine(o: unknown, ctx: CompactCtx = {}): PcEntry[] {
   return [];
 }
 
-/**
- * The context size the last model call of a session file used (uncached input + cache reads + cache writes), read from the
- * tail of the file; null when no assistant line there reports usage.
- */
 export function lastContextTokens(tail: string): number | null {
   const lines = tail.split('\n');
   for (let i = lines.length - 1; i >= 0; i--) {

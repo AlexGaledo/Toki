@@ -4,8 +4,6 @@ import type { Bot, KnowledgeStatus, VoiceProposal } from '@pocketrocket/shared';
 import { botHome } from '../config.js';
 import { createHub, type Hub } from '../hub.js';
 
-/** P7 REST: knowledge status/sync, voice.md and its proposals, notes listing, skill import from git. */
-
 let hub: Hub;
 let base: string;
 let bot: Bot;

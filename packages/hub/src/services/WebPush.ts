@@ -15,20 +15,16 @@ import { restrictFile } from '../config.js';
 const b64u = (b: Buffer | Uint8Array) => Buffer.from(b).toString('base64url');
 
 export interface VapidKeys {
-  /** Uncompressed P-256 point, base64url: what the browser's `applicationServerKey` wants. */
   publicKey: string;
   privateKey: KeyObject;
 }
 
-/** Loads `file` or mints and saves a fresh pair (0600). The JWK is the only thing on disk. */
 export function loadOrCreateVapid(file: string): VapidKeys {
   let jwk: JsonWebKey | null = null;
   try {
     const j = JSON.parse(fs.readFileSync(file, 'utf8')) as JsonWebKey;
     if (j.kty === 'EC' && j.crv === 'P-256' && j.d && j.x && j.y) jwk = j;
   } catch { /* none yet */ }
-  // Hardening pass: a key restored from a backup (backups keep it, so phones need not re-subscribe) may come
-  // back with looser modes; it is a signing key, so it is owner-only on every load, not only when minted.
   if (jwk) restrictFile(file);
   if (!jwk) {
     const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
@@ -50,7 +46,6 @@ export function vapidFromJwk(jwk: JsonWebKey): VapidKeys {
   return { publicKey: b64u(pub), privateKey };
 }
 
-/** `Authorization: vapid t=<jwt>, k=<public key>` for one push service origin. */
 export function vapidAuthorization(endpoint: string, keys: VapidKeys, subject: string, nowSec = Math.floor(Date.now() / 1000)): string {
   const aud = new URL(endpoint).origin;
   const header = b64u(Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
@@ -82,7 +77,6 @@ export function encryptPayload(
   const cek = Buffer.from(hkdfSync('sha256', ikm, salt, Buffer.from('Content-Encoding: aes128gcm\0'), 16));
   const nonce = Buffer.from(hkdfSync('sha256', ikm, salt, Buffer.from('Content-Encoding: nonce\0'), 12));
   const cipher = createCipheriv('aes-128-gcm', cek, nonce);
-  // One record; 0x02 marks it as the last one (no padding).
   const body = Buffer.concat([cipher.update(Buffer.concat([plaintext, Buffer.from([2])])), cipher.final(), cipher.getAuthTag()]);
   const rs = Buffer.alloc(4);
   rs.writeUInt32BE(4096);

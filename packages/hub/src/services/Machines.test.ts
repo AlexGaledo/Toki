@@ -15,7 +15,6 @@ import type { ToolOutput } from '../providers/types.js';
 
 const textOf = (o: ToolOutput) => o.content.map((c) => ('text' in c ? c.text : '')).join('');
 
-/** A paired, online PC that records what the tool sent it. */
 function fakePc() {
   const created: unknown[] = [];
   const pc = {
@@ -76,7 +75,6 @@ describe('per-machine execution policy', () => {
     expect(s.cards).toHaveLength(1);
     expect(s.cards[0].evenUnderBypass).toBe(true);
     expect(SIGN_IN_TOOLS.has('run_on_pc')).toBe(true);
-    // An allow rule still cannot pre-approve it (ASK_EVERY_TIME), with or without a machine.
     const store = new ApprovalStore(s.db);
     const broker = new PermissionBroker(s.repos, { store });
     store.addPolicy({ botId: s.bot.id, tool: 'run_on_pc', pattern: '*', decision: 'allow', scope: 'always', machine: 'pc' });
@@ -135,10 +133,9 @@ describe('machine scope and expiry on approval rules', () => {
     store.addPolicy({ botId: 'b', tool: 'run_on_pc', pattern: '*', decision: 'deny', scope: 'always', machine: 'pc' });
     expect(broker.matchPolicy('b', 'run_on_pc', '*', false, 'pc')).toBe('deny');
     expect(broker.matchPolicy('b', 'run_on_pc', '*', false, 'vps')).toBeNull();
-    // A deny rule fails closed: a call that names no machine is still refused.
     expect(broker.matchPolicy('b', 'run_on_pc', '*')).toBe('deny');
     store.addPolicy({ botId: 'b', tool: 'WebFetch', pattern: '*', decision: 'allow', scope: 'always', machine: 'pc' });
-    expect(broker.matchPolicy('b', 'WebFetch', '*')).toBeNull(); // an allow rule never covers a call with no machine
+    expect(broker.matchPolicy('b', 'WebFetch', '*')).toBeNull();
     expect(broker.matchPolicy('b', 'WebFetch', '*', false, 'vps')).toBeNull();
     expect(broker.matchPolicy('b', 'WebFetch', '*', false, 'pc')).toBe('allow');
     store.addPolicy({ botId: 'b', tool: 'Bash', pattern: 'ls', decision: 'allow', scope: 'always' });
@@ -175,7 +172,6 @@ describe('migration 190-191 on a pre-existing database', () => {
     const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pr-mach-')), 'hub.db');
     const old = new Db(file);
     old.run("INSERT INTO approval_policies (id, bot_id, tool, pattern, decision, scope, created_at) VALUES ('p1','b','Bash','ls','allow','always',1)");
-    // Rewind to what a pre-B4 database looks like.
     old.raw.exec('DROP TABLE machine_policies; ALTER TABLE approval_policies DROP COLUMN machine; ALTER TABLE approval_policies DROP COLUMN expires_at;');
     old.raw.exec('DELETE FROM schema_version WHERE version IN (190, 191)');
     old.raw.close();

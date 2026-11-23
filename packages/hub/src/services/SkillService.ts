@@ -6,21 +6,16 @@ import { SKILLS_DIR, USER_SKILLS_DIR, botPluginDir } from '../config.js';
 import { isInside } from '../permissions/pathRules.js';
 import type { Repos } from '../db/repos.js';
 import { parseGitSource, runGit, type GitRunner } from './git.js';
-// P6: skill versions
 import type { SkillVersion, SkillVersionDetail, SkillVersionOrigin } from '@pocketrocket/shared';
 import { SkillVersionsRepo } from '../db/skillVersions.js';
 import { events } from '../events.js';
 import { lineDiff } from './lineDiff.js';
 
-/** The only shape a skill directory name may take. Anchored, so `../../etc` and `a/b` are both rejected. */
 export const SKILL_NAME_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;
 
 /**
- * Resolve `<SKILLS_DIR>/<name>` and refuse anything that is not actually under SKILLS_DIR
- * (audit 2026-09-09, B11). `POST /api/skills/import` took an unvalidated `names[]` straight into
- * `cpSync(force: true)`, which — reachable through the CSRF hole in B1 — was an arbitrary directory
- * overwrite. The name regex alone would do it; the isInside check is the belt to that pair of braces,
- * and also catches a junction planted at `<SKILLS_DIR>/<name>` pointing somewhere else.
+ * Resolve `<SKILLS_DIR>/<name>` and refuse anything not actually under SKILLS_DIR: names come from request bodies
+ * and reach `cpSync(force: true)`.
  */
 export function resolveSkillDir(name: string): string {
   if (!SKILL_NAME_RE.test(name)) throw new Error('Invalid skill name (lowercase letters, digits and dashes, 2-49 chars)');
@@ -42,10 +37,6 @@ export function parseFrontmatter(md: string): { name?: string; description?: str
   return { name: out.name, description: out.description };
 }
 
-/**
- * P8: true when a SKILL.md's frontmatter asks for the strongest model (`model: opus`, or a full Opus id). The
- * model router runs a turn that invokes such a skill on Opus when the bot's model is `auto`.
- */
 export function skillWantsOpus(md: string): boolean {
   const m = md.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return false;
@@ -56,7 +47,6 @@ export function skillWantsOpus(md: string): boolean {
 export class SkillService {
   constructor(private repos: Repos) {}
 
-  /** Skills in ~/.claude/skills not yet in the pool. */
   listImportable(): { name: string; description: string }[] {
     let dirs: string[] = [];
     try {
@@ -87,7 +77,7 @@ export class SkillService {
 
   save(name: string, description: string, markdown: string, opts: { source: 'authored' | 'bot'; createdByBot?: string }): Skill {
     const dir = resolveSkillDir(name);
-    // P6: a bot never rewrites a skill that is already in the pool; its text becomes a pending version instead.
+    // A bot never rewrites a pool skill; its text becomes a pending version.
     const existing = opts.source === 'bot' ? this.repos.getSkillByName(name) : undefined;
     if (existing) {
       this.proposeVersion(existing.id, markdown, { origin: 'bot', note: '', createdByBot: opts.createdByBot ?? null, description });
@@ -104,12 +94,7 @@ export class SkillService {
     });
   }
 
-  /**
-   * U10: a skill that arrived inside a bot file. It lands as `imported` + **pending**, so nothing in it reaches a bot
-   * until the owner approves it. A name already in the pool is never overwritten: the newcomer gets `-2`, `-3`...
-   * Only `name` and `description` survive from the file's own frontmatter; any other key (tool allowances, a model,
-   * hooks) is dropped, because a shared file must not widen what a skill may do.
-   */
+  /** Imported skills land pending: nothing in them reaches a bot until the owner approves. */
   importPending(name: string, description: string, markdown: string): { skill: Skill; renamed: boolean } {
     let final = name;
     for (let n = 2; this.repos.getSkillByName(final) || fs.existsSync(path.join(SKILLS_DIR, final)); n++) {
@@ -126,12 +111,6 @@ export class SkillService {
     return { skill, renamed: final !== name };
   }
 
-  /**
-   * P7 (7.4): import skills from a git repo (a local "marketplace"). A URL is shallow-cloned into a temp
-   * folder that is always removed afterwards; an absolute local folder is scanned in place. Every valid skill
-   * is copied into the pool as `imported` + **pending**: nothing from a repo reaches a bot until the user
-   * approves it. Names already in the pool are skipped, never overwritten.
-   */
   async importFromGit(source: string, git: GitRunner = runGit): Promise<SkillGitImportResult> {
     const src = parseGitSource(source);
     if (typeof src === 'string') throw new Error(src);
@@ -178,7 +157,7 @@ export class SkillService {
   remove(id: string) {
     const s = this.repos.getSkill(id);
     if (!s) return;
-    // Never recursively delete a path the DB row claims but that does not actually live in the pool.
+    // Never recursively delete a path that does not live in the pool.
     if (isInside(s.path, [SKILLS_DIR])) {
       try {
         fs.rmSync(s.path, { recursive: true, force: true });
@@ -187,7 +166,6 @@ export class SkillService {
       }
     }
     this.repos.deleteSkill(id);
-    // P6: its candidate versions go with it.
     if (!s.parentId) {
       this.versionsRepo.deleteAll(id);
       const vdir = path.join(SKILLS_DIR, VERSIONS_DIR, s.name);
@@ -195,16 +173,6 @@ export class SkillService {
     }
   }
 
-  /**
-   * Materialize bots/<id>/plugin with a **copy** of each assigned, approved skill. Returns the plugin dir,
-   * or null when the bot has no skills.
-   *
-   * This used to junction the shared pool directory into the bot's home (audit 2026-09-09, B11). A bot writes
-   * freely inside its own home, so a write through the junction edited the human-approved skill in the pool —
-   * and every other bot using it. Skills are a SKILL.md plus a few small files, so copying is cheap and the
-   * pool becomes read-only from a bot's point of view. The copy is refreshed on every turn, so an approval or
-   * an edit in the UI still reaches the bot immediately.
-   */
   materialize(botId: string, botHandle: string): string | null {
     const ids = this.repos.botSkillIds(botId);
     const skills = ids.map((id) => this.repos.getSkill(id)).filter((s): s is Skill => !!s && s.reviewStatus === 'approved' && !s.parentId);
@@ -242,17 +210,12 @@ export class SkillService {
     return plugin;
   }
 
-  /**
-   * M6 (P1-7): this bot's approved skills as an index, sorted by name so the same set always reads the same. Providers
-   * other than Claude get it in the prompt (Claude loads the plugin dir instead) and open a skill with `read_skill`.
-   */
   skillIndex(botId: string): { name: string; description: string }[] {
     return this.assignedApproved(botId)
       .map((s) => ({ name: s.name, description: s.description.replace(/\s+/g, ' ').trim().slice(0, 200) }))
       .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   }
 
-  /** M6 (P1-7): `read_skill`. The SKILL.md of a skill assigned to this bot and approved, or null for any other name. */
   readAssigned(botId: string, name: string): { skill: Skill; markdown: string } | null {
     const skill = this.assignedApproved(botId).find((s) => s.name === name);
     return skill ? { skill, markdown: this.readMarkdown(skill) } : null;
@@ -265,7 +228,6 @@ export class SkillService {
       .filter((s): s is Skill => !!s && s.reviewStatus === 'approved' && !s.parentId);
   }
 
-  /** P8: names of this bot's approved skills that declare `model: opus` (see skillWantsOpus). */
   opusSkillNames(botId: string): string[] {
     return this.repos
       .botSkillIds(botId)
@@ -275,17 +237,12 @@ export class SkillService {
       .map((s) => s.name);
   }
 
-  // ---- P6: skill versions (corrections, reflection, re-taught demos). Never applied without the user. ----
+  // Skill versions are never applied without the user.
   private _versions?: SkillVersionsRepo;
   get versionsRepo(): SkillVersionsRepo {
     return (this._versions ??= new SkillVersionsRepo(this.repos.db));
   }
 
-  /**
-   * Proposes `markdown` as the next version of pool skill `skillId`. It is stored next to the pool
-   * (`<SKILLS_DIR>/.versions/<name>/v<n>/`) with a snapshot of the live SKILL.md it revises, and starts
-   * pending; the live skill, and every bot using it, are untouched until the user approves it.
-   */
   proposeVersion(skillId: string, markdown: string, o: { origin: SkillVersionOrigin; note?: string; createdByBot?: string | null; description?: string }): SkillVersion {
     const live = this.repos.getSkill(skillId);
     if (!live || live.parentId) throw new Error('Skill not found');
@@ -325,11 +282,6 @@ export class SkillService {
     return { ...pub, markdown, base, diff: lineDiff(base, markdown), stale: v.status === 'pending' && this.readMarkdown(live).trim() !== base.trim() };
   }
 
-  /**
-   * The user's answer to a pending version. Approve: its SKILL.md replaces the live one (the skill's other
-   * files stay), the skill becomes that version and approved, and every bot using it gets it from its next turn.
-   * Reject: it stays in the history as rejected.
-   */
   decideVersion(skillId: string, versionId: string, decision: 'approve' | 'reject'): { skill: Skill; version: SkillVersion } {
     const v = this.versionsRepo.get(versionId);
     const live = this.repos.getSkill(skillId);
@@ -351,10 +303,6 @@ export class SkillService {
     return { skill: this.repos.getSkill(live.id)!, version: this.versionsRepo.get(v.id)! };
   }
 
-  /**
-   * A demonstrated or distilled skill: a new pool skill through the bot-authored flow (pending review), or,
-   * when the name is already taken, a pending version of that skill.
-   */
   proposeSkill(name: string, description: string, markdown: string, o: { origin: SkillVersionOrigin; createdByBot: string | null; note?: string }): { skill: Skill; version: SkillVersion | null } {
     const existing = this.repos.getSkillByName(name);
     if (existing && !existing.parentId) {
@@ -369,18 +317,12 @@ export class SkillService {
   }
 }
 
-// ---- P7 (7.4): skill import from git ----
-/** Skills one import may add. */
 export const MAX_GIT_SKILLS = 50;
-/** A SKILL.md larger than this is refused. */
 export const MAX_SKILL_MD_BYTES = 64 * 1024;
-/** A whole skill folder (SKILL.md plus its files) larger than this is refused. */
 export const MAX_SKILL_DIR_BYTES = 1024 * 1024;
 const MAX_SKILL_FILES = 200;
-/** How deep below the repo root SKILL.md folders are looked for (skills/<n>, plugins/<p>/skills/<n>, ...). */
 const SCAN_DEPTH = 4;
 
-/** Folders under `root` (root included) that hold a SKILL.md, without following links or entering .git/node_modules. */
 export function findSkillDirs(root: string): string[] {
   const out: string[] = [];
   let visited = 0;
@@ -394,7 +336,7 @@ export function findSkillDirs(root: string): string[] {
     }
     if (entries.some((e) => e.isFile() && e.name === 'SKILL.md')) {
       out.push(dir);
-      return; // a skill's own subfolders are its resources, not more skills
+      return;
     }
     if (depth >= SCAN_DEPTH) return;
     for (const e of entries) {
@@ -406,7 +348,6 @@ export function findSkillDirs(root: string): string[] {
   return out.sort();
 }
 
-/** Why the skill folder at `dir` cannot be imported, or null when it can. */
 export function checkSkillDir(dir: string, name: string, md: string, fm: { name?: string; description?: string }): string | null {
   if (!SKILL_NAME_RE.test(name)) return 'invalid name (lowercase letters, digits and dashes, 2-49 chars)';
   if (!fm.description) return 'SKILL.md has no description in its frontmatter';
@@ -420,7 +361,6 @@ export function checkSkillDir(dir: string, name: string, md: string, fm: { name?
       if (e.name === '.git') continue;
       const p = path.join(d, e.name);
       const st = fs.lstatSync(p);
-      // A link could point anywhere on this machine; the copy would carry its target into the pool.
       if (st.isSymbolicLink()) return 'contains a symbolic link (' + path.relative(dir, p) + ')';
       if (st.isDirectory()) { stack.push(p); continue; }
       bytes += st.size;
@@ -431,21 +371,16 @@ export function checkSkillDir(dir: string, name: string, md: string, fm: { name?
   return null;
 }
 
-// ---- P6: skill versions ----
-/** Candidate versions one skill may have waiting at once. */
 export const MAX_PENDING_VERSIONS = 10;
-/** Under SKILLS_DIR; starts with a dot, so it can never be a skill name. */
 const VERSIONS_DIR = '.versions';
 
 function versionDir(name: string, version: number): string {
   if (!SKILL_NAME_RE.test(name) || !Number.isInteger(version) || version < 1) throw new Error('Invalid skill version');
   const root = path.join(SKILLS_DIR, VERSIONS_DIR);
-  // A junction planted at .versions would carry the write anywhere.
   if (fs.existsSync(root) && !isInside(root, [SKILLS_DIR])) throw new Error('Skill versions folder escapes the skill pool');
   return path.join(root, name, 'v' + version);
 }
 
-/** `markdown` with frontmatter whose `name` is `name` (a version can never rename its skill). */
 export function withFrontmatter(markdown: string, name: string, description: string): string {
   const body = markdown.replace(/^﻿/, '').replace(/\r\n/g, '\n');
   const m = body.match(/^---\s*\n([\s\S]*?)\n---[ \t]*\n?/);

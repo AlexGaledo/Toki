@@ -40,10 +40,7 @@ describe('SecretsStore', () => {
     expect(fs.existsSync(file)).toBe(false);
   });
 
-  // ---- audit 2026-09-09, B17 ----
   it('re-applies owner-only permissions on every write, including over an existing file', () => {
-    // The bug: `writeFileSync({ mode })` is ignored when the file already exists, so a secrets.json
-    // created loosely (or inheriting DATA_DIR's ACL) stayed loose for the rest of its life.
     fs.writeFileSync(file, '{}', { mode: 0o666 });
     if (process.platform !== 'win32') fs.chmodSync(file, 0o666);
     const s = new SecretsStore(file);

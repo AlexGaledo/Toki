@@ -1,13 +1,10 @@
 import type { ProviderId, ProviderLimitState } from '@pocketrocket/shared';
 import type { LimitReport, TurnLimit } from '../providers/types.js';
 
-/** How long a limit with no reset time is held, and a warning with none is shown. */
 export const DEFAULT_HOLD_MS = 10 * 60_000;
 
 export interface ProviderHealthDeps {
-  /** Injected so tests can move the clock. */
   now?: () => number;
-  /** Called with every limit in force whenever the list changes (hub.ts sends it as the WS `provider.limit` event). */
   onChange?: (limits: ProviderLimitState[]) => void;
 }
 
@@ -21,11 +18,6 @@ export function limitModel(window: string | undefined, model: string | undefined
   return m && model.toLowerCase().includes(m[1]) ? model : undefined;
 }
 
-/**
- * M5 (spec 01 P0-2): which providers, or which of their models, are at a usage limit right now, and which are close.
- * In memory only: a restart forgets every hold, and the next turn finds out again. Expired entries drop out when read,
- * so nothing needs a timer.
- */
 export class ProviderHealth {
   private entries = new Map<string, ProviderLimitState>();
   private now: () => number;
@@ -34,7 +26,6 @@ export class ProviderHealth {
     this.now = deps.now ?? Date.now;
   }
 
-  /** A `rate_limit_event` (or any provider's report) from a running turn. `model` is the model that turn ran. */
   report(provider: ProviderId, r: LimitReport, model?: string) {
     const scope = limitModel(r.window, model);
     if (r.status === 'rejected') {
@@ -43,12 +34,10 @@ export class ProviderHealth {
     }
     const k = key(provider, scope, r.window);
     if (r.status === 'allowed') {
-      // Fine again: a warning or a hold on this window ends early (a reset came sooner, or extra usage was turned on).
       if (this.entries.delete(k)) this.changed();
       return;
     }
     const at = this.now();
-    // A warning never replaces a hold still in force on the same window.
     const cur = this.live(k);
     if (cur?.status === 'held') return;
     this.entries.set(k, {
@@ -59,10 +48,6 @@ export class ProviderHealth {
     this.changed();
   }
 
-  /**
-   * A turn ended on a limit. Only `usage` is held: an overload or an outage has no reset time worth waiting for, and a
-   * sign-in problem is the provider check's to report.
-   */
   hold(provider: ProviderId, limit: TurnLimit, model?: string, utilization?: number) {
     if (limit.kind !== 'usage') return;
     const at = this.now();
@@ -75,7 +60,6 @@ export class ProviderHealth {
     this.changed();
   }
 
-  /** The hold that stops `provider` (or `model` on it) right now, or undefined. A provider-wide hold covers every model. */
   heldFor(provider: ProviderId, model?: string): ProviderLimitState | undefined {
     return this.list().find((l) => l.status === 'held' && l.provider === provider && (!l.model || l.model === model));
   }
@@ -84,7 +68,6 @@ export class ProviderHealth {
     return !!this.heldFor(provider, model);
   }
 
-  /** Every limit and warning in force, soonest reset first. */
   list(): ProviderLimitState[] {
     const t = this.now();
     for (const [k, v] of this.entries) if (v.until <= t) this.entries.delete(k);

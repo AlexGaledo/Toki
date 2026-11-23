@@ -7,16 +7,7 @@ import { events } from '../events.js';
 import { isInside } from '../permissions/pathRules.js';
 import { parseGitSource, runGit, type GitRunner } from './git.js';
 
-/**
- * The knowledge repo (P7, 7.1): one folder every bot can read and none can write.
- *
- * `settings.knowledgeRepo` is either a git URL, cloned (shallow) into `data/knowledge` and refreshed with
- * `git pull --ff-only` on a timer and on "Sync now", or an absolute local folder, linked there (a junction on
- * Windows) so edits the user makes show up at once. Bots get the folder as a read-only root: reads pass,
- * every write raises an approval card (PermissionBroker) or is denied outright (Claude hook, under bypass).
- */
-
-/** Why `raw` cannot be the knowledge source, or null when it can ('' = off is fine). */
+/** Every bot reads it, none writes: a write asks, or is denied outright under bypass. */
 export function knowledgeSourceError(raw: string): string | null {
   if (!raw.trim()) return null;
   const src = parseGitSource(raw);
@@ -30,9 +21,7 @@ export function knowledgeSourceError(raw: string): string | null {
 
 export interface KnowledgeDeps {
   repos: Repos;
-  /** settings.knowledgeRepo, read live. */
   source: () => string;
-  /** Defaults to KNOWLEDGE_DIR; tests point it at a temp folder. */
   dir?: string;
   git?: GitRunner;
 }
@@ -89,7 +78,6 @@ export class KnowledgeRepo {
     };
   }
 
-  /** The folder bots read, or null when no repo is configured or the last sync left nothing usable. */
   activeDir(): string | null {
     const s = this.status();
     return s.source && s.source === this.deps.source().trim() ? s.dir : null;
@@ -110,10 +98,7 @@ export class KnowledgeRepo {
     events.emitEvent({ type: 'knowledge.status', status: this.status() });
   }
 
-  /**
-   * Remove what is at `dir`, but only what this service put there: a link (removed, never followed) or a git
-   * clone. Anything else is left alone and reported, so a hand-made folder is never deleted.
-   */
+  /** Removes only what this service put there; a link is removed, never followed. */
   private clear(): string | null {
     if (!exists(this.dir)) return null;
     if (isLink(this.dir)) {
@@ -133,7 +118,6 @@ export class KnowledgeRepo {
     return null;
   }
 
-  /** One sync at a time; a call while one runs gets the same promise. */
   sync(): Promise<KnowledgeStatus> {
     if (!this.syncing) {
       this.syncing = this.doSync().finally(() => {
@@ -173,7 +157,6 @@ export class KnowledgeRepo {
         return this.status();
       }
 
-      // A git URL: reuse the clone while its origin still matches, else start over.
       if (exists(this.dir)) {
         let origin = '';
         if (!isLink(this.dir) && fs.existsSync(path.join(this.dir, '.git'))) {
@@ -193,15 +176,10 @@ export class KnowledgeRepo {
       this.save({ source: raw, mode: 'clone', head, last_error: null, last_synced_at: Date.now() });
       return this.status();
     } catch (e) {
-      // The last good clone stays readable; only the reason this sync failed is recorded.
       return fail(String((e as Error).message ?? e));
     }
   }
 
-  /**
-   * Syncs now when the configured source differs from what was last synced (startup, a Settings change), then
-   * pulls every `minutes` while the source is a clone. A linked local folder is live and needs no pulling.
-   */
   start(minutes: number) {
     this.stop();
     const maybe = () => {

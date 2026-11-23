@@ -10,13 +10,6 @@ import type { UsageTracker } from './UsageTracker.js';
 import type { SkillService } from './SkillService.js';
 import { extractSkillMd, runOneShot, type OneShotRunner } from './SkillDistiller.js';
 
-/**
- * P6 (6.3): opt-in post-run reflection. Like auto-memory, but per skill: after every N runs of one skill by a bot
- * that opted in, a cheap one-shot pass (Haiku, picked by the model router as causeKind `reflection`) reads that
- * run and may propose a revised SKILL.md. The proposal is a **pending version**; nothing is applied until the
- * user approves it in the Skills tab. A pass costs at most $0.05 and a bot's passes at most its daily cap.
- */
-
 export const REFLECTION_PASS_BUDGET_USD = 0.05;
 const MAX_TRANSCRIPT_CHARS = 20_000;
 const CONTEXT_MESSAGES = 6;
@@ -31,7 +24,6 @@ const SYSTEM = [
 
 const fence = (tag: string, body: string) => '<' + tag + '>\n' + body.replace(new RegExp('</' + tag, 'gi'), '<\\/' + tag) + '\n</' + tag + '>';
 
-/** `{"change": ...}` out of a reply; null when unparseable. */
 export function parseReflection(raw: string): { change: false } | { change: true; reason: string; markdown: string } | null {
   const text = raw.replace(/```[a-z]*/gi, '');
   const end = text.lastIndexOf('}');
@@ -49,7 +41,6 @@ export function parseReflection(raw: string): { change: false } | { change: true
   return null;
 }
 
-/** Skill names a turn invoked through the `Skill` tool (`plugin:name` and `/name` forms normalized). */
 export function skillsUsed(msgs: Message[]): string[] {
   const out = new Set<string>();
   for (const m of msgs) {
@@ -84,12 +75,7 @@ export interface SkillReflectionDeps {
   repos: Repos;
   skills: SkillService;
   usage: UsageTracker;
-  /**
-   * M6 (P1-6): Claude is set up (CLI, sign-in) and not held at a limit by ProviderHealth. The pass runs on Claude
-   * whatever provider the bot itself runs on, and is skipped while this is false.
-   */
   claudeReady: () => boolean;
-  /** Claude's models; the router picks the Haiku tier among them. */
   models: () => readonly ModelInfo[];
   exeExists?: () => boolean;
   run?: OneShotRunner;
@@ -100,10 +86,6 @@ export class SkillReflection {
   private inFlight = new Map<string, Promise<void>>();
   constructor(private deps: SkillReflectionDeps) {}
 
-  /**
-   * Called by the room lane after every turn (never awaited). Counts runs per (bot, skill) for bots that opted
-   * in, and starts a pass for each skill whose count reached the bot's N. Returns the passes started.
-   */
   afterTurn(botId: string, roomId: string, result: { ok: boolean; error?: string; turnId: string }): Promise<void>[] {
     const { repos, skills } = this.deps;
     if (!result.ok || result.error || !result.turnId) return [];
@@ -123,7 +105,7 @@ export class SkillReflection {
       if (runs < cfg.every || this.inFlight.has(key)) continue;
       if (!this.deps.claudeReady() || !(this.deps.exeExists ?? (() => fs.existsSync(CLAUDE_EXE)))()) continue;
       const spent = skills.versionsRepo.reflectionSpend(botId, startOfUtcDay(this.deps.now?.() ?? Date.now()));
-      if (spent + REFLECTION_PASS_BUDGET_USD > cfg.dailyCapUsd) continue; // keeps counting; tries again on a later run
+      if (spent + REFLECTION_PASS_BUDGET_USD > cfg.dailyCapUsd) continue;
       const pass = this.pass(bot.id, bot.handle, roomId, skill, turnMsgs, Math.min(REFLECTION_PASS_BUDGET_USD, cfg.dailyCapUsd - spent))
         .catch((e) => console.error('[skill-reflection ' + key + ']', e))
         .finally(() => this.inFlight.delete(key));
@@ -140,7 +122,6 @@ export class SkillReflection {
     const before = repos.messagesAfter(roomId, Math.max(0, firstSeq - 1 - CONTEXT_MESSAGES)).filter((m) => m.seq < firstSeq && m.kind !== 'tool');
     const handleOf = (m: Message) => (m.authorType === 'user' ? 'user' : m.authorType === 'bot' ? '@' + (repos.getBot(m.authorId ?? '')?.handle ?? 'bot') : m.authorType);
     const transcript = transcriptOf([...before, ...turnMsgs], handleOf);
-    // The router decides the model: an auto "bot" on a reflection pass is the active provider's Haiku tier.
     const choice = route({ bot: { model: AUTO_MODEL }, causeKind: 'reflection', input: '', models: this.deps.models() });
     const prompt = [
       fence('skill', skills.readMarkdown(skill)),
@@ -157,14 +138,13 @@ export class SkillReflection {
     if (!r || !r.change) return;
     const md = extractSkillMd(r.markdown);
     if (!md) return;
-    // Deleted or switched off while the pass ran: drop the result.
     const fresh = repos.getSkill(skill.id);
     if (!fresh || !repos.getBot(botId) || !skills.versionsRepo.reflection(botId).enabled) return;
     let v: SkillVersion;
     try {
       v = skills.proposeVersion(skill.id, redact(md), { origin: 'reflection', note: r.reason, createdByBot: botId });
     } catch {
-      return; // unchanged, too large, or too many pending versions
+      return;
     }
     if (!repos.getRoom(roomId)) return;
     const msg = repos.insertMessage({

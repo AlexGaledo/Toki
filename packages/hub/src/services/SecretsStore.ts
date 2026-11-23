@@ -3,15 +3,10 @@ import path from 'node:path';
 import type { SecretsStatus } from '@pocketrocket/shared';
 import { SECRETS_PATH, restrictFile } from '../config.js';
 
-/** Keys the settings UI offers a field for. Provider adapters read them through SecretsStore.get(). */
 export const SECRET_KEYS = ['XAI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY'] as const;
 export type SecretKey = (typeof SECRET_KEYS)[number];
 
-/**
- * API keys for providers that need one. Stored as flat JSON in <DATA_DIR>/secrets.json; an environment
- * variable of the same name always wins, so a machine-level key needs no UI. Values never leave the hub:
- * the REST layer only reports which keys are set.
- */
+/** Values never leave the hub: the REST layer only reports which keys are set. */
 export class SecretsStore {
   constructor(private file: string = SECRETS_PATH) {}
 
@@ -35,14 +30,13 @@ export class SecretsStore {
     restrictFile(this.file);
   }
 
-  /** Environment variable if set, else the stored value, else null. */
   get(key: string): string | null {
     const env = process.env[key];
     if (env) return env;
     return this.read()[key] ?? null;
   }
 
-  /** Which keys resolve to a value (never the values themselves). */
+  /** Never the values themselves. */
   status(): SecretsStatus {
     const stored = this.read();
     const keys: Record<string, boolean> = {};
@@ -50,7 +44,6 @@ export class SecretsStore {
     return { keys };
   }
 
-  /** Set or (with an empty string) delete keys. Returns the new status. */
   set(patch: Record<string, string>): SecretsStatus {
     const all = this.read();
     for (const [k, v] of Object.entries(patch)) {

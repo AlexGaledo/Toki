@@ -10,8 +10,6 @@ import { Repos } from '../db/repos.js';
 import { SkillService, findSkillDirs, parseFrontmatter } from './SkillService.js';
 import { runGit, type GitRunner } from './git.js';
 
-/** P7 (7.4): skills imported from a git repo (a local "marketplace") all start pending review. */
-
 const uniq = 'p7g' + process.pid.toString(36);
 const names = { good: uniq + '-good', nested: uniq + '-nested', taken: uniq + '-taken' };
 const tmps: string[] = [];
@@ -30,7 +28,6 @@ function skill(root: string, rel: string, fm: string, body = 'Do the thing step 
   return dir;
 }
 
-/** A marketplace repo: good skills, broken ones, and one whose name is already in the pool. */
 function marketplace() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-market-'));
   tmps.push(root);
@@ -85,7 +82,6 @@ describe('SkillService.importFromGit', () => {
     expect(why['Bad_Name']).toMatch(/invalid name/);
     expect(why[names.taken]).toMatch(/already in the pool/);
     expect(why['huge-one']).toMatch(/64 KB/);
-    // The approved skill with the same name was not overwritten.
     expect(repos.getSkillByName(names.taken)).toMatchObject({ reviewStatus: 'approved', description: 'mine, approved' });
 
     expect(cwds.length).toBe(1);
@@ -97,7 +93,7 @@ describe('SkillService.importFromGit', () => {
     const repos = new Repos(new Db(':memory:'));
     const svc = new SkillService(repos);
     fs.rmSync(path.join(SKILLS_DIR, names.good), { recursive: true, force: true });
-    const r = await svc.importFromGit(root); // a local folder is scanned in place, no clone
+    const r = await svc.importFromGit(root);
     const s = r.imported.find((x) => x.name === names.good)!;
     const bot = repos.createBot({ name: 'B', handle: uniq, title: '', description: 'x', avatar: '🤖', model: 'm', allowedTools: [], maxBudgetUsd: 1 });
     repos.setBotSkills(bot.id, [s.id]);
@@ -117,14 +113,13 @@ describe('SkillService.importFromGit', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-market-'));
     tmps.push(root);
     const dir = skill(root, 'skills/' + uniq + '-linky', 'name: ' + uniq + '-linky\ndescription: has a link');
-    // The link points at an empty temp folder, never at anything that matters, and is removed in `finally`.
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-linktarget-'));
     tmps.push(target);
     const link = path.join(dir, 'outside');
     try {
       fs.symlinkSync(target, link, 'junction');
     } catch {
-      return; // no permission to create links here; nothing to test
+      return;
     }
     try {
       const r = await new SkillService(new Repos(new Db(':memory:'))).importFromGit(root);

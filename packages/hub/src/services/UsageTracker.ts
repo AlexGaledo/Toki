@@ -12,7 +12,6 @@ export interface TurnUsage {
   durationMs: number;
 }
 
-/** P8: which model ran, why the router picked it, and what started the turn. M6: which provider ran it. */
 export interface UsageMeta {
   model?: string;
   routeReason?: string;
@@ -23,12 +22,10 @@ export interface UsageMeta {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface UsageTrackerDeps {
-  /** $ threshold for the rolling-24h alert. 0 (the default) turns it off. Read live, not cached. */
   alertThresholdUsd?: () => number;
 }
 
 export class UsageTracker {
-  /** botId -> when it was last alerted, so one crossing posts once per rolling day, not once per turn. */
   private lastAlertAt = new Map<string, number>();
   constructor(private repos: Repos, private deps: UsageTrackerDeps = {}) {}
   record(botId: string, roomId: string, turnId: string, causeId: string | null, u: TurnUsage, meta: UsageMeta = {}) {
@@ -39,7 +36,6 @@ export class UsageTracker {
   causeCost(causeId: string) {
     return this.repos.usageTotals({ causeId }).costUsd;
   }
-  /** Visibility only: never throttles the turn that triggered it (spend caps are off by design). */
   private checkDailyAlert(botId: string, roomId: string) {
     const threshold = this.deps.alertThresholdUsd?.() ?? 0;
     if (!threshold) return;

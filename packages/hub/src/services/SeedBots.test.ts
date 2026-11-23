@@ -79,7 +79,6 @@ describe('default bots', () => {
     it('reaches a server whose bot was seeded before the routine existed', () => {
       const s = setup();
       seedDefaultBots(s.repos, s.memory, s.opts);
-      // The state of that server: the bot and its marker are there, the routine and its marker are not.
       s.repos.deleteRoutine(routines(s)[0].id);
       fs.rmSync(marker(s, DATA_ENGINEER_HANDLE + '.routine'));
       const bots = s.repos.listBots().length;

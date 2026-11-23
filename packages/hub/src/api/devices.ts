@@ -16,15 +16,10 @@ interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: 
 export interface DevicesApiDeps {
   devices: DeviceService;
   push: PushService;
-  /** Extra hostnames from POCKETROCKET_ALLOWED_HOSTS: where a phone can reach this hub (the QR's URL). */
   allowedHosts: readonly string[];
 }
 
-/**
- * `/api/devices/*` and `/api/push/*` (P9). The capability split lives in guard.ts (`deviceMayAccess`); the
- * handlers here add the per-object rules: a device may only see that it is itself, unpair itself and manage
- * its own push subscription. Minting a pairing code and renaming need the hub token.
- */
+/** A device may only see, unpair and manage push for itself; minting a code and renaming need the hub token. */
 export function createDevicesApi(deps: DevicesApiDeps) {
   const { devices, push } = deps;
   const routes: Route[] = [];
@@ -39,15 +34,13 @@ export function createDevicesApi(deps: DevicesApiDeps) {
 
   add('GET', '/api/devices', ({ req }) => {
     const me = deviceIdOf(req);
-    // A phone learns about itself only; the desktop sees the whole list.
     const list = me ? devices.list().filter((d) => d.id === me) : devices.list();
     return { devices: list, current: me };
   });
   add('POST', '/api/devices/pairing', ({ req }) => {
     hubOnly(req);
     const { code, expiresAt } = devices.mintPairingCode();
-    // The QR carries the hub's URL and this code, never the hub token. Without an allowed host the desktop
-    // UI falls back to asking where the phone reaches the hub.
+    // The QR carries the hub's URL and this code, never the hub token.
     return { code, expiresAt, ttlMs: PAIRING_TTL_MS, hosts: deps.allowedHosts };
   });
   add('PATCH', '/api/devices/:id', ({ req, params, body }) => {
@@ -69,7 +62,6 @@ export function createDevicesApi(deps: DevicesApiDeps) {
   add('GET', '/api/push', ({ req }) => push.status(deviceIdOf(req)));
   add('POST', '/api/push/subscribe', ({ req, body }) => push.subscribe(deviceIdOf(req), body));
   add('POST', '/api/push/unsubscribe', ({ req, body }) => push.unsubscribe(deviceIdOf(req), body));
-  // Only this principal's own subscriptions, and only the fixed test kind: the payload is `{"kind":"test"}`.
   add('POST', '/api/push/test', ({ req }) => push.send('test', { deviceId: deviceIdOf(req) }));
 
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -101,10 +93,7 @@ export function createDevicesApi(deps: DevicesApiDeps) {
   };
 }
 
-/**
- * `POST /api/devices/pair`, token-exempt: the phone has nothing yet but the code from the QR. Every miss
- * feeds the failed-auth limiter (10 a minute per IP), so the 8-character code cannot be walked.
- */
+/** Token-exempt; every miss feeds the limiter, so the 8-character code cannot be walked. */
 export async function handleDevicePair(
   req: IncomingMessage,
   res: ServerResponse,
@@ -123,7 +112,6 @@ export async function handleDevicePair(
     res.end(JSON.stringify({ token, device }));
   } catch (e) {
     deps.limiter.fail(ip);
-    // 403, not 401: a 401 tells the web client "the token you hold is wrong", and the phone holds none yet.
     if (e instanceof PairingError) { send(res, 403, { error: e.message }); return; }
     logError('[devices api]', e);
     send(res, 500, { error: 'error' });

@@ -13,8 +13,6 @@ import { takeoverTool, TAKEOVER_PARKED } from '../agent/takeoverTool.js';
 import { createHub, type Hub } from '../hub.js';
 import { screenViewerPath } from '../api/screenSession.js';
 
-/** P2 2.1 / 2.3: control state, x11vnc view-only, request_takeover and the hand-back note. */
-
 function fakeSystemctl(): Systemctl {
   const active = new Set<string>();
   return { start: async (u) => { active.add(u); }, stop: async (u) => { active.delete(u); }, isActive: async (u) => active.has(u) };
@@ -77,7 +75,6 @@ describe('control state', () => {
     control.set(a.id, 'paused');
     await tick();
     expect(calls).toEqual([{ display, on: false }, { display, on: true }, { display, on: true }]);
-    // A computer that comes up (re)gets the current state.
     control.start();
     events.emitEvent({ type: 'computer.state', status: computers.status(a.id) });
     await tick();
@@ -261,7 +258,6 @@ describe('a parked takeover and a hub restart', () => {
     s.control.beginTakeover(bot.id, { messageId: msg.id, roomId: room.id, reason: 'log in', causeId: 'c1', hop: 2, ownerRef: 'routine:run1' });
     s.control.parkTakeover(bot.id);
 
-    // What a new process does on start, against the same database.
     expect(s.repos.expirePendingApprovals()).toEqual([]);
     const next = new ComputerControlService({ computers: s.computers, repos: s.repos, vnc: fakeVnc().vnc });
     expect(next.restoreParked()).toBe(1);

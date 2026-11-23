@@ -9,12 +9,6 @@ import { Recorder } from './Recorder.js';
 import { connectCdp, type CdpConnection } from './cdpClient.js';
 import { HUB_DIR } from '../config.js';
 
-/**
- * P6 (6.1) against a real Chromium: the redaction fixture page, typed into over CDP Input events while the
- * recorder listens as a second client. Skipped when no Chrome/Chromium is installed (set CHROME_PATH to force one).
- * scrot is faked (no X display here); everything on the browser side is real.
- */
-
 const CANDIDATES = [
   process.env.CHROME_PATH,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -51,7 +45,6 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     let exited: string | null = null;
     proc.once('exit', (code, signal) => { exited = 'Chrome exited early: code ' + code + ', signal ' + signal; });
     const portFile = path.join(profile, 'DevToolsActivePort');
-    // CI runs every test file in parallel on a small machine, where Chrome can take well over 10 seconds to come up.
     const deadline = Date.now() + 45_000;
     while (!cdpUrl && !exited && Date.now() < deadline) {
       let port = '';
@@ -94,15 +87,12 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
       exec: async (cmd, args) => { if (cmd === 'scrot') fs.writeFileSync(args[args.length - 1], 'PNG:' + screen); return ''; },
     });
     await rec.start('b', { title: 'Pay for the order' });
-    // start() attaches to the open page in the background; once it has, it writes the page's initial nav. Navigating
-    // before that races the attach and can lose the checkout nav, so wait for it.
     for (let i = 0; i < 100; i++) {
       const traces = fs.readdirSync(root).map((d) => path.join(root, d, 'trace.jsonl')).filter((f) => fs.existsSync(f));
       if (traces.some((f) => fs.readFileSync(f, 'utf8').includes('"t":"nav"'))) break;
       await sleep(100);
     }
 
-    // The "user": another CDP client driving the same page with real input events.
     const ver = (await (await fetch(cdpUrl + '/json/version')).json()) as { webSocketDebuggerUrl: string };
     const user: CdpConnection = await connectCdp(ver.webSocketDebuggerUrl);
     const { targetInfos } = (await user.send('Target.getTargets')) as { targetInfos: { targetId: string; type: string }[] };
@@ -111,8 +101,6 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     const send = (m: string, p: Record<string, unknown> = {}) => user.send(m, p, sessionId);
     await send('Page.enable');
     await send('Page.navigate', { url: FIXTURE });
-    // Typing before the recorder has attached to the checkout page loses the first keystrokes, so wait for its nav
-    // and for the page to finish loading instead of sleeping a fixed time.
     for (let i = 0; i < 100; i++) {
       const traces = fs.readdirSync(root).map((d) => path.join(root, d, 'trace.jsonl')).filter((f) => fs.existsSync(f));
       const navved = traces.some((f) => fs.readFileSync(f, 'utf8').split('\n').some((l) => l.includes('"t":"nav"') && l.includes('checkout.html')));
@@ -158,7 +146,6 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     expect(trace.filter((e) => e.t === 'type' && e.value === '«secret»')).toHaveLength(3);
     const pay = trace.find((e) => e.t === 'click' && (e.target as { text?: string })?.text === 'Pay now');
     expect(pay?.target).toMatchObject({ selector: '[data-testid="pay-button"]', role: 'button' });
-    // Only the first click (into the email field, nothing secret anywhere yet) kept its screenshot.
     const frames = fs.readdirSync(path.join(dir, 'frames'));
     expect(frames.map((f) => fs.readFileSync(path.join(dir, 'frames', f), 'utf8'))).toEqual(['PNG:login form']);
     expect(info.framesDropped).toBeGreaterThanOrEqual(4);

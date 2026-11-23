@@ -7,8 +7,6 @@ import { createHub, type Hub } from '../hub.js';
 import { deviceMayAccess } from './guard.js';
 import { SKILLS_DIR } from '../config.js';
 
-/** P6 REST: teach / recordings / skill versions / reflection, and what a paired phone may reach. */
-
 const TOKEN = 'p6-hub-token';
 const uniq = 'p6r' + process.pid.toString(36);
 const recRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-p6-rest-'));
@@ -16,7 +14,6 @@ const recRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-p6-rest-'));
 let hub: Hub;
 let port: number;
 beforeAll(async () => {
-  // No `available` override: on this test machine (no per-bot computers) Teach must say it is not available.
   hub = createHub({ port: 0, dbFile: ':memory:', skipBootstrap: true, token: TOKEN, recorder: { dir: (b) => path.join(recRoot, b) } });
   port = await hub.listen();
 });

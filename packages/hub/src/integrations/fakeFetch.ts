@@ -1,14 +1,9 @@
 import type { Fetch } from './http.js';
 
-/** One recorded call to the fake. */
 export interface FakeCall { method: string; url: URL; headers: Record<string, string>; body: string }
 type Reply = { status?: number; json?: unknown; text?: string; headers?: Record<string, string> };
 type Route = { method: string; match: (u: URL) => boolean; reply: (c: FakeCall) => Reply | Promise<Reply> };
 
-/**
- * Test-only `fetch` (P4): routes by method + URL to canned answers and records every call, so the
- * integration tests never touch the network. Unrouted calls answer 599 and are recorded too.
- */
 export function fakeFetch() {
   const routes: Route[] = [];
   const calls: FakeCall[] = [];

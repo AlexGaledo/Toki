@@ -29,7 +29,6 @@ function summary(m: RawMsg): MailSummary {
   };
 }
 
-/** The first text/plain part, else text/html with the tags stripped. */
 function bodyText(p: Part | undefined): string {
   if (!p) return '';
   const find = (part: Part, type: string): string | null => {
@@ -55,7 +54,6 @@ function toEvent(e: RawEvent): CalEvent {
   };
 }
 
-/** One header line. CR/LF would let a bot smuggle extra headers (Bcc:) into the message. */
 function headerValue(name: string, v: string): string {
   if (/[\r\n]/.test(v)) throw new IntegrationError(name + ' must be a single line', 400);
   return v;
@@ -72,13 +70,10 @@ export class GoogleClient extends ApiClient {
     return { email: r.data.email ?? '' };
   }
 
-  // ---------- Gmail ----------
-  /** Gmail search syntax: `from:x is:unread newer_than:2d`. */
   async gmailSearch(q: string, limit = 10): Promise<MailSummary[]> {
     const r = await this.call<{ messages?: Array<{ id: string }> }>(GMAIL + '/messages', { query: { q, maxResults: Math.min(limit, 25) } });
     const out: MailSummary[] = [];
     for (const m of r.data.messages ?? []) {
-      // format=metadata without metadataHeaders returns every header and no body.
       const full = await this.call<RawMsg>(GMAIL + '/messages/' + encodeURIComponent(m.id), { query: { format: 'metadata' } });
       out.push(summary(full.data));
     }
@@ -107,16 +102,11 @@ export class GoogleClient extends ApiClient {
     return { id: r.data.id, threadId: r.data.threadId };
   }
 
-  /** Poll API (P5) seed: the mailbox's current historyId. */
   async seedGmailHistory(): Promise<string> {
     const r = await this.call<{ historyId: string }>(GMAIL + '/profile');
     return String(r.data.historyId);
   }
 
-  /**
-   * Poll API (P5): message ids added since `cursor` (a historyId). A 404 means the historyId is too old:
-   * `resync` is set and the caller re-seeds with `seedGmailHistory()`.
-   */
   async pollGmail(o: { cursor: string }): Promise<PollResult<{ id: string; threadId: string; labels: string[] }>> {
     const items: Array<{ id: string; threadId: string; labels: string[] }> = [];
     let pageToken: string | undefined;
@@ -134,7 +124,6 @@ export class GoogleClient extends ApiClient {
     return { items, cursor, notModified: items.length === 0, resync: false };
   }
 
-  // ---------- Calendar ----------
   async calendarList(o: { timeMin?: string; timeMax?: string; q?: string; limit?: number; calendarId?: string } = {}): Promise<CalEvent[]> {
     const r = await this.call<{ items?: RawEvent[] }>(CAL + '/calendars/' + encodeURIComponent(o.calendarId ?? 'primary') + '/events', {
       query: { timeMin: o.timeMin ?? new Date().toISOString(), timeMax: o.timeMax, q: o.q, maxResults: Math.min(o.limit ?? 20, 100), singleEvents: true, orderBy: 'startTime' },
@@ -154,10 +143,6 @@ export class GoogleClient extends ApiClient {
     return toEvent(r.data);
   }
 
-  /**
-   * Poll API (P5): changed events since `cursor` (a syncToken). With no cursor it pages through the whole
-   * calendar once and returns the first syncToken. A 410 means the token expired: `resync` is set.
-   */
   async pollCalendar(o: { cursor?: string | null; calendarId?: string } = {}): Promise<PollResult<CalEvent>> {
     const items: CalEvent[] = [];
     let pageToken: string | undefined;
@@ -175,7 +160,6 @@ export class GoogleClient extends ApiClient {
     return { items, cursor: o.cursor ?? null, notModified: false, resync: false };
   }
 
-  // ---------- Drive ----------
   async driveSearch(q: string, limit = 10): Promise<DriveFile[]> {
     const esc = q.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const r = await this.call<{ files?: Array<{ id: string; name: string; mimeType: string; modifiedTime: string; webViewLink?: string }> }>(DRIVE + '/files', {
@@ -187,7 +171,6 @@ export class GoogleClient extends ApiClient {
     return (r.data.files ?? []).map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime, url: f.webViewLink ?? '' }));
   }
 
-  /** Text content: Google Docs as plain text, Sheets as CSV, Slides as text, text files as-is. */
   async driveRead(id: string): Promise<DriveFile & { content: string }> {
     const base = DRIVE + '/files/' + encodeURIComponent(id);
     const meta = await this.call<{ id: string; name: string; mimeType: string; modifiedTime: string; webViewLink?: string }>(base, { query: { fields: 'id,name,mimeType,modifiedTime,webViewLink' } });
@@ -208,12 +191,10 @@ export class GoogleClient extends ApiClient {
     return { id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime, url: f.webViewLink ?? '', content: clip(content) };
   }
 
-  /** Poll API (P5) seed for `pollDrive`. */
   async seedDriveChanges(): Promise<string> {
     return (await this.call<{ startPageToken: string }>(DRIVE + '/changes/startPageToken')).data.startPageToken;
   }
 
-  /** Poll API (P5): files changed since `cursor` (a Drive page token). */
   async pollDrive(o: { cursor: string }): Promise<PollResult<{ fileId: string; removed: boolean; name: string; time: string }>> {
     const items: Array<{ fileId: string; removed: boolean; name: string; time: string }> = [];
     let token = o.cursor;

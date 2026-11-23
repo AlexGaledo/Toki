@@ -73,17 +73,14 @@ describe('session state (migration 170)', () => {
     const r = new Repos(new Db(':memory:'));
     const bot = r.createBot({ name: 'L', handle: 'legacy', title: '', description: '', avatar: '', model: 'm', allowedTools: [], maxBudgetUsd: 1 });
     const room = r.createRoom({ kind: 'dm', name: 'DM', memberIds: [bot.id], coordinatorBotId: null });
-    // A row written the old way: no cost_total, no context size.
     r.saveSession(bot.id, room.id, { sdkSessionId: 'old', lastSeenSeq: 3, provider: 'claude' });
     expect(r.getSessionState(bot.id, room.id)).toEqual({ costTotal: null, contextTokens: null, contextAt: null, contextWindow: null, memorySnapshot: null, identitySnapshot: null, summary: null });
     r.saveSessionState(bot.id, room.id, { contextTokens: 5000, costTotal: 1.5 });
     r.saveSessionState(bot.id, room.id, { summary: '- s' });
     expect(r.getSessionState(bot.id, room.id)).toMatchObject({ contextTokens: 5000, costTotal: 1.5, summary: '- s' });
-    // saveSession keeps them, and the old shape of getSession is unchanged.
     r.saveSession(bot.id, room.id, { lastSeenSeq: 9 });
     expect(r.getSessionState(bot.id, room.id).costTotal).toBe(1.5);
     expect(r.getSession(bot.id, room.id)).toEqual({ sdkSessionId: 'old', lastSeenSeq: 9, provider: 'claude' });
-    // A row that does not exist yet is created.
     const other = r.createRoom({ kind: 'dm', name: 'DM2', memberIds: [bot.id], coordinatorBotId: null });
     r.saveSessionState(bot.id, other.id, { memorySnapshot: 'm' });
     expect(r.getSessionState(bot.id, other.id).memorySnapshot).toBe('m');
@@ -105,7 +102,6 @@ describe('M6: provider per bot', () => {
 
     r.updateBot(own.id, { provider: null, backup: null });
     expect(r.getBot(own.id)).toMatchObject({ provider: null, backup: null });
-    // A patch that leaves them out keeps them.
     r.updateBot(plain.id, { provider: 'grok', backup: { provider: 'claude', model: 'auto' } });
     r.updateBot(plain.id, { name: 'Renamed' });
     expect(r.getBot(plain.id)).toMatchObject({ name: 'Renamed', provider: 'grok', backup: { provider: 'claude', model: 'auto' } });
@@ -129,7 +125,6 @@ describe('M6: provider per bot', () => {
     expect(r.getBot(a.id)!.model).toBe('gemini-3.1-pro');
     expect(r.getBot(b.id)!.backup).toEqual({ provider: 'gemini', model: 'gemini-3.1-pro' });
     expect(r.getBot(c.id)!.model).toBe('gemini-3.8-flash');
-    // Any other id reads unchanged, and the next save writes the new one.
     expect(r.getBot(b.id)!.model).toBe('m');
     r.updateBot(a.id, { name: 'Saved' });
     expect(r.db.get('SELECT model FROM bots WHERE id=?', a.id)!.model).toBe('gemini-3.1-pro');

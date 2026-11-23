@@ -22,7 +22,6 @@ export interface GhNotification {
   unread: boolean;
   type: string;
   title: string;
-  /** API URL of the subject (issue, PR, release …). */
   subjectUrl: string | null;
   updatedAt: string;
 }
@@ -46,7 +45,6 @@ function toIssue(r: RawIssue, repo?: string): GhIssue {
   };
 }
 
-/** `owner/name`, validated so it cannot walk to another API path. */
 export function repoPath(repo: string): string {
   const r = repo.trim().replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '');
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(r)) throw new IntegrationError('Repository must look like owner/name, got "' + repo + '"', 400);
@@ -61,7 +59,6 @@ export class GitHubClient extends ApiClient {
     return { login: r.data.login, scopes };
   }
 
-  /** GitHub search syntax, e.g. `is:open is:pr review-requested:@me` or `repo:o/r label:bug`. */
   async searchIssues(q: string, limit = 20): Promise<GhIssue[]> {
     const r = await this.call<{ items: RawIssue[] }>(API + '/search/issues', { headers: HEADERS, query: { q, per_page: Math.min(limit, 50) } });
     return r.data.items.map((i) => toIssue(i));
@@ -79,7 +76,6 @@ export class GitHubClient extends ApiClient {
     return o.kind === 'issues' ? all.filter((i) => !i.isPullRequest) : all;
   }
 
-  /** One issue or PR with its body and latest comments. */
   async readIssue(repo: string, number: number, comments = 20): Promise<GhIssue & { body: string; comments: Array<{ author: string; body: string; createdAt: string }> }> {
     const rp = repoPath(repo);
     const r = await this.call<RawIssue>(API + '/repos/' + rp + '/issues/' + number, { headers: HEADERS });
@@ -100,10 +96,6 @@ export class GitHubClient extends ApiClient {
     return r.data.map(toNotification);
   }
 
-  /**
-   * Poll API (P5). Conditional on `Last-Modified`: GitHub answers 304 when nothing changed, and a 304
-   * does not count against the rate limit. `cursor` is the Last-Modified value to send back.
-   */
   async pollNotifications(o: { cursor?: string | null } = {}): Promise<PollResult<GhNotification>> {
     const r = await this.call<RawNotification[]>(API + '/notifications', { headers: HEADERS, ifModifiedSince: o.cursor ?? null, query: { per_page: 50 } });
     const interval = Number(r.headers.get('x-poll-interval')) || undefined;
@@ -111,9 +103,6 @@ export class GitHubClient extends ApiClient {
     return { items: r.data.map(toNotification), cursor: r.headers.get('last-modified') ?? o.cursor ?? null, notModified: false, resync: false, pollIntervalSec: interval };
   }
 
-  /**
-   * Poll API (P5): a repo's event feed with ETag. `etag` from the last call makes an unchanged feed a free 304.
-   */
   async pollRepoEvents(repo: string, o: { etag?: string | null } = {}): Promise<PollResult<{ id: string; type: string; actor: string; createdAt: string; payload: unknown }>> {
     const r = await this.call<Array<{ id: string; type: string; actor?: { login: string }; created_at: string; payload: unknown }>>(
       API + '/repos/' + repoPath(repo) + '/events', { headers: HEADERS, etag: o.etag ?? null, query: { per_page: 50 } },

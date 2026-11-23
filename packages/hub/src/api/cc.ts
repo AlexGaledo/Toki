@@ -26,7 +26,6 @@ const MAX_REPO_CHARS = 80;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const HANDLE = /^[a-z0-9_-]{2,24}$/;
 
-/** A repo name from a header: printable text only, no brackets (it goes into a chat line), at most 80 characters. */
 export function cleanRepo(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const s = raw.replace(/[\u0000-\u001f\u007f[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX_REPO_CHARS);
@@ -38,28 +37,10 @@ const header = (req: IncomingMessage, name: string): string | undefined => {
   return Array.isArray(v) ? v[0] : v;
 };
 
-/**
- * `/api/cc/*`: the owner's Claude Code terminal sessions on the PC, reaching rooms through the PC runner's MCP server
- * (spec: docs/specs/claude-code-bridge.md, 3.2). Runner principal only: the hub token and every other caller get 403,
- * and guard.ts's runner allowlist keeps the runner out of everything but these routes and its own polling.
- *
- * Headers, both optional: `x-cc-session` (the Claude Code session id) and `x-cc-repo` (repo name, 80 characters).
- *
- *   GET  /api/cc/rooms                                  group and project rooms (no direct chats)
- *   GET  /api/cc/session-state?sessionId=<id>           { state: 'moving'|'on-vps'|'pulling'|'local' } ('local' for a session that never moved); every response also carries x-cc-session-state while x-cc-session is on the VPS
- *   GET  /api/cc/session                                { session: { state: 'moving'|'on-vps'|'pulling' } | null }: the PC session in x-cc-session is on the VPS, so the MCP server warns (bridge P6)
- *   GET  /api/cc/rooms/:id/messages?limit=30&before=    { messages: [{ seq, at, author, text }] }, newest last
- *   POST /api/cc/rooms/:id/messages                     { text } posts as the owner, labelled "[via Claude Code · repo]"
- *   GET  /api/cc/rooms/:id/state                        current.md, the latest decisions
- *   GET  /api/cc/rooms/:id/files/text?path=             as /api/rooms/:id/files/text
- *   POST /api/cc/rooms/:id/files/text                   { path, text, base, sources? }, 409 with the current text when stale
- *   POST /api/cc/rooms/:id/decision                     { title, text, supersedes?, sources? }
- *   POST /api/cc/rooms/:id/handoff                      { to, task, context? } posts an @mention of a member bot
- */
+/** Runner principal only: the hub token and every other caller get 403. */
 export function createCcApi(deps: { repos: Repos; roomFiles: RoomFiles; revisions: FileRevisions; router: RoomRouter; projects?: ProjectService; sessionMoves?: SessionMoves }) {
   const { repos, roomFiles, revisions, router, projects, sessionMoves } = deps;
 
-  /** Where the session in `x-cc-session` is, for the MCP server's warning line. Null when it never moved or came back. */
   const sessionState = (sid: string | null): { state: 'moving' | 'on-vps' | 'pulling' } | null => {
     const st = sid ? sessionMoves?.get(sid)?.state : undefined;
     return st === 'moving' || st === 'on-vps' || st === 'pulling' ? { state: st } : null;
@@ -78,7 +59,6 @@ export function createCcApi(deps: { repos: Repos; roomFiles: RoomFiles; revision
     const pathname = url.pathname.replace(/\/+$/, '');
 
     const sessionId = (() => { const v = header(req, 'x-cc-session'); return v && SESSION_ID.test(v) ? v : null; })();
-    // The MCP server also reads this header off any response: the session is on the VPS, so it warns.
     const locked = sessionState(sessionId);
     if (locked) res.setHeader('x-cc-session-state', locked.state);
     const repo = cleanRepo(header(req, 'x-cc-repo'));
@@ -120,7 +100,6 @@ export function createCcApi(deps: { repos: Repos; roomFiles: RoomFiles; revision
         } catch { return send(res, 400, { error: 'Invalid JSON' }); }
       }
 
-      /** What a post says about where it came from. The label is text, so bots and the app need nothing new to show it. */
       const via = '[via Claude Code' + (repo ? ' · ' + repo : '') + ']';
       const post = (text: string) => {
         const msg = router.onUserMessage(room.id, via + ' ' + text);
@@ -163,7 +142,6 @@ export function createCcApi(deps: { repos: Repos; roomFiles: RoomFiles; revision
         return post('@' + bot.handle + ' handoff from a Claude Code session: ' + body.task.trim() + (context ? '\n\nContext:\n' + context : ''));
       }
 
-      // The rest work on the room's folder.
       if (!folder) return send(res, 404, { error: 'No room with that id' });
       const dir = roomFiles.ensure(folder);
       const root: FileRoot = fileRootOf(room, { ...folder, dir });

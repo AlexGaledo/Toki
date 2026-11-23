@@ -12,10 +12,7 @@ export interface TaskCreate {
 }
 export type TaskPatch = Partial<TaskCreate>;
 
-/**
- * A room's task board (G1). Rows are local data only: nothing here grants a permission or changes a setting, and
- * title/notes are free text anyone in the room can write, so readers must treat them as untrusted.
- */
+/** Rows grant nothing, and title/notes are free text: treat them as untrusted. */
 export class TaskService {
   constructor(private db: Db, private now: () => number = Date.now) {}
 

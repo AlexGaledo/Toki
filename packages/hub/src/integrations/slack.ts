@@ -2,7 +2,6 @@ import { ApiClient, type PollResult } from './base.js';
 import { apiRequest, IntegrationError, type ApiResponse, type RequestOpts } from './http.js';
 
 const API = 'https://slack.com/api/';
-/** Slack answers 200 with `ok: false`; these errors mean the token itself is bad. */
 const AUTH_ERRORS = new Set(['invalid_auth', 'not_authed', 'token_revoked', 'token_expired', 'account_inactive']);
 
 export interface SlackChannel { id: string; name: string; isPrivate: boolean; isMember: boolean; topic: string; members: number }
@@ -11,7 +10,6 @@ export interface SlackMessage { ts: string; user: string; text: string; threadTs
 type SlackOk = { ok: boolean; error?: string; response_metadata?: { next_cursor?: string } };
 
 export class SlackClient extends ApiClient {
-  /** Slack's envelope: turn `ok: false` into an IntegrationError (auth ones flagged so the connection is marked). */
   private async slack<T extends SlackOk>(method: string, opts: RequestOpts = {}): Promise<T> {
     const r = await this.call<T>(API + method, opts);
     return check(method, r);
@@ -36,7 +34,6 @@ export class SlackClient extends ApiClient {
     return out.slice(0, want);
   }
 
-  /** A channel id (`C…`, `G…`, `D…`) as-is, or a `#name` looked up in the channel list. */
   async resolveChannel(ref: string): Promise<string> {
     const r = ref.trim();
     if (/^[CGD][A-Z0-9]{6,}$/.test(r)) return r;
@@ -60,11 +57,6 @@ export class SlackClient extends ApiClient {
     return { channel: d.channel, ts: d.ts };
   }
 
-  /**
-   * Poll API (P5), fallback only: messages newer than `cursor` (a Slack ts) in one channel, oldest first.
-   * Non-Marketplace apps get about 1 request/minute on conversations.history, so real-time triggers should
-   * use Socket Mode (`openSocketModeUrl`) and keep this for catch-up after a reconnect.
-   */
   async pollChannel(channel: string, o: { cursor?: string | null } = {}): Promise<PollResult<SlackMessage>> {
     const msgs = await this.history(channel, { limit: 100, oldest: o.cursor ?? undefined });
     const fresh = msgs.filter((m) => !o.cursor || m.ts !== o.cursor).reverse();

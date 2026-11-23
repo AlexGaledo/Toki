@@ -4,23 +4,7 @@ import crypto from 'node:crypto';
 import { INTEGRATIONS_PATH, VAULT_KEY_PATH, renameOver, restrictFile } from '../config.js';
 import { addSecret, removeSecret } from '../providers/redact.js';
 
-/**
- * Encrypted store for integration credentials (P4, spec §2.5). Separate from SecretsStore on purpose:
- * provider API keys there are plain JSON an env var can override; these are long-lived account tokens.
- *
- * - `integrations.json` holds one AES-256-GCM blob: `{ v: 1, iv, tag, data }` (base64), with a fixed
- *   associated-data string so a blob from another program never decrypts here. Every write re-encrypts the
- *   whole map with a fresh 96-bit IV.
- * - The 32-byte key lives in `vault.key` (hex, 0600 + owner-only ACL via restrictFile). It is created on the
- *   first write, never at startup, so a hub that never connects anything leaves no key behind.
- * - `deploy/backup.sh` excludes `vault.key`: a backup archive alone holds no usable token.
- * - A blob that fails authentication (tampered, truncated, wrong key) throws VaultError; nothing is
- *   silently reset, because overwriting would destroy the user's tokens.
- * - Every value read or written is registered with `addSecret`, so it is scrubbed from tool output, room
- *   messages and logs wherever it might surface. No method here logs a value.
- *
- * Not done: wrapping the key with DPAPI on Windows (the ACL from restrictFile is the control there).
- */
+/** A fixed associated-data string, so a blob from another program never decrypts here. */
 export class VaultError extends Error {}
 
 const AAD = Buffer.from('pocketrocket/integration-vault/v1');
@@ -34,7 +18,6 @@ export class IntegrationVault {
   private get file() { return this.opts.file ?? INTEGRATIONS_PATH; }
   private get keyFile() { return this.opts.keyFile ?? VAULT_KEY_PATH; }
 
-  /** The key, or null when none exists yet. `create` mints and stores one. */
   private key(create: boolean): Buffer | null {
     try {
       const hex = fs.readFileSync(this.keyFile, 'utf8').trim();
@@ -85,7 +68,6 @@ export class IntegrationVault {
     return e ? { ...e } : null;
   }
 
-  /** Replace an entry. Empty-string values are dropped. */
   set(id: string, entry: Entry): void {
     const all = { ...this.load() };
     const clean: Entry = {};
@@ -94,7 +76,6 @@ export class IntegrationVault {
     this.save(all);
   }
 
-  /** Merge fields into an entry (an empty string deletes that field). */
   patch(id: string, fields: Entry): void {
     const cur = this.get(id) ?? {};
     for (const [k, v] of Object.entries(fields)) {

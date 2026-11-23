@@ -86,7 +86,6 @@ function tool(o: { confirm?: Confirm; signal?: AbortSignal } = {}) {
 }
 const textOf = (o: ToolOutput) => o.content.map((c) => ('text' in c ? c.text : '')).join('');
 
-/** Waits until the PC side sees an approved job, as the helper would by polling. */
 async function claim(t: string): Promise<any> {
   for (let i = 0; i < 400; i++) {
     const r = await request('GET', '/api/pc-runner/jobs/next', { token: t });
@@ -97,7 +96,6 @@ async function claim(t: string): Promise<any> {
 }
 
 beforeEach(async () => {
-  // Every test starts unpaired with no open jobs.
   await request('DELETE', '/api/pc-runner');
 });
 
@@ -176,7 +174,6 @@ describe('who may reach what', () => {
       expect((await request('POST', '/api/pc-runner/jobs/abc/start', { token: tok, body: {} })).status).toBe(403);
       expect((await request('POST', '/api/pc-runner/jobs/abc/result', { token: tok, body: { ok: true, output: '' } })).status).toBe(403);
     }
-    // A phone cannot pair, read or turn off the runner either.
     expect((await request('POST', '/api/pc-runner/token', { token: device, body: {} })).status).toBe(403);
     expect((await request('DELETE', '/api/pc-runner', { token: device })).status).toBe(403);
     expect(hub.pcRunner.folders()).toEqual(['site', 'notes']);
@@ -243,7 +240,6 @@ describe('jobs', () => {
     expect(txt.length).toBeLessThan(MAX_PC_OUTPUT + 400);
     expect(txt).toContain('cut at 20 KB');
     expect(hub.pcRunner.get(job.id)!.result).not.toContain(TOKEN);
-    // A second result for a finished job is refused.
     expect((await request('POST', '/api/pc-runner/jobs/' + job.id + '/result', { token: t, body: { ok: false, output: 'x' } })).status).toBe(409);
     const actions = listAudit(hub.repos.db).filter((e) => e.target === job.id).map((e) => e.action);
     expect(actions).toEqual(expect.arrayContaining(['pc-runner.job.approved', 'pc-runner.job.done']));
@@ -358,7 +354,6 @@ describe('the owner\'s job log', () => {
     expect(done.finishedAt - done.startedAt).toBe(4000);
     expect((await request('GET', '/api/pc-runner/jobs/' + job.id)).json).toEqual(done);
     expect((await request('GET', '/api/pc-runner/jobs/nope')).status).toBe(404);
-    // Live updates name the job and carry nothing else.
     expect(seen).toContainEqual({ type: 'pc-runner.changed', jobId: job.id });
     for (const ev of seen) for (const k of Object.keys(ev as object)) expect(['type', 'jobId']).toContain(k);
     expect(JSON.stringify(seen)).not.toContain('Build the site');
@@ -417,9 +412,7 @@ describe('the approval card', () => {
     }
     off();
     expect(seen).toEqual([input, input]);
-    // The card offers no "for this session".
     expect(onceFlags).toEqual([true, true]);
-    // A deny rule still refuses.
     hub.approvals.addPolicy({ botId: bot.id, tool: 'run_on_pc', pattern: '*', decision: 'deny', scope: 'always' });
     expect((await broker.askFleetChange(ctx, 'run_on_pc', input, 'r', new AbortController().signal, { evenUnderBypass: true })).allowed).toBe(false);
   });

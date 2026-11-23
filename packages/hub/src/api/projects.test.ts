@@ -270,7 +270,6 @@ describe('the dev team template', () => {
 });
 
 describe('search_project_context', () => {
-  // The bot's chat is the project's group room; `linked: false` leaves it a plain chat with no project.
   function setup() {
     const s = service();
     const bot = makeBot(s.repos, 'scout');
@@ -373,7 +372,6 @@ describe('/api/projects', () => {
     expect((await request('PUT', '/api/projects/api-test/room', { body: { roomId: dm.id } })).status).toBe(400);
     expect((await request('PUT', '/api/projects/api-test/room', { body: { roomId: room.id } })).json.roomId).toBe(room.id);
     expect(botRoots(member.id, room.id)).toContain(path.join(dir, 'api-test'));
-    // The same member from a direct chat, a stranger in the project's room, or no room at all: closed.
     expect(botRoots(member.id, dm.id)).not.toContain(path.join(dir, 'api-test'));
     expect(botRoots(member.id)).not.toContain(path.join(dir, 'api-test'));
     expect(botRoots(stranger.id, room.id)).not.toContain(path.join(dir, 'api-test'));

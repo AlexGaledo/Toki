@@ -5,25 +5,6 @@ import { DB_PATH } from '../config.js';
 import { SCHEMA_SQL } from './schema.js';
 import { MIGRATIONS, type Migration } from './migrations.js';
 
-/*
- * Schema versions (P0 runner).
- *
- * On open: SCHEMA_SQL runs (CREATE ... IF NOT EXISTS), then every migration in `MIGRATIONS` whose version
- * is not yet in the `schema_version` table runs in version order, each in its own transaction with the row
- * that records it. Tracking is per version, so blocks that land out of order still run.
- *
- * Adding a migration (later phases):
- *   1. Use only your phase's block: P0 1-9, P1 10-19, P2 20-29, ... P9 90-99 (docs/specs/decisions.md).
- *   2. In db/migrations.ts, append a separated block:
- *        registerMigrations([10, 19], [
- *          { version: 10, name: 'computers table', up: (db) => db.exec('CREATE TABLE IF NOT EXISTS computers (...)') },
- *          { version: 11, name: 'bots.keep_awake', up: (db) => addColumnIfMissing(db, 'bots', 'keep_awake', 'INTEGER NOT NULL DEFAULT 0') },
- *        ]);
- *   3. Additive only. New columns (and indexes on them) go in a migration, not SCHEMA_SQL, because
- *      SCHEMA_SQL runs before migrations and cannot add a column to an existing table. A brand-new table
- *      may go in either place; `up` must be safe on a database where it already exists.
- *   4. Never edit or renumber a migration that has shipped.
- */
 export { registerMigrations, addColumnIfMissing, hasColumn, type Migration } from './migrations.js';
 
 export type Row = Record<string, unknown>;
@@ -43,7 +24,6 @@ export class Db {
     }
   }
 
-  /** Runs every migration not yet recorded in `schema_version` (see the header of this file). */
   private migrate(migrations: readonly Migration[]) {
     this.raw.exec('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at INTEGER NOT NULL)');
     const applied = new Set(this.all<{ version: number }>('SELECT version FROM schema_version').map((r) => r.version));
@@ -56,7 +36,6 @@ export class Db {
     }
   }
 
-  /** Versions recorded in `schema_version`, ascending. */
   schemaVersions(): number[] {
     return this.all<{ version: number }>('SELECT version FROM schema_version ORDER BY version').map((r) => r.version);
   }

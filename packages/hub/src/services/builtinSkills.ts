@@ -1,12 +1,6 @@
 import type { Repos } from '../db/repos.js';
 import type { SkillService } from './SkillService.js';
 
-/**
- * Skills that ship with the hub. Seeded into the pool at startup when no skill of that name is there, as an approved,
- * owner-authored skill (SkillService.save), so it is an ordinary pool skill afterwards: the owner can read, edit,
- * attach and detach it in Skills. Never overwritten: an owner's edit stays. Deleting it from the pool brings the
- * shipped text back on the next start, since the dev team template needs it; detach it from a bot instead.
- */
 export interface BuiltinSkill { name: string; description: string; markdown: string }
 
 export const PROJECT_MAP_SKILL: BuiltinSkill = {
@@ -100,7 +94,6 @@ judgment call becomes a written rule. Say which you chose and why a stronger one
 
 export const BUILTIN_SKILLS: readonly BuiltinSkill[] = [PROJECT_MAP_SKILL, PROVE_IT_SKILL];
 
-/** Adds each shipped skill that is not in the pool yet. Returns the names it added. */
 export function ensureBuiltinSkills(skills: SkillService, repos: Repos, list: readonly BuiltinSkill[] = BUILTIN_SKILLS): string[] {
   const added: string[] = [];
   for (const s of list) {

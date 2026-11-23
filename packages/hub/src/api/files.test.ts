@@ -179,7 +179,6 @@ describe('/api/rooms/:id/files', () => {
     expect((await request('PATCH', base(room.id), { body: { from: 'one', to: 'one/two/inside' } })).status).toBe(400);
     expect((await request('PATCH', base(room.id), { body: { from: 'missing', to: 'x' } })).status).toBe(404);
     expect((await request('PATCH', base(room.id), { body: { from: 'c.txt', to: 'nofolder/c.txt' } })).status).toBe(404);
-    // A change of case only.
     expect((await request('PATCH', base(room.id), { body: { from: 'c.txt', to: 'C.txt' } })).status).toBe(200);
     expect((await request('GET', base(room.id))).json.entries.map((e: { name: string }) => e.name)).toContain('C.txt');
   });
@@ -246,7 +245,6 @@ describe('/api/rooms/:id/files', () => {
     expect((await browse('../x.html')).status).toBe(400);
     expect((await browse('missing.html')).status).toBe(404);
     expect((await browse('')).status).toBe(400);
-    // The room's only bot has no Browser: refused, or (without per-bot computers) no screen running here.
     expect([409, 503]).toContain((await browse('page.html')).status);
   });
 
@@ -280,12 +278,10 @@ describe('/api/rooms/:id/files', () => {
       expect(r.json).toEqual({ ok: true, path: 'proj/src/lib/a.ts' });
       expect(fs.readFileSync(path.join(roomsDir, room.id, 'proj', 'src', 'lib', 'a.ts'), 'utf8')).toBe('export {}');
       expect(new Set(seen)).toEqual(new Set(['', 'proj', 'proj/src', 'proj/src/lib']));
-      // Again into folders that are there now, and with the same name: 409 unless overwrite.
       expect((await nested(room.id, 'proj/src', 'b.ts', 'b')).status).toBe(200);
       expect((await nested(room.id, 'proj/src/lib', 'a.ts', 'again')).status).toBe(409);
       expect((await nested(room.id, 'proj/src/lib', 'a.ts', 'again', { overwrite: true })).status).toBe(200);
       expect(fs.readFileSync(path.join(roomsDir, room.id, 'proj', 'src', 'lib', 'a.ts'), 'utf8')).toBe('again');
-      // Without parents a missing folder is still a 404.
       expect((await upload(room.id, 'c.ts', 'c', 'proj/missing')).status).toBe(404);
     });
 
@@ -309,12 +305,12 @@ describe('/api/rooms/:id/files', () => {
       fs.symlinkSync(outside, path.join(dir, 'escape'), 'junction');
       const abs = path.join(outside, 'deep');
       const bad = [
-        '..', '../x', 'a/../../x', 'a/..', '..\\x', 'a\\..\\..\\x', // climbing out, either separator
-        abs, abs.replaceAll('\\', '/'), '/etc/x', '\\\\server\\share\\x', '//server/share/x', // absolute and UNC
-        'C:/x', 'C:x', 'c:\\x', // drive letters
-        'a\u0000b/x', 'ok/nul\u0000/x', // NUL
-        'escape/x', 'escape/a/b', // through a link that leads out
-        'ok/ lead', 'ok/trail.', 'ok/trail ', 'a/' + 'x'.repeat(256) + '/y', 'ok/tab\there', // names a file couldn't have
+        '..', '../x', 'a/../../x', 'a/..', '..\\x', 'a\\..\\..\\x',
+        abs, abs.replaceAll('\\', '/'), '/etc/x', '\\\\server\\share\\x', '//server/share/x',
+        'C:/x', 'C:x', 'c:\\x',
+        'a\u0000b/x', 'ok/nul\u0000/x',
+        'escape/x', 'escape/a/b',
+        'ok/ lead', 'ok/trail.', 'ok/trail ', 'a/' + 'x'.repeat(256) + '/y', 'ok/tab\there',
       ];
       for (const p of bad) {
         expect((await nested(room.id, p, 'x.txt', 'x')).status, 'upload into ' + JSON.stringify(p)).toBe(400);

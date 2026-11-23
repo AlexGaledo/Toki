@@ -1,7 +1,7 @@
 import { apiRequest, IntegrationError, type Fetch } from './http.js';
 import { addSecret } from '../providers/redact.js';
 
-/** What a Telegram bot token looks like: `<bot id>:<secret>`. Checked before it is put into a URL path. */
+/** Checked before it is put into a URL path. */
 export const TELEGRAM_TOKEN_RE = /^\d{6,12}:[A-Za-z0-9_-]{30,60}$/;
 
 export interface TelegramMe { id: number; username: string; firstName: string }
@@ -15,7 +15,6 @@ type Envelope<T> = { ok: boolean; result?: T; description?: string; error_code?:
 
 export interface TelegramDeps {
   fetch: Fetch;
-  /** The bot token, read per call so a replaced or removed token takes effect at once. */
   token(): string | null;
 }
 
@@ -49,7 +48,6 @@ export class TelegramClient {
     await this.call('sendMessage', { chat_id: typeof chatId === 'string' ? Number(chatId) : chatId, text, link_preview_options: { is_disabled: true } });
   }
 
-  /** Messages only. `timeoutSec` is how long Telegram may hold the request open (0 = answer now). */
   async getUpdates(o: { offset?: number; timeoutSec: number; signal?: AbortSignal }): Promise<TelegramUpdate[]> {
     return this.call<TelegramUpdate[]>(
       'getUpdates',

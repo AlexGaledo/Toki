@@ -24,7 +24,6 @@ export interface Project {
 export interface ProjectHit { project: string; path: string; status: string; updated: string | null; reviewExpired: boolean; snippet: string }
 export interface LintIssue { kind: 'no-current' | 'expired' | 'undated' | 'duplicate' | 'tiny'; path: string; detail: string }
 
-/** The owner-edited repo list in a project's folder. Bots may not write it (BotRunner's file guard). */
 export const REPOS_FILE = 'repos.json';
 
 export class ProjectError extends Error {
@@ -33,7 +32,6 @@ export class ProjectError extends Error {
 
 const TEXT = new Set(['.md', '.markdown', '.txt', '.csv', '.json', '.yaml', '.yml']);
 const MAX_FILE_BYTES = 2_000_000;
-/** current.md past this is read only this far for the overview. */
 const MAX_OVERVIEW_BYTES = 256 * 1024;
 const CHUNK_CHARS = 1200;
 const TINY_CHARS = 80;
@@ -43,7 +41,6 @@ export function slugify(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
 
-/** The small header a project file may carry. Everything is optional; a file without one still gets searched. */
 export function parseFrontmatter(text: string): { status: string; updated: string | null; reviewBy: string | null } {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
   const field = (k: string) => (m ? new RegExp('^' + k + ':\\s*(.+?)\\s*$', 'm').exec(m[1])?.[1] ?? null : null);
@@ -66,10 +63,6 @@ function chunk(text: string): string[] {
   return out;
 }
 
-/**
- * Project folders: plain files on disk are the truth, and a bot works in a project's folder when the owner lists it
- * as a member and it is replying in the project's room (rooms/roomFiles.ts). The search index is only a copy, rebuilt from the files whenever they change.
- */
 export class ProjectService {
   private reposCache = new Map<string, { mtimeMs: number; size: number; file: ProjectReposFile }>();
   constructor(private deps: { db: Db; repos: Repos; memory: MemoryService; root: string; now?: () => number }) {}
@@ -103,7 +96,6 @@ export class ProjectService {
     if (!p) throw new ProjectError(404, 'No project called ' + slug);
     return p;
   }
-  /** The project whose group chat this room is, if any. */
   forRoom(roomId: string): Project | undefined {
     const r = this.db.get('SELECT * FROM projects WHERE room_id=? ORDER BY created_at LIMIT 1', roomId);
     return r ? this.toProject(r) : undefined;
@@ -112,7 +104,6 @@ export class ProjectService {
     return this.db.all('SELECT slug FROM projects').map((r) => r.slug as string);
   }
 
-  /** Never overwrites a folder that is already there, so a project can adopt existing files. */
   create(input: { name: string; team?: boolean; memberIds?: string[] }): { project: Project; bots: Bot[]; room: Room | null } {
     const slug = slugify(input.name);
     if (!slug) throw new ProjectError(400, 'A project name needs letters or numbers');
@@ -122,7 +113,6 @@ export class ProjectService {
 
     const name = input.name.trim();
     const dir = this.dirOf(slug);
-    // Check the whole team can be made before anything is created, so a refusal leaves nothing behind.
     const plan = input.team ? this.planTeam(slug, name, dir) : [];
 
     fs.mkdirSync(path.join(dir, 'archive'), { recursive: true });
@@ -175,8 +165,6 @@ export class ProjectService {
         title: name,
         description: cloneDescription(source.description, name, dir),
         avatar: source.avatar,
-        // Not the source's model: a template source on Opus would make every cloned team Opus. 'auto' starts
-        // on Sonnet and moves up only when a turn needs it.
         model: 'auto',
         allowedTools: source.allowedTools,
         maxBudgetUsd: source.maxBudgetUsd,
@@ -192,7 +180,6 @@ export class ProjectService {
     this.db.run('DELETE FROM project_members WHERE slug=?', slug);
     for (const id of new Set(botIds)) this.db.run('INSERT INTO project_members (slug,bot_id) VALUES (?,?)', slug, id);
   }
-  /** Links the project to a group chat, so that chat's Files panel and bots use the project folder. Null unlinks. */
   setRoom(slug: string, roomId: string | null) {
     this.need(slug);
     if (roomId !== null) {
@@ -204,14 +191,12 @@ export class ProjectService {
     }
     this.db.run('UPDATE projects SET room_id=? WHERE slug=?', roomId, slug);
   }
-  /** Bots that were deleted lose their place. */
   pruneMembers(liveBotIds: string[]) {
     const live = new Set(liveBotIds);
     for (const r of this.db.all('SELECT DISTINCT bot_id FROM project_members')) {
       if (!live.has(r.bot_id as string)) this.db.run('DELETE FROM project_members WHERE bot_id=?', r.bot_id as string);
     }
   }
-  /** Forgets the project and its access. The folder stays on disk, since files may matter more than the record. */
   remove(slug: string) {
     this.need(slug);
     this.db.run('DELETE FROM project_members WHERE slug=?', slug);
@@ -220,12 +205,7 @@ export class ProjectService {
     this.db.run('DELETE FROM projects WHERE slug=?', slug);
   }
 
-  // ---- repos.json (bridge P5) ----
-
-  /**
-   * The project's repo list. A missing, unreadable or invalid file reads as no repos, so a bad hand edit (or a bot that
-   * managed to write one) never links or syncs anything. Cached by mtime and size.
-   */
+  /** A bad file reads as no repos, so it never links or syncs anything. */
   reposFile(slug: string): ProjectReposFile {
     const file = path.join(this.dirOf(slug), REPOS_FILE);
     let st: fs.Stats;
@@ -246,7 +226,6 @@ export class ProjectService {
     return parsed;
   }
 
-  /** Validates and saves the repo list (atomic write). Throws a 400 ProjectError naming every problem. */
   setRepos(slug: string, input: unknown): ProjectReposFile {
     this.need(slug);
     const r = ProjectReposFileSchema.safeParse(input);
@@ -260,8 +239,6 @@ export class ProjectService {
     this.reposCache.delete(slug);
     return r.data;
   }
-
-  // ---- map.json and the overview (Toki UI B2, B3) ----
 
   /**
    * A file at the top of the project's folder, by a fixed name, or null when it is missing or is not a regular file.
@@ -277,7 +254,6 @@ export class ProjectService {
     }
   }
 
-  /** The project's map.json, checked against ProjectMapSchema. Never throws for a bad file: the reply carries the error. */
   map(slug: string): ProjectMapReply {
     this.need(slug);
     const hit = this.topFile(slug, MAP_FILE);
@@ -295,7 +271,6 @@ export class ProjectService {
     return { map: r.map, error: null, mtime, droppedEdges: r.droppedEdges };
   }
 
-  /** Stage, next step, done and waiting items from the project's current.md, with no AI turn. */
   overview(slug: string): ProjectOverview {
     this.need(slug);
     const hit = this.topFile(slug, 'current.md');
@@ -310,15 +285,10 @@ export class ProjectService {
     }
   }
 
-  /** Every repo of every project, with its project's slug. */
   allRepos(): { project: string; repo: ProjectRepo }[] {
     return this.knownSlugs().flatMap((project) => this.reposFile(project).repos.map((repo) => ({ project, repo })));
   }
 
-  /**
-   * The project repos a mirrored session belongs to: its `repo.remote` normalises to the repo's remote, or, when the
-   * session has no remote, it has the same name. Computed at read; nothing is stored.
-   */
   linksFor(sessionRepo: PcRepo | null): PcSessionLink[] {
     if (!sessionRepo) return [];
     const remote = sessionRepo.remote ? normaliseRemote(sessionRepo.remote) : null;
@@ -331,16 +301,11 @@ export class ProjectService {
     return out;
   }
 
-  /**
-   * Checks a sync request and returns what the job carries. 400 when the repo is a client repo, has sync "none", does
-   * not exist, or the session is not mapped to it. The same rules for the owner's button and for a bot's proposal.
-   */
   syncTarget(session: { links: readonly PcSessionLink[] }, projectSlug: string, repoName: string): PcSyncJobInfo {
     const project = this.get(projectSlug);
     if (!project) throw new ProjectError(400, 'No project called ' + projectSlug);
     const repo = this.reposFile(projectSlug).repos.find((r) => r.name === repoName);
     if (!repo) throw new ProjectError(400, 'Project ' + projectSlug + ' has no repo called ' + repoName);
-    // Bridge P7: with the bot sandbox on (and working) a client repo may sync; the sandbox is what keeps its bots out of other projects.
     if (repo.client && !sandboxActive()) throw new ProjectError(400, repoName + ' is a client repo: it stays on your PC until bot tools run in a sandbox (turn it on in Settings > Security on a Linux server), so it is never synced.');
     if (repo.sync === 'none') throw new ProjectError(400, repoName + ' has sync set to none. Change its sync mode in the project settings first.');
     if (!session.links.some((l) => l.project === projectSlug && l.repo === repoName)) {
@@ -355,7 +320,6 @@ export class ProjectService {
     };
   }
 
-  /** Writes reviewed text into the project as a file. A later import of the same title replaces it. */
   saveImport(slug: string, input: { source: string; title: string; body: string; date?: string; dateApproximate?: boolean }): string {
     this.need(slug);
     const safe = input.title.replace(/[^\p{L}\p{N} ._-]+/gu, '-').replace(/\s+/g, ' ').replace(/^[-. ]+|[-. ]+$/g, '').slice(0, 120) || 'untitled';
@@ -388,7 +352,6 @@ export class ProjectService {
     return out;
   }
 
-  /** Brings the index up to date with the files. Only changed files are read again. */
   private sync(slug: string) {
     const files = this.walk(slug);
     const seen = new Set(files.map((f) => f.rel));
@@ -414,10 +377,6 @@ export class ProjectService {
     }
   }
 
-  /**
-   * Keyword search, with no AI turn. Outdated files are skipped unless asked for, current.md comes first, and every
-   * hit carries its date. A search that finds nothing is logged: enough of those is the evidence for adding embeddings.
-   */
   search(slugs: readonly string[], query: string, opts: { includeArchived?: boolean; limit?: number } = {}): ProjectHit[] {
     if (!slugs.length) return [];
     for (const s of slugs) this.sync(s);
@@ -454,7 +413,6 @@ export class ProjectService {
     });
   }
 
-  /** What has gone stale or messy. Plain rules with no AI, so it costs nothing to run and it deletes nothing. */
   lint(slug: string): { issues: LintIssue[]; recentMisses: string[] } {
     this.need(slug);
     this.sync(slug);

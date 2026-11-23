@@ -15,25 +15,18 @@ import { repoPath } from '../integrations/github.js';
 import { SlackSocketMode, type SlackEventCallback, type SocketFactory } from './SlackSocketMode.js';
 import { events } from '../events.js';
 
-/** Default seconds between polls per source (docs/specs/integrations-client-api.md). A provider's own minimum wins. */
 export const POLL_INTERVAL_SEC: Record<Exclude<TriggerSource, 'slack'>, number> = {
   'github.notifications': 60, 'github.repo': 60, gmail: 60, calendar: 120, drive: 300, clickup: 60, teams: 60,
 };
-/** Longest a failing stream waits between tries. */
 export const MAX_BACKOFF_SEC = 30 * 60;
-/** How often the scheduler looks for due streams. */
 const TICK_MS = 5_000;
-/** Handled inbox rows are kept this long for dedupe, then pruned. */
 const INBOX_KEEP_MS = 14 * 24 * 3_600_000;
-/** Most new Gmail messages read per poll (each is one API call). */
 const GMAIL_READS_PER_POLL = 20;
 
-/** One poll stream: a source plus what selects it (a repo, a calendar, a workspace). Triggers share streams. */
 interface Stream {
   key: string;
   source: Exclude<TriggerSource, 'slack'>;
   provider: IntegrationProvider;
-  /** repo for github.repo, calendar id, ClickUp workspace id ('' = the first one). */
   param: string;
 }
 type Found = { dedupe: string; event: TriggerEvent };
@@ -45,7 +38,6 @@ export interface TriggerServiceOptions {
   integrations: IntegrationService;
   router: RoomRouter;
   now?: () => number;
-  /** Slack Socket Mode transport; tests pass a fake socket. */
   socket?: SocketFactory;
   setTimer?: (fn: () => void, ms: number) => { cancel(): void };
 }
@@ -55,17 +47,6 @@ const ev = (source: TriggerSource, e: Partial<TriggerEvent> & { id: string }): T
   source, title: '', text: '', from: '', url: '', at: '', ...e, fields: Object.fromEntries(Object.entries(e.fields ?? {}).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])),
 });
 
-/**
- * P5 event triggers (spec §2.3). Outbound only: pollers on the P4 clients with persisted cursors, plus a Slack
- * Socket Mode client. There is no inbound port.
- *
- * Pipeline: a poll (or a Slack envelope) normalises each item to a TriggerEvent and stores it once in
- * `events_inbox` (UNIQUE dedupe key) → the matcher runs it against the enabled triggers of that stream →
- * each match goes through the trigger's grant, hourly rate limit and daily budget → `router.fireTrigger()`.
- *
- * Only streams with at least one enabled trigger whose bot holds a grant for a connected (not expired)
- * provider are polled. A first poll only seeds the cursor, so turning a trigger on never fires on history.
- */
 export class TriggerService {
   readonly repo: TriggerRepo;
   private now: () => number;
@@ -77,7 +58,6 @@ export class TriggerService {
   private workspaces = new Map<string, string>();
   private teamsMe: string | null | undefined;
 
-  /** Workflows v1: starts the workflows whose trigger step is this trigger; true means they replace its own prompt. */
   workflows?: (triggerId: string, event: TriggerEvent, manual: boolean) => boolean;
 
   constructor(private o: TriggerServiceOptions) {
@@ -92,11 +72,8 @@ export class TriggerService {
     });
   }
 
-  // ---------------------------------------------------------------- lifecycle
   start() {
-    // Fires left running by the previous process lost their callback; close them so the history is honest.
     for (const f of this.repo.runningFires()) this.repo.finishFire(f.id, 'error', null, 'The server restarted during this run.', this.now());
-    // Events stored but never matched (the hub stopped in between) are matched now.
     for (const row of this.repo.pendingEvents()) this.process(row);
     this.timer ??= setInterval(() => void this.tick(), TICK_MS);
     this.timer.unref?.();
@@ -114,7 +91,6 @@ export class TriggerService {
     this.slack.stop();
   }
 
-  // ---------------------------------------------------------------- CRUD (REST is the only caller)
   list(): Trigger[] {
     return this.repo.list();
   }
@@ -160,8 +136,6 @@ export class TriggerService {
     return { triggers, available, polls: this.repo.pollStatus(keys), stats };
   }
 
-  // ---------------------------------------------------------------- streams
-  /** The stream a trigger listens on, or null when its source is not polled (Slack) or its filter is unusable. */
   keyFor(t: Pick<Trigger, 'source' | 'filter'>): string | null {
     switch (t.source) {
       case 'github.repo': {
@@ -174,14 +148,12 @@ export class TriggerService {
     }
   }
 
-  /** Whether this trigger may hear from its source: the provider is connected (connections are shared by all bots). */
   private live(t: Trigger): boolean {
     if (!t.enabled) return false;
     const info = this.o.integrations.repo.byProvider(TRIGGER_SOURCE_PROVIDER[t.source]);
     return !!info && info.status !== 'expired';
   }
 
-  /** Streams to poll right now (Slack excluded: it pushes). */
   streams(): Stream[] {
     const out = new Map<string, Stream>();
     for (const t of this.repo.list()) {
@@ -193,8 +165,6 @@ export class TriggerService {
     return [...out.values()];
   }
 
-  // ---------------------------------------------------------------- polling
-  /** Polls every stream that is due. Public so tests drive it with a fake clock. */
   async tick(): Promise<void> {
     if (this.ticking) return;
     this.ticking = true;
@@ -231,13 +201,11 @@ export class TriggerService {
     }
     const interval = Math.max(POLL_INTERVAL_SEC[s.source], out.intervalSec ?? 0);
     const hadError = !!base.lastError;
-    // Cursor first, then the events: the inbox dedupes, so a crash in between re-polls nothing twice.
     this.repo.saveCursor({ ...base, cursor: out.cursor, etag: out.etag, lastPolledAt: t0, nextPollAt: t0 + interval * 1000, failures: 0, lastError: out.note ?? null });
     for (const f of out.found) this.ingest(s.key, f);
     if (hadError || out.note) events.emitEvent({ type: 'triggers.changed' });
   }
 
-  /** One provider call (or a seed). `cur.cursor === null` means "never polled": seed, report nothing. */
   private async poll(s: Stream, cur: CursorRow): Promise<PollOutcome> {
     const I = this.o.integrations;
     switch (s.source) {
@@ -251,7 +219,6 @@ export class TriggerService {
             fields: { repo: n.repo, reason: n.reason, type: n.type, title: n.title },
           }),
         }));
-        // GitHub sends no Last-Modified on an empty first page; keep a non-null cursor so seeding ends.
         return { found, cursor: r.cursor ?? cur.cursor ?? new Date(this.now()).toUTCString(), etag: null, intervalSec: r.pollIntervalSec };
       }
       case 'github.repo': {
@@ -270,7 +237,6 @@ export class TriggerService {
           return { found: [], cursor: fresh, etag: null, note: 'Gmail history expired; mail received in the gap was skipped.' };
         }
         const found: Found[] = [];
-        // Mail the account sent itself (a bot's reply, a draft) must not trigger a turn.
         for (const m of r.items.filter((x) => !x.labels.includes('SENT') && !x.labels.includes('DRAFT')).slice(0, GMAIL_READS_PER_POLL)) {
           const full = await I.run('google', (c) => c.gmailRead(m.id));
           found.push({
@@ -339,7 +305,6 @@ export class TriggerService {
         const r = await I.run('teams', (c) => c.pollChats({ cursor: cur.cursor }));
         const me = await this.teamsSelf();
         return {
-          // A message the signed-in account wrote (a bot's reply) must not trigger a turn.
           found: r.items.filter((c) => !me || c.lastFrom !== me).map((c) => ({
             dedupe: 'teams:' + c.id + ':' + c.lastAt,
             event: ev(s.source, {
@@ -372,11 +337,9 @@ export class TriggerService {
     return this.teamsMe;
   }
 
-  // ---------------------------------------------------------------- Slack Socket Mode
   private slackWanted(): boolean {
     return this.repo.list().some((t) => t.source === 'slack' && this.live(t));
   }
-  /** Runs the socket while some enabled Slack trigger's bot may hear from Slack; stops it otherwise. */
   syncSlack() {
     const want = this.slackWanted();
     if (want && !this.slack.active) this.slack.start();
@@ -391,11 +354,9 @@ export class TriggerService {
     });
     if ((cur?.lastError ?? null) !== error) events.emitEvent({ type: 'triggers.changed' });
   }
-  /** One `events_api` payload. Public for tests that feed envelopes without a socket. */
   onSlackEvent(p: SlackEventCallback) {
     const e = p.event;
     if (!e || (e.type !== 'message' && e.type !== 'app_mention')) return;
-    // Bot posts (ours included) and edits/joins/deletes are not new messages from a person.
     if (e.bot_id || e.subtype) return;
     const id = p.event_id ?? (e.channel ?? '') + ':' + (e.ts ?? '');
     this.ingest('slack', {
@@ -408,13 +369,11 @@ export class TriggerService {
     });
   }
 
-  // ---------------------------------------------------------------- matching and firing
   private ingest(pollKey: string, f: Found) {
     const row = this.repo.addEvent(pollKey, f.dedupe, f.event, this.now());
     if (row) this.process(row);
   }
 
-  /** Matches one stored event against the enabled triggers of its stream and fires each match. */
   private process(row: InboxRow) {
     let hit = false;
     for (const t of this.repo.list()) {
@@ -425,11 +384,7 @@ export class TriggerService {
     this.repo.markEvent(row.id, hit ? 'matched' : 'ignored', this.now());
   }
 
-  /**
-   * Fires one trigger for one event: access, hourly rate and daily budget first (each a `skipped` fire with a
-   * reason), then `router.fireTrigger`. The turn is strict (approvals on even under bypass) because its cause
-   * is a system message; nothing here can relax that.
-   */
+  /** The turn is strict: approvals stay on even under bypass. */
   fire(t: Trigger, event: TriggerEvent, o: { eventId: string | null; test?: boolean }): TriggerFire {
     const now = this.now();
     const skip = (note: string) => {
@@ -473,14 +428,12 @@ export class TriggerService {
     return this.repo.getFire(fire.id)!;
   }
 
-  /** What is left of a trigger's rolling 24-hour budget (RoomRouter caps resumed turns and hops with it). */
   remainingBudget(id: string): number | undefined {
     const t = this.repo.get(id);
     if (!t) return undefined;
     return spendCapsOff() ? Infinity : t.budgetUsd - this.repo.spentLastDay(t.id, this.now());
   }
 
-  /** "Test fire" from the builder: a sample event straight to this trigger, skipping the filter and the poll. */
   testFire(id: string, input: TriggerTestInput = {}): TriggerFire | undefined {
     const t = this.repo.get(id);
     if (!t) return undefined;
@@ -505,7 +458,6 @@ const SAMPLE: Record<TriggerSource, { title: string; text: string; from: string;
   teams: { title: 'Design sync', text: 'Can we move the review to Thursday?', from: 'Jordan', fields: { chat: 'Design sync' } },
 };
 
-/** Numeric GitHub event ids compared without losing precision. */
 function idGreater(a: string, b: string): boolean {
   try { return BigInt(a) > BigInt(b); } catch { return a > b; }
 }
@@ -530,11 +482,6 @@ function repoEvent(repo: string, e: RepoEv): TriggerEvent {
   });
 }
 
-/**
- * A trigger's filter against an event: every non-empty filter value must match its field. A value matches
- * when the field contains it, ignoring case; `a, b` means either. Poll selectors (the ClickUp workspace) are
- * not matched again.
- */
 export function matches(t: Pick<Trigger, 'source' | 'filter'>, e: TriggerEvent): boolean {
   for (const [k, raw] of Object.entries(t.filter)) {
     const v = raw.trim();

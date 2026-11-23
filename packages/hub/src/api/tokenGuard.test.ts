@@ -31,7 +31,6 @@ describe('checkContentType', () => {
     }
     expect(checkContentType(req({ method: 'GET' }), url('/api/bots')).ok).toBe(true);
     expect(checkContentType(req({ method: 'DELETE' }), url('/api/bots/x')).ok).toBe(true);
-    // /mcp negotiates its own content types.
     expect(checkContentType(req({ method: 'POST' }), url('/mcp')).ok).toBe(true);
   });
 });
@@ -85,7 +84,6 @@ describe('checkToken on /screen/*', () => {
 
   it('sits above the public-asset check, so no WEB_DIST layout can widen it', () => {
     expect(checkToken(req(), url('/screen/vnc.html'), T, { isPublicAsset: () => true, screenAuth: no })).toBe(false);
-    // Everything outside /screen/ is untouched by the branch.
     expect(checkToken(req(), url('/assets/app.js'), T, { isPublicAsset: () => true, screenAuth: no })).toBe(true);
     expect(checkToken(req(), url('/ws?token=tok'), T, { screenAuth: no })).toBe(true);
   });
@@ -112,7 +110,6 @@ describe('tokenMatches (audit B16)', () => {
     expect(tokenMatches('abc12345', 'abc123')).toBe(false);
     expect(tokenMatches(null, 'abc123')).toBe(false);
     expect(tokenMatches('', '')).toBe(true);
-    // Multi-byte input must not throw on the Buffer length guard.
     expect(tokenMatches('é', 'e')).toBe(false);
   });
 });
@@ -125,12 +122,9 @@ describe('AuthRateLimiter (audit B15)', () => {
     expect(rl.blocked('a')).toBe(false);
     expect(rl.fail('a')).toBe(true);
     expect(rl.blocked('a')).toBe(true);
-    // Another IP is unaffected.
     expect(rl.blocked('b')).toBe(false);
-    // The block expires after a minute.
     now += 60_001;
     expect(rl.blocked('a')).toBe(false);
-    // A success clears the counter.
     for (let i = 0; i < 5; i++) rl.fail('c');
     rl.succeed('c');
     for (let i = 0; i < 9; i++) expect(rl.fail('c')).toBe(false);
@@ -149,7 +143,6 @@ describe('AuthRateLimiter (audit B15)', () => {
 describe('presentsHubToken', () => {
   const T = 'tok';
   it('is true only when the request carries the token, not for token-exempt paths', () => {
-    // These pass checkToken without a token, so they must not count as a success that clears the limiter.
     expect(checkToken(req(), url('/api/health'), T)).toBe(true);
     expect(presentsHubToken(req(), url('/api/health'), T)).toBe(false);
     expect(presentsHubToken(req(), url('/'), T)).toBe(false);
@@ -160,7 +153,6 @@ describe('presentsHubToken', () => {
   });
 });
 
-// ---- P9 ----
 describe('allowed hosts need forwarded HTTPS from loopback (P9)', () => {
   const H = 'myhub.tail1234.ts.net';
   const at = (remoteAddress: string, headers: Record<string, string>) =>

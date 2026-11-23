@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { DESKTOP_HOME, SCREEN_DISPLAY, WORKSPACE_DIR } from '../config.js';
 
-/** Where the folder was actually opened, so the UI can name the right place in its toast. */
 export type OpenWhere = 'explorer' | 'finder' | 'screen' | 'file-manager';
 
 export interface OpenResult {
@@ -14,38 +13,25 @@ export interface OpenResult {
 
 export interface OpenDeps {
   platform?: NodeJS.Platform;
-  /** True when this hub has the virtual X screen (the VPS), so "open a folder" means the Screen tab. */
   screen?: boolean;
   spawnFn?: typeof spawn;
   mkdir?: (p: string) => void;
-  /** P1: a bot's own running computer. Thunar opens on its display instead of the shared screen. */
   computer?: OpenComputer;
-  /**
-   * P1: per-bot computers are on but there is no running computer to open on. The shared screen is stopped on
-   * such a hub, so nothing is spawned and this message comes back as the error for the UI to show.
-   */
   unavailable?: string;
 }
 
-/** The X session of one bot's computer (from ComputerManager's endpoint). */
 export interface OpenComputer {
   display: string;
   xauthority: string;
   home: string;
 }
 
-/** The parts of ComputerManager the route needs, so the choice below is testable without systemd. */
 export interface OpenComputers {
   enabled: boolean;
   status(botId: string): { state: string };
   existingEndpoint(botId: string): OpenComputer | null;
 }
 
-/**
- * P1: where "Open workspace" goes on a hub with per-bot computers. There is no shared screen there (setup stops
- * it), so the folder opens on the requesting bot's computer when it is running, and otherwise the UI gets a
- * message telling the user what to do. With per-bot computers off this returns {} and nothing changes.
- */
 export function workspaceTarget(computers: OpenComputers, bot: { id: string; name: string } | null): Pick<OpenDeps, 'computer' | 'unavailable'> {
   if (!computers.enabled) return {};
   if (!bot) return { unavailable: "Each bot has its own computer here. Open a bot's Screen tab first, then open the workspace again." };
@@ -56,24 +42,13 @@ export function workspaceTarget(computers: OpenComputers, bot: { id: string; nam
   return { computer: { display: ep.display, xauthority: ep.xauthority, home: ep.home } };
 }
 
-/**
- * Open the shared workspace in the file manager of whatever computer the hub is running on.
- *
- * That last part is the whole design. The web UI may be a browser tab or a desktop webview, and neither can
- * open a folder on its own — but more importantly, in server mode the folder simply is not on the machine
- * you are sitting at. So the hub opens it where it lives: Explorer or Finder for a local hub, and Thunar on
- * the virtual display for a server hub, which is the desktop the Screen tab is already showing. `where`
- * tells the caller which of those happened.
- *
- * The path is always WORKSPACE_DIR and never comes from the request, so there is nothing to inject here.
- */
+/** The path is always WORKSPACE_DIR and never comes from the request. */
 export function openWorkspace(deps: OpenDeps = {}): Promise<OpenResult> {
   const platform = deps.platform ?? process.platform;
   const onScreen = deps.screen ?? false;
   const spawnFn = deps.spawnFn ?? spawn;
   const path = WORKSPACE_DIR;
 
-  // Never fall through to the shared display: on a per-bot hub it is stopped and the window would go nowhere.
   if (deps.unavailable) return Promise.resolve({ ok: false, where: 'screen', path, error: deps.unavailable });
 
   try {
@@ -96,13 +71,11 @@ export function openWorkspace(deps: OpenDeps = {}): Promise<OpenResult> {
     args = [path];
     where = 'finder';
   } else if (deps.computer) {
-    // The bot's own computer. WORKSPACE_DIR is ~/Shared on that desktop, so this is the same folder.
     cmd = 'thunar';
     args = [path];
     where = 'screen';
     env = { ...process.env, DISPLAY: deps.computer.display, XAUTHORITY: deps.computer.xauthority, HOME: deps.computer.home };
   } else if (onScreen) {
-    // The virtual desktop, with the desktop's own HOME so Thunar's settings persist like every other app there.
     cmd = 'thunar';
     args = [path];
     where = 'screen';
@@ -123,7 +96,6 @@ export function openWorkspace(deps: OpenDeps = {}): Promise<OpenResult> {
     }
     let settled = false;
     const done = (r: OpenResult) => { if (!settled) { settled = true; resolve(r); } };
-    // A missing binary arrives as an async 'error' event; with no listener it would take the hub down.
     child.once('error', (e: Error) => done({ ok: false, where, path, error: e.message }));
     child.once('spawn', () => done({ ok: true, where, path }));
     child.unref?.();

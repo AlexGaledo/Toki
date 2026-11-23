@@ -5,20 +5,16 @@ import type { RoomRouter } from '../rooms/RoomRouter.js';
 import { events } from '../events.js';
 import { settings } from './SettingsStore.js';
 
-/** A routine's schedule after validation: a cron pattern, or a one-shot instant (then `cron` is ''). */
 export type Schedule = { cron: string; onceAt: number | null };
 
 export class RoutineScheduler {
   private jobs = new Map<string, Cron>();
   private offSettings: (() => void) | null = null;
   private zone = '';
-  /** `timezone` defaults to the live `settings.timezone`; tests pass a fixed one. */
-  /** Workflows v1: starts the workflows whose trigger step is this routine; true means they replace the routine's own prompt. */
   workflows?: (routineId: string, manual: boolean) => boolean;
 
   constructor(private repos: Repos, private router: RoomRouter, private opts: { timezone?: () => string } = {}) {}
 
-  /** The zone cron patterns and local one-shot times are read in. */
   timezone(): string {
     return this.opts.timezone?.() ?? settings.get().timezone;
   }
@@ -33,10 +29,6 @@ export class RoutineScheduler {
     }
   }
 
-  /**
-   * Validates and normalises a schedule. `onceAt` wins over `cron`: epoch ms, or a local date-time string
-   * (`2026-11-02T09:00`) read in `timezone`. A one-shot in the past is refused, as is an empty cron.
-   */
   static resolveSchedule(i: { cron?: string; onceAt?: number | string | null }, timezone: string, now = Date.now()): Schedule | { error: string } {
     if (i.onceAt !== undefined && i.onceAt !== null) {
       let at: number | null;
@@ -59,11 +51,9 @@ export class RoutineScheduler {
     return bad ? { error: 'Invalid cron: ' + bad } : { cron, onceAt: null };
   }
 
-  /** Schedules every enabled routine, then fires one-shots whose time passed while the hub was down. */
   start() {
     this.reload();
     this.zone = this.timezone();
-    // A new time zone moves every cron routine, so reschedule when it changes.
     this.offSettings ??= events.onEvent((ev) => {
       if (ev.type === 'settings.changed' && ev.settings.timezone !== this.zone) {
         this.zone = ev.settings.timezone;
@@ -72,7 +62,6 @@ export class RoutineScheduler {
     });
     const now = Date.now();
     for (const r of this.repos.listRoutines()) {
-      // Still enabled means it never fired for real (firing switches a one-shot off; "Run now" does not).
       if (r.enabled && r.onceAt !== null && r.onceAt <= now) this.fire(r.id);
     }
   }
@@ -114,7 +103,6 @@ export class RoutineScheduler {
     }
   }
 
-  /** `manual`: "Run now" from the UI. It does not use up a one-shot, which still fires at its time. */
   fire(routineId: string, opts: { manual?: boolean } = {}): boolean {
     const r = this.repos.getRoutine(routineId);
     if (!r) return false;
@@ -136,10 +124,8 @@ export class RoutineScheduler {
     return true;
   }
 
-  /** Books the fire on the routine (last and next run) and spends a one-shot. */
   private afterFire(r: Routine, opts: { manual?: boolean }) {
     if (r.onceAt !== null && !opts.manual) {
-      // A one-shot is done once it fires: switch it off so neither a reload nor a restart fires it again.
       this.jobs.get(r.id)?.stop();
       this.jobs.delete(r.id);
       this.repos.updateRoutine(r.id, { lastRunAt: Date.now(), nextRunAt: null, enabled: false });

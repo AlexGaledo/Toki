@@ -53,7 +53,6 @@ beforeEach(async () => {
   await hub.account.signOut();
 });
 
-/** Raw request, so the test controls Host and can leave the token off. */
 function request(
   method: string, p: string, opts: { body?: unknown; token?: string | null; host?: string } = {},
 ): Promise<{ status: number; headers: http.IncomingHttpHeaders; text: string }> {

@@ -9,7 +9,6 @@ import { McpServerStore, maskArgs } from '../services/outsideMcpStore.js';
 import { redact } from '../providers/redact.js';
 import { listAudit } from '../services/AuditLog.js';
 
-// Password hashing is slow on purpose.
 vi.setConfig({ testTimeout: 60_000 });
 
 const TOKEN = 'mcp-servers-test-hub-token';
@@ -380,7 +379,6 @@ describe('a stored token stays with its origin', () => {
     fetchImpl = async () => new Response('{}', { status: 200 });
     await request('POST', '/api/mcp-servers/wika/check');
     expect(bearer(0)).toBeUndefined();
-    // A hand-written entry has no binding and is still honoured.
     fs.writeFileSync(FILE, JSON.stringify({ wika: { url: remote.url, token: remote.token, bots: ['wika-backend'] } }));
     expect(outsideMcpFor('wika-backend', null, FILE)[0]).toMatchObject({ token: remote.token });
   });

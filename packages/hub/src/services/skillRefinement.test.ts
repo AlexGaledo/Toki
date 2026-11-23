@@ -14,8 +14,6 @@ import { REFLECTION_PASS_BUDGET_USD, SkillReflection, parseReflection, skillsUse
 import { lineDiff } from './lineDiff.js';
 import type { PassOutcome } from './AutoMemory.js';
 
-/** P6 (6.2, 6.3): skill versions, distilling a recording, corrections, and opt-in reflection. Never applied silently. */
-
 const uniq = 'p6' + process.pid.toString(36);
 const names: string[] = [];
 const name = (s: string) => { const n = uniq + '-' + s; names.push(n); return n; };
@@ -69,11 +67,9 @@ describe('skill versions', () => {
 
     const v2 = skills.proposeVersion(live.id, SKILL_V1(n).replace('Click the "Download" link', 'Click the "Export" button'), { origin: 'correction', note: 'no, use the Export button' });
     expect(v2).toMatchObject({ skillId: live.id, version: 2, status: 'pending', origin: 'correction', note: 'no, use the Export button' });
-    // Nothing applied: pool file, DB row and the bot's copy are as they were.
     expect(skills.readMarkdown(repos.getSkill(live.id)!)).toContain('"Download" link');
     expect(fs.readFileSync(pluginMd, 'utf8')).toContain('"Download" link');
     expect(repos.getSkill(live.id)!.version).toBe(1);
-    // The pool lists the skill once, with its pending count; the version row is not a pool skill.
     const pool = repos.listSkills().filter((s) => s.name.startsWith(n));
     expect(pool).toEqual([expect.objectContaining({ id: live.id, pendingVersions: 1, version: 1, parentId: null })]);
 
@@ -92,7 +88,6 @@ describe('skill versions', () => {
     expect(out.skill.version).toBe(2);
     expect(skills.readMarkdown(out.skill)).toContain('"Export" button');
     expect(fs.readFileSync(pluginMd, 'utf8')).toContain('"Export" button');
-    // v3 was proposed against v1, so it is now stale; rejecting keeps it listed.
     expect(skills.versionDetail(live.id, v3.id)!.stale).toBe(true);
     skills.decideVersion(live.id, v3.id, 'reject');
     expect(skills.listVersions(live.id).map((v) => [v.version, v.status])).toEqual([[3, 'rejected'], [2, 'approved']]);
@@ -138,7 +133,6 @@ describe('skill versions', () => {
   });
 });
 
-// ---- distill (6.2) ----
 const REC_ID = '2026-11-01T09-30-00-000Z';
 function fakeRecorder(trace: TraceEvent[], state: RecordingInfo['state'] = 'stopped') {
   const linked: string[] = [];
@@ -185,9 +179,7 @@ describe('SkillDistiller', () => {
     expect(call.prompt).toContain('click button "Export" [[data-testid="export"]]');
     expect(call.prompt).toContain('type into textbox "Password" [#pwd]: "«secret»"');
     expect(call.prompt).not.toContain('frames/');
-    // The pass is on the bill.
     expect(repos.usageTotals({ botId: bot.id }).costUsd).toBeCloseTo(0.03);
-    // A pending skill is not given to any bot.
     repos.setBotSkills(bot.id, [out.skill.id]);
     expect(skills.materialize(bot.id, bot.handle)).toBeNull();
   });
@@ -219,7 +211,6 @@ describe('SkillDistiller', () => {
     expect(llm.calls[0].o.budgetUsd).toBeLessThanOrEqual(0.25);
     expect(skills.readMarkdown(repos.getSkill(live.id)!)).toContain('"Download" link');
     expect(skills.versionDetail(live.id, v.id)!.diff.some((l) => l.op === '+' && l.text.includes('"Export" button'))).toBe(true);
-    // The same correction again yields the same text: refused, not a duplicate.
     skills.decideVersion(live.id, v.id, 'approve');
     await expect(d.correct(live.id, 'no, use the Export button', null)).rejects.toThrow(/same as the live/);
   });
@@ -253,7 +244,6 @@ describe('SkillDistiller', () => {
   });
 });
 
-// ---- reflection (6.3) ----
 function toolMsg(repos: Repos, roomId: string, botId: string, turnId: string, nameArg: string): Message {
   return repos.insertMessage({ roomId, authorType: 'bot', authorId: botId, kind: 'tool', text: 'Skill', payload: { toolUseId: 't' + Math.random(), name: 'Skill', input: { skill: nameArg }, done: true, output: 'ok' }, causeId: 'c', hop: 0, turnId });
 }
@@ -294,14 +284,11 @@ describe('SkillReflection', () => {
     expect(w.llm.calls[0].prompt).toContain('[tool Skill]');
     const [v] = w.skills.listVersions(w.live.id);
     expect(v).toMatchObject({ status: 'pending', origin: 'reflection', createdByBot: w.bot.id, note: 'The Download link is gone; Export works' });
-    // Never applied: the live skill and its version are unchanged.
     expect(w.skills.readMarkdown(w.repos.getSkill(w.live.id)!)).toContain('"Download" link');
     expect(w.repos.getSkill(w.live.id)!.version).toBe(1);
-    // Spend is recorded as a reflection pass; the room is told a proposal waits.
     expect(w.repos.usageBy('causeKind').find((g) => g.key === 'reflection')?.costUsd).toBeCloseTo(0.01);
     const sys = w.repos.messagesAfter(w.room.id, 0).filter((m) => m.kind === 'system');
     expect(sys.pop()?.text).toMatch(/suggested a change to the skill .* nothing changed yet/);
-    // The counter restarted.
     await w.runSkill();
     expect(w.llm.calls).toHaveLength(1);
   });
@@ -317,7 +304,7 @@ describe('SkillReflection', () => {
     const w = world({ every: 1, cap: 0.05 });
     await w.runSkill();
     expect(w.llm.calls).toHaveLength(1);
-    await w.runSkill(); // 0.01 spent + 0.05 per pass > 0.05 cap
+    await w.runSkill();
     expect(w.llm.calls).toHaveLength(1);
   });
 

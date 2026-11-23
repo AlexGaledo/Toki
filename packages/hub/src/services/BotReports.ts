@@ -15,10 +15,6 @@ export interface BotReport {
 }
 export class ReportLimited extends Error {}
 
-/**
- * G5: what a bot says about itself. A blocked-site report is a row the owner can review; feedback is appended to a
- * local file. Both are rate limited per bot and stay on this machine.
- */
 export class BotReports {
   constructor(private db: Db, private file: string = path.join(DATA_DIR, 'feedback.jsonl'), private now: () => number = Date.now) {}
 
@@ -56,7 +52,6 @@ export class BotReports {
     fs.appendFileSync(this.file, JSON.stringify({ at: this.now(), botId, text }) + '\n');
     this.db.run("INSERT INTO bot_reports (id,bot_id,type,status,created_at) VALUES (?,?,'feedback','resolved',?)", nanoid(10), botId, this.now());
   }
-  /** Newest last, at most `limit` entries. */
   readFeedback(limit = 200): { at: number; botId: string; text: string }[] {
     let raw = '';
     try { raw = fs.readFileSync(this.file, 'utf8'); } catch { return []; }
