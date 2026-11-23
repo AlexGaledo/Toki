@@ -21,7 +21,7 @@ export const DEV_TEAM_TEMPLATE = {
    * Every clone gets these, whatever its source has. safe-shipping is what turns on the push block (shipGuard.ts).
    * project-map (v3) tells a bot how to write the project's map.json; it ships with the hub (builtinSkills.ts).
    */
-  skills: ['safe-shipping', 'project-map'],
+  skills: ['safe-shipping', 'project-map', 'prove-it'],
   rules: [
     "Never revert, discard, stash away or overwrite changes you did not make, even to tidy up. If someone else's work is in the way, say so and leave it.",
     'Never commit to or push the default branch. Work on a branch and open a pull request for the owner to review.',

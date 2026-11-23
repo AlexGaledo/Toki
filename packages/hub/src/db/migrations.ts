@@ -933,3 +933,9 @@ registerMigrations([310, 319], [
     },
   },
 ]);
+
+// 320-329  Corrections become checks: a deny rule the owner approved from a bot's `propose_rule` card carries what the
+//          bot does instead. NULL on every other rule (agent/botTools.ts propose_rule, PermissionBroker.learnedRule).
+registerMigrations([320, 329], [
+  { version: 320, name: 'approval_policies.message', up: (db) => addColumnIfMissing(db, 'approval_policies', 'message', 'TEXT') },
+]);

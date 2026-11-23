@@ -41,7 +41,7 @@ export interface LaneItem {
   // ---- P5 ----
   /** Most this item's turn may spend (a trigger's remaining daily budget); the cause cap still applies. */
   budgetUsd?: number;
-  /** Re-queued after a cut-off turn: run it in a fresh session. */
+  /** Re-queued after a token-brake cut-off: run it in a fresh session. */
   freshSession?: boolean;
   /** Queue controls: the message behind this item (a person's, a routine's or a trigger's), journaled. */
   messageId?: string;
@@ -123,6 +123,10 @@ export function requeuedNote(botName: string, n: number, stopped: boolean): stri
 /** A turn that stopped because it ran out of room (token brake, step limit), not because it broke. */
 export function isCutOff(error: string | undefined): boolean {
   return !!error && /^(token_budget|error_max_turns)/.test(error);
+}
+/** The cut was the token brake (in the provider, or between continuations), not just the step limit. */
+export function cutByTokens(result: Pick<TurnResult, 'error' | 'braked'>): boolean {
+  return !!result.braked || /^token_budget/.test(result.error ?? '');
 }
 
 const STATE_RANK: Record<BotState, number> = { idle: 0, done: 1, thinking: 2, working: 3, waiting: 4, blocked: 5, error: 6 };
@@ -483,10 +487,13 @@ export class RoomRouter {
 
   /**
    * A turn the token brake or the step limit stopped is unfinished work, not a failure: nobody else will pick it up.
-   * The same bot goes again in a fresh session, up to CUTOFF_RETRIES times per request; after that the coordinator
-   * is woken to decide, so the chain never just stops. Routine runs are left to their schedule.
+   * The same bot goes again, up to CUTOFF_RETRIES times per request; after that the coordinator is woken to decide, so
+   * the chain never just stops. Routine runs are left to their schedule.
+   * A step-limit cut resumes the same session, so long design or coding work keeps its place; BotRunner still rotates
+   * it (and says so in the room) when the context grew past ROTATE_CONTEXT_TOKENS or was never measured. Only a
+   * token-brake cut asks for a fresh session: that session is what read too much.
    */
-  private afterCutOff(bot: Bot, roomId: string, req: TurnRequest, items: LaneItem[]) {
+  private afterCutOff(bot: Bot, roomId: string, req: TurnRequest, items: LaneItem[], byTokens: boolean) {
     if (items.some((i) => i.ownerRef)) return;
     const room = this.repos.getRoom(roomId);
     if (!room || !room.memberIds.includes(bot.id)) return;
@@ -495,12 +502,22 @@ export class RoomRouter {
     this.cutOffs.set(key, tries);
     if (this.cutOffs.size > 500) this.cutOffs.delete(this.cutOffs.keys().next().value!);
     if (tries <= CUTOFF_RETRIES) {
-      this.note(room, '@' + bot.handle + ' was cut off before finishing, so it continues in a fresh session (' + tries + '/' + CUTOFF_RETRIES + ').', req.causeId, req.hop);
+      const count = ' (' + tries + '/' + CUTOFF_RETRIES + ').';
+      // The fresh-session line itself comes from BotRunner, and only when the session really rotates.
+      this.note(room, '@' + bot.handle + (byTokens ? ' stopped at the token limit and goes again' : ' ran out of steps and keeps going') + count, req.causeId, req.hop);
       this.enqueue(bot, room, {
-        causeId: req.causeId, hop: req.hop, triggerSeq: this.repos.maxSeq(room.id), causeKind: req.causeKind, freshSession: true,
-        note: '(Your last turn was cut off before you finished, because it read too much. You are in a fresh session now. ' +
-          'Check the files and the room to see what is already done, then finish the task and report. Keep this turn small: ' +
-          'read only the files you need, never node_modules, build output or long logs.)',
+        causeId: req.causeId, hop: req.hop, triggerSeq: this.repos.maxSeq(room.id), causeKind: req.causeKind,
+        ...(byTokens
+          ? {
+              freshSession: true,
+              note: '(Your last turn was cut off before you finished, because it read too much. You are in a fresh session now. ' +
+                'Check the files and the room to see what is already done, then finish the task and report. Keep this turn small: ' +
+                'read only the files you need, never node_modules, build output or long logs.)',
+            }
+          : {
+              note: '(Your last turn ran out of steps before you finished. Carry on from where you left off: check what is ' +
+                'already done, finish the task and report. Do not start over.)',
+            }),
       });
       return;
     }
@@ -689,7 +706,7 @@ export class RoomRouter {
         try { this.skillReflection?.afterTurn(bot.id, room.id, result); } catch (e) { console.error('[skill-reflection]', e); }
         // P2: a parked turn is not finished; its routine run stays open until the resumed turn ends.
         for (const i of items) if (!(result.parked && i.ownerRef)) i.onDone?.(result);
-        if (!result.ok && !left && isCutOff(result.error)) this.afterCutOff(bot, roomId, req, items);
+        if (!result.ok && !left && isCutOff(result.error)) this.afterCutOff(bot, roomId, req, items, cutByTokens(result));
         if (result.ok && result.finalText && !left) {
           // re-read members: the turn may have created or added bots
           const freshRoom = this.repos.getRoom(roomId) ?? room;

@@ -6,3 +6,6 @@
 *.js      text eol=lf
 *.sh      text eol=lf
 *.service text eol=lf
+
+# Vitest file snapshots are compared byte for byte; keep them LF on a Windows (autocrlf) checkout too.
+**/__snapshots__/** text eol=lf

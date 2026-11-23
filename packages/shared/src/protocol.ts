@@ -19,6 +19,18 @@ import type { WorkflowApprovalCard, WorkflowRunSummary } from './workflows.js';
  */
 export interface ContextUsage { contextTokens: number; window: number; rotateAt: number | null }
 
+/**
+ * B1 "done needs evidence": on a bot's final `text` message of a turn that changed files (Edit, Write, MultiEdit,
+ * NotebookEdit or a provider's equivalent) and ran no test, build, lint or screenshot after its last change. Set by the
+ * hub from the turn's tool calls (agent/verification.ts), never by the bot. A label only: the message still posts.
+ */
+export const MessageVerificationSchema = z.object({
+  state: z.literal('unverified'),
+  /** e.g. "edited 3 files, ran no test/build/screenshot after". */
+  reason: z.string().max(200),
+});
+export type MessageVerification = z.infer<typeof MessageVerificationSchema>;
+
 // ---------- server -> client ----------
 export type ServerEvent =
   | { type: 'hello'; bots: Bot[]; rooms: Room[]; botStates: Record<string, BotState>; settings: Settings; /** Who this connection is (P9): a paired device has narrower rights (guard.ts DEVICE_ALLOW). */ principal?: 'hub' | 'device'; /** This connection carries a browser session (owner password), so it may allow sign-in-required cards. */ signedIn?: boolean; /** Every card still waiting, including ones in rooms this client has not loaded. */ openApprovals?: OpenApproval[] }
