@@ -1,23 +1,21 @@
 import { z } from 'zod';
 
 /**
- * Saved logins a bot can type into a page with `fill_credential` (G4). The owner stores a name, the site's origin,
- * a username and a secret. The secret is write-only: it goes in over REST and is read back only by the hub, at the
- * moment it is typed into the page. No type here has a field that could carry it out.
+ * The secret is write-only: it goes in over REST and is read back only by the hub, when it is typed into the page.
+ * No type here has a field that could carry it out.
  */
 export const MAX_CREDENTIALS = 50;
 export const MAX_CREDENTIAL_NAME = 40;
 export const MAX_CREDENTIAL_USERNAME = 200;
 export const MAX_CREDENTIAL_SECRET = 1024;
 
-/** What a bot calls it: letters, digits, space, dot, dash, underscore; starts with a letter or digit. */
 export const CREDENTIAL_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 ._-]*$/;
 
-/** What listings, the REST API and Settings show. There is deliberately no `secret` here. */
+/** Deliberately has no `secret` field. */
 export interface CredentialInfo {
   id: string;
   name: string;
-  /** Exact origin the login belongs to, e.g. `https://github.com`. A page elsewhere is refused. */
+  /** A page on any other origin is refused. */
   origin: string;
   username: string;
   createdAt: number;
@@ -26,13 +24,12 @@ export interface CredentialInfo {
 }
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0']);
-/** A bot can run its own local server and ask to sign in to it, so a saved login is never bound to this machine. */
+/** A bot can run its own local server, so a saved login is never bound to this machine. */
 const isLocalHost = (h: string): boolean => LOCAL_HOSTS.has(h) || h.endsWith('.localhost') || /^127\.\d+\.\d+\.\d+$/.test(h);
 
 /**
- * The exact origin (`scheme://host[:port]`, lowercase, default port dropped) a page URL belongs to, or null when a
- * login must not be bound to it: not https, localhost or a loopback address, embedded user:password, or no host.
- * The same form the browser reports as `location.origin`, so the two compare with `===`.
+ * `scheme://host[:port]`, lowercase, default port dropped: the form `location.origin` reports, compared with `===`.
+ * Null for non-https, localhost or loopback, embedded user:password, or no host.
  */
 export function normalizeCredentialOrigin(input: string): string | null {
   let u: URL;
@@ -57,6 +54,5 @@ const secret = z.string().min(1).max(MAX_CREDENTIAL_SECRET).refine((s) => !/\0/.
 
 export const CredentialCreateSchema = z.object({ name, origin, username: username.default(''), secret }).strict();
 export type CredentialCreate = z.infer<typeof CredentialCreateSchema>;
-/** Every field optional; an absent `secret` keeps the stored one. */
 export const CredentialPatchSchema = z.object({ name: name.optional(), origin: origin.optional(), username: username.optional(), secret: secret.optional() }).strict();
 export type CredentialPatch = z.infer<typeof CredentialPatchSchema>;

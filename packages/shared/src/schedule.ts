@@ -1,24 +1,14 @@
-/**
- * P3: routine schedule presets, the friendly side of a cron pattern. The Routines tab edits a preset plus a
- * time; this turns it into the cron the hub stores (read in `settings.timezone`) and back again. Anything a
- * preset cannot express is `custom` and edited as raw cron under "Advanced".
- */
 export const SCHEDULE_PRESETS = ['once', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly', 'custom'] as const;
 export type SchedulePreset = (typeof SCHEDULE_PRESETS)[number];
 
 export interface ScheduleParts {
   preset: SchedulePreset;
-  /** `HH:MM`, 24-hour. */
   time: string;
-  /** `YYYY-MM-DD`, for `once`. */
   date: string;
   /** 0 = Sunday … 6 = Saturday, for `weekly`. */
   weekday: number;
-  /** 1–31, for `monthly` and `yearly`. */
   monthDay: number;
-  /** 1–12, for `yearly`. */
   month: number;
-  /** Raw pattern, for `custom`. */
   cron: string;
 }
 
@@ -31,7 +21,6 @@ const hm = (time: string): [number, number] => {
   return m ? [Math.min(23, Number(m[1])), Math.min(59, Number(m[2]))] : [9, 0];
 };
 
-/** The cron for a recurring preset (`once` has none: it is a date-time; `custom` returns its raw cron). */
 export function presetToCron(p: ScheduleParts): string {
   const [h, m] = hm(p.time);
   switch (p.preset) {
@@ -45,7 +34,6 @@ export function presetToCron(p: ScheduleParts): string {
   }
 }
 
-/** Reads a stored cron back into a preset; anything else is `custom`. Only the fields the preset uses are set. */
 export function cronToPreset(cron: string): Partial<ScheduleParts> & { preset: SchedulePreset } {
   const f = cron.trim().split(/\s+/);
   const int = (s: string, lo: number, hi: number) => (/^\d{1,2}$/.test(s) && Number(s) >= lo && Number(s) <= hi ? Number(s) : null);
@@ -68,7 +56,6 @@ export function cronToPreset(cron: string): Partial<ScheduleParts> & { preset: S
   return { preset: 'custom', cron: cron.trim() };
 }
 
-/** One line for a routine list: "Weekdays at 09:00", "Every 3 May at 08:30", or the raw cron. */
 export function describeCron(cron: string): string {
   const p = cronToPreset(cron);
   switch (p.preset) {
@@ -81,7 +68,6 @@ export function describeCron(cron: string): string {
   }
 }
 
-/** `{ date: 'YYYY-MM-DD', time: 'HH:MM' }` for an instant as the clock reads in `timeZone`. */
 export function zonedParts(ms: number, timeZone: string): { date: string; time: string } {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })

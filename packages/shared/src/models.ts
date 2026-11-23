@@ -1,4 +1,3 @@
-/** How many bots one room can hold. Rooms bigger than this get noisy and slow, and every mention fans out to all of them. */
 export const MAX_ROOM_BOTS = 20;
 
 import type { Approvals, ProviderId } from './providers.js';
@@ -7,14 +6,13 @@ import type { MessageVerification } from './protocol.js';
 
 export type BotState = 'idle' | 'thinking' | 'working' | 'waiting' | 'blocked' | 'done' | 'error';
 
-// 'Browser' and 'Desktop' are not Claude Code built-ins: Browser = Playwright MCP attached to the shared screen
-// Chromium; Desktop = screenshot/click/type on the virtual desktop (computer use).
+// 'Browser' and 'Desktop' are not Claude Code built-ins: Playwright MCP on the shared Chromium, and computer use on
+// the virtual desktop.
 export const BUILTIN_TOOLS = [
   'Read', 'Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'Bash', 'WebSearch', 'WebFetch', 'Browser', 'Desktop', 'NotebookEdit', 'Skill', 'Task',
 ] as const;
 export type BuiltinTool = (typeof BUILTIN_TOOLS)[number];
 
-/** A person on this hub. The id is who they are; the display name can change at any time. */
 export interface User {
   id: string;
   displayName: string;
@@ -23,7 +21,7 @@ export interface User {
   createdAt: number;
 }
 
-/** One browser signed in with the owner's password. Never carries the token or its hash. */
+/** Never carries the token or its hash. */
 export interface UserSessionInfo {
   id: string;
   userAgent: string | null;
@@ -34,7 +32,7 @@ export interface UserSessionInfo {
   current: boolean;
 }
 
-/** One row of the activity log. Labels and ids only, never request bodies. */
+/** Labels and ids only, never request bodies. */
 export interface AuditEntry {
   id: number;
   at: number;
@@ -54,9 +52,6 @@ export const MODELS = [
 ] as const;
 export const DEFAULT_MODEL = 'claude-sonnet-5';
 
-/**
- * The line icons a bot can wear. The web app maps each key to a glyph; the bot tools use this list as their enum.
- */
 export const BOT_ICON_KEYS = [
   'bot', 'cpu', 'compass', 'wrench', 'pen', 'smile', 'brain', 'shield', 'radar', 'anchor', 'atom', 'feather', 'hammer', 'map', 'orbit', 'hexagon',
   'search', 'terminal', 'globe', 'sparkles', 'palette', 'rocket', 'database',
@@ -64,43 +59,25 @@ export const BOT_ICON_KEYS = [
 ] as const;
 export type BotIconKey = (typeof BOT_ICON_KEYS)[number];
 export const isBotIconKey = (v: unknown): v is BotIconKey => (BOT_ICON_KEYS as readonly unknown[]).includes(v);
-/** The icons drawn as a whole character rather than a line glyph on a tinted circle. */
 export type BotCharacterKey = Extract<BotIconKey, `blob-${string}`>;
 export const isBotCharacterKey = (v: unknown): v is BotCharacterKey => isBotIconKey(v) && v.startsWith('blob-');
-/** A bot's latest message, shown under its name in the sidebar. */
 export interface BotPreview { text: string; at: number }
-/** One result of GET /api/search. `seq` places it in its room; `snippet` is the text around the match. */
 export interface SearchHit { id: string; roomId: string; roomName: string; seq: number; snippet: string; createdAt: number }
-/** How many bots fit on the sidebar's podium. */
 export const MAX_PODIUM_BOTS = 3;
 
-/** Longest stored avatar: `img:` plus a SHA-256 in hex. */
 export const MAX_AVATAR_LENGTH = 68;
-/** An uploaded picture, named by the SHA-256 of its bytes. The hash is the only thing about it a client ever supplies. */
 export const isMediaRef = (v: unknown): v is string => typeof v === 'string' && /^img:[0-9a-f]{64}$/.test(v);
-/** The hash inside a reference. Call after {@link isMediaRef}. */
 export const mediaHash = (ref: string): string => ref.slice('img:'.length);
-/** An uploaded file or video on a chat message (`POST /api/files`), named by the SHA-256 of its bytes. */
 export const isFileRef = (v: unknown): v is string => typeof v === 'string' && /^file:[0-9a-f]{64}$/.test(v);
-/** The hash inside a file reference. Call after {@link isFileRef}. */
 export const fileHash = (ref: string): string => ref.slice('file:'.length);
-/** One entry of the composer's `/` menu. */
 export interface SlashCommandInfo {
-  /** Without the slash. */
   name: string;
   description: string;
-  /**
-   * `claude`: a Claude Code command, run by the Claude CLI itself (other providers just read the text and say they do
-   * not have it). `skill`: a skill one of the room's bots has. `toki`: handled by the app, never sent to a bot.
-   */
   source: 'claude' | 'skill' | 'toki';
   argumentHint?: string;
 }
 
-/**
- * Claude Code's own commands that make sense for a bot (no terminal UI, no login or settings screens). Sent on its own,
- * one of these reaches a Claude bot as the raw command, so the CLI runs it on that bot's session.
- */
+/** Sent on its own, one of these reaches a Claude bot as the raw command and the CLI runs it on that bot's session. */
 export const CLAUDE_SLASH_COMMANDS: readonly SlashCommandInfo[] = [
   { name: 'compact', description: 'Summarize this conversation to free up context', source: 'claude', argumentHint: '[what to keep]' },
   { name: 'context', description: 'Show how full the context window is', source: 'claude' },
@@ -113,51 +90,38 @@ export const CLAUDE_SLASH_COMMANDS: readonly SlashCommandInfo[] = [
   { name: 'todos', description: 'List the current to-do items', source: 'claude' },
 ];
 
-/** Commands the app handles itself. `/clear` starts a fresh session for every bot in the room. */
 export const TOKI_SLASH_COMMANDS: readonly SlashCommandInfo[] = [
   { name: 'clear', description: 'Start a fresh conversation for the bots in this room (the chat history stays)', source: 'toki' },
 ];
 
-/** The command a message starts with (`/compact keep the plan` → `compact`), lower case, or null. */
 export function slashCommandOf(text: string): string | null {
   const m = /^\/([a-z][a-z0-9:_-]{0,63})(?=\s|$)/i.exec(text.trim());
   return m ? m[1].toLowerCase() : null;
 }
 
-/** Anything a chat message may carry: a picture or a file. */
 export const isAttachmentRef = (v: unknown): v is string => isMediaRef(v) || isFileRef(v);
 
 export interface Bot {
   id: string;
   name: string;
-  handle: string; // lowercase, no spaces; mentioned as @handle
+  handle: string;
   title: string;
-  description: string; // becomes CLAUDE.md / identity
-  avatar: string; // a BOT_ICON_KEYS key, an uploaded picture (isMediaRef), or '' to derive the icon from the id
+  description: string;
+  avatar: string;
   model: string;
   allowedTools: string[];
-  maxBudgetUsd: number; // per turn
-  /** Background pass that saves lasting facts from the room to memory.md every `autoMemoryEvery` turns. */
+  maxBudgetUsd: number;
   autoMemory: boolean;
-  autoMemoryEvery: number; // completed turns per (bot, room) between passes
+  autoMemoryEvery: number;
   createdAt: number;
-  /**
-   * M6: the provider this bot runs on, or null to follow the default (settings.provider). Only the owner sets it
-   * (REST); no bot tool can. Absent from hubs older than v0.5: treat as null.
-   */
+  /** Null follows settings.provider. Absent from hubs older than v0.5: treat as null. */
   provider?: ProviderId | null;
-  /**
-   * M6: the one backup the owner picked for when this bot's provider hits its limit, or null. The failover card (M8)
-   * offers it. Owner-only, like `provider`. Absent from older hubs.
-   */
   backup?: BotBackup | null;
 }
-/** A bot's backup: a provider and one of its models. */
 export interface BotBackup {
   provider: ProviderId;
   model: string;
 }
-/** Bounds and default for `Bot.autoMemoryEvery`. */
 export const AUTO_MEMORY_EVERY = { default: 10, min: 3, max: 100 } as const;
 
 export type RoomKind = 'dm' | 'group';
@@ -168,12 +132,7 @@ export interface Room {
   memberIds: string[];
   coordinatorBotId: string | null;
   createdAt: number;
-  /** Group chats: a BOT_ICON_KEYS key, an uploaded picture (isMediaRef), or '' for the plain group mark. */
   avatar?: string;
-  /**
-   * The composer's model pick for this chat (one of CHAT_MODELS), or null for each bot's own model. It applies to
-   * turns a person starts here, never to hand-offs or schedules, and never changes the bot.
-   */
   chatModel?: string | null;
 }
 
@@ -194,11 +153,9 @@ export interface ApprovalPayload {
   toolInput: unknown;
   reason: string;
   danger: boolean;
-  /** `expired`: the card was still open when the hub stopped, so nothing is waiting on it any more. */
   status: 'pending' | 'allow' | 'always' | 'deny' | 'timeout' | 'expired';
-  /** P2: a routine/trigger turn stopped waiting on this card; it resumes when the card is answered. */
   parked?: boolean;
-  /** Answered once only (run_on_pc, outside MCP tools): "always" is never remembered, so the card does not offer it. */
+  /** "always" is never remembered, so the card does not offer it. */
   once?: boolean;
   /** Only a browser signed in with the owner's password may allow it (a job on the PC); the hub token may only deny. */
   signInRequired?: boolean;
@@ -208,10 +165,8 @@ export interface HandoffPayload {
   toBotId: string;
   task: string;
   context?: string;
-  /** Set when the target works outside this chat, in its own: the chat that holds its work. */
   workRoomId?: string;
 }
-/** On a `text` message: a bot outside this chat reporting back. `workRoomId` is the chat that holds its work. */
 export interface HandoffResultPayload {
   workRoomId: string;
 }
@@ -219,20 +174,13 @@ export interface RoutinePayload {
   routineId: string;
   runId: string;
   name: string;
-  /** "Run now": a person started it, not the schedule (the attended check reads this). */
   manual?: boolean;
 }
-/**
- * On the system note that starts a workflow run (its cause message): every step and hand-off of the run shares this
- * thread. `runId` is the `workflow_runs` row.
- */
 export interface WorkflowPayload {
   workflowId: string;
   runId: string;
   name: string;
-  /** On a step's prompt message: the step. Absent on the system note that starts the run. */
   nodeId?: string;
-  /** "Run now": a person started it, not the schedule or an event. */
   manual?: boolean;
 }
 
@@ -242,45 +190,22 @@ export type FormField =
   | { id: string; kind: 'choice'; label: string; help?: string; required: boolean; choices: string[] }
   | { id: string; kind: 'yesno'; label: string; help?: string; required: boolean };
 export type FormAnswer = string | boolean;
-/** `kind: 'form'` message: a bot asked the owner for a few values. `status` leaves `pending` once, for good. */
 export interface FormPayload {
   botId: string;
   title: string;
   description?: string;
   fields: FormField[];
-  /** `expired`: the hub stopped, or the bot's turn ended, while it waited. */
   status: 'pending' | 'submitted' | 'cancelled' | 'timeout' | 'expired';
-  /** What the owner sent, once submitted: field id to value. */
   answers?: Record<string, FormAnswer>;
 }
 /** A button a bot attached to a message. Exactly one of `say` (sends that text as the owner's own message) or `href`. */
 export interface CtaButton { label: string; say?: string; href?: string }
-/** On a `text` message: up to {@link MAX_CTA_BUTTONS} buttons under it. */
 export interface CtaPayload { cta: CtaButton[] }
-/** On a bot's final `text` message of a turn (B1): the hub could not see the change checked. Merged into any other payload. */
 export interface VerificationPayload { verification: MessageVerification }
 
-/**
- * Steering (02 Phase 1). What a person's message does when it reaches a bot that is busy in that room:
- * `join` pushes it into the running turn (steer), `queue` waits for the turn to end (today's behaviour).
- */
 export const SEND_MODES = ['join', 'queue'] as const;
 export type SendMode = (typeof SEND_MODES)[number];
-/**
- * Why a message to a busy bot waits instead of joining its turn:
- * - `shortcut`: the sender chose queue (Ctrl+Enter or the send menu);
- * - `setting`: Settings > busyMessages is `queue`;
- * - `provider`: this bot's provider (or its installed CLI) cannot take messages mid-turn;
- * - `between-runs`: the bot was between steps (starting, retrying, continuing) and could not take it right then;
- * - `requeued`: it joined the turn, but the turn ended (Stop, an error) before the bot answered it, so it runs next;
- * - `paused`: the owner paused this bot's queue in this room (queue controls, 02 task 2.2).
- */
 export type QueueReason = 'shortcut' | 'setting' | 'provider' | 'between-runs' | 'requeued' | 'paused';
-/**
- * On a person's message that reached at least one busy bot: per bot id, whether it joined that bot's running turn
- * (`steered`: the turn id) or waits for the next one (`queued`). Per bot, because one message can steer one lane
- * and queue in another. A bot that was idle has no entry. Sent with `message.update`.
- */
 export interface DeliveryPayload {
   steered?: Record<string, string>;
   queued?: Record<string, { reason: QueueReason }>;
@@ -291,7 +216,7 @@ export interface Message {
   roomId: string;
   seq: number;
   authorType: AuthorType;
-  authorId: string | null; // bot id for bots, user id for people, null for system
+  authorId: string | null;
   kind: MessageKind;
   text: string;
   payload: ToolPayload | ApprovalPayload | HandoffPayload | HandoffResultPayload | RoutinePayload | WorkflowPayload | TriggerPayload | TakeoverPayload | TurnFailurePayload | FormPayload | CtaPayload | DeliveryPayload | VerificationPayload | null;
@@ -299,54 +224,32 @@ export interface Message {
   hop: number;
   turnId: string | null;
   createdAt: number;
-  /** Bot messages only (P8): the model that wrote it, and why the router chose that model. */
   model?: string;
   modelReason?: string;
-  /** Pictures attached to this message, each an uploaded reference (see {@link isMediaRef}). */
   attachments?: string[];
-  /** User messages only (B5): the id the sending client gave it, so the client can match its outbox entry. */
   clientMsgId?: string;
-  /** Queue controls (02 task 2.1b): the owner cancelled it before any bot read it. No bot is shown it. */
   cancelledAt?: number;
-  /** Queue controls: the owner edited its text while it was still queued. */
   editedAt?: number;
 }
 
-// ---------- queue controls (02 Phase 2) ----------
-/**
- * What started a queued lane item: a person's `message`, a bot's `handoff`, a `routine` or `trigger` fire, or
- * hub `followup` work (a cut-off retry, a nudge, a resume after an approval or a restart).
- */
 export type QueueItemKind = 'message' | 'handoff' | 'routine' | 'trigger' | 'followup';
-/** One item waiting in a bot's lane in a room, in the order it was queued. */
 export interface QueueItem {
-  /** The lane item's journal row; what `queue.cancel` and `queue.edit` name. Changes after a hub restart. */
   journalId: string;
-  /** The message behind it (a person's message, a routine or trigger prompt); null for a hand-off or follow-up. */
   messageId: string | null;
   kind: QueueItemKind;
   authorType: AuthorType | null;
   authorId: string | null;
-  /** The message's text cut to {@link QUEUE_PREVIEW_CHARS}, or the hub's note for a follow-up; '' when it has neither. */
   preview: string;
-  /** Why the message waits for this bot (its `DeliveryPayload.queued` reason), or null when the bot was idle then. */
   reason: QueueReason | null;
-  /** 1-based place in this lane. The lane's next turn takes every item at once, so this is order only, not turns. */
   position: number;
-  /** Only a person's own message, before any bot read it or any turn took it in. */
   editable: boolean;
-  /** Why `editable` is false, in words; absent when editable. */
   editRefusal?: string;
-  /** Only a person's own message. Hand-offs, routines, triggers and follow-ups are not cancelled from here. */
   cancellable: boolean;
 }
-/** A bot's queue in one room (`GET /api/rooms/:id/queue`, `queue.changed`). */
 export interface LaneQueue {
   botId: string;
   roomId: string;
-  /** The owner paused this queue: nothing new starts until resumed. A running turn finishes. Survives restarts. */
   paused: boolean;
-  /** A turn is in progress in this lane (or about to start); `queue.sendNow` interrupts it. */
   running: boolean;
   items: QueueItem[];
 }
@@ -362,7 +265,6 @@ export interface Routine {
   enabled: boolean;
   lastRunAt: number | null;
   nextRunAt: number | null;
-  /** P3: one-shot routine. Epoch ms it fires at; null for a cron routine. */
   onceAt: number | null;
 }
 export interface RoutineRun {
@@ -384,12 +286,8 @@ export interface Skill {
   source: SkillSource;
   reviewStatus: 'approved' | 'pending';
   createdByBot: string | null;
-  // ---- P6: skill refinement ----
-  /** The version now live (1 for a skill that was never revised). */
   version?: number;
-  /** Always null for a pool skill; candidate versions are listed under GET /api/skills/:id/versions. */
   parentId?: string | null;
-  /** Candidate versions waiting for review. */
   pendingVersions?: number;
 }
 
@@ -408,63 +306,36 @@ export interface UsageRow extends UsageTotals {
 }
 
 export interface HealthInfo {
-  /** Whether the active provider's CLI was found. Deliberately not where: see below. */
   ok: boolean;
   apiKeySource?: string;
-  // No account email, plan or path to the CLI here: GET /api/health answers without the hub token, and a
-  // path under the home directory spells out the machine's user name. All three live on the provider
-  // check (GET /api/providers, POST /api/providers/:id/check), which needs the token.
+  // No account email, plan or CLI path here: GET /api/health answers without the hub token, and a home-directory
+  // path spells out the machine's user name.
   error?: string;
-  /** Approvals mode in force right now: `settings.approvals`, unless the server environment pins it. */
   approvals: Approvals;
-  /** True when POCKETROCKET_BYPASS_PERMISSIONS pins `approvals`; Settings cannot change it (PUT answers 409). */
   approvalsLocked: boolean;
 }
 
-/**
- * GET /api/busy (and the answer to the maintenance hold routes). The updater waits for `blocking` to reach 0
- * before it stops the hub. Only work a restart would lose blocks: running turns and live (unparked) approval
- * cards. Queued lane items are journaled and resume after a restart, parked cards and open routine runs survive
- * one too, so those are reported for the dialog text only.
- */
 export interface BusyInfo {
-  /** running + liveCards. The one number a client gates on. */
   blocking: number;
-  /** Bot turns running right now. */
   running: number;
-  /** Approval cards a running turn is waiting on (not parked). */
   liveCards: number;
-  /** Bot/room lanes with queued items that have not started (display only). */
   pendingLanes: number;
-  /** Parked approval cards; they survive a restart (display only). */
   parkedCards: number;
-  /** Routine runs still open: running, queued or waiting on a parked card (display only). */
   waitingRuns: number;
-  /** Epoch ms when the maintenance hold ends, or null when there is none. */
   heldUntil: number | null;
 }
 
-// ---------- P8: model router and usage ----------
-/**
- * A bot whose model is `auto` lets the hub pick one per turn (`agent/ModelRouter.ts`): Haiku for background and
- * triage work, Sonnet by default, Opus when asked, when the bot moves itself up or when a turn has to be retried.
- * It always picks from the active provider's own list and never changes the bot's budget.
- */
 export const AUTO_MODEL = 'auto';
 export const AUTO_MODEL_INFO = { id: AUTO_MODEL, label: 'Auto', note: 'Sonnet, moves up when needed' } as const;
 
-/** What a model picker says next to Opus-class models. No multiplier: the real ratio depends on the plan. */
 export const HEAVY_MODEL_HINT = 'uses your plan limit much faster';
-/** True for the models that eat a subscription's usage limit fastest (Opus and above), on any provider. */
 export const isHeavyModel = (id: string): boolean => /opus|fable/i.test(id);
-/** A picker option's text: label, note, and the cost hint on a heavy model unless the note already says it. */
 export function modelOptionLabel(m: { id: string; label: string; note?: string }): string {
   const hint = isHeavyModel(m.id) && !/plan limit/i.test(m.note ?? '') ? HEAVY_MODEL_HINT : '';
   const extra = [m.note, hint].filter(Boolean).join(', ');
   return m.label + (extra ? ' — ' + extra : '');
 }
 
-/** What the composer's picker offers (Claude only; other providers keep each bot's own model). */
 export const CHAT_MODELS = [
   { id: AUTO_MODEL, label: 'Auto', note: 'Sonnet 5, moves up when needed' },
   { id: 'claude-sonnet-5', label: 'Sonnet 5', note: 'Everyday work' },
@@ -473,25 +344,14 @@ export const CHAT_MODELS = [
 ] as const;
 export const isChatModel = (v: unknown): boolean => CHAT_MODELS.some((m) => m.id === v);
 
-/** The owner's routing rules ride every prompt, so they stay short. */
 export const MAX_ROUTING_BYTES = 2048;
 
-/**
- * What started a turn. `user` a person's message, `bot` a hand-off from another bot, `routine` a scheduled
- * routine, `trigger` an outside event (P5), `workflow` a step of a workflow run, `memory` the auto-memory pass, `reflection` a skill reflection pass,
- * `training` a bot training pass.
- */
 export const CAUSE_KINDS = ['user', 'bot', 'routine', 'trigger', 'workflow', 'memory', 'reflection', 'training'] as const;
 export type CauseKind = (typeof CAUSE_KINDS)[number];
 
-/**
- * One row of a usage breakdown: `key` is a model id, a cause kind or a provider id; '' for rows recorded before the
- * field existed (P8 for model and cause, v0.5 for provider).
- */
 export interface UsageGroup extends UsageTotals {
   key: string;
 }
-/** GET /api/usage. `byModel`/`byCause` arrive from P8 hubs and `byProvider` from v0.5 hubs; older ones leave them out. */
 export interface UsageResponse {
   totals: UsageTotals;
   rows: UsageRow[];
@@ -500,23 +360,16 @@ export interface UsageResponse {
   byProvider?: UsageGroup[];
 }
 
-// ---------- P7: knowledge repo, voice ----------
-/** GET /api/knowledge, and the WS `knowledge.status` event. */
 export interface KnowledgeStatus {
-  /** settings.knowledgeRepo as last synced ('' = off). */
   source: string;
-  /** 'clone' = a git URL cloned to data/knowledge; 'link' = a local folder linked there; 'off' = none. */
   mode: 'off' | 'clone' | 'link';
-  /** Absolute path bots read from, or null while there is nothing to read. */
   dir: string | null;
   syncing: boolean;
   lastSyncedAt: number | null;
-  /** Short commit id of the clone after the last successful sync. */
   head: string | null;
   lastError: string | null;
 }
 
-/** A style note AutoMemory proposed for a bot's voice.md; applied only when the user approves it. */
 export interface VoiceProposal {
   id: string;
   botId: string;
@@ -524,95 +377,62 @@ export interface VoiceProposal {
   createdAt: number;
 }
 
-/** POST /api/skills/import-git result. Every imported skill starts `pending` review. */
 export interface SkillGitImportResult {
   imported: Skill[];
   skipped: { name: string; reason: string }[];
 }
 
-// ---------------------------------------------------------------------------------------------------
-// P1: per-bot computers. Each bot with Browser or Desktop gets its own display, Chromium profile and ports on
-// a server hub. They run as the same OS user, so this is separation, not isolation: never present it as such.
+// Per-bot computers run as the same OS user: separation, not isolation. Never present it as isolation.
 
-/** An approval card still waiting for an answer, sent in `hello` so Needs you is right before its room has loaded. */
 export interface OpenApproval {
   approvalId: string;
   botId: string;
   roomId: string;
 }
 
-/** asleep = stopped (disk kept); starting = unit started, waiting for Chromium; live = running. */
 export type ComputerState = 'asleep' | 'starting' | 'live';
 export interface ComputerStatus {
   botId: string;
-  /** False when this hub has no per-bot computers (desktop app, or a server with them turned off). */
   perBot: boolean;
   state: ComputerState;
-  /** 1-based slot (display, ports) once assigned; null before the bot ever needed one. */
   slot: number | null;
-  /** Shown as Always on: never stopped when idle, and started again after a server reboot. */
   keepAwake: boolean;
-  /** How many computers are Always on, and how many may be. One place under the cap always stays out of it. */
   alwaysOn?: { used: number; limit: number };
-  /** Last `du` of the computer's folder (bytes), refreshed hourly. */
   diskBytes: number;
-  /** Soft quota (bytes): warned at 80%, refused to start at 100%. */
   quotaBytes: number;
   lastUsedAt: number | null;
-  /** Why the last start failed (quota, every slot in use, ...), when it did. */
   reason?: string;
 }
 
-// ---------------------------------------------------------------------------------------------------
-// P2: take over, hand back, approvals while away (docs/specs/grok-bot-parity.md §2.2, §2.4).
-
-/**
- * Who drives a bot's computer. `agent`: the bot; the viewer is view-only. `user`: a person; the bot's desktop
- * and browser tools refuse. `paused`: nobody acts; the bot's turns wait in their lanes.
- */
 export const COMPUTER_CONTROLS = ['agent', 'user', 'paused'] as const;
 export type ComputerControl = (typeof COMPUTER_CONTROLS)[number];
 
 export interface ControlStatus {
   botId: string;
   control: ComputerControl;
-  /** Device id of whoever took control (client-chosen, informational), or null. */
   holder: string | null;
-  /** Epoch ms of the last change. */
   since: number;
-  /** The bot's open `request_takeover`, while there is one. `parked`: its turn ended and resumes on hand-back. */
   takeover: { messageId: string; roomId: string; reason: string; parked: boolean } | null;
 }
 
-/** `kind: 'takeover'` message: a bot asked the user to take over its computer (log in, solve a captcha, ...). */
-/**
- * On the system note of a turn that ended in an error. `behaviour`: something the bot itself could do differently.
- * `external`: it was stopped, signed out, out of budget or could not reach its provider.
- */
 export const TURN_FAILURE_BEHAVIOUR = 'behaviour';
 export interface TurnFailurePayload {
   turnFailure: typeof TURN_FAILURE_BEHAVIOUR | 'external';
-  /** M8: the turn hit a usage limit and the bot has no backup, so the note offers "Set a backup" (opens the bot's settings). */
   setBackup?: boolean;
 }
 
 export interface TakeoverPayload {
   botId: string;
   reason: string;
-  /** waiting: the bot waits in its turn; parked: its turn ended and resumes on hand-back; done: handed back. */
   status: 'waiting' | 'parked' | 'done' | 'expired';
-  /** The user's hand-back note, once handed back. */
   note?: string;
-  /** What the parked turn belongs to (`routine:<runId>`, `workflow:<runId>:<nodeId>`), so a restart can still close it. */
   ownerRef?: string | null;
-  /** Written before owner refs existed: a routine run id. Read as `routine:<runId>`; never written now. */
   runId?: string | null;
 }
 
 /**
- * A persisted approval rule (Settings › Bots › Approvals). Only the user creates one, over REST; no bot tool
- * reaches this table. `pattern` is matched against the call's subject (a Bash command, a path, a URL): `*`
- * matches anything, a trailing `*` is a prefix match, anything else must match exactly.
+ * `pattern` matches the call's subject (a command, path or URL): `*` matches anything, a trailing `*` is a prefix
+ * match, anything else must match exactly.
  */
 export interface ApprovalPolicy {
   id: string;
@@ -621,23 +441,14 @@ export interface ApprovalPolicy {
   pattern: string;
   decision: 'allow' | 'deny';
   createdAt: number;
-  /** Machine the rule covers (`pc`, `vps`); null or absent = any. */
   machine?: string | null;
-  /** Epoch ms the rule stops applying; null or absent = never. */
   expiresAt?: number | null;
-  /**
-   * A deny rule the owner approved from a bot's `propose_rule` card: what the bot does instead, shown to it whenever the
-   * rule refuses a call. A rule with a message is checked before bypass and before the shell allowlist. Null = a plain rule.
-   */
+  /** A rule with a message is checked before bypass and before the shell allowlist. */
   message?: string | null;
 }
 
-/** GET /api/sandbox/status (Bridge P7): can this server sandbox bot tools, is the setting on, and why not. */
 export interface SandboxStatus {
-  /** bubblewrap is installed and can make a sandbox on this machine. */
   available: boolean;
-  /** The setting is on and bubblewrap works: turns run sandboxed and client repos may sync. */
   active: boolean;
-  /** Why it is not available (or, when on but unusable, why turns fail); empty when it works. */
   reason: string;
 }

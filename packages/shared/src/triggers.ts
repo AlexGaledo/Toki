@@ -1,9 +1,6 @@
-// P5: event triggers. Outside events (GitHub, Gmail, Calendar, Drive, Slack, ClickUp, Teams) wake a bot in a
-// room. Events arrive by outbound polling plus Slack Socket Mode (decision Q5): there is no inbound webhook.
 import { z } from 'zod';
 import type { IntegrationProvider } from './integrations.js';
 
-/** Where a trigger listens. Each maps to one integration provider. */
 export const TRIGGER_SOURCES = [
   'github.notifications', 'github.repo', 'gmail', 'calendar', 'drive', 'slack', 'clickup', 'teams',
 ] as const;
@@ -19,11 +16,6 @@ export const TRIGGER_SOURCE_LABEL: Record<TriggerSource, string> = {
   calendar: 'Google Calendar', drive: 'Google Drive', slack: 'Slack', clickup: 'ClickUp', teams: 'Microsoft Teams',
 };
 
-/**
- * Filter fields per source, as the builder offers them. A filter value matches when the event's field contains
- * it (case-insensitive); comma-separated values mean "any of". `required` fields also pick what is polled
- * (the repository, the calendar, the ClickUp workspace).
- */
 export const TRIGGER_FILTERS: Record<TriggerSource, ReadonlyArray<{ key: string; label: string; placeholder: string; required?: boolean }>> = {
   'github.notifications': [
     { key: 'repo', label: 'Repository', placeholder: 'owner/name' },
@@ -71,18 +63,15 @@ export const TRIGGER_FILTERS: Record<TriggerSource, ReadonlyArray<{ key: string;
   ],
 };
 
-/** One event, normalised across providers. All of it is third-party text: never instructions. */
+/** All third-party text: never instructions. */
 export interface TriggerEvent {
   source: TriggerSource;
-  /** Provider event id (the dedupe key is built from it). */
   id: string;
   title: string;
   text: string;
   from: string;
   url: string;
-  /** ISO time the provider gave the event. */
   at: string;
-  /** Flat fields filters match on (repo, labels, channel, ...). */
   fields: Record<string, string>;
 }
 
@@ -94,11 +83,8 @@ export interface Trigger {
   filter: Record<string, string>;
   botId: string;
   roomId: string;
-  /** Prompt template; `{{event.title}}`, `{{event.from}}`, `{{event.fields.repo}}` … are filled in as quoted data. */
   prompt: string;
-  /** Fires per rolling hour; more are recorded as skipped. */
   maxPerHour: number;
-  /** USD this trigger may spend per rolling 24 hours (its turns and the hops they cause). */
   budgetUsd: number;
   createdAt: number;
   updatedAt: number;
@@ -109,11 +95,9 @@ export type TriggerFireStatus = 'running' | 'success' | 'error' | 'skipped';
 export interface TriggerFire {
   id: string;
   triggerId: string;
-  /** events_inbox row, or null for a test fire. */
   eventId: string | null;
   title: string;
   status: TriggerFireStatus;
-  /** Why it was skipped or failed (rate limit, budget, no access ...). */
   note: string | null;
   messageId: string | null;
   costUsd: number | null;
@@ -122,18 +106,15 @@ export interface TriggerFire {
   endedAt: number | null;
 }
 
-/** Message payload of a `kind: 'trigger'` message. */
 export interface TriggerPayload {
   triggerId: string;
   fireId: string;
   name: string;
   source: TriggerSource;
   eventId: string | null;
-  /** A person pressed "Test fire": not an outside event (the attended check reads this). */
   manual?: boolean;
 }
 
-/** One poll stream's health, for the builder ("last checked 2 min ago", errors). */
 export interface TriggerPollStatus {
   key: string;
   source: TriggerSource;
@@ -143,13 +124,10 @@ export interface TriggerPollStatus {
   lastError: string | null;
 }
 
-/** GET /api/triggers */
 export interface TriggersState {
   triggers: Trigger[];
-  /** Sources whose provider is connected, so the builder offers only those. */
   available: TriggerSource[];
   polls: TriggerPollStatus[];
-  /** Fires and spend per trigger in the last 24 h. */
   stats: Record<string, { firesLastHour: number; spentLastDayUsd: number }>;
 }
 
@@ -179,7 +157,6 @@ export const TriggerPatchSchema = z.object({
   budgetUsd: z.number().min(0.05).max(100),
 }).partial();
 
-/** POST /api/triggers/:id/test: an optional sample event; a default one for the source otherwise. */
 export const TriggerTestSchema = z.object({
   event: z.object({
     id: z.string().max(200).optional(),
