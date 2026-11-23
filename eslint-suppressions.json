@@ -4,16 +4,6 @@
       "count": 1
     }
   },
-  "packages/hub/src/agent/escalateTool.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "packages/hub/src/api/account.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    }
-  },
   "packages/hub/src/api/auth.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -159,11 +149,6 @@
       "count": 3
     }
   },
-  "packages/hub/src/api/takeover.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "packages/hub/src/api/teach.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -189,7 +174,7 @@
   },
   "packages/hub/src/api/workflows.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 6
+      "count": 1
     }
   },
   "packages/hub/src/config.ts": {
@@ -197,16 +182,6 @@
       "count": 1
     },
     "no-useless-assignment": {
-      "count": 1
-    }
-  },
-  "packages/hub/src/db/failoverRepo.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 6
-    }
-  },
-  "packages/hub/src/db/integrationRepo.ts": {
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -221,9 +196,6 @@
     }
   },
   "packages/hub/src/permissions/PermissionBroker.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
     "no-useless-assignment": {
       "count": 1
     }
@@ -250,11 +222,6 @@
   },
   "packages/hub/src/providers/opencode/events.ts": {
     "no-useless-assignment": {
-      "count": 1
-    }
-  },
-  "packages/hub/src/providers/stub.ts": {
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -287,11 +254,6 @@
   "packages/hub/src/rooms/untrusted.ts": {
     "no-control-regex": {
       "count": 1
-    }
-  },
-  "packages/hub/src/services/AccountService.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 7
     }
   },
   "packages/hub/src/services/BotReports.ts": {
@@ -340,9 +302,6 @@
     }
   },
   "packages/hub/src/services/SkillService.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
     "no-irregular-whitespace": {
       "count": 2
     },
@@ -353,11 +312,6 @@
   "packages/hub/src/services/Training.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "packages/hub/src/services/Training.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 3
     }
   },
   "packages/hub/src/services/WorkflowRunner.ts": {
@@ -378,11 +332,6 @@
   "packages/hub/src/services/outsideMcpStore.ts": {
     "no-useless-assignment": {
       "count": 1
-    }
-  },
-  "packages/hub/src/services/screenOpen.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
     }
   },
   "packages/shared/src/cards.ts": {
@@ -461,16 +410,6 @@
   },
   "packages/web/src/components/FleetPages.tsx": {
     "@eslint-community/eslint-comments/require-description": {
-      "count": 1
-    }
-  },
-  "packages/web/src/components/Markdown.tsx": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    }
-  },
-  "packages/web/src/components/Onboarding.tsx": {
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -675,11 +614,6 @@
       "count": 1
     }
   },
-  "packages/web/src/lib/mapLayout.test.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "packages/web/src/lib/saveBlob.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -701,9 +635,6 @@
     }
   },
   "packages/web/src/store.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 2
-    },
     "no-restricted-syntax": {
       "count": 2
     }

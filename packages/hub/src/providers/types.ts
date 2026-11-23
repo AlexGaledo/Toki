@@ -109,6 +109,8 @@ export interface TurnContext {
   shipGuard?: (command: string, cwd: string) => string | null;
   /** Bridge P1: why this write may not touch a shared file (decisions.md is append-only), or null. Holds with approvals bypassed. */
   fileGuard?: (toolName: string, input: Record<string, unknown>, cwd: string) => string | null;
+  /** Why a rule the owner approved (propose_rule) forbids this Bash or file-writing call, or null. Holds with approvals bypassed. */
+  ruleGuard?: (toolName: string, input: Record<string, unknown>) => string | null;
   /** Bridge P1: after a Write/Edit tool succeeded, so the hub records who changed a shared file. Never blocks. */
   fileWritten?: (toolName: string, input: Record<string, unknown>, cwd: string) => void;
   // P1: per-bot computers. Unset = no computer this turn, so no Browser tool.

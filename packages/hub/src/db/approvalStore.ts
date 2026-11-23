@@ -34,7 +34,7 @@ interface ParkedRaw {
 }
 interface PolicyRaw {
   id: string; bot_id: string; tool: string; pattern: string; decision: string; scope: string; created_at: number;
-  machine: string | null; expires_at: number | null;
+  machine: string | null; expires_at: number | null; message: string | null;
 }
 
 const toParked = (r: ParkedRaw): ParkedApproval => {
@@ -48,7 +48,7 @@ const toParked = (r: ParkedRaw): ParkedApproval => {
 const toPolicy = (r: PolicyRaw): StoredPolicy => ({
   id: r.id, botId: r.bot_id, tool: r.tool, pattern: r.pattern, decision: r.decision === 'deny' ? 'deny' : 'allow',
   scope: r.scope === 'session' ? 'session' : 'always', createdAt: r.created_at,
-  machine: r.machine ?? null, expiresAt: r.expires_at ?? null,
+  machine: r.machine ?? null, expiresAt: r.expires_at ?? null, message: r.message ?? null,
 });
 
 export class ApprovalStore {
@@ -90,20 +90,22 @@ export class ApprovalStore {
   }
   /**
    * Adds a rule; an identical one (same bot, tool, pattern, decision, scope, machine, expiry) is returned instead
-   * of duplicated. `machine` null/absent = any machine; `expiresAt` null/absent = never.
+   * of duplicated. `machine` null/absent = any machine; `expiresAt` null/absent = never. `message`: what the bot does
+   * instead, on a deny rule learned from a correction (propose_rule); null/absent = a plain rule.
    */
-  addPolicy(p: { botId: string; tool: string; pattern: string; decision: 'allow' | 'deny'; scope: PolicyScope; machine?: string | null; expiresAt?: number | null }): StoredPolicy {
+  addPolicy(p: { botId: string; tool: string; pattern: string; decision: 'allow' | 'deny'; scope: PolicyScope; machine?: string | null; expiresAt?: number | null; message?: string | null }): StoredPolicy {
     const machine = p.machine ?? null;
     const expiresAt = p.expiresAt ?? null;
+    const message = p.message ?? null;
     const same = this.db.get<PolicyRaw>(
-      'SELECT * FROM approval_policies WHERE bot_id=? AND tool=? AND pattern=? AND decision=? AND scope=? AND machine IS ? AND expires_at IS ?',
-      p.botId, p.tool, p.pattern, p.decision, p.scope, machine, expiresAt,
+      'SELECT * FROM approval_policies WHERE bot_id=? AND tool=? AND pattern=? AND decision=? AND scope=? AND machine IS ? AND expires_at IS ? AND message IS ?',
+      p.botId, p.tool, p.pattern, p.decision, p.scope, machine, expiresAt, message,
     );
     if (same) return toPolicy(same);
     const id = nanoid(10);
     this.db.run(
-      'INSERT INTO approval_policies (id, bot_id, tool, pattern, decision, scope, created_at, machine, expires_at) VALUES (?,?,?,?,?,?,?,?,?)',
-      id, p.botId, p.tool, p.pattern, p.decision, p.scope, this.now(), machine, expiresAt,
+      'INSERT INTO approval_policies (id, bot_id, tool, pattern, decision, scope, created_at, machine, expires_at, message) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      id, p.botId, p.tool, p.pattern, p.decision, p.scope, this.now(), machine, expiresAt, message,
     );
     return this.getPolicy(id)!;
   }

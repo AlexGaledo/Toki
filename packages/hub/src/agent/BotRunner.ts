@@ -554,6 +554,14 @@ export class BotRunner {
           return { ok: false, message: (e as Error).message };
         }
       } : undefined,
+      // Offered on every turn (cache); only a turn the owner started directly may raise the card.
+      proposeRule: async (rule) => {
+        if (causeKind !== 'user' || req.hop !== 0 || req.strictApprovals) {
+          return { ok: false, message: 'Rules can only be proposed on a turn the owner started directly, not on a hand-off or an automation.' };
+        }
+        const r = await this.broker.askRuleProposal(permCtx, rule, ac.signal);
+        return { ok: r.allowed, message: r.message };
+      },
       routinesChanged: this.hooks.routinesChanged,
       pcRunner: this.pcRunner,
       workflows: this.workflows,
@@ -716,6 +724,7 @@ export class BotRunner {
       fileGuard: fileRoot || this.projects
         ? (name, input, cwd) => (fileRoot ? decisionsWriteDenied(name, input, cwd, [fileRoot]) : null) ?? (this.projects ? reposFileWriteDenied(name, input, cwd, this.projects.root) : null)
         : undefined,
+      ruleGuard: (name, input) => this.broker.learnedRule(bot.id, name, input),
       fileWritten: fileRoot && this.revisions
         ? (name, input, cwd) => {
             const p = input.file_path ?? input.notebook_path;
@@ -1169,6 +1178,7 @@ export class BotRunner {
           ])
         : undefined,
       fileGuard: this.projects ? (name, input, cwd) => reposFileWriteDenied(name, input, cwd, this.projects!.root) : undefined,
+      ruleGuard: (name, input) => this.broker.learnedRule(bot.id, name, input),
     };
     this.activeTurns.add(turnId);
     this.aborts.set(turnId, ac);

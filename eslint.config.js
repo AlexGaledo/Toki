@@ -87,6 +87,7 @@ export default [
       '@eslint-community/eslint-comments/no-unlimited-disable': 'error',
       'no-empty': ['error', { allowEmptyCatch: true }], // empty catch is local/no-empty-catch, with a message
       'local/no-empty-catch': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true, argsIgnorePattern: '^_', caughtErrors: 'none' }],
     },
   },
 
