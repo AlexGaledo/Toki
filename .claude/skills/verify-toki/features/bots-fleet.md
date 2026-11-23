@@ -28,13 +28,12 @@ Preconditions:
 - **Fill it.** Run `$C fill --role textbox --name Name --exact --in "dialog:New bot" --value "Verify Bot"`. The handle fills itself (`verify-bot`); `Create bot` becomes enabled.
 - **Create.** Run `$C click --role button --name "Create bot"`. The dialog closes and the new bot's DM opens: `main` shows `button "Verify Bot"` and `textbox "Message Verify Bot"`; the sidebar list has `Verify Bot · Idle Verify Bot @verify-bot`.
 - **Second view.** Run `$C api GET /api/bots`. The array has an entry with `"handle": "verify-bot"`.
-- **Open its page.** Run `$C goto /` (clears the pointer lock below), `$C click --role button --name "Verify Bot · Idle Verify Bot @verify-bot"`, `$C click --role button --name "Open Verify Bot's page"`. A `heading "Verify Bot"` level 1 and a `tablist` with `Memory`, `Skills`, `Automations`, `Computer`.
+- **Open its page.** Run ``$C click --role button --name "Verify Bot · Idle Verify Bot @verify-bot"`, `$C click --role button --name "Open Verify Bot's page"`. A `heading "Verify Bot"` level 1 and a `tablist` with `Memory`, `Skills`, `Automations`, `Computer`.
 - **Seeded fleet.** On a fresh run, `$C snapshot` lists `Toki Support` and `Data Engineer` in the sidebar and `region "Bots"` in the Overview.
 - **Proof.** `$C snapshot --path bots/created.aria.yml` and `$C screenshot bots/created.png`.
 
 ## Gotchas
 
-- **Known bug (2026-11-24):** after `Create bot`, `body` keeps `pointer-events: none` and every later click times out ("`<html>` intercepts pointer events"). Same bug as `New group chat` (both dialogs open from the sidebar `New` menu). `goto /` recovers; report it in any proof of this flow.
 - The `Name` label also matches other fields in some dialogs; scope with `--in "dialog:New bot"`.
 - Bot pages cover the chat. Use `Back to chat` before typing in the composer.
 - The Overview's `Bots` region counts bots that have a chat with activity, not every bot; on a fresh run it shows fewer than the sidebar.

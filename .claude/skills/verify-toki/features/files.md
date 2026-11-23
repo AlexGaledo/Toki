@@ -32,6 +32,5 @@ Preconditions:
 ## Gotchas
 
 - Uploads go through an OS file picker or a drop; the driver has no file-chooser command, so `files-upload` is BLOCKED in the driver today (add `page.setInputFiles` support before claiming it).
-- If clicks fail with "`<html>` intercepts pointer events" right after creating a group, that is the rooms pointer-lock bug; `goto /` first.
 - The panel takes the right slot and folds the Overview; at narrow widths it covers the chat.
 - A DM's folder and a group's folder are different roots; get the room id from `api GET /api/rooms`.

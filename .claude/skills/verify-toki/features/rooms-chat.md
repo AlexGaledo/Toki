@@ -33,7 +33,6 @@ Preconditions:
 
 ## Gotchas
 
-- **Known bug (2026-11-24):** after `Create`, `body` keeps `pointer-events: none`; the next `click` fails with "`<html>` intercepts pointer events". `goto /` recovers. Report it in a group-flow proof; do not hide it.
 - `Create` matches more than one button on some screens; always pass `--exact`.
 - A one-bot room is allowed; the dialog notes it.
 - Sending to the room is a **(turn)** for the coordinator, and for every @mentioned bot.
