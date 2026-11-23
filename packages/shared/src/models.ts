@@ -622,6 +622,11 @@ export interface ApprovalPolicy {
   machine?: string | null;
   /** Epoch ms the rule stops applying; null or absent = never. */
   expiresAt?: number | null;
+  /**
+   * A deny rule the owner approved from a bot's `propose_rule` card: what the bot does instead, shown to it whenever the
+   * rule refuses a call. A rule with a message is checked before bypass and before the shell allowlist. Null = a plain rule.
+   */
+  message?: string | null;
 }
 
 /** GET /api/sandbox/status (Bridge P7): can this server sandbox bot tools, is the setting on, and why not. */

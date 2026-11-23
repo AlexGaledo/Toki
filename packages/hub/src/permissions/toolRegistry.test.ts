@@ -65,11 +65,11 @@ describe('hub tool registry (B3)', () => {
     ];
     const gated = [
       'create_bot', 'update_bot', 'delete_bot', 'create_room', 'delete_room', 'add_to_room', 'remove_from_room',
-      'create_routine', 'update_routine', 'delete_routine', 'create_workflow', 'update_workflow', 'dispatch', 'propose_routing_change', ...INTEGRATION_WRITE_TOOLS, 'run_on_pc', 'propose_move', 'fill_credential',
+      'create_routine', 'update_routine', 'delete_routine', 'create_workflow', 'update_workflow', 'dispatch', 'propose_routing_change', 'propose_rule', ...INTEGRATION_WRITE_TOOLS, 'run_on_pc', 'propose_move', 'fill_credential',
     ];
     expect([...SILENT_TOOLS].sort()).toEqual([...silent].sort());
     expect([...GATED_TOOLS].sort()).toEqual([...gated].sort());
-    expect([...ASK_EVERY_TIME_TOOLS].sort()).toEqual(['calendar_create_event', 'fill_credential', 'gmail_send', 'propose_move', 'propose_routing_change', 'run_on_pc']);
+    expect([...ASK_EVERY_TIME_TOOLS].sort()).toEqual(['calendar_create_event', 'fill_credential', 'gmail_send', 'propose_move', 'propose_routing_change', 'propose_rule', 'run_on_pc']);
     expect([...SIGN_IN_TOOLS].sort()).toEqual(['calendar_create_event', 'fill_credential', 'gmail_send', 'propose_move', 'run_on_pc']);
     expect(BROKER_SIGN_IN).toBe(SIGN_IN_TOOLS);
     expect(DESKTOP_TOOL_NAMES).toHaveLength(6);
