@@ -52,8 +52,8 @@ jobs:
       - name: Build (typecheck + vite)
         run: pnpm -r build
 
-      - name: DEBUG recorder x12
-        run: for n in 1 2 3 4 5 6; do (yes > /dev/null &); done; for i in $(seq 1 15); do (cd packages/hub && npx vitest run src/services/Recorder.chrome.test.ts 2>&1 | grep -E 'DBG-FAIL|Tests ' ) || true; done; pkill yes || true
+      - name: DEBUG full hub suite x4
+        run: cd packages/hub && for i in 1 2 3 4; do npx vitest run 2>&1 | sed 's/\[[0-9;]*m//g' | grep -E 'DBG-FAIL|Tests  |FAIL |Duration' || true; done
       - name: Server hub bundle (what scripts/deploy.sh runs)
         run: |
           pnpm hub:server-bundle
