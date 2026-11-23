@@ -8,45 +8,27 @@ import { knowledgeSourceError } from './KnowledgeRepo.js';
 
 export interface SettingsDeps {
   repos: Repos;
-  /** Providers `provider` may name. Defaults to ENABLED_PROVIDERS; tests that switch providers pass them all. */
   enabled?: readonly ProviderId[];
-  /** POCKETROCKET_BYPASS_PERMISSIONS, parsed. Non-null pins and locks `approvals`. Defaults to APPROVALS_ENV. */
   approvalsEnv?: Approvals | null;
-  /**
-   * Model list for a provider, read synchronously from the registry cache. Used when the provider changes
-   * to re-point bots whose model does not exist in the new provider. Omitted in tests that never switch.
-   */
   models?: (provider: ProviderId) => ModelInfo[];
-  /**
-   * Awaiting variant of `models`, used when the sync cache is still cold: OpenCode reads its model list
-   * from `opencode models`, so switching to it right after startup would otherwise leave every bot
-   * pointing at a model OpenCode does not offer. Omitted in tests that never switch.
-   */
   modelsAsync?: (provider: ProviderId) => Promise<ModelInfo[]>;
 }
 
-/** Defaults with the OS account name filled in for `userName` and the system zone for `timezone`. */
 export function defaultSettings(): Settings {
   return { ...DEFAULT_SETTINGS, userName: osUserName(), timezone: systemTimeZone() };
 }
 
-/** The hub machine's IANA time zone (`UTC` on most VPSes), or UTC when the runtime cannot tell. */
 export function systemTimeZone(): string {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return tz && isTimeZone(tz) ? tz : 'UTC';
 }
 
-/** A patch refused on policy rather than shape; rest.ts answers with `status`. */
 export class SettingsRejected extends Error {
   constructor(message: string, readonly status: 400 | 409 = 400) {
     super(message);
   }
 }
 
-/**
- * Global hub settings, persisted one row per key in the `settings` table. Values are JSON so a key can
- * hold anything the schema allows; unknown/corrupt rows fall back to the schema default.
- */
 export class SettingsStore {
   private cache: Settings | null = null;
   private enabled: readonly ProviderId[];
@@ -57,25 +39,17 @@ export class SettingsStore {
     this.approvalsEnv = deps.approvalsEnv === undefined ? APPROVALS_ENV : deps.approvalsEnv;
   }
 
-  /** The approvals mode in force right now: the server environment when it pins one, else the setting. */
   approvals(): Approvals {
     return this.approvalsEnv ?? this.get().approvals;
   }
 
-  /** True when POCKETROCKET_BYPASS_PERMISSIONS pins `approvals`, so Settings cannot change it. */
   get approvalsLocked(): boolean {
     return this.approvalsEnv !== null;
   }
 
-  /**
-   * Existing installs can have a provider stored that this build no longer offers (v1 ships Claude only).
-   * Switch them to Claude through the normal patch path, so bots on a model Claude lacks are repointed with
-   * the usual system message. Called once at hub start, after the provider registry exists.
-   */
   ensureEnabledProvider(): void {
     const s = this.get();
     if (this.enabled.includes(s.provider)) return;
-    // The default model for new bots belonged to the old provider too; nothing else would ever fix it.
     const models = this.deps.models?.('claude') ?? [];
     const stale = models.length > 0 && s.defaultModel !== AUTO_MODEL && !models.some((m) => m.id === s.defaultModel);
     this.patch(stale ? { provider: 'claude', defaultModel: DEFAULT_SETTINGS.defaultModel } : { provider: 'claude' });
@@ -86,15 +60,12 @@ export class SettingsStore {
       const stored = this.deps.repos.allSettings();
       const parsed = SettingsSchema.safeParse({ ...stored });
       const base = parsed.success ? parsed.data : defaultSettings();
-      // userName defaults to the OS account name rather than the schema's placeholder.
       this.cache = stored.userName === undefined ? { ...base, userName: osUserName() } : base;
-      // P3: likewise the time zone follows the system until the user picks one.
       if (stored.timezone === undefined) this.cache = { ...this.cache, timezone: systemTimeZone() };
     }
     return this.cache;
   }
 
-  /** Validate + persist a partial update. Emits settings.changed (and providers.changed on a switch). */
   patch(p: SettingsPatch): Settings {
     const prev = this.get();
     const next = SettingsSchema.parse({ ...prev, ...p });
@@ -104,7 +75,6 @@ export class SettingsStore {
     if (this.approvalsLocked && next.approvals !== prev.approvals) {
       throw new SettingsRejected('approvals: set by the server environment (POCKETROCKET_BYPASS_PERMISSIONS)', 409);
     }
-    // P7: the knowledge source reaches git (as an argument, never a shell), so it is checked before it is stored.
     if (p.knowledgeRepo !== undefined && p.knowledgeRepo !== prev.knowledgeRepo) {
       const bad = knowledgeSourceError(p.knowledgeRepo);
       if (bad) throw new SettingsRejected('knowledgeRepo: ' + bad);
@@ -118,11 +88,9 @@ export class SettingsStore {
     events.emitEvent({ type: 'settings.changed', settings: next });
     if (next.provider !== prev.provider) {
       if (!this.repointBots(next.provider) && this.deps.modelsAsync) {
-        // Cold model cache. Repoint once the real list lands; the events it emits update the UI then.
         void this.deps
           .modelsAsync(next.provider)
           .then((models) => {
-            // A second switch may have landed while we waited; only repoint if this is still the provider.
             if (this.get().provider === next.provider) this.repointBots(next.provider, models);
           })
           .catch(() => {
@@ -134,23 +102,15 @@ export class SettingsStore {
     return next;
   }
 
-  /** Test/CLI helper: drop the memo so the next get() re-reads the table. */
   reload() {
     this.cache = null;
   }
 
-  /**
-   * After a default-provider switch, bots that follow the default and point at a model the new provider does not
-   * offer are moved to that provider's default model, with a system message in every room the bot is in.
-   *
-   * Returns false when the provider's model list is not known yet, so the caller can retry asynchronously.
-   */
   private repointBots(provider: ProviderId, knownModels?: ModelInfo[]): boolean {
     const models = knownModels ?? this.deps.models?.(provider) ?? [];
     if (!models.length) return false;
     let changed = false;
     for (const bot of this.deps.repos.listBots()) {
-      // M6 (P1-5): only bots that follow the default moved. A bot with its own provider stays where it is.
       if (bot.provider) continue;
       if (repointBotModel(this.deps.repos, bot, provider, models)) changed = true;
     }
@@ -159,20 +119,11 @@ export class SettingsStore {
   }
 }
 
-/**
- * The model a bot moving to a provider with `models` should use instead of `current`, or null when `current` is fine
- * there: the provider offers it, it is `auto` (P8: resolved per turn against the bot's provider), or the list is unknown.
- */
 export function modelFor(models: readonly ModelInfo[], current: string): string | null {
   if (!models.length || current === AUTO_MODEL || models.some((m) => m.id === current)) return null;
   return models.find((m) => m.default)?.id ?? models[0].id;
 }
 
-/**
- * A bot now on `provider` (a default-provider switch, or the owner's per-bot change) whose model that provider does not
- * offer moves to its default model, with a system note in every room the bot is in. Returns whether it moved. The
- * caller emits `bots.changed`.
- */
 export function repointBotModel(repos: Repos, bot: Bot, provider: ProviderId, models: readonly ModelInfo[]): boolean {
   const to = modelFor(models, bot.model);
   if (!to) return false;
@@ -190,9 +141,6 @@ export function repointBotModel(repos: Repos, bot: Bot, provider: ProviderId, mo
   return true;
 }
 
-// ---- ambient accessor -------------------------------------------------------
-// PromptBuilder / hub tools / RoomRouter need settings.userName without threading the store through every
-// call site. index.ts installs the real store at startup; tests that never install one see the defaults.
 let installed: SettingsStore | null = null;
 export function installSettings(store: SettingsStore) {
   installed = store;
@@ -203,5 +151,4 @@ export const settings = {
   },
 };
 
-/** How the owner appears in the transcript bots read. It carries the role because a display name can change. */
 export const ownerTag = (): string => settings.get().userName + ' (owner)';

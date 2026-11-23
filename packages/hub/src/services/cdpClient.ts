@@ -1,20 +1,13 @@
 import WebSocket from 'ws';
 
-/**
- * A minimal Chrome DevTools Protocol client over one WebSocket (flat sessions). The recorder is a *second*
- * client on a bot's Chromium, next to Playwright MCP; it only listens and installs a page script, so it needs
- * nothing more than JSON commands, replies and events. No puppeteer/playwright dependency for that.
- */
 export interface CdpConnection {
   send(method: string, params?: Record<string, unknown>, sessionId?: string): Promise<Record<string, unknown>>;
-  /** Every event (`method`, `params`, `sessionId` when it came from an attached target). */
   onEvent(fn: (method: string, params: Record<string, unknown>, sessionId?: string) => void): void;
   onClose(fn: () => void): void;
   close(): void;
 }
 
 const COMMAND_TIMEOUT_MS = 10_000;
-/** A single CDP message larger than this is dropped (a page cannot flood the hub's memory through us). */
 const MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 
 export function connectCdp(wsUrl: string): Promise<CdpConnection> {
@@ -64,7 +57,6 @@ export function connectCdp(wsUrl: string): Promise<CdpConnection> {
   });
 }
 
-/** `http://127.0.0.1:940n` → the browser's DevTools WebSocket URL (`/json/version`), kept on loopback. */
 export async function browserWsUrl(cdpUrl: string, fetchJson: (url: string) => Promise<unknown> = defaultFetchJson): Promise<string> {
   const base = new URL(cdpUrl);
   const info = (await fetchJson(new URL('/json/version', base).toString())) as { webSocketDebuggerUrl?: string };

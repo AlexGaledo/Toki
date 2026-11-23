@@ -1,15 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Db } from './db.js';
 
-/** Rows the migration indexes itself; a larger history finishes in the background (see {@link startHistoryBackfill}). */
 export const MIGRATION_BACKFILL_ROWS = 20_000;
 const BACKFILL_BATCH = 2_000;
 
-/**
- * Indexes one bounded batch of messages that existed when the index was created. Triggers keep newer rows in sync,
- * so the backfill only covers rowid <= `upto`. Returns true while more remains. Safe to repeat or to run on a
- * row a trigger already indexed.
- */
 export function backfillMessagesFts(raw: DatabaseSync, batch = BACKFILL_BATCH, inTx = false): boolean {
   const st = raw.prepare("SELECT next_rowid AS n, upto AS u FROM fts_backfill WHERE name='messages'").get() as { n: number; u: number } | undefined;
   if (!st) return false;
@@ -31,7 +25,6 @@ export function backfillMessagesFts(raw: DatabaseSync, batch = BACKFILL_BATCH, i
   return rows.length >= batch && rows[rows.length - 1].r < st.u;
 }
 
-/** Finishes a backfill the migration left over, a batch per tick so the event loop stays free. Returns a stop function. */
 export function startHistoryBackfill(db: Db): () => void {
   let stopped = false;
   let timer: NodeJS.Timeout | null = null;
@@ -48,7 +41,6 @@ export function startHistoryBackfill(db: Db): () => void {
   return () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 
-/** Turns free text into an FTS5 query: every word quoted, joined with AND. Empty when there is nothing to search. */
 export function ftsQuery(q: string): string {
   const words = (q.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 1).slice(0, 12);
   return words.map((w) => '"' + w + '"').join(' ');
@@ -56,7 +48,6 @@ export function ftsQuery(q: string): string {
 
 export interface HistoryHit { id: string; roomId: string; roomName: string; seq: number; authorType: string; authorId: string | null; createdAt: number; snippet: string }
 
-/** Full-text search of message text inside `roomIds` only. Newest relevance first. */
 export function searchHistory(db: Db, o: { query: string; roomIds: readonly string[]; limit: number }): HistoryHit[] {
   const match = ftsQuery(o.query);
   if (!match || !o.roomIds.length) return [];

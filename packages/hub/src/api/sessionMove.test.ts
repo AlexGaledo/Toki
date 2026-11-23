@@ -16,11 +16,6 @@ import { runnerMayAccess } from './guard.js';
 import { EMPTY_USAGE, type AgentProvider, type TurnContext, type TurnOutcome, type TurnSink, type ToolOutput } from '../providers/types.js';
 import { OFFLOAD_PUSH_DENIED, pushesToRemote } from '../agent/BotRunner.js';
 
-/**
- * Bridge P6 (hub half): move a PC session to the VPS, run its turns there, pull it back. Git runs against temp repos and a
- * temp project folder; the Claude CLI is a stubbed provider; the CLI's session folder is a temp dir. Nothing real is touched.
- */
-
 vi.setConfig({ testTimeout: 90_000 });
 
 const TOKEN = 'session-move-test-hub-token';
@@ -33,13 +28,11 @@ const git = (cwd: string, ...args: string[]) =>
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 const J = (o: unknown) => JSON.stringify(o);
 
-/** A stand-in for the Claude provider: records what a turn was given, appends lines to the session file the way the CLI does. */
 class StubClaude implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Stub';
   readonly info = { id: 'claude' as ProviderId, label: 'Stub', blurb: '', authModes: [], secretKeys: [], permissions: 'full' as const, maturity: 'verified' as const };
   seen: TurnContext[] = [];
-  /** When set, the turn waits for it before it finishes. */
   gate: Promise<void> | null = null;
   fail: string | null = null;
   switchBranch = false;
@@ -146,7 +139,6 @@ const SID8 = (s: string) => s.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toLowerCa
 
 interface World { remote: string; slug: string; room: Room; bot: Bot; sid: string; runner: string; cookie: string; vps: string; wt: string; branch: string }
 
-/** A project with a bundle-sync repo and a room, a mirrored session in it, a paired runner and a signed-in owner. */
 async function world(o: { sync?: 'bundle' | 'wip-branch'; client?: boolean; link?: boolean; extra?: (remote: string) => unknown[] } = {}): Promise<World> {
   const bot = hub.repos.createBot({ name: 'Mover' + n, handle: 'mover-' + n, title: '', description: '', avatar: '', model: 'claude-sonnet-5', allowedTools: ['Read', 'Write', 'Bash'], maxBudgetUsd: 1 });
   const made = hub.projects.create({ name: 'Move Proj ' + n++, memberIds: [bot.id] });
@@ -166,7 +158,6 @@ async function world(o: { sync?: 'bundle' | 'wip-branch'; client?: boolean; link
   return { remote, slug: made.project.slug, room, bot, sid: id, runner, cookie, vps, wt: vps + '-wt' + path.sep + SID8(id), branch };
 }
 
-/** The PC's session file: lines as the CLI writes them. */
 function pcSessionFile(w: World): Buffer {
   const lines = [
     J({ type: 'user', uuid: 'pc-u1', sessionId: w.sid, cwd: PC_ROOT + '\\packages\\hub', timestamp: '2026-11-01T10:00:00.000Z', message: { role: 'user', content: 'fix ' + PC_ROOT + '\\a.txt' } }),
@@ -179,7 +170,6 @@ function pcSessionFile(w: World): Buffer {
   return Buffer.from(lines.join('\n') + '\n');
 }
 
-/** A one-commit "PC" repo, as a bundle of HEAD. */
 function makeBundle(files: Record<string, string> = { 'a.txt': 'hello\n' }) {
   const src = fs.mkdtempSync(path.join(tmp, 'src-'));
   git(src, 'init', '-q', '-b', 'main');
@@ -211,7 +201,6 @@ const result = (w: World, jobId: string, body: unknown) => request('POST', '/api
 const summary = async (w: World) => (await request('GET', '/api/pc-sessions/' + w.sid)).json;
 const mirrorOffset = (w: World) => hub.pcSessions.syncState()[w.sid]?.offset;
 
-/** Everything the PC does for a move, up to (not including) the result. */
 async function pcMovesUp(w: World, file = pcSessionFile(w)) {
   const made = await startJob(w, { mode: 'move', sessionId: w.sid });
   expect(made.status).toBe(200);
@@ -234,7 +223,6 @@ async function moved(w: World) {
 }
 const textOf = (o: ToolOutput) => o.content.map((c) => ('text' in c ? c.text : '')).join('');
 
-// ---------------------------------------------------------------------------------------------------
 describe('starting a move', () => {
   it('queues a move job that names the room and every repo, and marks the session moving', async () => {
     const w = await world();
@@ -276,7 +264,6 @@ describe('starting a move', () => {
 
     const w = await world();
     expect((await startJob(w, { mode: 'move', sessionId: 'no-such-session' })).status).toBe(400);
-    // One bad repo among good ones refuses the whole move.
     const mixed = await world({ extra: (r) => [{ name: 'lib2', remote: r, sync: 'wip-branch' }] });
     const mx = await startJob(mixed, { mode: 'move', sessionId: mixed.sid });
     expect(mx.status).toBe(400);
@@ -311,7 +298,6 @@ describe('starting a move', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('the uploads of a move', () => {
   it('refuses a bundle without ?repo=, for another repo, a wrong hash, from a non-runner, and twice', async () => {
     const w = await world();
@@ -355,7 +341,6 @@ describe('the uploads of a move', () => {
     expect((await upSession(w, job.id, file, { token: TOKEN })).status).toBe(403);
     expect((await upSession(w, job.id, file, { token: null })).status).toBe(401);
     expect((await upSession(w, job.id, Buffer.alloc(8192 + 904, 65))).status).toBe(413);
-    // Another session's file.
     const foreign = Buffer.from(J({ type: 'user', sessionId: 'ffffffff-0000-0000-0000-000000000000', cwd: PC_ROOT, message: { content: 'x' } }) + '\n');
     const f = await upSession(w, job.id, foreign);
     expect(f.status).toBe(400);
@@ -385,7 +370,6 @@ describe('the uploads of a move', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('the move itself', () => {
   it('imports the bundle, builds the worktree, rewrites the session and files it where the VPS CLI looks; state moving -> on-vps', async () => {
     const w = await world();
@@ -399,10 +383,8 @@ describe('the move itself', () => {
     const s = await summary(w);
     expect(s.move).toMatchObject({ state: 'on-vps', room: w.room.id, worktree: SID8(w.sid), turnRunning: false });
     expect(JSON.stringify(s.move)).not.toContain(tmp.replace(/\\/g, '\\\\'));
-    // The worktree is the wip branch, checked out, in <vps>-wt/<sid8>.
     expect(git(w.wt, 'symbolic-ref', 'HEAD')).toBe('refs/heads/' + w.branch);
     expect(fs.readFileSync(path.join(w.wt, 'a.txt'), 'utf8')).toBe('hello\n');
-    // The file is where the CLI looks for that cwd, with the PC root swapped for the worktree and nothing else changed.
     const target = sessionFilePath(w.wt, w.sid, CFG);
     const text = fs.readFileSync(target, 'utf8');
     const lines = text.trim().split('\n').map((l) => JSON.parse(l));
@@ -410,12 +392,9 @@ describe('the move itself', () => {
     expect(lines[1].message.content[1].input.file_path).toBe(path.join(w.wt, 'a.txt'));
     expect(lines[0].message.content).toBe('fix ' + PC_ROOT + '\\a.txt');
     expect(lines[2].message.content[0].content).toBe('hello');
-    // The mirror carries on from the file the PC had, and the move left no upload behind.
     expect(mirrorOffset(w)).toBe(up.file.length);
     expect(fs.existsSync(hub.sessionMoves.uploadPath(up.job.id))).toBe(false);
-    // The room was told.
     expect(hub.repos.listMessages(w.room.id, { limit: 20 }).some((m) => m.kind === 'system' && /moved to the VPS/.test(m.text ?? ''))).toBe(true);
-    // The PC's own appends are dropped while it is there.
     const drop = await request('POST', '/api/pc-sessions/' + w.sid + '/entries', {
       token: w.runner, body: { from: up.file.length, to: up.file.length + 50, entries: [{ uuid: 'late-pc', at: 5, kind: 'user', text: 'typed on the pc' }] },
     });
@@ -434,7 +413,6 @@ describe('the move itself', () => {
     expect(hub.sessionMoves.get(w.sid)).toBeNull();
     expect(fs.existsSync(w.wt)).toBe(false);
     expect((await summary(w)).move).toBeNull();
-    // Free to try again.
     expect((await startJob(w, { mode: 'move', sessionId: w.sid })).status).toBe(200);
   });
 
@@ -456,7 +434,6 @@ describe('the move itself', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('the lock', () => {
   it('refuses resume and sync jobs for a session that is moving or on the VPS, and runner resume jobs say onVps', async () => {
     const w = await world();
@@ -466,7 +443,6 @@ describe('the lock', () => {
     expect(resume.json.onVps).toBe(true);
     expect((await startJob(w, { mode: 'sync', sessionId: w.sid, project: w.slug, repo: 'lib' })).status).toBe(409);
     expect(hub.pcRunner.list(50).filter((j) => j.sessionId === w.sid && (j.mode === 'resume' || j.mode === 'sync'))).toEqual([]);
-    // A resume that was already queued when the session moved still reaches the runner marked onVps, so it refuses it.
     for (const j of hub.pcRunner.list(50)) hub.pcRunner.cancel(j.id, 'test');
     const other = await world();
     hub.repos.db.run("INSERT INTO pc_session_moves (session_id, state, repos_json, moved_at) VALUES (?, 'on-vps', '[]', 1)", other.sid);
@@ -508,7 +484,6 @@ describe('the lock', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('a turn on the VPS', () => {
   const cont = (w: World, prompt = 'carry on', o: { cookie?: string | null; token?: string | null } = {}) =>
     request('POST', '/api/pc-sessions/' + w.sid + '/continue', { token: o.token === undefined ? null : o.token, cookie: o.cookie === undefined ? w.cookie : o.cookie ?? undefined, body: { prompt } });
@@ -533,12 +508,10 @@ describe('a turn on the VPS', () => {
     expect(ctx.bot.id).toBe(w.bot.id);
     expect(ctx.room.id).toBe(w.room.id);
     expect(ctx.tools.map((t) => t.name)).not.toContain('run_on_pc');
-    // git push is refused in that turn, with approvals bypassed or not.
     expect(ctx.shipGuard!('git push origin main', w.wt)).toBe(OFFLOAD_PUSH_DENIED);
     expect(ctx.shipGuard!('cd x && git -C y push', w.wt)).toBe(OFFLOAD_PUSH_DENIED);
     expect(ctx.shipGuard!('git status', w.wt)).toBeNull();
 
-    // New lines are in the mirror as the VPS, in the same conversation, once each.
     const entries = hub.pcSessions.entries(w.sid)!.entries;
     const fresh = entries.slice(before);
     expect(fresh.map((e) => e.uuid)).toEqual(['vps-u1', 'vps-a1', 'vps-a1:1', 'vps-u2']);
@@ -548,7 +521,6 @@ describe('a turn on the VPS', () => {
     await hub.sessionMoves.feed(w.sid);
     expect(hub.pcSessions.entries(w.sid)!.entries).toHaveLength(entries.length);
 
-    // The change is committed on the wip branch, as the offload identity, and no other branch moved.
     expect(git(w.wt, 'log', '-1', '--format=%an|%s')).toMatch(/^Toki offload mover-\d+\|VPS turn: finish the thing$/);
     expect(git(w.wt, 'show', 'HEAD:made-on-vps.txt')).toBe('hello from the vps');
     const after = git(w.vps, 'for-each-ref', '--format=%(refname)=%(objectname)', 'refs/heads').split('\n');
@@ -584,7 +556,7 @@ describe('a turn on the VPS', () => {
 
   it('needs a signed-in browser, a session that is on the VPS, and refuses past 120k tokens of context', async () => {
     const w = await world();
-    expect((await cont(w)).status).toBe(409); // never moved
+    expect((await cont(w)).status).toBe(409);
     await moved(w);
     const hubTok = await cont(w, 'x', { cookie: null, token: TOKEN });
     expect(hubTok.status).toBe(403);
@@ -592,7 +564,6 @@ describe('a turn on the VPS', () => {
     expect((await cont(w, 'x', { cookie: null, token: w.runner })).status).toBe(403);
     expect((await request('POST', '/api/pc-sessions/' + w.sid + '/continue', { token: null, cookie: w.cookie, body: { prompt: '' } })).status).toBe(400);
     expect(stub.seen.filter((c) => c.resumeToken === w.sid && c.input === 'x')).toEqual([]);
-    // A big context.
     const file = sessionFilePath(w.wt, w.sid, CFG);
     fs.appendFileSync(file, J({ type: 'assistant', uuid: 'big', sessionId: w.sid, cwd: w.wt, message: { role: 'assistant', content: [{ type: 'text', text: 'big' }], usage: { input_tokens: 1000, cache_read_input_tokens: 130_000, cache_creation_input_tokens: 500 } } }) + '\n');
     const big = await cont(w, 'more');
@@ -645,7 +616,6 @@ describe('VPS turns and the bot sandbox (P7)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('pulling back', () => {
   it('walks moving -> on-vps -> pulling -> local, serves the inverse rewrite and a bundle of the wip branch, and ends with the offset at the pulled size', async () => {
     const w = await world();
@@ -667,20 +637,17 @@ describe('pulling back', () => {
     expect(next).toMatchObject({ id: made.json.id, mode: 'pull', sessionId: w.sid, pull: { turns: 1, repos: [{ repo: 'lib', branch: w.branch, baseCommit: up.bundle.commit }] } });
     await request('POST', '/api/pc-runner/jobs/' + next.id + '/start', { token: w.runner, body: {} });
 
-    // The session comes back with the worktree swapped for the PC folder: the exact inverse of the move.
     const dl = await request('GET', '/api/pc-runner/jobs/' + next.id + '/session', { token: w.runner });
     expect(dl.status).toBe(200);
     expect(dl.headers['x-session-sha256']).toBe(sha(dl.raw));
     expect(dl.headers['content-length']).toBe(String(dl.raw.length));
     const lines = dl.raw.toString('utf8').trim().split('\n').map((l) => JSON.parse(l));
     expect(lines).toHaveLength(up.file.toString('utf8').trim().split('\n').length + 3);
-    // The first four lines are byte-identical to what the PC uploaded.
     expect(dl.raw.subarray(0, up.file.length).equals(up.file)).toBe(true);
     const vpsLine = lines.find((l) => l.uuid === 'vps-a1');
     expect(vpsLine.cwd).toBe(PC_ROOT);
     expect(vpsLine.message.content[1].input.file_path).toBe(PC_ROOT + '\\made-on-vps.txt'.replace(/\\/g, '\\'));
 
-    // And a bundle of the wip branch, with the VPS commit on it.
     const bundle = await request('GET', '/api/pc-runner/jobs/' + next.id + '/bundle?repo=lib', { token: w.runner });
     expect(bundle.status).toBe(200);
     expect(bundle.headers['x-bundle-sha256']).toBe(sha(bundle.raw));
@@ -691,7 +658,6 @@ describe('pulling back', () => {
     expect(git(w.vps, 'bundle', 'list-heads', bf)).toContain(git(w.vps, 'rev-parse', w.branch));
     expect((await request('GET', '/api/pc-runner/jobs/' + next.id + '/bundle', { token: w.runner })).status).toBe(400);
     expect((await request('GET', '/api/pc-runner/jobs/' + next.id + '/bundle?repo=zzz', { token: w.runner })).status).toBe(400);
-    // Nobody but the runner downloads.
     expect((await request('GET', '/api/pc-runner/jobs/' + next.id + '/session', { token: TOKEN })).status).toBe(403);
     expect((await request('GET', '/api/pc-runner/jobs/' + next.id + '/session', { token: null })).status).toBe(401);
 
@@ -700,16 +666,13 @@ describe('pulling back', () => {
     expect((await summary(w)).move).toMatchObject({ state: 'local', turnRunning: false });
     expect(hub.sessionMoves.get(w.sid)!.pulledAt).not.toBeNull();
     expect(hub.sessionMoves.locked(w.sid)).toBe(false);
-    // The mirror continues from the end of the pulled file, and the VPS entries were not duplicated.
     expect(mirrorOffset(w)).toBe(dl.raw.length);
     expect(hub.pcSessions.entries(w.sid)!.entries.map((e) => e.uuid)).toEqual(entriesBefore);
-    // The worktree and the VPS copy of the file are gone; the branch stays.
     expect(fs.existsSync(w.wt)).toBe(false);
     expect(fs.existsSync(sessionFilePath(w.wt, w.sid, CFG))).toBe(false);
     expect(git(w.vps, 'rev-parse', '--verify', w.branch)).toMatch(/^[0-9a-f]{40}$/);
     expect(git(w.vps, 'worktree', 'list')).not.toContain('-wt');
     expect(hub.repos.listMessages(w.room.id, { limit: 40 }).some((m) => /is back on your PC/.test(m.text ?? ''))).toBe(true);
-    // Unlocked again: a resume is allowed, and so is another move.
     expect((await startJob(w, { mode: 'resume', sessionId: w.sid, prompt: 'carry on' })).status).toBe(200);
   });
 
@@ -722,7 +685,6 @@ describe('pulling back', () => {
     await result(w, job.id, { ok: false, refusedLocally: true, output: 'not now' });
     expect(hub.sessionMoves.get(w.sid)!.state).toBe('on-vps');
     expect(fs.existsSync(w.wt)).toBe(true);
-    // And a pull of a session that never moved is a 404.
     const other = await world();
     expect((await startJob(other, { mode: 'pull', sessionId: other.sid })).status).toBe(404);
   });
@@ -758,7 +720,6 @@ describe('pulling back', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('propose_move', () => {
   function ctxFor(w: World, answer: { allowed: boolean; message: string }) {
     const cards: any[] = [];

@@ -87,7 +87,6 @@ describe('hub hardening', () => {
     expect(await upgrade('/ws?token=' + TOKEN, { origin: 'https://evil.example.com' })).toBe('closed');
     expect(await upgrade('/ws?token=' + TOKEN, { host: 'evil.example.com' })).toBe('closed');
   });
-  // ---- audit 2026-09-09, B1: Origin: null is a foreign origin ----
   it('rejects Origin: null (sandboxed iframe / opaque origin)', async () => {
     expect((await req('/api/health', { origin: 'null' })).status).toBe(403);
     expect((await req('/api/bots', { origin: 'null', authorization: 'Bearer ' + TOKEN })).status).toBe(403);
@@ -97,22 +96,17 @@ describe('hub hardening', () => {
 
   it('requires application/json on mutating /api/* routes', async () => {
     const auth = { authorization: 'Bearer ' + TOKEN };
-    // The three content types a cross-site <form> can send without a preflight.
     for (const ct of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data']) {
       const r = await req('/api/bots', { ...auth, 'content-type': ct }, { method: 'POST', body: '{}' });
       expect(r.status, ct).toBe(415);
     }
     expect((await req('/api/bots', auth, { method: 'POST', body: '{}' })).status).toBe(415);
-    // With the right content type it reaches the handler (400 = schema rejection, not a guard rejection).
     const ok = await req('/api/bots', { ...auth, 'content-type': 'application/json' }, { method: 'POST', body: '{}' });
     expect(ok.status).toBe(400);
-    // GETs are unaffected.
     expect((await req('/api/bots', auth)).status).toBe(200);
   });
 
-  // ---- audit 2026-09-09, B2: allowlist, not deny-list ----
   it('requires the token on /screen/* over HTTP and on the websocket upgrade', async () => {
-    // 401 rather than a 502 from the noVNC proxy: the guard answered before the proxy was reached.
     expect((await req('/screen/vnc.html')).status).toBe(401);
     expect((await req('/screen/websockify')).status).toBe(401);
     expect(await upgrade('/screen/websockify')).toBe('closed');
@@ -122,11 +116,9 @@ describe('hub hardening', () => {
   it('requires the token on every other unknown path too', async () => {
     expect((await req('/anything')).status).toBe(401);
     expect((await req('/api/usage')).status).toBe(401);
-    // `/` stays public: it is the shell that then asks the human for the token.
     expect((await req('/')).status).toBe(200);
   });
 
-  // ---- audit 2026-09-09, B15 ----
   it('rejects an oversize request body with 413', async () => {
     const big = 'x'.repeat(1024 * 1024 + 4096);
     const r = await req(
@@ -138,7 +130,6 @@ describe('hub hardening', () => {
   });
 });
 
-// A hub of its own: the rate limiter is per process and would otherwise lock the suite above out.
 describe('failed-auth rate limiting (audit B15)', () => {
   let rlHub: Hub;
   let rlPort: number;
@@ -165,12 +156,10 @@ describe('failed-auth rate limiting (audit B15)', () => {
     for (let i = 0; i < 12; i++) codes.push(await hit({ authorization: 'Bearer wrong' }));
     expect(codes.slice(0, 9).every((c) => c === 401)).toBe(true);
     expect(codes[codes.length - 1]).toBe(429);
-    // Even the correct token is refused while the block stands: brute force costs a minute per 10 guesses.
     expect(await hit({ authorization: 'Bearer ' + TOKEN })).toBe(429);
   });
 });
 
-// ---- P9: opt-in POCKETROCKET_ALLOWED_HOSTS (decision Q9) ----
 describe('allowed hosts (P9)', () => {
   const TAILNET = 'myhub.tail1234.ts.net';
   let ahHub: Hub;
@@ -216,7 +205,6 @@ describe('allowed hosts (P9)', () => {
     expect(await get(ahPort, { host: '127.0.0.1:' + ahPort, origin: 'https://' + TAILNET })).toBe(403);
     expect(await get(ahPort, { host: TAILNET, origin: 'https://evil.example.com', ...https })).toBe(403);
     expect(await get(ahPort, { host: TAILNET, origin: 'null', ...https })).toBe(403);
-    // Loopback keeps working exactly as before.
     expect(await get(ahPort, { host: '127.0.0.1:' + ahPort, origin: 'http://127.0.0.1:' + ahPort })).toBe(200);
   });
 

@@ -17,13 +17,6 @@ class HttpError extends Error {
 type Ctx = { params: Record<string, string>; body: unknown; req: IncomingMessage };
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx) => unknown | Promise<unknown> }
 
-/**
- * `/api/integrations/*` (P4). Human-only, like the rest of `/api`: it needs the hub token, and no bot tool
- * or MCP route reaches it. Kept out of rest.ts so the phases merge cleanly; hub.ts asks it before rest.
- *
- * Never answers 401: the web client reads a 401 as "wrong hub token". A provider refusing a credential is
- * a 400 with the provider's own words.
- */
 export function createIntegrationsApi(deps: { integrations: IntegrationService; repos: Repos }) {
   const { integrations: svc, repos } = deps;
   const routes: Route[] = [];

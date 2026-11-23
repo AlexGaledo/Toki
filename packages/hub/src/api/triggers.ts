@@ -13,18 +13,7 @@ class HttpError extends Error {
 type Ctx = { params: Record<string, string>; body: unknown };
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx) => unknown | Promise<unknown> }
 
-/**
- * `/api/triggers/*` (P5). Human-only like the rest of `/api` (hub token; no bot tool reaches it), so a bot
- * can never create, widen or enable a trigger. Kept out of rest.ts so the phases merge cleanly.
- *
- *   GET    /api/triggers              TriggersState (triggers, connected sources, poll health, 24 h stats)
- *   POST   /api/triggers              create
- *   PATCH  /api/triggers/:id          update (partial)
- *   DELETE /api/triggers/:id
- *   GET    /api/triggers/:id/fires    recent fires, newest first
- *   POST   /api/triggers/:id/test     fire once with a sample event ({ event?: {...} })
- */
-export function createTriggersApi(deps: { triggers: TriggerService; /** True when a workflow starts from this trigger. */ inUse?: (id: string) => boolean }) {
+export function createTriggersApi(deps: { triggers: TriggerService; inUse?: (id: string) => boolean }) {
   const svc = deps.triggers;
   const routes: Route[] = [];
   const add = (method: string, path: string, handler: Route['handler']) => {

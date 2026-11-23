@@ -4,13 +4,11 @@ import type { Db } from '../db/db.js';
 import { clientIp, principalOf } from '../api/guard.js';
 import { logError } from '../providers/redact.js';
 
-/** The newest rows kept. Old rows go first, so a noisy bot cannot fill the disk. */
 const MAX_ROWS = 100_000;
 const MAX_FIELD = 300;
 
 export interface AuditActor {
   kind: AuditEntry['actorKind'];
-  /** User id, device id, bot id or session id, whichever `kind` names. */
   id: string | null;
   ip?: string | null;
 }
@@ -50,40 +48,30 @@ export function listAudit(db: Db, opts: { limit?: number; before?: number } = {}
   }));
 }
 
-/** Who made this request. Null on a token-exempt path, which has no principal. */
 export function actorOf(req: IncomingMessage): AuditActor | null {
   const p = principalOf(req);
   if (!p) return null;
   const ip = clientIp(req);
   if (p.kind === 'device') return { kind: 'device', id: p.deviceId, ip };
-  // The PC runner's own requests are logged by api/pcRunner.ts under the bot whose job it is.
   if (p.kind === 'runner') return null;
   return p.sessionId ? { kind: 'session', id: p.userId ?? null, ip } : { kind: 'hub-token', id: p.userId ?? null, ip };
 }
 
-/**
- * Requests left out: chat and media are the product, not changes to it, and tickets and wakes happen constantly.
- * The auth routes and settings write their own richer rows.
- */
 const NOT_AUDITED = [
   /^\/api\/rooms\/[^/]+\/messages$/,
   /^\/api\/media(\/|$)/,
   /^\/api\/screen\/ticket$/,
   /^\/api\/computers\/[^/]+\/wake$/,
-  // The app sends this by itself whenever a chat opens.
   /^\/api\/computers\/warm$/,
   /^\/api\/push(\/|$)/,
   /^\/api\/auth(\/|$)/,
   /^\/api\/settings$/,
-  // The files API writes its own rows, with the path that changed.
   /^\/api\/rooms\/[^/]+\/files(\/|$)/,
-  // The PC runner polls every few seconds; api/pcRunner.ts writes the rows that matter (mint, off, approve, result).
   /^\/api\/pc-runner(\/|$)/,
 ];
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/** `PATCH /api/bots/abc` → bot.updated on abc; `PUT /api/bots/abc/memory` → bot.memory.updated on abc. */
 export function auditAction(method: string, pathname: string): { action: string; target: string | null } {
   const [resource = 'api', id, ...sub] = pathname.replace(/^\/api\//, '').replace(/\/+$/, '').split('/');
   const name = resource.replace(/s$/, '');
@@ -91,7 +79,6 @@ export function auditAction(method: string, pathname: string): { action: string;
   return { action: [name, ...sub.filter((s) => /^[a-z][a-z_-]*$/.test(s)), verb].join('.'), target: id ?? null };
 }
 
-/** Called once a request has been answered: every successful change a person or script made gets a row. */
 export function auditRequest(db: Db, req: IncomingMessage, method: string, pathname: string, status: number): void {
   if (status >= 400 || !MUTATING.has(method) || !pathname.startsWith('/api/')) return;
   if (NOT_AUDITED.some((re) => re.test(pathname))) return;

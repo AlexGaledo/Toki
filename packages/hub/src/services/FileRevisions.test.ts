@@ -56,7 +56,6 @@ describe('FileRevisions.writeText', () => {
     expect(first).toMatchObject({ ok: true, hash: hashBytes('one'), rev: 1 });
     expect(fs.readFileSync(path.join(dir, 'notes', 'plan.md'), 'utf8')).toBe('one');
 
-    // Two writers read the same version; the second one to write loses and gets the winner's text.
     const read = revs.readText(root, 'notes/plan.md');
     expect(revs.writeText(root, 'notes/plan.md', 'two (A)', read.hash, { ...bot, label: '@a' })).toMatchObject({ ok: true, rev: 2 });
     const lost = revs.writeText(root, 'notes/plan.md', 'two (B)', read.hash, { ...bot, label: '@b' });

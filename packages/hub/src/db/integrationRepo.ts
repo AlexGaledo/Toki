@@ -2,7 +2,6 @@ import { nanoid } from 'nanoid';
 import type { IntegrationInfo, IntegrationMethod, IntegrationProvider, IntegrationStatus } from '@pocketrocket/shared';
 import type { Db, Row } from './db.js';
 
-/** The rows behind integrations (P4). Secrets never touch these tables; see IntegrationVault. */
 export class IntegrationRepo {
   constructor(private db: Db) {}
 
@@ -36,10 +35,6 @@ export class IntegrationRepo {
     return r ? this.rowTo(r) : undefined;
   }
 
-  /**
-   * One connection per provider: connecting again (another account, or the other method) replaces the
-   * row in place, so its id and therefore the bots' grants survive a reconnect.
-   */
   upsert(i: { provider: IntegrationProvider; method: IntegrationMethod; accountLabel: string; scopes: string[]; warnings?: string[] }): IntegrationInfo {
     const t = Date.now();
     const cur = this.byProvider(i.provider);
@@ -74,11 +69,9 @@ export class IntegrationRepo {
     });
   }
 
-  // ---------- grants ----------
   grantedBots(integrationId: string): string[] {
     return this.db.all<{ bot_id: string }>('SELECT bot_id FROM bot_integrations WHERE integration_id=? ORDER BY created_at', integrationId).map((r) => r.bot_id);
   }
-  /** Connections this bot may use: every connection is shared by all bots. */
   forBot(_botId: string): IntegrationInfo[] {
     return this.list();
   }
@@ -89,7 +82,6 @@ export class IntegrationRepo {
       for (const b of new Set(botIds)) this.db.run('INSERT INTO bot_integrations (bot_id, integration_id, scopes, created_at) VALUES (?,?,?,?)', b, integrationId, '[]', t);
     });
   }
-  /** Drop grants that point at bots which no longer exist. Returns how many went. */
   pruneGrants(liveBotIds: string[]): number {
     const live = new Set(liveBotIds);
     const rows = this.db.all<{ bot_id: string }>('SELECT DISTINCT bot_id FROM bot_integrations');

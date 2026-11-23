@@ -22,34 +22,14 @@ export const MCP_SIGN_IN_MESSAGE =
 
 export interface McpCheck {
   ok: boolean;
-  /** A fixed word, never the remote's own text: connected | auth-rejected | http-<code> | timeout | unreachable | command-found | command-missing | invalid */
   result: string;
   at: number;
 }
 
-/**
- * `/api/mcp-servers/*`: the owner's list and editor for data/mcp-servers.json. Human-only:
- * - Needs the hub token or a signed-in browser. A bot holds neither (its per-turn MCP bearer only opens /mcp),
- *   and a paired phone or the PC runner is refused by the guard's allowlists.
- * - Adding or changing a command (stdio) server executes a program with the owner's keys, so it also needs a
- *   signed-in browser session, the same bar as the run_on_pc approval (SIGN_IN_TOOLS). Url servers, and
- *   deleting any server, take the hub token.
- * - Tokens and env values are write-only: listings show whether a token is set and the env variable names.
- *
- *   GET    /api/mcp-servers               -> { servers: McpServerView[] }
- *   POST   /api/mcp-servers               add (body: name + url [+ token] | command [+ args, env]; rooms/bots, approve, readTools, needs)
- *   PATCH  /api/mcp-servers/:name         change; token null clears, env value null removes a variable
- *   DELETE /api/mcp-servers/:name
- *   POST   /api/mcp-servers/:name/check   url: one initialize call (5 s); command: does the program exist. Never spawns anything.
- *
- * Servers are mounted per turn by the provider, so there is no long-lived connection to restart: a change
- * applies on the next turn and `check` is the status probe.
- */
 export function createMcpServersApi(deps: {
   store: McpServerStore;
   db: Db;
   fetch?: typeof fetch;
-  /** Tests: where `which` looks. */
   pathEnv?: () => string;
 }) {
   const { store, db } = deps;
@@ -77,7 +57,6 @@ export function createMcpServersApi(deps: {
           'content-type': 'application/json',
           accept: 'application/json, text/event-stream',
         };
-        // Same rule as the loader: a token bound to another origin than the url is never sent.
         const bound = typeof raw.tokenOrigin !== 'string' || raw.tokenOrigin === new URL(raw.url).origin;
         if (typeof raw.token === 'string' && raw.token && bound) headers.authorization = 'Bearer ' + raw.token;
         const r = await doFetch(raw.url, {
@@ -139,8 +118,6 @@ export function createMcpServersApi(deps: {
         if (!parsed.success) return send(res, 400, { error: issues(parsed.error) });
         const cur = store.rawEntry(name);
         if (!cur) return send(res, 404, { error: 'No server named "' + name + '"' });
-        // Also when the stored entry is a command server and the patch is only `approve` or `bots`: those widen who
-        // may run the program, or drop its approval card.
         if (cur.command !== undefined && !signedIn) return send(res, 403, { error: MCP_SIGN_IN_MESSAGE, signInRequired: true });
         const view = store.patch(name, parsed.data);
         audit('mcp_server.changed', name);
@@ -168,7 +145,6 @@ export function createMcpServersApi(deps: {
 const issues = (e: { issues: { path: PropertyKey[]; message: string }[] }): string =>
   e.issues.map((i) => (i.path.length ? i.path.join('.') + ': ' : '') + i.message).join('; ');
 
-/** The parsed JSON body, or undefined after answering 4xx. */
 async function json(req: IncomingMessage, res: ServerResponse): Promise<unknown> {
   const buf = await readBody(req);
   if (buf === null) { send(res, 413, { error: 'Request body too large (max 1 MB)' }); return undefined; }

@@ -6,8 +6,6 @@ import { UsageTracker } from '../services/UsageTracker.js';
 import type { BotRunner, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { RoomRouter } from './RoomRouter.js';
 
-/** 04-A3: a maintenance hold starts no new turn; messages still queue (journaled) and run after it ends. */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -19,7 +17,6 @@ function setup(bots = 1) {
   const repos = new Repos(db);
   const router = new RoomRouter(repos, new UsageTracker(repos));
   const reqs: TurnRequest[] = [];
-  /** Turns that have not been let finish yet. */
   const open: (() => void)[] = [];
   let blockTurns = false;
   router.runner = {
@@ -28,7 +25,6 @@ function setup(bots = 1) {
       if (blockTurns) await new Promise<void>((r) => open.push(r));
       return { ok: true, turnId: 't' + reqs.length, finalText: '', costUsd: 0 };
     },
-    // A provider that cannot steer: a message to a busy bot queues.
     steer: () => ({ status: 'queued', reason: 'provider' }),
   } as unknown as BotRunner;
   const pairs = Array.from({ length: bots }, (_, i) => {
@@ -49,7 +45,6 @@ describe('maintenance hold', () => {
     await tick();
     expect(s.reqs).toHaveLength(0);
     expect(s.router.pendingLaneCount()).toBe(1);
-    // Journaled, so a restart during the hold still resumes it.
     expect(s.repos.db.all<{ n: number }>('SELECT COUNT(*) AS n FROM lane_journal')[0].n).toBe(1);
     s.router.releaseHold();
     expect(s.router.heldUntil()).toBeNull();
@@ -91,7 +86,6 @@ describe('maintenance hold', () => {
     s.block(true);
     for (let i = 0; i < MAX_CONCURRENT_TURNS; i++) s.router.onUserMessage(s.pairs[i].room.id, 'busy ' + i);
     await until(() => s.reqs.length === MAX_CONCURRENT_TURNS);
-    // The last lane is past the hold check and waiting on the semaphore.
     s.router.onUserMessage(s.pairs[MAX_CONCURRENT_TURNS].room.id, 'queued');
     await tick();
     expect(s.reqs).toHaveLength(MAX_CONCURRENT_TURNS);

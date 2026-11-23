@@ -1,6 +1,5 @@
 import type { Bot } from '@pocketrocket/shared';
 
-/** Parse @handle mentions (case-insensitive) in `text` matching `members`. Unique, in order, excluding `selfId`. */
 export function parseMentions(text: string, members: Bot[], selfId?: string): Bot[] {
   const byHandle = new Map(members.map((b) => [b.handle.toLowerCase(), b]));
   const seen = new Set<string>();

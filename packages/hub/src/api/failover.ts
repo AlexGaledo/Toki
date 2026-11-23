@@ -6,15 +6,6 @@ import { publicCard } from '../db/failoverRepo.js';
 import { FailoverError, type FailoverService } from '../services/Failover.js';
 import { logError } from '../providers/redact.js';
 
-/**
- * M8 (P3-1) failover cards. Behind the hub token like the rest of `/api`; a bot never reaches this file (no hub tool
- * answers a card, and a cta button or chat text only ever sends a message).
- *
- *   GET  /api/failover                        FailoverState: open cards and bots running on their backup
- *   POST /api/failover-cards/:id/decision     FailoverDecision {decision: 'continue' | 'wait'}. Person-only: 403 for
- *                                             anything but an owner principal (the hub token, a signed-in browser, a
- *                                             paired device), as for workflow approval cards.
- */
 export function createFailoverApi(deps: { failover: FailoverService }) {
   const DECISION = /^\/api\/failover-cards\/([^/]+)\/decision\/?$/;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {

@@ -1,13 +1,7 @@
 import { redact } from '../providers/redact.js';
 
-/** `fetch`, injectable so tests answer with recorded fixtures and never reach the network. */
 export type Fetch = typeof fetch;
 
-/**
- * A provider call that failed. `auth` means the provider refused the credential (401, Slack `invalid_auth`,
- * an OAuth `invalid_grant`): the connection needs a refresh or the user must reconnect. `message` is the
- * provider's own words, redacted and capped, never the request (which carries the token).
- */
 export class IntegrationError extends Error {
   constructor(message: string, readonly status: number, readonly auth = false) {
     super(redact(message).slice(0, 400));
@@ -19,27 +13,20 @@ export interface ApiResponse<T> {
   status: number;
   data: T;
   headers: Headers;
-  /** 304 to a conditional request (ETag / If-Modified-Since): nothing changed, `data` is null. */
   notModified: boolean;
 }
 
 export interface RequestOpts {
   method?: string;
   headers?: Record<string, string>;
-  /** Sent as application/json. */
   json?: unknown;
-  /** Sent as application/x-www-form-urlencoded. */
   form?: Record<string, string>;
   query?: Record<string, string | number | boolean | undefined | null>;
-  /** Conditional GET. */
   etag?: string | null;
   ifModifiedSince?: string | null;
-  /** Answer as text, not JSON (Drive file content, Gmail raw). */
   text?: boolean;
-  /** Status codes the caller handles itself instead of an exception (e.g. 404/410 = cursor expired). */
   allow?: number[];
   timeoutMs?: number;
-  /** Aborts the call early (hub shutdown). Combined with the timeout: whichever fires first. */
   signal?: AbortSignal;
 }
 
@@ -50,7 +37,6 @@ export function withQuery(url: string, query?: RequestOpts['query']): string {
   return u.toString();
 }
 
-/** One HTTPS call. Throws IntegrationError on anything but 2xx, 304 or a status listed in `allow`. */
 export async function apiRequest<T = unknown>(fetchFn: Fetch, url: string, opts: RequestOpts = {}): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = { accept: 'application/json', 'user-agent': 'Toki', ...opts.headers };
   let body: string | undefined;

@@ -4,7 +4,6 @@ import type {
 } from '@pocketrocket/shared';
 import type { Db, Row } from './db.js';
 
-/** A stored event (P5). `payload` is the normalised TriggerEvent: ids and text, never request headers. */
 export interface InboxRow {
   id: string;
   source: TriggerSource;
@@ -15,7 +14,6 @@ export interface InboxRow {
   seenAt: number;
 }
 
-/** Cursor and schedule state of one poll stream. */
 export interface CursorRow {
   key: string;
   source: TriggerSource;
@@ -30,11 +28,9 @@ export interface CursorRow {
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
-/** Rows behind triggers, the events inbox, fires and poll cursors (migrations 50–53). */
 export class TriggerRepo {
   constructor(private db: Db) {}
 
-  // ---------------------------------------------------------------- triggers
   private toTrigger(r: Row): Trigger {
     return {
       id: r.id as string, name: r.name as string, enabled: !!r.enabled, source: r.source as TriggerSource,
@@ -78,14 +74,12 @@ export class TriggerRepo {
     this.db.run('UPDATE triggers SET last_fired_at=? WHERE id=?', at, id);
   }
 
-  // ---------------------------------------------------------------- inbox
   private toInbox(r: Row): InboxRow {
     return {
       id: r.id as string, source: r.source as TriggerSource, pollKey: r.poll_key as string, dedupeKey: r.dedupe_key as string,
       event: JSON.parse(r.payload as string), status: r.status as InboxRow['status'], seenAt: r.seen_at as number,
     };
   }
-  /** Stores an event once. Returns the new row, or null when its dedupe key was seen before. */
   addEvent(pollKey: string, dedupeKey: string, event: TriggerEvent, now = Date.now()): InboxRow | null {
     const id = nanoid(12);
     const r = this.db.run(
@@ -95,7 +89,6 @@ export class TriggerRepo {
     if (!Number(r.changes)) return null;
     return { id, source: event.source, pollKey, dedupeKey, event, status: 'new', seenAt: now };
   }
-  /** Events stored but never matched (the hub stopped in between). */
   pendingEvents(): InboxRow[] {
     return this.db.all("SELECT * FROM events_inbox WHERE status='new' ORDER BY seen_at").map((r) => this.toInbox(r));
   }
@@ -105,12 +98,10 @@ export class TriggerRepo {
   inboxCount(): number {
     return this.db.get<{ n: number }>('SELECT COUNT(*) AS n FROM events_inbox')?.n ?? 0;
   }
-  /** Keep the inbox from growing forever; dedupe only needs to outlive a provider's replay window. */
   pruneInbox(olderThan: number): number {
     return Number(this.db.run("DELETE FROM events_inbox WHERE status != 'new' AND seen_at < ?", olderThan).changes);
   }
 
-  // ---------------------------------------------------------------- fires
   private toFire(r: Row): TriggerFire {
     return {
       id: r.id as string, triggerId: r.trigger_id as string, eventId: (r.event_id as string) ?? null, title: (r.title as string) ?? '',
@@ -143,16 +134,11 @@ export class TriggerRepo {
   runningFires(): TriggerFire[] {
     return this.db.all("SELECT * FROM trigger_fires WHERE status='running'").map((r) => this.toFire(r));
   }
-  /** Fires that started a turn (not skipped) in the last hour: the rate limit counts these. */
   firesLastHour(triggerId: string, now = Date.now()): number {
     return this.db.get<{ n: number }>(
       "SELECT COUNT(*) AS n FROM trigger_fires WHERE trigger_id=? AND status != 'skipped' AND started_at >= ?", triggerId, now - HOUR,
     )?.n ?? 0;
   }
-  /**
-   * What this trigger's threads spent in the last 24 hours, read live from `usage` by cause, so the hops a
-   * trigger turn causes count against the trigger too.
-   */
   spentLastDay(triggerId: string, now = Date.now()): number {
     return this.db.get<{ c: number | null }>(
       'SELECT SUM(u.cost_usd) AS c FROM usage u JOIN trigger_fires f ON u.cause_id = f.message_id WHERE f.trigger_id=? AND f.started_at >= ?',
@@ -160,7 +146,6 @@ export class TriggerRepo {
     )?.c ?? 0;
   }
 
-  // ---------------------------------------------------------------- cursors
   private toCursor(r: Row): CursorRow {
     return {
       key: r.key as string, source: r.source as TriggerSource, cursor: (r.cursor as string) ?? null, etag: (r.etag as string) ?? null,
@@ -191,7 +176,6 @@ export class TriggerRepo {
   }
 }
 
-/** Drop empty filter values so "" never means "must contain nothing". */
 function cleanFilter(f: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(f ?? {})) if (typeof v === 'string' && v.trim()) out[k] = v.trim();

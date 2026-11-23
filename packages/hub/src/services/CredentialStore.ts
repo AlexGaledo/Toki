@@ -4,7 +4,6 @@ import type { Db, Row } from '../db/db.js';
 import { CREDENTIALS_PATH, VAULT_KEY_PATH } from '../config.js';
 import { IntegrationVault } from './IntegrationVault.js';
 
-/** A refusal the REST layer turns into a status; the message is safe to show. */
 export class CredentialError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
 }
@@ -42,7 +41,6 @@ export class CredentialStore {
     const r = this.db.get('SELECT * FROM credentials WHERE id=?', id);
     return r ? this.rowTo(r) : undefined;
   }
-  /** Case-insensitive, the way the unique index compares. */
   byName(name: string): CredentialInfo | undefined {
     const r = this.db.get('SELECT * FROM credentials WHERE name=? COLLATE NOCASE', name.trim());
     return r ? this.rowTo(r) : undefined;
@@ -53,7 +51,6 @@ export class CredentialStore {
     if (this.list().length >= MAX_CREDENTIALS) throw new CredentialError('At most ' + MAX_CREDENTIALS + ' saved logins', 400);
     const id = nanoid(10);
     const t = Date.now();
-    // The secret first: a row without one would be a login that cannot be filled; a secret without a row is only dead weight.
     this.vault.set(id, { secret: input.secret });
     try {
       this.db.run('INSERT INTO credentials (id, name, origin, username, created_at, updated_at) VALUES (?,?,?,?,?,?)', id, input.name, input.origin, input.username, t, t);
@@ -89,7 +86,6 @@ export class CredentialStore {
     this.db.run('UPDATE credentials SET last_used_at=? WHERE id=?', Date.now(), id);
   }
 
-  /** The only way the secret leaves the store. For the fill tool; never serialise the result. */
   readSecret(id: string): string | null {
     return this.vault.get(id)?.secret ?? null;
   }

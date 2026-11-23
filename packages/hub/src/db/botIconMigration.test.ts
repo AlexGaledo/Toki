@@ -10,8 +10,6 @@ import { Repos } from './repos.js';
 const dirs: string[] = [];
 afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); });
 
-// Repos below writes today's columns, so the later rooms.avatar, messages.attachments and bots.provider/backup (M6)
-// columns are there; none is touched by what 100 rewrites.
 const BEFORE = MIGRATIONS.filter((m) => m.version < 100 || m.version === 102 || m.version === 120 || m.version === 310 || m.version === 311);
 const AVATARS: Record<string, string> = {
   plain: '🤖', compass: '🧭', search: '🔎', wrench: '🛠️', pen: '✍️', smile: '🙂', custom: '🛰️', text: 'QA', blank: '', kept: 'radar', proto: 'toString',
@@ -22,7 +20,6 @@ const EXPECTED: Record<string, string> = {
   'pocketrocket-support': 'shield', 'data-engineer': 'database',
 };
 
-/** A database as the last build left it: every older migration applied, bots, rooms and messages in it. */
 function oldDatabase() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-icons-'));
   dirs.push(dir);
@@ -48,7 +45,7 @@ describe('migration 100: bot avatars to icon keys', () => {
     expect(db.schemaVersions()).toContain(100);
     const repos = new Repos(db);
     expect(repos.listRooms().map((r) => r.id)).toEqual([roomId]);
-    expect(repos.listMessages(roomId).map((m) => m.text)).toEqual(['added 🤖 plain']); // history stays as written
+    expect(repos.listMessages(roomId).map((m) => m.text)).toEqual(['added 🤖 plain']);
     db.raw.close();
   });
 

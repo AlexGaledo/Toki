@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import type { IntegrationProvider } from '@pocketrocket/shared';
 import { apiRequest, IntegrationError, type Fetch } from './http.js';
 
-/** The user's own OAuth app (decision Q4: no Toki-owned apps). */
 export interface OAuthApp {
   clientId: string;
   clientSecret?: string;
@@ -19,7 +18,6 @@ export interface OAuthSpec {
   scopes: string[];
   /** S256 PKCE. ClickUp does not support it; the state check still applies. */
   pkce: boolean;
-  /** Extra authorize parameters. */
   extra?: Record<string, string>;
   /**
    * Host in the redirect URI. Microsoft public clients register `http://localhost/...` and ignore the port;
@@ -28,7 +26,6 @@ export interface OAuthSpec {
   redirectHost: '127.0.0.1' | 'localhost';
   /** Device authorization grant (RFC 8628), for a hub on a VPS where the browser cannot reach the loopback. */
   device?: { codeUrl(app: OAuthApp): string; tokenUrl(app: OAuthApp): string };
-  /** Whether the token endpoint takes the scope on refresh (Microsoft does). */
   scopeOnRefresh?: boolean;
   /** Microsoft: public client, never send a secret even if one was pasted. */
   publicClient?: boolean;
@@ -56,12 +53,10 @@ export const OAUTH: Partial<Record<IntegrationProvider, OAuthSpec>> = {
       'https://www.googleapis.com/auth/drive.readonly',
     ],
     pkce: true,
-    // Without both, Google hands out no refresh token (or only on the very first consent).
     extra: { access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true' },
     redirectHost: '127.0.0.1',
   },
   clickup: {
-    // Unverified: whether ClickUp accepts a loopback redirect. Pasting a pk_ token is the default.
     authorizeUrl: () => 'https://app.clickup.com/api',
     tokenUrl: () => 'https://api.clickup.com/api/v2/oauth/token',
     scopes: [],
@@ -71,7 +66,6 @@ export const OAUTH: Partial<Record<IntegrationProvider, OAuthSpec>> = {
   teams: {
     authorizeUrl: (app) => ms(app) + 'authorize',
     tokenUrl: (app) => ms(app) + 'token',
-    // Channel messages (ChannelMessage.Read.All) need admin consent; chats do not.
     scopes: ['offline_access', 'User.Read', 'Chat.ReadWrite', 'ChatMessage.Send'],
     pkce: true,
     redirectHost: 'localhost',
@@ -84,7 +78,6 @@ export const OAUTH: Partial<Record<IntegrationProvider, OAuthSpec>> = {
 export const supportsOAuth = (p: IntegrationProvider) => !!OAUTH[p];
 export const supportsDevice = (p: IntegrationProvider) => !!OAUTH[p]?.device;
 
-/** 256 bits of randomness, base64url. Used for `state` and the PKCE verifier. */
 export const randomToken = () => crypto.randomBytes(32).toString('base64url');
 /** RFC 7636 S256: base64url(sha256(verifier)). */
 export const pkceChallenge = (verifier: string) => crypto.createHash('sha256').update(verifier).digest('base64url');
@@ -104,7 +97,6 @@ export function authorizeUrl(spec: OAuthSpec, app: OAuthApp, o: { redirectUri: s
   return u.toString();
 }
 
-/** What every token endpoint is normalised to. `expiresAt` is ms since epoch, or null for tokens that do not expire. */
 export interface TokenSet {
   accessToken: string;
   refreshToken: string | null;
@@ -125,7 +117,6 @@ function normalise(t: RawToken, now: number, prevRefresh: string | null = null):
   };
 }
 
-/** POST to a token endpoint. GitHub answers 200 with an `error` field, so both shapes are checked. */
 async function tokenRequest(fetchFn: Fetch, url: string, form: Record<string, string>): Promise<RawToken> {
   const r = await apiRequest<RawToken>(fetchFn, url, { form, allow: [400, 401] });
   const d = r.data ?? {};
@@ -141,7 +132,6 @@ async function tokenRequest(fetchFn: Fetch, url: string, form: Record<string, st
 const clientAuth = (spec: OAuthSpec, app: OAuthApp): Record<string, string> =>
   ({ client_id: app.clientId, ...(app.clientSecret && !spec.publicClient ? { client_secret: app.clientSecret } : {}) });
 
-/** Authorization code → tokens. The verifier proves this hub started the flow (PKCE). */
 export async function exchangeCode(fetchFn: Fetch, spec: OAuthSpec, app: OAuthApp, o: { code: string; redirectUri: string; verifier: string }, now = Date.now()): Promise<TokenSet> {
   const form: Record<string, string> = { ...clientAuth(spec, app), grant_type: 'authorization_code', code: o.code, redirect_uri: o.redirectUri };
   if (spec.pkce) form.code_verifier = o.verifier;
@@ -168,7 +158,6 @@ export async function startDevice(fetchFn: Fetch, spec: OAuthSpec, app: OAuthApp
   };
 }
 
-/** One poll of a device grant: tokens, or `pending` / `slow_down` to keep waiting. Anything else throws. */
 export async function pollDevice(fetchFn: Fetch, spec: OAuthSpec, app: OAuthApp, deviceCode: string, now = Date.now()): Promise<TokenSet | 'pending' | 'slow_down'> {
   try {
     const raw = await tokenRequest(fetchFn, spec.device!.tokenUrl(app), {

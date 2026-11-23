@@ -2,12 +2,6 @@ import { nanoid } from 'nanoid';
 import type { ApprovalPolicy } from '@pocketrocket/shared';
 import type { Db } from './db.js';
 
-/*
- * P2 data access (migrations 20-21): parked approvals and approval rules. Kept out of `repos.ts`, like
- * db/computers.ts, so this phase's tables live in a file of their own.
- */
-
-/** An approval card a routine/trigger turn stopped waiting on (`approvals.parked_at` set, still pending). */
 export interface ParkedApproval {
   id: string;
   botId: string;
@@ -17,7 +11,6 @@ export interface ParkedApproval {
   reason: string;
   causeId: string;
   hop: number;
-  /** What the parked turn belongs to (`routine:<runId>`, `workflow:<runId>:<nodeId>`); see rooms/ownerRef.ts. */
   ownerRef: string | null;
   messageId: string | null;
   parkedAt: number;
@@ -54,7 +47,6 @@ const toPolicy = (r: PolicyRaw): StoredPolicy => ({
 export class ApprovalStore {
   constructor(readonly db: Db, private now: () => number = Date.now) {}
 
-  // ---------- parked approvals ----------
   park(id: string, p: { causeId: string; hop: number; ownerRef: string | null; messageId: string }) {
     this.db.run(
       "UPDATE approvals SET parked_at=?, cause_id=?, hop=?, run_id=?, owner_ref=?, message_id=? WHERE id=? AND status='pending'",
@@ -68,13 +60,10 @@ export class ApprovalStore {
   listParked(): ParkedApproval[] {
     return this.db.all<ParkedRaw>("SELECT * FROM approvals WHERE status='pending' AND parked_at IS NOT NULL ORDER BY parked_at").map(toParked);
   }
-  /** Owner refs a parked card still holds open (FollowUp must not close a routine run at startup). */
   parkedOwnerRefs(): string[] {
     return this.listParked().map((p) => p.ownerRef).filter((r): r is string => !!r);
   }
 
-  // ---------- approval rules ----------
-  /** Expired rules are never listed (and so never matched); `prunePolicies` deletes them. */
   listPolicies(botId?: string, scope: PolicyScope | 'all' = 'always'): StoredPolicy[] {
     const where: string[] = ['(expires_at IS NULL OR expires_at > ?)'];
     const args: (string | number)[] = [this.now()];
@@ -88,11 +77,6 @@ export class ApprovalStore {
     const r = this.db.get<PolicyRaw>('SELECT * FROM approval_policies WHERE id=?', id);
     return r ? toPolicy(r) : undefined;
   }
-  /**
-   * Adds a rule; an identical one (same bot, tool, pattern, decision, scope, machine, expiry) is returned instead
-   * of duplicated. `machine` null/absent = any machine; `expiresAt` null/absent = never. `message`: what the bot does
-   * instead, on a deny rule learned from a correction (propose_rule); null/absent = a plain rule.
-   */
   addPolicy(p: { botId: string; tool: string; pattern: string; decision: 'allow' | 'deny'; scope: PolicyScope; machine?: string | null; expiresAt?: number | null; message?: string | null }): StoredPolicy {
     const machine = p.machine ?? null;
     const expiresAt = p.expiresAt ?? null;
@@ -114,11 +98,9 @@ export class ApprovalStore {
     this.db.run('DELETE FROM approval_policies WHERE id=?', id);
     return had;
   }
-  /** Hub start: "Allow for this session" answers belong to the previous process. */
   clearSessionPolicies() {
     this.db.run("DELETE FROM approval_policies WHERE scope='session'");
   }
-  /** Rules of bots that no longer exist, and rules that have expired. */
   prunePolicies(liveBotIds: string[]) {
     this.db.run('DELETE FROM approval_policies WHERE expires_at IS NOT NULL AND expires_at <= ?', this.now());
     const keep = new Set(liveBotIds);
@@ -126,14 +108,12 @@ export class ApprovalStore {
   }
 }
 
-/** `*` matches anything, a trailing `*` is a prefix match, anything else must be equal. */
 export function patternMatches(pattern: string, subject: string): boolean {
   if (pattern === '*') return true;
   if (pattern.endsWith('*')) return subject.startsWith(pattern.slice(0, -1));
   return pattern === subject;
 }
 
-/** An approvals row as the "make this a rule" route needs it, with the danger flag its card showed. */
 export interface ApprovalRecord {
   id: string;
   botId: string;

@@ -4,23 +4,6 @@ import crypto from 'node:crypto';
 import { INTEGRATIONS_PATH, VAULT_KEY_PATH, renameOver, restrictFile } from '../config.js';
 import { addSecret, removeSecret } from '../providers/redact.js';
 
-/**
- * Encrypted store for integration credentials (P4, spec §2.5). Separate from SecretsStore on purpose:
- * provider API keys there are plain JSON an env var can override; these are long-lived account tokens.
- *
- * - `integrations.json` holds one AES-256-GCM blob: `{ v: 1, iv, tag, data }` (base64), with a fixed
- *   associated-data string so a blob from another program never decrypts here. Every write re-encrypts the
- *   whole map with a fresh 96-bit IV.
- * - The 32-byte key lives in `vault.key` (hex, 0600 + owner-only ACL via restrictFile). It is created on the
- *   first write, never at startup, so a hub that never connects anything leaves no key behind.
- * - `deploy/backup.sh` excludes `vault.key`: a backup archive alone holds no usable token.
- * - A blob that fails authentication (tampered, truncated, wrong key) throws VaultError; nothing is
- *   silently reset, because overwriting would destroy the user's tokens.
- * - Every value read or written is registered with `addSecret`, so it is scrubbed from tool output, room
- *   messages and logs wherever it might surface. No method here logs a value.
- *
- * Not done: wrapping the key with DPAPI on Windows (the ACL from restrictFile is the control there).
- */
 export class VaultError extends Error {}
 
 const AAD = Buffer.from('pocketrocket/integration-vault/v1');
@@ -34,7 +17,6 @@ export class IntegrationVault {
   private get file() { return this.opts.file ?? INTEGRATIONS_PATH; }
   private get keyFile() { return this.opts.keyFile ?? VAULT_KEY_PATH; }
 
-  /** The key, or null when none exists yet. `create` mints and stores one. */
   private key(create: boolean): Buffer | null {
     try {
       const hex = fs.readFileSync(this.keyFile, 'utf8').trim();
@@ -44,7 +26,6 @@ export class IntegrationVault {
       if (e instanceof VaultError) throw e;
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new VaultError('Cannot read vault.key');
       if (!create) return null;
-      // A blob with no key can never be read again: refuse to mint a new key over it.
       if (fs.existsSync(this.file)) throw new VaultError('integrations.json exists but vault.key is missing; restore the key or delete integrations.json');
       const key = crypto.randomBytes(32);
       fs.mkdirSync(path.dirname(this.keyFile), { recursive: true });
@@ -85,7 +66,6 @@ export class IntegrationVault {
     return e ? { ...e } : null;
   }
 
-  /** Replace an entry. Empty-string values are dropped. */
   set(id: string, entry: Entry): void {
     const all = { ...this.load() };
     const clean: Entry = {};
@@ -94,7 +74,6 @@ export class IntegrationVault {
     this.save(all);
   }
 
-  /** Merge fields into an entry (an empty string deletes that field). */
   patch(id: string, fields: Entry): void {
     const cur = this.get(id) ?? {};
     for (const [k, v] of Object.entries(fields)) {
@@ -136,7 +115,6 @@ function decrypt(raw: string, key: Buffer): Record<string, Entry> {
     const out = Buffer.concat([d.update(Buffer.from(blob.data, 'base64')), d.final()]).toString('utf8');
     return JSON.parse(out) as Record<string, Entry>;
   } catch {
-    // One message for every failure: which check failed is no business of whoever tampered with the file.
     throw new VaultError('integrations.json failed its integrity check (tampered, truncated or wrong vault.key)');
   }
 }

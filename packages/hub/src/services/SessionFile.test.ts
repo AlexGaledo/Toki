@@ -8,7 +8,6 @@ import { claudeConfigDir, encodeProjectDir, projectDirExists, rewriteLine, rewri
 const PC = 'C:\\Users\\sam\\code\\app';
 const VPS = '/srv/pr/projects/acme/repos/app-wt/abcd1234';
 
-// Lines as the CLI writes them: compact JSON.stringify.
 const J = (o: unknown) => JSON.stringify(o);
 const userLine = J({ type: 'user', uuid: 'u1', cwd: PC, message: { role: 'user', content: 'read C:\\Users\\sam\\code\\app\\x.ts please' } });
 const toolLine = J({
@@ -57,7 +56,6 @@ describe('rewriteLine', () => {
     expect(edit.input.file_path).toBe(VPS + '/src/a.ts');
     expect(grep.input.path).toBe(VPS);
     expect(nb.input.notebook_path).toBe(VPS + '/n.ipynb');
-    // Free text, other input fields and tool_result bodies stay as they were, even when they name the PC path.
     expect(text.text).toBe('Editing ' + PC + '\\src\\a.ts now');
     expect(edit.input.old_string).toBe(PC + '\\src\\a.ts');
     expect(rewriteLine(userLine, PC, VPS)).toContain('read C:\\\\Users\\\\sam\\\\code\\\\app\\\\x.ts please');
@@ -132,7 +130,6 @@ describe('rewriteSessionFile', () => {
       expect(out).toBe(rewriteSessionText(text, PC, VPS));
       expect(r.bytes).toBe(Buffer.byteLength(out));
       expect(r.sha256).toMatch(/^[0-9a-f]{64}$/);
-      // And without a trailing newline.
       fs.writeFileSync(path.join(dir, 'in2.jsonl'), userLine + '\n' + toolLine);
       await rewriteSessionFile(path.join(dir, 'in2.jsonl'), path.join(dir, 'out2.jsonl'), PC, VPS);
       expect(fs.readFileSync(path.join(dir, 'out2.jsonl'), 'utf8')).toBe(rewriteSessionText(userLine + '\n' + toolLine, PC, VPS));
@@ -165,8 +162,6 @@ describe('where the CLI looks for a session', () => {
     expect(claudeConfigDir({})).toBe(path.join(os.homedir(), '.claude'));
   });
 
-  // Ground truth on a machine that has run the CLI: the folder it made for this checkout is the one we compute. Skipped
-  // where the CLI never ran in this folder (CI, a fresh machine).
   it("matches a project folder the real CLI created under this machine's Claude projects dir", () => {
     const cfg = claudeConfigDir();
     let top = '';

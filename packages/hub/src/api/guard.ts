@@ -17,7 +17,6 @@ function port(hostHeader: string | undefined): string | null {
   return i > 0 && !h.endsWith(']') ? h.slice(i + 1) : null;
 }
 
-/** P9 (decision Q9): opt-in extra hostnames, from POCKETROCKET_ALLOWED_HOSTS. Empty means loopback only. */
 export interface OriginOptions {
   allowedHosts?: readonly string[];
 }
@@ -54,7 +53,6 @@ export function checkRequestOrigin(
 ): { ok: true } | { ok: false; status: number; reason: string } {
   const host = req.headers.host;
   const hn = hostname(host);
-  // P9: a listed tailnet name counts as ours, but only on a request that came in over HTTPS via a local proxy.
   const allowed = (name: string) => (opts.allowedHosts?.length ?? 0) > 0 && forwardedHttps(req) && opts.allowedHosts!.includes(name.toLowerCase());
   const hostOk = !!hn && (LOOPBACK.has(hn) || allowed(hn));
   if (!hostOk) return { ok: false, status: 403, reason: 'Bad Host header: ' + (host ?? '(none)') };
@@ -78,27 +76,18 @@ export function checkRequestOrigin(
   return { ok: true };
 }
 
-/** Methods that can change state and therefore carry a body. */
 const MUTATING = new Set(['POST', 'PUT', 'PATCH']);
 
-/**
- * Belt and braces against the no-preflight form post (audit 2026-09-09, B1): a cross-site `<form>` can only
- * send `application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain`, never `application/json`,
- * and asking for JSON forces a preflight that the Origin check then fails. Non-`/api/` paths are untouched
- * (`/mcp` negotiates its own content types).
- */
 export function checkContentType(req: IncomingMessage, url: URL): { ok: true } | { ok: false; status: number; reason: string } {
   if (!url.pathname.startsWith('/api/')) return { ok: true };
   if (!MUTATING.has(req.method ?? 'GET')) return { ok: true };
   const ct = String(req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
   if (ct === 'application/json') return { ok: true };
-  // The raw uploads: the runner's git bundle, and files on a chat message. Anything else on those paths still has to be JSON.
   if (ct === 'application/octet-stream' && /^\/api\/pc-runner\/jobs\/[A-Za-z0-9_-]+\/(bundle|session)$/.test(url.pathname)) return { ok: true };
   if (ct === 'application/octet-stream' && /^\/api\/files\/?$/.test(url.pathname)) return { ok: true };
   return { ok: false, status: 415, reason: 'Content-Type must be application/json (got ' + (ct || '(none)') + ')' };
 }
 
-/** Bearer token in the Authorization header, or null. */
 export function bearerToken(req: IncomingMessage): string | null {
   const h = req.headers.authorization;
   if (!h) return null;
@@ -106,8 +95,6 @@ export function bearerToken(req: IncomingMessage): string | null {
   return m ? m[1] : null;
 }
 
-/** A single cookie value out of the `Cookie` header, or null. Node hands us the raw header and nothing else. */
-/** Takes one cookie off a request before it is passed on to something that must not see it. */
 export function dropCookie(req: IncomingMessage, name: string): void {
   const raw = req.headers.cookie;
   if (!raw) return;
@@ -127,13 +114,12 @@ export function cookieValue(req: IncomingMessage, name: string): string | null {
   return null;
 }
 
-/** Constant-time string compare, length-guarded (audit 2026-09-09, B16). */
+/** Constant-time string compare, length-guarded. */
 export function tokenMatches(supplied: string | null, expected: string): boolean {
   if (supplied === null) return false;
   const a = Buffer.from(supplied, 'utf8');
   const b = Buffer.from(expected, 'utf8');
   if (a.length !== b.length) {
-    // Still burn a comparison so a wrong-length guess is not measurably faster than a wrong-value one.
     timingSafeEqual(b, b);
     return false;
   }
@@ -141,16 +127,9 @@ export function tokenMatches(supplied: string | null, expected: string): boolean
 }
 
 export interface TokenOptions {
-  /** True when a GET of this pathname maps to a file the hub serves publicly out of WEB_DIST. */
   isPublicAsset?: (pathname: string) => boolean;
-  /**
-   * Credential check for `/screen/*`, which has its own scheme (see ScreenSessions). Left out, `/screen/*` is
-   * refused outright — an unwired caller must not accidentally get the looser query-string rule back.
-   */
   screenAuth?: (req: IncomingMessage) => boolean;
-  /** P9: true when `supplied` is a paired device's token that has not been revoked. */
   deviceToken?: (supplied: string) => boolean;
-  /** True when the request carries a live browser session cookie. */
   session?: (req: IncomingMessage) => boolean;
   /**
    * PC runner: true when `supplied` is the paired runner's token. Only ever offered the Authorization header,
@@ -173,19 +152,6 @@ export const AUTH_CALLBACK_PATH = '/auth/callback';
  */
 export const OAUTH_CALLBACK_PREFIX = '/oauth/callback/';
 
-/**
- * Allowlist, not deny-list (audit 2026-09-09, B2). With a token configured EVERYTHING needs it except:
- * `GET /api/health` (the desktop app polls it before it has the token), `GET /` and the static web assets
- * under WEB_DIST (the shell that then asks for the token), `/mcp`, which carries its own per-turn bearer
- * and is checked by the MCP handler, and exactly `GET /auth/callback`: its `code` is only exchangeable with
- * the PKCE verifier this hub holds, and the handler refuses it when no sign-in is waiting. The Host check
- * still applies to it. `/screen/*` — HTTP and the websocket upgrade — is no longer exempt: it proxies
- * into a passwordless noVNC session that, in server mode, drives a root desktop.
- *
- * `/screen/*` is also the one place `?token=` is refused. A browser cannot put a header on an iframe or a
- * websocket, so the token used to ride the query string; it now presents a `/screen`-scoped httpOnly cookie
- * instead, and the branch sits above the public-asset check so no file layout under WEB_DIST can widen it.
- */
 export function checkToken(req: IncomingMessage, url: URL, token: string | null, opts: TokenOptions = {}): boolean {
   if (!token) return true;
   const method = req.method ?? 'GET';
@@ -195,27 +161,17 @@ export function checkToken(req: IncomingMessage, url: URL, token: string | null,
   if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) return true;
   if (url.pathname.startsWith('/screen/')) return opts.screenAuth?.(req) ?? false;
   if (method === 'GET' && (url.pathname === '/' || (opts.isPublicAsset?.(url.pathname) ?? false))) return true;
-  // P9: the phone redeems its one-time pairing code here before it holds any credential; the handler feeds
-  // the rate limiter on every miss, exactly like /auth/callback.
   if (url.pathname === DEVICE_PAIR_PATH && method === 'POST') return true;
-  // The sign-in screen has no credential yet. The login handler feeds the rate limiter on every miss.
   if (url.pathname === '/api/auth/login' && method === 'POST') return true;
   if (url.pathname === '/api/auth/status' && method === 'GET') return true;
   if (opts.session?.(req)) return true;
   const supplied = bearerToken(req) ?? url.searchParams.get('token');
   if (tokenMatches(supplied, token)) return true;
-  // The PC runner, header only. What it may then reach is runnerMayAccess: its own four routes.
   const bearer = bearerToken(req);
   if (bearer !== null && (opts.runnerToken?.(bearer) ?? false)) return true;
-  // P9: or a paired, non-revoked device. What it may then reach is narrower: see deviceMayAccess.
   return supplied !== null && (opts.deviceToken?.(supplied) ?? false);
 }
 
-/**
- * Whether the request actually carried the hub token, as opposed to merely passing checkToken on a
- * token-exempt path (/api/health, /, static assets, /mcp). Only this may clear the rate limiter: otherwise
- * nine bad guesses, one GET /api/health, and nine more walks straight past the brake.
- */
 export function presentsHubToken(req: IncomingMessage, url: URL, token: string | null): boolean {
   return token !== null && tokenMatches(bearerToken(req) ?? url.searchParams.get('token'), token);
 }
@@ -235,7 +191,6 @@ export class AuthRateLimiter {
     private now: () => number = Date.now,
   ) {}
 
-  /** True when this IP is currently locked out. */
   blocked(ip: string): boolean {
     const e = this.hits.get(ip);
     if (!e) return false;
@@ -244,7 +199,6 @@ export class AuthRateLimiter {
     return false;
   }
 
-  /** Record a failed auth; returns true when this failure tripped the block. */
   fail(ip: string): boolean {
     const t = this.now();
     const e = this.hits.get(ip);
@@ -260,49 +214,34 @@ export class AuthRateLimiter {
     return false;
   }
 
-  /** Forget an IP after a successful auth. */
   succeed(ip: string): void {
     this.hits.delete(ip);
   }
 }
 
-/** Remote address of a request, or '?' when the socket is already gone. */
 export function clientIp(req: IncomingMessage): string {
   return req.socket?.remoteAddress ?? '?';
 }
 
-// ---------------------------------------------------------------------------------------------------
-// P9: devices. Who a request is, and what a paired phone may do.
-
-/** Where a phone trades its one-time pairing code for a device token. Token-exempt; see checkToken. */
 export const DEVICE_PAIR_PATH = '/api/devices/pair';
 
-/**
- * Who authenticated a request: the hub token (the desktop app, scripts, the SSH tunnel) or one paired device.
- * Requests on token-exempt paths have no principal.
- */
 export type Principal =
-  // Full access: the hub token, or a browser signed in with the owner's password (sessionId set).
   | { kind: 'hub'; sessionId?: string; userId?: string }
   | { kind: 'device'; deviceId: string }
-  // The helper on the owner's PC that runs approved Claude Code jobs. Reaches runnerMayAccess and nothing else.
   | { kind: 'runner' };
 
 const principals = new WeakMap<IncomingMessage, Principal>();
-/** Set once per request by hub.ts, right after the token check. */
 export function setPrincipal(req: IncomingMessage, p: Principal): void {
   principals.set(req, p);
 }
 export function principalOf(req: IncomingMessage): Principal | null {
   return principals.get(req) ?? null;
 }
-/** Who a Screen ticket answers to: revoking that device or browser session closes the Screen with it. */
 export function screenOwnerOf(req: IncomingMessage): string | null {
   const p = principals.get(req);
   if (p?.kind === 'device') return p.deviceId;
   return p?.kind === 'hub' && p.sessionId ? 'session:' + p.sessionId : null;
 }
-/** The device id behind a request, or null for the hub token / no principal. */
 export function deviceIdOf(req: IncomingMessage): string | null {
   const p = principals.get(req);
   return p?.kind === 'device' ? p.deviceId : null;
@@ -333,63 +272,46 @@ export const DEVICE_ALLOW: readonly [method: string, path: RegExp][] = [
   ['GET', /^\/api\/bots\/[^/]+\/(memory|skills|voice|notes)$/],
   ['GET', /^\/api\/rooms$/],
   ['GET', /^\/api\/rooms\/[^/]+\/messages$/],
-  // P4-2: the context meter (read only).
   ['GET', /^\/api\/rooms\/[^/]+\/context$/],
-  // The composer's / menu (read-only: names and descriptions of commands and the room's skills).
   ['GET', /^\/api\/rooms\/[^/]+\/commands$/],
-  // Pictures: a phone sees them. Uploading (POST /api/media) is not listed, so it stays with the hub token.
   ['GET', /^\/api\/media\/[0-9a-f]{64}$/],
-  // Files on chat messages: a phone may download them and read their names. Uploading stays with the hub token.
   ['GET', /^\/api\/files\/[0-9a-f]{64}(\/meta)?$/],
   ['POST', /^\/api\/rooms\/[^/]+\/messages$/],
   ['GET', /^\/api\/skills$/],
   ['GET', /^\/api\/skills\/[^/]+$/],
   ['GET', /^\/api\/usage$/],
   ['GET', /^\/api\/knowledge$/],
-  // Workflows: a phone sees runs and answers approval cards (a person's decision); building and running them stays on the desktop.
   ['GET', /^\/api\/workflows(\/[^/]+(\/runs)?)?$/],
   ['GET', /^\/api\/workflow-(runs\/[^/]+|cards)$/],
   ['POST', /^\/api\/workflow-runs\/[^/]+\/decision$/],
-  // M8 failover cards: a phone answers them like approval cards (Continue on the backup, or Wait).
   ['GET', /^\/api\/failover$/],
   ['POST', /^\/api\/failover-cards\/[^/]+\/decision$/],
-  // Screen tab
   ['GET', /^\/api\/screen$/],
   ['POST', /^\/api\/screen\/ticket$/],
   ['GET', /^\/api\/computers\/[^/]+$/],
   ['POST', /^\/api\/computers\/[^/]+\/wake$/],
   ['PUT', /^\/api\/computers\/[^/]+\/keep-awake$/],
-  // P2: take over / hand back (which also answers a bot's takeover request) / pause, from the Screen tab.
   ['GET', /^\/api\/control$/],
   ['GET', /^\/api\/computers\/[^/]+\/control$/],
   ['PUT', /^\/api\/computers\/[^/]+\/control$/],
-  // P2 approval rules: a phone may read them and see parked cards; creating or revoking a rule changes
-  // approvals policy, so it stays a desktop (hub token) action like "Allow for this session".
   ['GET', /^\/api\/approval-policies$/],
   ['GET', /^\/api\/approvals\/parked$/],
-  // Automations (routine turns always go through approvals, decision Q6)
   ['GET', /^\/api\/routines$/],
   ['POST', /^\/api\/routines$/],
   ['PATCH', /^\/api\/routines\/[^/]+$/],
   ['DELETE', /^\/api\/routines\/[^/]+$/],
   ['POST', /^\/api\/routines\/[^/]+\/run$/],
   ['GET', /^\/api\/routines\/[^/]+\/runs$/],
-  // P5 triggers: same reach as routines (the Automations tab).
   ['GET', /^\/api\/triggers$/],
   ['POST', /^\/api\/triggers$/],
   ['PATCH', /^\/api\/triggers\/[^/]+$/],
   ['DELETE', /^\/api\/triggers\/[^/]+$/],
   ['GET', /^\/api\/triggers\/[^/]+\/fires$/],
   ['POST', /^\/api\/triggers\/[^/]+\/test$/],
-  // Its own pairing (the handlers refuse anything but the device itself) and its own push subscription.
   ['GET', /^\/api\/devices$/],
   ['DELETE', /^\/api\/devices\/[^/]+$/],
   ['GET', /^\/api\/push$/],
   ['POST', /^\/api\/push\/(subscribe|unsubscribe|test)$/],
-  // P6 teach: a phone may watch a recording, end it (Done hands control back, like Hand back above) and read
-  // recordings, skill versions with their diff and the reflection setting. Starting a recording, distilling,
-  // corrections, the reflection opt-in and approving or rejecting a version stay desktop actions, like the rest
-  // of skill review.
   ['GET', /^\/api\/computers\/[^/]+\/recorder$/],
   ['POST', /^\/api\/computers\/[^/]+\/recorder\/stop$/],
   ['GET', /^\/api\/computers\/[^/]+\/recordings$/],
@@ -397,57 +319,34 @@ export const DEVICE_ALLOW: readonly [method: string, path: RegExp][] = [
   ['GET', /^\/api\/skills\/[^/]+\/versions$/],
   ['GET', /^\/api\/skills\/[^/]+\/versions\/[^/]+$/],
   ['GET', /^\/api\/bots\/[^/]+\/skill-reflection$/],
-  // Bot training: a phone may read it. The switch, Run now and Approve / Reject / Undo stay desktop actions.
   ['GET', /^\/api\/bots\/[^/]+\/training$/],
-  // Tasks board: a phone may read a room's tasks (the same room it can already read messages of). Creating or
-  // changing a task (POST/PATCH /api/rooms/:id/tasks...) assigns work to bots, so it stays a desktop action.
-  // Deliberately NOT listed, so refused by default: /api/credentials* (the login vault), /api/mcp-servers* (command
-  // and token editor), GET /api/bots/:id/export and POST /api/bots/import (an export is a copy of the bot's
-  // instructions and memory; an import creates a bot), /api/bot-reports* and /api/feedback.
   ['GET', /^\/api\/rooms\/[^/]+\/tasks$/],
-  // Queue controls (02 Phase 2): a phone may see a room's queue and cancel, edit, send now or pause it, like sending a
-  // message (the owner's own devices). Only the owner's own messages can be cancelled or edited, from any principal.
   ['GET', /^\/api\/rooms\/[^/]+\/queue$/],
   ['POST', /^\/api\/rooms\/[^/]+\/queue\/(cancel|edit|send-now|pause)$/],
 ];
 
-/**
- * True when a device token may make this request. Outside `/api/` a device gets plain GETs (the shell and its
- * assets; `/screen/*` has its own cookie check) and nothing under `/oauth/`, which starts integration sign-ins.
- */
 export function deviceMayAccess(method: string, pathname: string): boolean {
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
   if (!p.startsWith('/api/')) return method === 'GET' && !p.startsWith('/oauth/') && p !== '/mcp' && !p.startsWith('/mcp/');
   return DEVICE_ALLOW.some(([m, re]) => m === method && re.test(p));
 }
 
-// ---------------------------------------------------------------------------------------------------
-// PC runner. Its token is an allowlist of exactly the routes the helper on the PC polls and the Claude Code bridge calls, and those routes
-// answer nobody else (api/pcRunner.ts checks the principal). The hub token cannot pose as the runner and the
-// runner token cannot read or change anything else: no bots, rooms, settings, approvals, /ws or Screen.
-
 const RUNNER_ALLOW: readonly [method: string, path: RegExp][] = [
   ['POST', /^\/api\/pc-runner\/heartbeat$/],
   ['GET', /^\/api\/pc-runner\/jobs\/next$/],
   ['POST', /^\/api\/pc-runner\/jobs\/[A-Za-z0-9_-]+\/(start|result)$/],
-  // A bundle-mode sync's git bundle (raw body, up to 200 MB; api/pcRunner.ts streams it to disk).
   ['POST', /^\/api\/pc-runner\/jobs\/[A-Za-z0-9_-]+\/bundle$/],
-  // Bridge P6: a move job's session file (raw body, up to 100 MB), and what a pull job brings home.
   ['POST', /^\/api\/pc-runner\/jobs\/[A-Za-z0-9_-]+\/session$/],
   ['GET', /^\/api\/pc-runner\/jobs\/[A-Za-z0-9_-]+\/(session|bundle)$/],
-  // Claude Code terminal sessions on the PC, through the runner's MCP server (api/cc.ts).
   ['GET', /^\/api\/cc\/rooms$/],
-  // Whether the session in x-cc-session is on the VPS (bridge P6).
   ['GET', /^\/api\/cc\/session(-state)?$/],
   ['GET', /^\/api\/cc\/rooms\/[A-Za-z0-9_-]+\/(messages|state|files\/text)$/],
   ['POST', /^\/api\/cc\/rooms\/[A-Za-z0-9_-]+\/(messages|files\/text|decision|handoff)$/],
-  // The PC session mirror (api/pcSessions.ts): sync, upsert a session, append entries. The owner's reads are not here.
   ['GET', /^\/api\/pc-sessions\/sync$/],
   ['PUT', /^\/api\/pc-sessions\/[A-Za-z0-9_.:%-]+$/],
   ['POST', /^\/api\/pc-sessions\/[A-Za-z0-9_.:%-]+\/entries$/],
 ];
 
-/** True when the PC runner's token may make this request. */
 export function runnerMayAccess(method: string, pathname: string): boolean {
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
   return RUNNER_ALLOW.some(([m, re]) => m === method && re.test(p));

@@ -9,12 +9,6 @@ import { SettingsStore, installSettings } from '../services/SettingsStore.js';
 import type { BotRunner, LaneSteerResult, SteerRequest, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { RoomRouter } from './RoomRouter.js';
 
-/**
- * Steering, task 1.3: a person's message to a busy bot joins its running turn instead of queueing (unless sent with
- * `mode: 'queue'`, or the provider cannot), is never shown to that bot twice, is re-queued when the turn ends without
- * answering it (Stop included), and survives a restart through its own journal row.
- */
-
 interface Running {
   turnId: string;
   req: TurnRequest;
@@ -68,7 +62,6 @@ function setup(opts: { steers?: boolean; group?: boolean; repos?: Repos } = {}) 
     ? repos.listRooms().find((x) => x.kind === 'group') ?? repos.createRoom({ kind: 'group', name: 'Team', memberIds: [ada.id, bo.id], coordinatorBotId: ada.id })
     : repos.listRooms().find((x) => x.kind === 'dm') ?? repos.createRoom({ kind: 'dm', name: 'DM', memberIds: [ada.id], coordinatorBotId: null });
   const lane = (bot: Bot = ada!, rm: Room = room) => r.running.get(bot.id + ':' + rm.id);
-  /** Ends the lane's turn having answered every steer it took. */
   const finishAnswered = (bot: Bot = ada!) => {
     const l = lane(bot)!;
     l.finish({ consumedSteers: [...l.uuids], unansweredSteers: [] });
@@ -83,7 +76,6 @@ const until = async (cond: () => boolean) => {
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 const journal = (repos: Repos) => repos.db.all<{ status: string; message_id: string | null; attempts: number }>('SELECT status, message_id, attempts FROM lane_journal ORDER BY created_at, rowid');
 const delivery = (repos: Repos, id: string) => repos.getMessage(id)!.payload as DeliveryPayload | null;
-/** How often `text` appears in a string. */
 const count = (hay: string, text: string) => hay.split(text).length - 1;
 
 afterEach(() => installSettings(null as never));
@@ -99,19 +91,15 @@ describe('steering a busy bot', () => {
     off();
     expect(s.steerCalls).toHaveLength(1);
     expect(s.steerCalls[0].req.text).toMatch(/^#\d+ \[.*\(owner\)\]: use the other file$/);
-    // The answer (REST) and the broadcast (WS) both carry the per-bot outcome.
     expect(steer.payload).toEqual({ steered: { [s.ada.id]: 't1' } });
     expect(updates).toEqual([{ steered: { [s.ada.id]: 't1' } }]);
-    // Not in the lane queue; its own journal row instead.
     expect(s.router.pendingLaneCount()).toBe(0);
     expect(journal(s.repos).map((j) => j.status)).toEqual(['queued', 'steered']);
 
     s.finishAnswered();
     await tick();
-    // Answered inside the turn: nothing runs after it.
     expect(s.reqs).toHaveLength(1);
     expect(journal(s.repos)).toEqual([{ status: 'consumed', message_id: steer.id, attempts: 0 }]);
-    // It joined the thread of the turn that answered it.
     expect(s.repos.getMessage(steer.id)!.causeId).toBe(first.id);
   });
 
@@ -129,7 +117,6 @@ describe('steering a busy bot', () => {
     expect(s.reqs[1].latestUserText).toBe('NEXT-MESSAGE');
     s.lane()!.finish();
     await tick();
-    // The cursor has passed it now, so the marker is gone.
     expect(journal(s.repos)).toEqual([]);
   });
 
@@ -158,7 +145,6 @@ describe('steering a busy bot', () => {
     s.router.onUserMessage(s.room.id, '@ada build the page');
     await until(() => s.reqs.length === 1);
     const both = s.router.onUserMessage(s.room.id, '@ada @bo BOTH');
-    // Bo was idle: no outcome for it, it just starts.
     expect(both.payload).toEqual({ steered: { [s.ada.id]: 't1' } });
     await until(() => s.reqs.length === 2);
     expect(s.reqs[1].bot.id).toBe(s.bo.id);
@@ -222,7 +208,6 @@ describe('steering a busy bot', () => {
     expect(notes).toContain('Stopped. Ada will answer your new message next.');
     expect(delivery(s.repos, steer.id)).toEqual({ queued: { [s.ada.id]: { reason: 'requeued' } } });
     expect(count(s.reqs[1].injected, 'ANSWER-ME')).toBe(1);
-    // Its own cause again, since no turn answered it.
     expect(s.repos.getMessage(steer.id)!.causeId).toBe(steer.id);
     expect(journal(s.repos).map((j) => j.status)).toEqual(['queued']);
   });
@@ -237,13 +222,11 @@ describe('steering a busy bot', () => {
     expect(m.payload).toEqual({ steered: { [s.ada.id]: 't1' } });
     s.finishAnswered();
     await tick();
-    // Answered inside the routine's own turn: no separate, non-strict turn for it.
     expect(s.reqs).toHaveLength(1);
   });
 });
 
 describe('steering across a restart', () => {
-  /** Runs a turn, steers it, then "crashes": the hub freezes and the turn is cut off with nothing settled. */
   async function crashMidSteer() {
     const s = setup();
     s.router.onUserMessage(s.room.id, 'build the page');
@@ -273,13 +256,11 @@ describe('steering across a restart', () => {
 
   it('re-queues the steer even when its turn has used its one resume, and only once', async () => {
     const { s } = await crashMidSteer();
-    // The turn's own item was already resumed once before: FollowUp gives up on it.
     s.repos.db.run("UPDATE lane_journal SET attempts=1 WHERE status='queued'");
     const { next, followUp } = restart(s.repos);
     expect(followUp.resumeInterrupted()).toBe(1);
     await until(() => next.reqs.length === 1);
     expect(count(next.reqs[0].injected, 'STEERED-TEXT')).toBe(1);
-    // Crash again while answering it: it is not resumed a second time.
     next.router.freeze();
     next.lane()!.finish({ ok: false, error: 'aborted', stopped: true });
     await tick();

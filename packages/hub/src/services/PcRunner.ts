@@ -7,21 +7,10 @@ import { addSecret, logError, redact, removeSecret } from '../providers/redact.j
 import { events } from '../events.js';
 import type { PcMoveJobInfo, PcMoveResult, PcPullJobInfo, PcPullResult, PcSyncImport, PcSyncJobInfo, PcSyncResult } from '@pocketrocket/shared';
 
-/**
- * The owner's Windows PC as a job runner. A helper on the PC polls the hub (over the SSH tunnel) with its own
- * token, picks up Claude Code jobs a bot asked for, and only ever sees jobs the owner approved on a card. The
- * PC asks again locally before it runs anything.
- *
- * The hub keeps only a sha256 of the runner token, in `pc-runner.json` (0600). A bot on a bypass hub can read
- * DATA_DIR with Bash, so the file must be useless to it: the hash cannot be presented as the token.
- */
-
-/** A folder name the PC allows. Names only: the PC maps them to real paths, the hub never sees one. */
 export const PC_FOLDER_RE = /^[a-z0-9][a-z0-9_-]{0,40}$/;
 export const MAX_PC_FOLDERS = 50;
 export const MAX_PC_PROMPT_BYTES = 8 * 1024;
 export const MAX_PC_OUTPUT = 20 * 1024;
-/** Jobs waiting for the owner, queued, claimed or running. */
 export const MAX_PC_QUEUE = 5;
 export const PC_ONLINE_MS = 30_000;
 export const PC_EXPIRE_MS = 30 * 60_000;
@@ -38,18 +27,13 @@ export type PcJobOrigin = 'bot' | 'owner';
 
 export interface PcJob {
   id: string;
-  /** Null for a job the owner started from the app. Stored as '' (the column is NOT NULL). */
   botId: string | null;
   roomId: string | null;
-  /** Null for a resume: the PC resolves the folder from the session's own directory. Stored as ''. */
   folder: string | null;
   mode: PcJobMode;
-  /** The mirrored Claude Code session a resume continues. */
   sessionId: string | null;
   origin: PcJobOrigin;
-  /** The allowed folder name a resume ran in, as the PC reported it. */
   resolvedFolder: string | null;
-  /** Set when the PC says the resume continued under another session id. */
   newSessionId: string | null;
   prompt: string;
   status: PcJobStatus;
@@ -57,22 +41,14 @@ export interface PcJob {
   costUsd: number | null;
   createdAt: number;
   updatedAt: number;
-  /** When the PC said it started (POST .../start). */
   startedAt: number | null;
-  /** When the job reached a terminal status. */
   finishedAt: number | null;
-  /** How long the PC says the run took. */
   durationMs: number | null;
-  /** Mode 'sync': the project repo to sync, frozen when the job was made. */
   sync: PcSyncJobInfo | null;
-  /** Mode 'sync': what the PC reported. */
   syncResult: PcSyncResult | null;
-  /** Mode 'sync', bundle: what the hub imported. */
   syncImport: PcSyncImport | null;
-  /** Mode 'move' (bridge P6): the room and the repos that travel, frozen when the job was made. */
   move: PcMoveJobInfo | null;
   moveResult: PcMoveResult | null;
-  /** Mode 'pull': the wip branches that come back and the snapshot each started from. */
   pull: PcPullJobInfo | null;
   pullResult: PcPullResult | null;
 }
@@ -86,18 +62,13 @@ interface RunnerFile {
 
 export interface PcRunnerOptions {
   db: Db;
-  /** `DATA_DIR/pc-runner.json`; tests hand in a temp path. */
   file: string;
   now?: () => number;
-  /** A queued job nobody claimed this long expires. Default 30 min. */
   expireMs?: number;
-  /** How long run_on_pc waits for a result. Default 15 min. */
   waitMs?: number;
-  /** How often a waiting tool re-reads the job. Default 1 s. */
   pollMs?: number;
 }
 
-/** Called once for each job that reaches a terminal status, whoever ended it (the PC, the kill switch, expiry, a cancel). */
 export type PcJobFinishedHook = (job: PcJob) => void;
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
@@ -135,7 +106,6 @@ function parseJson<T>(v: unknown): T | null {
   try { return JSON.parse(v) as T; } catch { return null; }
 }
 
-/** Tells clients to refetch GET /api/pc-runner and its jobs. Carries no job content: paired phones get every event. */
 const changed = (jobId?: string) => events.emitEvent({ type: 'pc-runner.changed', ...(jobId ? { jobId } : {}) });
 
 export class PcRunnerError extends Error {
@@ -144,12 +114,10 @@ export class PcRunnerError extends Error {
 
 export class PcRunner {
   private cfg: RunnerFile | null;
-  /** Last heartbeat in this process. Not persisted: online means "heard from it in the last 30 s". */
   private heardAt: number | null = null;
   /** The plain token minted by this process, so a log line or tool output that carries it gets redacted. */
   private liveToken: string | null = null;
   private wakers = new Map<string, Set<() => void>>();
-  /** Bridge P6: a move or pull job's end changes where its session is (services/SessionMoves.ts). Set by the hub. */
   onFinished: PcJobFinishedHook | null = null;
   readonly expireMs: number;
   readonly waitMs: number;
@@ -190,8 +158,6 @@ export class PcRunner {
     try { fs.chmodSync(this.opts.file, 0o600); } catch { /* Windows: mode bits are advisory */ }
   }
 
-  // ---------- pairing ----------
-
   isPaired(): boolean {
     return this.cfg !== null;
   }
@@ -210,15 +176,10 @@ export class PcRunner {
     return !!this.cfg && this.heardAt !== null && this.now() - this.heardAt <= PC_ONLINE_MS;
   }
 
-  /** The folders the PC reported last. Empty when unpaired. */
   folders(): string[] {
     return this.cfg ? [...this.cfg.folders] : [];
   }
 
-  /**
-   * A fresh 32-byte token, returned once. Replaces any old one at once; jobs the old runner had claimed are
-   * cancelled (it can no longer report on them), queued ones wait for the new runner.
-   */
   mint(): string {
     const token = randomBytes(32).toString('base64url');
     if (this.liveToken) removeSecret(this.liveToken);
@@ -232,7 +193,6 @@ export class PcRunner {
     return token;
   }
 
-  /** The kill switch: forget the token and cancel everything not finished. */
   turnOff(): number {
     this.cfg = null;
     this.heardAt = null;
@@ -244,7 +204,6 @@ export class PcRunner {
     return n;
   }
 
-  /** Constant-time check of a presented token against the stored hash. */
   authenticate(supplied: string | null): boolean {
     const c = this.cfg;
     if (!c || !supplied) return false;
@@ -260,17 +219,13 @@ export class PcRunner {
     const wasOnline = this.online();
     this.heardAt = t;
     const foldersChanged = folders.join('\n') !== c.folders.join('\n');
-    // lastSeenAt survives a restart; written when the list changes or at most once a minute, not every beat.
     if (foldersChanged || c.lastSeenAt === null || t - c.lastSeenAt >= 60_000) {
       c.folders = [...folders];
       c.lastSeenAt = t;
       this.save();
     }
-    // Only on something the panel shows changing (came online, new folder list), not on every beat.
     if (foldersChanged || !wasOnline) changed();
   }
-
-  // ---------- jobs ----------
 
   get(id: string): PcJob | undefined {
     const r = this.opts.db.get('SELECT * FROM pc_jobs WHERE id = ?', id);
@@ -283,7 +238,6 @@ export class PcRunner {
     )?.n ?? 0);
   }
 
-  /** A job waiting for the owner's card. Not served until approve() moves it to `queued`. */
   create(j: { botId?: string | null; roomId?: string | null; folder?: string | null; prompt: string; mode?: PcJobMode; sessionId?: string | null; origin?: PcJobOrigin; sync?: PcSyncJobInfo | null; move?: PcMoveJobInfo | null; pull?: PcPullJobInfo | null }): PcJob {
     if (this.openCount() >= MAX_PC_QUEUE) throw new PcRunnerError(429, 'The PC already has ' + MAX_PC_QUEUE + ' jobs waiting or running. Wait for them to finish.');
     const id = nanoid(12);
@@ -319,13 +273,11 @@ export class PcRunner {
     return ok;
   }
 
-  /** The owner's log, newest first. */
   list(limit = 50): PcJob[] {
     const n = Math.max(1, Math.min(200, Math.floor(limit) || 50));
     return this.opts.db.all('SELECT * FROM pc_jobs ORDER BY created_at DESC, rowid DESC LIMIT ?', n).map(toJob);
   }
 
-  /** The owner said yes on the card. False when the job was cancelled meanwhile (kill switch, abort). */
   approve(id: string): boolean {
     return this.setStatus(id, 'queued', ['pending_approval']);
   }
@@ -341,14 +293,12 @@ export class PcRunner {
     return n;
   }
 
-  /** Queued jobs nobody claimed within expireMs. `updated_at` is when the owner approved them. */
   expireStale(): void {
     const cutoff = this.now() - this.expireMs;
     const ids = this.opts.db.all<{ id: string }>("SELECT id FROM pc_jobs WHERE status = 'queued' AND updated_at <= ?", cutoff).map((r) => r.id);
     for (const id of ids) this.setStatus(id, 'expired', ['queued'], { result: PC_EXPIRED_MESSAGE });
   }
 
-  /** The next approved job, oldest first, now `claimed`. Null while one is claimed or running (one at a time). */
   next(): PcJob | null {
     this.expireStale();
     return this.opts.db.tx(() => {
@@ -370,10 +320,6 @@ export class PcRunner {
     return this.get(id)!;
   }
 
-  /**
-   * What the PC reports. The output is redacted (known secrets, key-shaped strings) and then capped, before it is
-   * stored or handed to the bot.
-   */
   finish(id: string, r: { ok: boolean; refusedLocally?: boolean; output: string; costUsd?: number; durationMs?: number; resolvedFolder?: string; newSessionId?: string; sync?: PcSyncResult; move?: PcMoveResult; pull?: PcPullResult }): PcJob {
     const j = this.get(id);
     if (!j) throw new PcRunnerError(404, 'No such job');
@@ -385,7 +331,6 @@ export class PcRunner {
     return this.get(id)!;
   }
 
-  /** A bundle the hub accepted and imported for this sync job. Once only. */
   setSyncImport(id: string, imp: PcSyncImport): boolean {
     const r = this.opts.db.run('UPDATE pc_jobs SET sync_import_json = ?, updated_at = ? WHERE id = ? AND sync_import_json IS NULL', JSON.stringify(imp), this.now(), id);
     const ok = Number(r.changes) > 0;
@@ -397,10 +342,6 @@ export class PcRunner {
     for (const fn of this.wakers.get(id) ?? []) fn();
   }
 
-  /**
-   * Waits until the job reaches a terminal state, expires, the wait runs out (cancelled) or `signal` aborts
-   * (cancelled). Reads the row on every change and every pollMs, so expiry needs no timer of its own.
-   */
   async wait(id: string, signal?: AbortSignal): Promise<PcJob> {
     const deadline = this.now() + this.waitMs;
     for (;;) {
@@ -440,7 +381,6 @@ export function capOutput(s: string): string {
   return s.slice(0, MAX_PC_OUTPUT) + '\n…(cut at 20 KB; ' + (s.length - MAX_PC_OUTPUT) + ' more characters on the PC)';
 }
 
-/** What the PC says about a sync, redacted and capped before it is stored or shown. */
 export function cleanSyncResult(r: PcSyncResult): PcSyncResult {
   const out: PcSyncResult = {
     mode: r.mode,
@@ -452,7 +392,6 @@ export function cleanSyncResult(r: PcSyncResult): PcSyncResult {
   return out;
 }
 
-/** What the PC says about a move, redacted and capped before it is stored or shown. */
 export function cleanMoveResult(r: PcMoveResult): PcMoveResult {
   return {
     repos: r.repos.slice(0, 20).map((x) => ({

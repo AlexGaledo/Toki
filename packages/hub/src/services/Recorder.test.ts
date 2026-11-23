@@ -11,13 +11,10 @@ import { PAGE_SCRIPT, RECORDER_BINDING, RECORDER_WORLD, isSecretField } from './
 import type { ComputerEndpoint } from './ComputerManager.js';
 import { events } from '../events.js';
 
-/** P6 (6.1): the recorder, against a fake Chromium DevTools endpoint and a fake scrot/xdotool. */
-
 const PASSWORD = 'hunter2-PASSWORD-VALUE';
 const CARD = '4111 1111 1111 1111';
 const OTP = '913482';
 
-// ---- a fake CDP browser: one page target, scripted replies, events pushed on demand ----
 interface FakeCdp {
   url: string;
   methods: { method: string; params: Record<string, unknown>; sessionId?: string }[];
@@ -65,7 +62,6 @@ async function fakeCdp(): Promise<FakeCdp> {
 
 const tick = (ms = 40) => new Promise((r) => setTimeout(r, ms));
 
-// ---- fakes for the hub side ----
 function fakeControl() {
   const state = new Map<string, ControlStatus>();
   const calls: { botId: string; control: ComputerControl; holder?: string | null; note?: string }[] = [];
@@ -110,7 +106,6 @@ function recorder(extra: Partial<RecorderDeps> = {}) {
     control,
     available: () => ({ ok: true }),
     dir: (botId) => path.join(root, botId, 'recordings'),
-    // scrot "photographs" whatever the fake screen shows right now.
     exec: async (cmd, args, env) => {
       execs.push({ cmd, args, env });
       if (cmd === 'scrot') fs.writeFileSync(args[args.length - 1], 'PNG:' + screen);
@@ -130,7 +125,6 @@ describe('Recorder: start and stop', () => {
     const st = await rec.start('bot1', { title: 'Export the monthly report' });
     expect(control.calls[0]).toMatchObject({ botId: 'bot1', control: 'user', holder: 'recorder' });
     expect(st.active?.state).toBe('recording');
-    // The script and its binding live in an isolated world, on the page and on frames already loaded.
     const sent = cdp.methods.map((m) => m.method);
     expect(sent).toContain('Target.setDiscoverTargets');
     const binding = cdp.methods.find((m) => m.method === 'Runtime.addBinding')!;
@@ -147,7 +141,6 @@ describe('Recorder: start and stop', () => {
     expect(last.control).toBe('agent');
     expect(last.note).toMatch(/showed you a task.*Export the monthly report/);
     expect(rec.status('bot1').active).toBeNull();
-    // The initial URL is in the trace with its session id scrubbed.
     const trace = rec.readTrace('bot1', done!.id);
     expect(trace[0].t).toBe('start');
     expect(trace.find((e) => e.t === 'nav')?.url).toBe('https://shop.example/login?session=%C2%ABsecret%C2%BB&lang=en');
@@ -184,7 +177,6 @@ describe('Recorder: start and stop', () => {
       control.set('bot1', 'agent', { note: 'all yours' });
       await tick();
       expect(rec.status('bot1').active).toBeNull();
-      // Exactly the user's hand-back: the recorder does not add a second one.
       expect(control.calls.filter((c) => c.control === 'agent')).toHaveLength(1);
     } finally {
       await rec.shutdown();
@@ -214,14 +206,12 @@ describe('Recorder: redaction at capture time', () => {
     const { rec } = recorder();
     await rec.start('bot1');
     cdp.emit('Page.frameNavigated', { frame: { id: 'F1', url: 'https://shop.example/login' } }, 'S-T1');
-    // 1. Click into the email field and type: kept, with the value.
     screen = 'login page';
     cdp.page({ t: 'focus', el: email });
     cdp.page({ t: 'click', el: email, x: 10, y: 10, visibleSecret: false });
     await tick();
     cdp.page({ t: 'type', el: email, value: 'me@example.com' });
     cdp.page({ t: 'blur', secret: false, visibleSecret: false });
-    // 2. The password field. A lying (or buggy) page sends the real value; the hub redacts it anyway.
     cdp.page({ t: 'focus', el: { ...pwd, secret: false } });
     screen = 'password: ' + PASSWORD;
     cdp.page({ t: 'click', el: { ...pwd, secret: false }, x: 10, y: 40, visibleSecret: false });
@@ -229,7 +219,6 @@ describe('Recorder: redaction at capture time', () => {
     cdp.page({ t: 'type', el: { ...pwd, secret: false }, value: PASSWORD });
     cdp.page({ t: 'key', key: 'Tab', el: pwd });
     cdp.page({ t: 'blur', secret: true, visibleSecret: false });
-    // 3. A card number (visible text once typed) and a one-time code.
     cdp.page({ t: 'focus', el: card });
     screen = 'card: ' + CARD;
     cdp.page({ t: 'click', el: card, x: 10, y: 70, visibleSecret: false });
@@ -239,10 +228,8 @@ describe('Recorder: redaction at capture time', () => {
     cdp.page({ t: 'focus', el: otp });
     cdp.page({ t: 'change', el: otp, value: OTP });
     cdp.page({ t: 'blur', secret: true, visibleSecret: true });
-    // 4. "Pay" while the card number is still on screen: that frame is dropped too.
     cdp.page({ t: 'click', el: pay, x: 10, y: 100, visibleSecret: true });
     await tick();
-    // 5. A new page: nothing secret on screen any more, so frames are kept again.
     cdp.emit('Page.frameNavigated', { frame: { id: 'F1', url: 'https://shop.example/done' } }, 'S-T1');
     screen = 'thank you';
     cdp.page({ t: 'click', el: { tag: 'a', role: 'link', text: 'Continue', selector: '#continue' }, x: 1, y: 1, visibleSecret: false });
@@ -331,7 +318,6 @@ describe('Recorder: redaction at capture time', () => {
       expect.objectContaining({ file: 'report.csv', url: 'https://files.example/r.csv?token=%C2%ABsecret%C2%BB' }),
       expect.objectContaining({ state: 'completed' }),
     ]);
-    // Sub-frame navigations are not steps.
     expect(trace.filter((e) => e.t === 'nav')).toHaveLength(1);
     expect(scrubUrl('https://u:p@x.example/a?code=1&q=shoes')).toBe('https://x.example/a?code=%C2%ABsecret%C2%BB&q=shoes');
   });
@@ -371,7 +357,7 @@ describe('Recorder: caps', () => {
     expect(info.capped).toContain('bytes');
     expect(info.events).toBeLessThan(30);
     const size = fs.statSync(path.join(root, 'bot1', 'recordings', info.id, 'trace.jsonl')).size;
-    expect(size).toBeLessThan(600 + 300); // the cap and stop lines always fit
+    expect(size).toBeLessThan(600 + 300);
   });
 
   it('ends a recording that runs past maxDurationMs', async () => {
@@ -391,12 +377,11 @@ describe('Recorder: caps', () => {
     cdp.emit('Runtime.bindingCalled', { name: 'somethingElse', payload: JSON.stringify({ t: 'key', key: 'Enter' }) }, 'S-T1');
     await tick();
     const info = (await rec.stop('bot1'))!;
-    expect(info.events).toBe(1); // the initial navigation only
+    expect(info.events).toBe(1);
   });
 });
 
 describe('the page script', () => {
-  /** A tiny DOM: just enough elements and listeners to run PAGE_SCRIPT in a vm. */
   class El {
     nodeType = 1;
     parentElement: El | null = null;
@@ -425,7 +410,7 @@ describe('the page script', () => {
     };
     const window: Record<string, unknown> = { [RECORDER_BINDING]: (p: string) => sent.push(JSON.parse(p)) };
     vm.runInNewContext(PAGE_SCRIPT, { window, document });
-    vm.runInNewContext(PAGE_SCRIPT, { window, document }); // idempotent: one set of listeners
+    vm.runInNewContext(PAGE_SCRIPT, { window, document });
     const add = (tag: string, attrs: Record<string, string>) => { const el = new El(tag, attrs); el.parentElement = body; body.children.push(el); fields.push(el); return el; };
     const fire = (t: string, e: Record<string, unknown>) => { for (const h of handlers[t] ?? []) h({ clientX: 0, clientY: 0, ctrlKey: false, altKey: false, metaKey: false, ...e }); };
     const typeInto = (el: El, v: string) => { fire('focusin', { target: el }); el.value = v; fire('focusout', { target: el }); };
@@ -452,7 +437,6 @@ describe('the page script', () => {
     const typed = p.sent.filter((e) => e.t === 'type');
     expect(typed.map((e) => e.value)).toEqual(['me@example.com', '«secret»', '«secret»', '«secret»', '«secret»', '«secret»']);
     expect(typed.slice(1).every((e) => (e.el as { secret: boolean }).secret)).toBe(true);
-    // A visible secret (the card number) is reported, so the hub drops frames while it is on screen.
     expect(p.sent.filter((e) => e.t === 'blur').pop()).toMatchObject({ visibleSecret: true });
   });
 

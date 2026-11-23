@@ -19,7 +19,6 @@ import {
   type OAuthApp, type TokenSet,
 } from '../integrations/oauth.js';
 
-/** Provider → its client class. P5 pollers get these through `IntegrationService.client()`. */
 export interface IntegrationClients {
   github: GitHubClient;
   google: GoogleClient;
@@ -31,12 +30,9 @@ const CLIENTS: { [P in IntegrationProvider]: new (d: ClientDeps) => IntegrationC
   github: GitHubClient, google: GoogleClient, slack: SlackClient, clickup: ClickUpClient, teams: TeamsClient,
 };
 
-/** Providers that accept a pasted key/token (research: Google and Teams have no viable paste option). */
 export const TOKEN_PROVIDERS: readonly IntegrationProvider[] = ['github', 'slack', 'clickup'];
 
-/** How long a browser sign-in waits for its callback. */
 export const PENDING_TTL_MS = 10 * 60 * 1000;
-/** Refresh this long before the access token runs out. */
 const REFRESH_SKEW_MS = 60_000;
 
 interface BrowserPending { provider: IntegrationProvider; verifier: string; redirectUri: string; startedAt: number; expiresAt: number }
@@ -44,26 +40,16 @@ interface DevicePending { pc: PendingConnect; cancelled: boolean }
 
 export type CallbackResult =
   | { ok: true; info: IntegrationInfo }
-  /** `unsolicited`: no start was pending for this state, so the request proves nothing and feeds the rate limiter. */
   | { ok: false; status: number; message: string; unsolicited: boolean };
 
 export interface IntegrationServiceOptions {
   db: Db;
   vault?: IntegrationVault;
   fetch?: Fetch;
-  /** Device-flow poll wait; tests pass a fast one. */
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
 }
 
-/**
- * Integrations (P4): shared connections (one per provider), the user's own OAuth apps, PKCE + loopback and
- * device sign-in, token refresh, per-bot grants, and the provider clients that hub tools and P5 pollers use.
- *
- * Human-only: REST (`api/integrations.ts`, `api/oauth.ts`) is the only writer. No bot tool reaches a method
- * that changes connections, apps or grants; bots get `createIntegrationTools`, which only reads and (behind
- * an approval card) writes through the provider clients.
- */
 export class IntegrationService {
   readonly repo: IntegrationRepo;
   readonly vault: IntegrationVault;
@@ -88,7 +74,6 @@ export class IntegrationService {
   private connKey = (id: string) => 'conn:' + id;
   private appKey = (p: IntegrationProvider) => 'app:' + p;
 
-  // ---------------------------------------------------------------- state
   state(host?: string): IntegrationsState {
     const apps = {} as Record<IntegrationProvider, OAuthAppStatus>;
     const redirectUris = {} as Record<IntegrationProvider, string>;
@@ -100,7 +85,6 @@ export class IntegrationService {
     return { connections, apps, pending: this.pending(), redirectUris };
   }
 
-  /** A vault read for display: an unreadable vault must not take the whole Settings page down. */
   private safeVault(key: string): Record<string, string> | null {
     try { return this.vault.get(key); } catch { return null; }
   }
@@ -113,13 +97,11 @@ export class IntegrationService {
     return out;
   }
 
-  /** `http://<127.0.0.1|localhost>:<port>/oauth/callback/<provider>`, port taken from the request's Host. */
   redirectUri(p: IntegrationProvider, host?: string): string {
     const port = /:(\d{1,5})$/.exec(host ?? '')?.[1];
     return 'http://' + (OAUTH[p]?.redirectHost ?? '127.0.0.1') + (port ? ':' + port : '') + '/oauth/callback/' + p;
   }
 
-  // ---------------------------------------------------------------- OAuth apps
   app(p: IntegrationProvider): OAuthApp | null {
     const e = this.vault.get(this.appKey(p));
     return e?.clientId ? { clientId: e.clientId, clientSecret: e.clientSecret, tenant: e.tenant } : null;
@@ -135,7 +117,6 @@ export class IntegrationService {
     const cur = this.vault.get(this.appKey(p)) ?? {};
     this.vault.set(this.appKey(p), {
       clientId: input.clientId,
-      // An empty or missing secret keeps the saved one, as the key fields elsewhere in Settings do.
       clientSecret: input.clientSecret || (cur.clientId === input.clientId ? cur.clientSecret ?? '' : ''),
       tenant: p === 'teams' ? input.tenant || 'common' : '',
     });
@@ -157,8 +138,6 @@ export class IntegrationService {
     return { spec, app };
   }
 
-  // ---------------------------------------------------------------- browser sign-in (PKCE + loopback)
-  /** Mint state + PKCE verifier, remember them, and return the provider's authorize URL. */
   startBrowser(p: IntegrationProvider, host: string | undefined): { url: string; redirectUri: string } {
     const { spec, app } = this.requireApp(p);
     if ((p === 'github' || p === 'clickup') && !app.clientSecret) {
@@ -174,15 +153,10 @@ export class IntegrationService {
     return { url: authorizeUrl(spec, app, { redirectUri, state, verifier }), redirectUri };
   }
 
-  /** True while some browser sign-in is waiting for its callback. */
   hasPendingBrowser(): boolean {
     return this.pending().some((x) => x.kind === 'browser');
   }
 
-  /**
-   * The provider sent the browser back. Accepted only for a `state` this hub minted, for the same provider,
-   * within its lifetime, and only once; the code is then exchanged together with the PKCE verifier.
-   */
   async completeBrowser(p: IntegrationProvider, params: URLSearchParams): Promise<CallbackResult> {
     const state = params.get('state') ?? '';
     const pend = state ? this.browser.get(state) : undefined;
@@ -204,7 +178,6 @@ export class IntegrationService {
     }
   }
 
-  // ---------------------------------------------------------------- device sign-in (RFC 8628)
   async startDevice(p: IntegrationProvider): Promise<PendingConnect> {
     const { spec, app } = this.requireApp(p);
     if (!spec.device) throw new IntegrationError(label(p) + ' has no device-code sign-in', 400);
@@ -247,7 +220,6 @@ export class IntegrationService {
     }
   }
 
-  /** Forget any sign-in waiting for this provider. */
   cancel(p: IntegrationProvider) {
     let any = false;
     for (const [s, b] of this.browser) if (b.provider === p) { this.browser.delete(s); any = true; }
@@ -272,7 +244,6 @@ export class IntegrationService {
     return this.repo.get(info.id)!;
   }
 
-  // ---------------------------------------------------------------- pasted tokens
   async connectToken(p: IntegrationProvider, input: TokenConnectInput): Promise<IntegrationInfo> {
     if (!TOKEN_PROVIDERS.includes(p)) throw new IntegrationError(label(p) + ' connects with OAuth only', 400);
     const token = input.token?.trim() ?? '';
@@ -282,7 +253,6 @@ export class IntegrationService {
 
     const cur = this.repo.byProvider(p);
     if (!token) {
-      // Slack: add or replace the app token on an existing connection without re-pasting the bot token.
       if (!appToken || !cur) throw new IntegrationError('Paste a token', 400);
       this.vault.patch(this.connKey(cur.id), { appToken });
       this.changed();
@@ -311,7 +281,6 @@ export class IntegrationService {
     return this.state().connections.find((c) => c.id === info.id)!;
   }
 
-  /** Account label, scopes and warnings, read with the given credential. Throws IntegrationError when it is refused. */
   private async identify(p: IntegrationProvider, token: (refresh?: boolean) => Promise<string>): Promise<{ label: string; scopes: string[]; warnings: string[] }> {
     const deps: ClientDeps = { fetch: this.fetch, token };
     switch (p) {
@@ -339,8 +308,6 @@ export class IntegrationService {
     }
   }
 
-  // ---------------------------------------------------------------- manage
-  /** "Test connection": one identity call with the stored credential (refreshing if needed). */
   async test(id: string): Promise<IntegrationInfo> {
     const info = this.repo.get(id);
     if (!info) throw new IntegrationError('Connection not found', 404);
@@ -355,7 +322,6 @@ export class IntegrationService {
     return this.state().connections.find((c) => c.id === id)!;
   }
 
-  /** Forget the connection and its stored tokens. It is not revoked at the provider (the UI says where to). */
   disconnect(id: string): void {
     if (!this.repo.get(id)) throw new IntegrationError('Connection not found', 404);
     this.vault.delete(this.connKey(id));
@@ -374,11 +340,6 @@ export class IntegrationService {
     if (this.repo.pruneGrants(liveBotIds)) this.changed();
   }
 
-  // ---------------------------------------------------------------- credentials + clients
-  /**
-   * The access token for a connection, refreshed when it is about to expire or when `refresh` is set (after
-   * a 401). Concurrent callers share one refresh. A refused refresh marks the connection `expired`.
-   */
   async token(id: string, refresh = false): Promise<string> {
     const entry = this.vault.get(this.connKey(id));
     if (!entry?.accessToken) throw new IntegrationError('This connection has no stored credential; reconnect it in Settings → Connections', 401, true);
@@ -412,10 +373,6 @@ export class IntegrationService {
     return job;
   }
 
-  /**
-   * A client for a connected provider. **This is the entry point P5 pollers use** (see
-   * docs/specs/integrations-client-api.md). It reads the credential per call, so it never goes stale.
-   */
   client<P extends IntegrationProvider>(p: P): IntegrationClients[P] {
     const info = this.repo.byProvider(p);
     if (!info) throw new IntegrationError(label(p) + ' is not connected', 404);
@@ -427,7 +384,6 @@ export class IntegrationService {
     }) as IntegrationClients[P];
   }
 
-  /** Run one call through a provider's client; a refused credential marks the connection `expired`. */
   async run<P extends IntegrationProvider, T>(p: P, fn: (c: IntegrationClients[P]) => Promise<T>): Promise<T> {
     const c = this.client(p);
     try {

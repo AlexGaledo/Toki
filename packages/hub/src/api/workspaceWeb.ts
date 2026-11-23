@@ -58,7 +58,6 @@ export function workspaceWebHandler(workspaceDir: string) {
 
     const st = fs.statSync(real);
     if (st.isDirectory()) {
-      // Relative links in a page (and in the listing below) need the trailing slash.
       if (!rel.endsWith('/')) {
         res.writeHead(301, { location: encodeURI(rel + '/'), 'cache-control': 'no-store' });
         return res.end();
@@ -90,7 +89,6 @@ export function workspaceWebHandler(workspaceDir: string) {
   };
 }
 
-/** Starts the loopback workspace server. A taken port only logs: the hub runs fine without it. */
 export function startWorkspaceWeb(workspaceDir: string, port: number): Promise<http.Server | null> {
   return new Promise((resolve) => {
     const server = http.createServer(workspaceWebHandler(workspaceDir));

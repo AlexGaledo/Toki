@@ -16,16 +16,6 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
 export const CREDENTIAL_SIGN_IN_MESSAGE =
   'Saving, changing or deleting a login needs a browser signed in with your password; the server token is not enough. Set a password in Settings, sign in, then try again.';
 
-/**
- * `/api/credentials`: the owner's saved logins for `fill_credential`. Human-only: the hub token or a signed-in
- * browser; a bot's per-turn bearer only opens /mcp and a paired device is refused. Changes need a signed-in browser,
- * the same bar as approving a fill. The secret is write-only: no route returns it, and errors never echo the body.
- *
- *   GET    /api/credentials        -> { credentials: CredentialInfo[] }
- *   POST   /api/credentials        { name, origin, username?, secret }
- *   PATCH  /api/credentials/:id    any of name, origin, username, secret (absent secret keeps the stored one)
- *   DELETE /api/credentials/:id
- */
 export function createCredentialsApi(deps: { store: CredentialStore; db: Db }) {
   const { store, db } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -76,7 +66,6 @@ export function createCredentialsApi(deps: { store: CredentialStore; db: Db }) {
   };
 }
 
-/** Field paths and rules only: zod issue messages here never quote the submitted value. */
 const issues = (e: { issues: { path: PropertyKey[]; message: string }[] }): string =>
   e.issues.map((i) => (i.path.length ? i.path.join('.') + ': ' : '') + i.message).join('; ');
 

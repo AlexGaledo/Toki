@@ -21,18 +21,6 @@ interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: 
 const INTEGRATION_WRITES = new Set<string>(INTEGRATION_WRITE_TOOLS);
 const toPublic = ({ scope: _scope, ...p }: StoredPolicy): ApprovalPolicy => p;
 
-/**
- * P2 REST, human-only like the rest of `/api` (hub token; no bot tool or MCP route reaches it). Kept out of
- * rest.ts so the phases merge cleanly; hub.ts asks it before rest.
- *
- *   GET  /api/control                         every bot's control state that is not the default
- *   GET  /api/computers/:botId/control        one bot's control state
- *   PUT  /api/computers/:botId/control        { control: agent|user|paused, holder?, note? }
- *   GET  /api/approval-policies?botId=        persisted approval rules
- *   POST /api/approval-policies               { approvalId, pattern? } or { botId, tool, pattern }, decision?
- *   DELETE /api/approval-policies/:id         revoke a rule
- *   GET  /api/approvals/parked                cards routine/trigger turns are parked on
- */
 export function createTakeoverApi(deps: { repos: Repos; control: ComputerControlService; store: ApprovalStore; broker: PermissionBroker }) {
   const { repos, control, store, broker } = deps;
   const routes: Route[] = [];
@@ -86,7 +74,6 @@ export function createTakeoverApi(deps: { repos: Repos; control: ComputerControl
     if (input.machine && input.machine !== PC_MACHINE_ID && input.machine !== VPS_MACHINE_ID) throw new HttpError(400, 'Unknown machine');
     if (input.expiresAt && input.expiresAt <= Date.now()) throw new HttpError(400, 'expiresAt is in the past');
     bot(botId);
-    // P4: sending or posting as the user to a third party asks on every call; no rule can pre-approve it.
     if (INTEGRATION_WRITES.has(tool)) throw new HttpError(400, 'Integration writes always ask; they cannot become a rule');
     const p = store.addPolicy({ botId, tool, pattern: pattern.trim(), decision: input.decision, scope: 'always', machine: input.machine ?? null, expiresAt: input.expiresAt ?? null });
     policiesChanged();
@@ -109,7 +96,6 @@ export function createTakeoverApi(deps: { repos: Repos; control: ComputerControl
       const m = r.method === method ? r.pattern.exec(url.pathname) : null;
       if (m) { hit = { r, m }; break; }
     }
-    // Only this file's own paths; everything else falls through to rest.ts.
     if (!hit) return false;
     const params: Record<string, string> = {};
     hit.r.keys.forEach((k, i) => (params[k] = decodeURIComponent(hit!.m[i + 1])));

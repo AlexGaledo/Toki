@@ -5,20 +5,6 @@ import { events } from '../events.js';
 import type { ComputerEndpoint, ComputerManager } from './ComputerManager.js';
 import { DESKTOP_AVAILABLE } from '../config.js';
 
-/*
- * P2: take over and hand back (docs/specs/grok-bot-parity.md §2.2).
- *
- * Every bot's computer has a `control` state:
- *   agent  — the bot drives; the noVNC viewer is view-only (x11vnc `-R viewonly`, plus noVNC `view_only=1`).
- *   user   — a person drives; the bot's desktop_* and Browser tools refuse (enforced in the hub, also under
- *            approvals bypass, because this is a safety interlock and not an approval).
- *   paused — nobody acts; the bot's turns wait in their lanes until it is resumed.
- *
- * State lives in memory: a hub restart ends every turn anyway, so every computer starts at `agent` again
- * and an open takeover card is shown as expired (Repos.expirePendingApprovals).
- */
-
-/** Toggles x11vnc's view-only mode on a running computer. Tests pass a fake. */
 export interface VncControl {
   setViewOnly(ep: ComputerEndpoint, on: boolean): Promise<void>;
 }
@@ -41,14 +27,12 @@ export function x11vncControl(): VncControl {
   };
 }
 
-/** What a takeover needs to resume its bot after the turn that asked for it has ended ("parked"). */
 export interface TakeoverRecord {
   messageId: string;
   roomId: string;
   reason: string;
   causeId: string;
   hop: number;
-  /** What the parked turn belongs to (`routine:<runId>`...), so a hand-back resumes it into the right owner. */
   ownerRef: string | null;
   parked: boolean;
   createdAt: number;
@@ -64,7 +48,6 @@ interface Entry {
 }
 
 export const TAKEOVER_WAIT_MS = 10 * 60 * 1000;
-/** A takeover (or a parked approval) nobody answers is given up after this long. */
 export const MAX_PARK_MS = (Number(process.env.POCKETROCKET_MAX_PARK_HOURS) || 24) * 60 * 60 * 1000;
 
 export const USER_HAS_CONTROL =
@@ -87,7 +70,6 @@ export class ComputerControlService {
   private entries = new Map<string, Entry>();
   private handBackWaiters = new Map<string, (h: HandBack) => void>();
   private unpauseWaiters = new Map<string, (() => void)[]>();
-  /** Hand-back notes for bots that did not ask for the takeover: delivered with their next turn, in any room. */
   private notes = new Map<string, string>();
   private off: (() => void) | null = null;
   private readonly computers: ComputerManager;
@@ -96,10 +78,6 @@ export class ComputerControlService {
   private readonly now: () => number;
   readonly takeoverWaitMs: number;
   readonly maxParkMs: number;
-  /**
-   * Hand-back of a takeover whose turn already ended: RoomRouter queues a turn with the note. Set by createHub.
-   * `note` is the user's text, or null when the takeover was given up after `maxParkMs`.
-   */
   onParkedHandBack?: (botId: string, t: TakeoverRecord, note: string | null) => void;
 
   constructor(opts: ComputerControlOptions) {
@@ -111,13 +89,11 @@ export class ComputerControlService {
     this.maxParkMs = opts.maxParkMs ?? MAX_PARK_MS;
   }
 
-  /** Re-applies view-only whenever a computer comes up (a fresh x11vnc starts with whatever its script says). */
   start() {
     this.off ??= events.onEvent((ev) => {
       if (ev.type === 'computer.state' && ev.status.perBot && ev.status.state === 'live') this.applyViewOnly(ev.status.botId);
     });
     for (const b of this.repos.listBots()) if (this.computers.status(b.id).state === 'live') this.applyViewOnly(b.id);
-    // Without per-bot computers the one shared screen follows the same rule (Linux servers only).
     if (!this.computers.enabled && DESKTOP_AVAILABLE) this.applyViewOnly(null);
   }
   stop() {
@@ -141,10 +117,6 @@ export class ComputerControlService {
     return [...this.entries.keys()].map((id) => this.get(id));
   }
 
-  /**
-   * Why `botId`'s computer tools must not act right now, or null when they may. Without per-bot computers every
-   * bot drives the one shared screen, so a person in control of it (on any bot's Screen tab) stops them all.
-   */
   blockedReason(botId: string): string | null {
     const c = this.get(botId).control;
     if (c === 'user') return USER_HAS_CONTROL;
@@ -153,7 +125,6 @@ export class ComputerControlService {
     return null;
   }
 
-  /** The noVNC viewer of this screen may only watch (scope = bot id, or null for the shared screen). */
   viewOnly(scope: string | null): boolean {
     if (scope === null) return ![...this.entries.values()].some((e) => e.control === 'user');
     return this.get(scope).control !== 'user';
@@ -162,7 +133,6 @@ export class ComputerControlService {
   isPaused(botId: string): boolean {
     return this.get(botId).control === 'paused';
   }
-  /** Resolves when `botId` is no longer paused (immediately if it is not). */
   waitUnpaused(botId: string): Promise<void> {
     if (!this.isPaused(botId)) return Promise.resolve();
     return new Promise((resolve) => {
@@ -171,17 +141,12 @@ export class ComputerControlService {
       this.unpauseWaiters.set(botId, list);
     });
   }
-  /** Takes the pending hand-back note for this bot's next turn, if there is one. */
   takeNote(botId: string): string | undefined {
     const n = this.notes.get(botId);
     this.notes.delete(botId);
     return n;
   }
 
-  /**
-   * The user (Screen tab, chat header) or the hub changes control. Handing back (`agent`) with a note: an
-   * open takeover gets the note as its answer; otherwise the note rides along with the bot's next turn.
-   */
   set(botId: string, control: ComputerControl, o: { holder?: string | null; note?: string } = {}): ControlStatus {
     const prev = this.entries.get(botId);
     const was = prev?.control ?? 'agent';
@@ -217,8 +182,6 @@ export class ComputerControlService {
     else if (t.parked) this.onParkedHandBack?.(botId, t, note);
   }
 
-  // ---------- request_takeover (agent/takeoverTool.ts) ----------
-  /** The bot asks for the user: control goes to `user` at once, so the viewer can click. */
   beginTakeover(botId: string, t: Omit<TakeoverRecord, 'parked' | 'createdAt'>): ControlStatus {
     const prev = this.entries.get(botId);
     if (prev?.takeover && prev.takeover.messageId !== t.messageId) this.updateCard(prev.takeover, { status: 'expired' });
@@ -234,7 +197,6 @@ export class ComputerControlService {
     return this.get(botId);
   }
 
-  /** Waits for the hand-back, at most `takeoverWaitMs`; an abort (turn interrupted) ends the wait. */
   waitHandBack(botId: string, signal: AbortSignal): Promise<HandBack> {
     return new Promise((resolve) => {
       let done = false;
@@ -254,7 +216,6 @@ export class ComputerControlService {
     });
   }
 
-  /** The bot's turn ends while the user still has control; the hand-back will queue a new turn. */
   parkTakeover(botId: string): boolean {
     const e = this.entries.get(botId);
     if (!e?.takeover) return false;
@@ -264,10 +225,6 @@ export class ComputerControlService {
     return true;
   }
 
-  /**
-   * After a restart: takeovers that were parked are live again. The user keeps control and a later hand-back
-   * still starts the bot's turn. A card for a bot that no longer exists expires.
-   */
   restoreParked(): number {
     let restored = 0;
     for (const m of this.repos.parkedTakeovers()) {
@@ -288,12 +245,10 @@ export class ComputerControlService {
     return restored;
   }
 
-  /** Owner refs held open by a parked takeover; a restart must not close a routine run among them. */
   parkedOwnerRefs(): string[] {
     return [...this.entries.values()].map((e) => (e.takeover?.parked ? e.takeover.ownerRef : null)).filter((id): id is string => !!id);
   }
 
-  /** The bot's turn ended without parking (interrupted): the card stays, but nobody is waiting on it. */
   dropTakeover(botId: string) {
     const e = this.entries.get(botId);
     if (!e?.takeover || e.takeover.parked) return;
@@ -302,7 +257,6 @@ export class ComputerControlService {
     this.emit(botId);
   }
 
-  /** Gives up takeovers parked longer than `maxParkMs`: control goes back to the bot, which is told. */
   sweep(now = this.now()): string[] {
     const gone: string[] = [];
     for (const [botId, e] of this.entries) {
@@ -317,7 +271,6 @@ export class ComputerControlService {
     return gone;
   }
 
-  /** A deleted bot loses its state. */
   prune(liveBotIds: string[]) {
     const keep = new Set(liveBotIds);
     for (const id of [...this.entries.keys()]) if (!keep.has(id)) this.entries.delete(id);
@@ -336,10 +289,6 @@ export class ComputerControlService {
     events.emitEvent({ type: 'computer.control', status: this.get(botId) });
   }
 
-  /**
-   * Server-side half of view-only: best effort, because the computer may be asleep (it then picks the state up
-   * when it comes up, see start()). The shared screen (scope null) is only touched while someone takes it over.
-   */
   private applyViewOnly(scope: string | null) {
     let ep: ComputerEndpoint | null;
     if (scope === null) ep = this.computers.legacyEndpoint();

@@ -10,13 +10,6 @@ import { logError } from '../providers/redact.js';
 const TokenBody = z.object({ token: z.string().trim().min(1).max(200) });
 const NotifyBody = z.object({ notify: z.boolean() });
 
-/**
- * `/api/telegram/*`: Telegram notifications (spec 03 Phase A). Owner only: the hub token or a signed-in browser.
- * A paired phone is refused twice (guard.ts leaves these routes off the device allowlist, and this checks the
- * principal again), the PC runner has its own allowlist, and no bot tool reaches REST at all.
- *
- * Telegram's own words come back as a 400, never a 401 (the web client reads 401 as "wrong hub token").
- */
 export function createTelegramApi(deps: { telegram: TelegramService }) {
   const svc = deps.telegram;
 

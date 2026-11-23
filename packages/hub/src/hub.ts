@@ -67,7 +67,6 @@ import { FailoverRepo } from './db/failoverRepo.js';
 import { FailoverService } from './services/Failover.js';
 import { createTriggersApi } from './api/triggers.js';
 import type { SocketFactory } from './services/SlackSocketMode.js';
-// P9: devices, pairing, push
 import { ALLOWED_HOSTS, ATTACHMENTS_DIR, PUSH_SUBJECT, VAPID_PATH } from './config.js';
 import { sweepAttachments } from './agent/attachments.js';
 import { seedDefaultBots } from './services/SeedBots.js';
@@ -84,7 +83,6 @@ import { ApprovalStore, type ParkedApproval } from './db/approvalStore.js';
 import { ComputerControlService, type VncControl } from './services/ComputerControl.js';
 import { createTakeoverApi } from './api/takeover.js';
 import { handBackNote } from './rooms/RoomRouter.js';
-// P6: teach by demonstration, skill versions and reflection
 import { Recorder, type RecorderDeps } from './services/Recorder.js';
 import { SkillDistiller } from './services/SkillDistiller.js';
 import { SkillReflection } from './services/SkillReflection.js';
@@ -105,59 +103,31 @@ import { runnerMayAccess } from './api/guard.js';
 
 export interface HubOptions {
   port?: number;
-  /** Bearer token required on /api/* and /ws. Defaults to POCKETROCKET_TOKEN. */
   token?: string | null;
-  /** SQLite file; ':memory:' in tests. */
   dbFile?: string;
-  /** Skip directory creation + legacy db copy (tests). */
   skipBootstrap?: boolean;
-  /** Where project folders live; tests hand in a temp directory. Defaults to data/projects. */
   projectsDir?: string;
-  /** Where group rooms without a project keep their files; tests hand in a temp directory. Defaults to data/rooms. */
   roomsDir?: string;
-  /** A direct chat's file folder; tests hand in one under a temp directory. Defaults to data/bots/<id>/files. */
   dmFilesDir?: (botId: string) => string;
-  /** The owner's routing rules; tests hand in a temp file. Defaults to data/routing.md. */
   routingFile?: string;
-  /** Account service; tests hand in one over a fake Supabase client. */
   account?: AccountService;
-  /** Per-bot computers (P1); tests hand in one over a fake systemctl. Built from the environment otherwise. */
   computers?: (db: Db) => ComputerManager;
-  /** P4 integrations, built on the hub's db; tests hand in a factory with a temp vault and a fake fetch. */
   integrations?: (db: Db) => IntegrationService;
-  /** Telegram notifications; tests hand in one with a fake fetch and clock. It shares the integrations vault. */
   telegram?: (db: Db, vault: IntegrationService['vault']) => TelegramService;
-  /** P5: Slack Socket Mode transport; tests hand in a fake socket. */
   slackSocket?: SocketFactory;
-  // ---- P9 ----
-  /** Extra Host names accepted over HTTPS (POCKETROCKET_ALLOWED_HOSTS); tests pass their own. */
   allowedHosts?: readonly string[];
-  /** Web Push; tests hand in one with a fixed VAPID key and a fake fetch. */
   push?: (devices: DevicesRepo, repos: Repos) => PushService;
-  /** Create the default bots on start. Only the real entry point sets it, so tests start empty. */
   seedBots?: boolean;
-  /** P2: x11vnc view-only toggle; tests pass a fake. Defaults to `x11vnc -R viewonly|noviewonly`. */
   vnc?: VncControl;
-  // ---- P6 ----
-  /** Recorder overrides (tests: availability, a fake CDP, fake scrot/xdotool, a temp folder). */
   recorder?: Partial<Omit<RecorderDeps, 'computers' | 'control'>>;
-  /** Bot training overrides (tests: a fake one-shot runner, a fixed clock or zone). */
   training?: Partial<Pick<TrainingDeps, 'run' | 'exeExists' | 'claudeReady' | 'now' | 'timezone'>>;
-  /** Uploaded pictures; tests hand in a temp folder. Defaults to data/media. */
   mediaDir?: string;
-  /** Outside MCP servers file (data/mcp-servers.json); tests hand in a temp file, and a fake fetch for the check route. */
   mcpServers?: { file?: string; fetch?: typeof fetch };
-  /** Tests: where the credential vault and its key live. */
   credentials?: { file?: string; keyFile?: string };
-  /** PC runner overrides (tests: a temp pc-runner.json, short timeouts, a fixed clock). */
   pcRunner?: Partial<Omit<PcRunnerOptions, 'db'>>;
-  /** Tests lower the 200 MB cap on an uploaded sync bundle. */
   pcBundleMaxBytes?: number;
-  /** Bridge P3: the PC session mirror's clock and caps (tests). */
   pcSessions?: PcSessionsOptions;
-  /** Bridge P6: where the Claude CLI keeps sessions, the VPS turn model and the feed interval (tests), and the session upload cap. */
   sessionMoves?: Partial<Pick<SessionMovesDeps, 'configDir' | 'model' | 'feedEveryMs' | 'runTurn'>> & { dir?: string; uploadMaxBytes?: number };
-  /** What `stop()` ends with once the hub is shut down. Defaults to process.exit; tests pass a fake. */
   exit?: (code: number) => void;
 }
 
@@ -174,41 +144,26 @@ export interface Hub {
   computers: ComputerManager;
   integrations: IntegrationService;
   telegram: TelegramService;
-  /** P5: event triggers (pollers, Slack Socket Mode, matcher). */
   triggers: TriggerService;
-  // P9
   devices: DeviceService;
   push: PushService;
-  // ---- P2 ----
-  /** Who drives each bot's computer (agent / user / paused). P6's recorder forces `user` through this. */
   control: ComputerControlService;
   broker: PermissionBroker;
   approvals: ApprovalStore;
-  /** Workflows v1: the run engine and the rows behind it. */
   workflows: WorkflowRunner;
   workflowRepo: WorkflowRepo;
-  /** M8: failover cards (spec 01 P3-1). */
   failover: FailoverService;
-  // ---- P6 ----
   skills: SkillService;
   recorder: Recorder;
   distiller: SkillDistiller;
   media: MediaStore;
-  /** The owner's PC as a Claude Code job runner. */
   pcRunner: PcRunner;
-  /** Project folders and their repos.json (bridge P5). */
   projects: ProjectService;
   pcSessions: PcSessions;
-  /** A PC session moved to the VPS (bridge P6). */
   sessionMoves: SessionMoves;
   listen(): Promise<number>;
   shutdown(): Promise<void>;
-  /**
-   * Graceful stop: `shutdown()` (turns interrupted, lane journal kept so they resume on the next start), then
-   * exit. SIGINT/SIGTERM and POST /api/maintenance/stop all come here; a second call joins the first.
-   */
   stop(reason: string): Promise<void>;
-  /** GET /api/busy. */
   busy(): BusyInfo;
 }
 
@@ -222,17 +177,14 @@ export function createHub(opts: HubOptions = {}): Hub {
   }
 
   const db = opts.dbFile ? new Db(opts.dbFile) : new Db();
-  // Finishes indexing old messages for search_history when the history was too long for the migration alone.
   const stopHistoryBackfill = startHistoryBackfill(db);
   const repos = new Repos(db);
   const memory = new MemoryService();
   if (!opts.skipBootstrap) {
-    // Bot folders left behind by deletes in older versions: counted here, moved only by the prune script.
     reportOrphanBotDirs(BOTS_DIR, repos.listBots().map((b) => b.id));
   }
   const skills = new SkillService(repos);
   if (!opts.skipBootstrap) {
-    // Skills that ship with the hub (project-map for the Toki map); added once, never overwritten.
     try { ensureBuiltinSkills(skills, repos); } catch (e) { logError('[builtin skills]', e); }
   }
   const secrets = new SecretsStore();
@@ -245,7 +197,6 @@ export function createHub(opts: HubOptions = {}): Hub {
   });
   const usage = new UsageTracker(repos, { alertThresholdUsd: () => settings.get().spendAlertThresholdUsd });
   installSettings(settings);
-  // A name set before migration 112, or the OS account default, reaches the owner's row here.
   repos.renameOwner(settings.get().userName);
   if (opts.seedBots) {
     const seeded = seedDefaultBots(repos, memory);
@@ -253,11 +204,8 @@ export function createHub(opts: HubOptions = {}): Hub {
   }
   const providers = createProviders({ settings, enabled: ENABLED_PROVIDERS });
   settings.ensureEnabledProvider();
-  // Live, not a constant: toggling approvals in Settings reaches the very next tool call and turn.
-  // P7: the knowledge repo, read-only to every bot. Its folder is a read root only while it is synced.
   const knowledge = new KnowledgeRepo({ repos, source: () => settings.get().knowledgeRepo });
   const voice = new VoiceProposals(repos, memory);
-  // P2: parked approvals and approval rules. "Allow for this session" rows belong to the previous process.
   const approvalStore = new ApprovalStore(db);
   approvalStore.clearSessionPolicies();
   const broker = new PermissionBroker(repos, {
@@ -266,14 +214,12 @@ export function createHub(opts: HubOptions = {}): Hub {
     readOnlyRoots: () => { const d = knowledge.activeDir(); return d ? [d] : []; },
     store: approvalStore,
   });
-  // Cards left open by the previous process can never be answered (their turns are gone): show them as expired.
   const expired = repos.expirePendingApprovals();
   if (expired.length) console.log('expired ' + expired.length + ' approval card(s) left open by the previous run');
   const router = new RoomRouter(repos, usage);
   const turns = new TurnRegistry();
   const routing = new RoutingRules(opts.routingFile);
   if (!opts.skipBootstrap) routing.ensureSeeded();
-  // Per-bot computers (P1). Off unless POCKETROCKET_COMPUTERS=1 on Linux; then bots get no Browser or Desktop.
   const computers = opts.computers
     ? opts.computers(db)
     : new ComputerManager(new ComputersRepo(db), {
@@ -282,7 +228,6 @@ export function createHub(opts: HubOptions = {}): Hub {
           return repos.listRoutines().some((r) => r.botId === botId && r.enabled && r.nextRunAt !== null && r.nextRunAt - t <= withinMs);
         },
       });
-  // A deleted bot (REST or the delete_bot tool) takes its computer with it: unit stopped, folder erased.
   const offComputers = events.onEvent((ev) => {
     if (ev.type === 'bots.changed') void computers.prune(ev.bots.map((b) => b.id)).catch((e) => console.warn('[computers] ' + (e as Error).message));
   });
@@ -293,25 +238,20 @@ export function createHub(opts: HubOptions = {}): Hub {
     routinesChanged: () => scheduler.reload(),
   }, providers, turns, computers, { knowledgeDir: () => knowledge.activeDir(), routing }, media);
   router.runner = runner;
-  // M7 (P2-3): Gemini on a Google login runs only attended turns; the router drops the rest with a note.
   router.unattendedRefusal = (bot, provider) => unattendedRefusal(providers, bot, provider);
   const forms = new FormBroker(repos);
   runner.forms = forms;
-  // M6 (P1-6): the Claude-only passes ask whether Claude itself is ready, not which provider is the default.
   const claudeReady = () => providers.claudeReady();
   runner.claudeReady = claudeReady;
   router.autoMemory = new AutoMemory({ repos, memory, usage, claudeReady, voice });
   const scheduler = new RoutineScheduler(repos, router);
-  // P3: resumes turns a restart cut off, and nudges stalled handoffs.
   const followUp = new FollowUp({ repos, router, heldRuns: () => [...approvalStore.parkedOwnerRefs(), ...control.parkedOwnerRefs()] });
 
-  // P2: take over / hand back / pause, and resuming turns that parked on the user.
   const control = new ComputerControlService({ computers, repos, vnc: opts.vnc });
   const usesComputer = (botId: string) => {
     const tools = repos.getBot(botId)?.allowedTools ?? [];
     return tools.includes('Browser') || tools.includes('Desktop');
   };
-  // Opens a chat link or room file in a bot's server browser, for the person to watch in Screen.
   const screenOpener = createScreenOpener({ repos, computers, usesComputer });
   computers.wire({
     usesComputer,
@@ -343,14 +283,11 @@ export function createHub(opts: HubOptions = {}): Hub {
   const takeoverApi = createTakeoverApi({ repos, control, store: approvalStore, broker });
   let p2Timer: NodeJS.Timeout | null = null;
 
-  // P6: teach by demonstration (forces control=user while recording), distill/corrections, opt-in reflection.
   const recorder = new Recorder({ computers, control, ...opts.recorder });
   recorder.listen();
-  // These passes run on Claude whatever provider the bots run on, so they pick among Claude's models.
   const claudeModels = () => providers.modelsSync('claude');
   const distiller = new SkillDistiller({ repos, skills, recorder, usage, claudeReady, models: claudeModels });
   router.skillReflection = new SkillReflection({ repos, skills, usage, claudeReady, models: claudeModels });
-  // Bot training: opt-in per bot, weekly, and only the owner's Approve changes a bot.
   const training = new Training({ repos, memory, usage, claudeReady, models: claudeModels, ...opts.training });
   skills.versionsRepo.prune(repos.listBots().map((b) => b.id));
   training.prune(repos.listBots().map((b) => b.id));
@@ -361,18 +298,15 @@ export function createHub(opts: HubOptions = {}): Hub {
   });
   const teachApi = createTeachApi({ repos, skills, recorder, distiller, training });
 
-  // P4: integrations. Shared connections, per-bot grants; grants of deleted bots are dropped as bots change.
   const integrations = opts.integrations ? opts.integrations(db) : new IntegrationService({ db });
   runner.integrations = integrations;
   integrations.pruneGrants(repos.listBots().map((b) => b.id));
   const offBots = events.onEvent((ev) => { if (ev.type === 'bots.changed') integrations.pruneGrants(ev.bots.map((b) => b.id)); });
   const integrationsApi = createIntegrationsApi({ integrations, repos });
-  // Where a phone opens the hub from: the first allowed Tailscale name, if the owner set one up. Never a loopback address.
   const hubUrlForPhone = () => { const h = (opts.allowedHosts ?? ALLOWED_HOSTS)[0]; return h ? 'https://' + h + '/' : null; };
   const telegram = opts.telegram ? opts.telegram(db, integrations.vault) : new TelegramService({ db, vault: integrations.vault, hubUrl: hubUrlForPhone });
   const telegramApi = createTelegramApi({ telegram });
 
-  // P5: event triggers. Outbound polling and Slack Socket Mode only (Q5); started in listen(), stopped first on shutdown.
   const triggers = new TriggerService({ db, repos, integrations, router, socket: opts.slackSocket });
   const workflowRepo = new WorkflowRepo(db);
   const triggersApi = createTriggersApi({ triggers, inUse: (id) => workflowRepo.forTrigger(id).length > 0 });
@@ -380,7 +314,6 @@ export function createHub(opts: HubOptions = {}): Hub {
 
   const screenSessions = new ScreenSessions();
 
-  // P9: paired devices and opt-in Web Push. What a device token may reach is guard.ts `deviceMayAccess`.
   const allowedHosts = opts.allowedHosts ?? ALLOWED_HOSTS;
   const devicesRepo = new DevicesRepo(db);
   const devices = new DeviceService(devicesRepo);
@@ -389,7 +322,6 @@ export function createHub(opts: HubOptions = {}): Hub {
     : PushService.withFile({ devices: devicesRepo, repos, subject: PUSH_SUBJECT, vapidPath: VAPID_PATH });
   push.setTelegram(telegram);
   const devicesApi = createDevicesApi({ devices, push, allowedHosts });
-  // Every socket a device holds open (/ws and its Screen), so revoking it hangs them up at once.
   const deviceSockets = new Map<string, Set<{ close(): void }>>();
   const trackDeviceSocket = (deviceId: string, s: { close(): void }, onClose: (fn: () => void) => void) => {
     let set = deviceSockets.get(deviceId);
@@ -407,14 +339,12 @@ export function createHub(opts: HubOptions = {}): Hub {
     deviceSockets.delete(id);
   });
   const mediaApi = createMediaApi({ media });
-  // A hub on a test database must never sweep the real folder: every picture in it would look unreferenced.
   const sweepMedia = () => {
     if (opts.skipBootstrap && !opts.mediaDir) return;
     try { media.sweep(referencedMedia(repos, settings.get())); } catch (e) { logError('[media]', e); }
     try { sweepAttachments(ATTACHMENTS_DIR, new Set(repos.listBots().map((b) => b.id))); } catch (e) { logError('[attachments]', e); }
   };
   let mediaTimer: NodeJS.Timeout | null = null;
-  /** 04-A3: only running turns and live cards block; queued, parked and open-run work survives a restart. */
   const busy = (): BusyInfo => {
     const running = runner.activeTurnCount();
     const liveCards = broker.liveCardCount();
@@ -428,7 +358,6 @@ export function createHub(opts: HubOptions = {}): Hub {
   let stopping: Promise<void> | null = null;
   const rest = createRest({
     busy,
-    // After this tick, so the 202 is written before shutdown closes every connection.
     stop: () => { setImmediate(() => void hub.stop('maintenance stop')); },
     media, routineInUse: (id) => workflowRepo.forRoutine(id).length > 0,
     repos, memory, skills, scheduler, router, runner, settings, secrets, providers, screenSessions, account, knowledge, voice, computers, screenOpener, routing,
@@ -440,10 +369,8 @@ export function createHub(opts: HubOptions = {}): Hub {
   runner.projects = projects;
   const roomFiles = new RoomFiles({ projects, roomsDir: opts.roomsDir ?? ROOMS_DIR, dmDir: opts.dmFilesDir ?? botFilesDir });
   runner.roomFiles = roomFiles;
-  // Bridge P1: who changed each shared file (bot Write/Edit hooks, owner uploads and text saves).
   const revisions = new FileRevisions(repos.db);
   runner.revisions = revisions;
-  // Workflows v1. The runner registers the owner handler and the run-budget hook on the router; FollowUp resumes the step turns, then recover() restarts runs cut between steps.
   const workflows = new WorkflowRunner({
     repos, workflows: workflowRepo, router, usage, roomFiles, revisions,
     triggerExists: (id) => !!triggers.repo.get(id),
@@ -453,7 +380,6 @@ export function createHub(opts: HubOptions = {}): Hub {
   triggers.workflows = (id, event, manual) => workflows.fireTrigger(id, event, { manual });
   runner.workflows = workflows;
   const workflowsApi = createWorkflowsApi({ repos, workflows: workflowRepo, runner: workflows });
-  // M8 (P3-1): the failover card. A limited turn's bot with a backup gets a person-only card; Continue queues one strict turn there.
   const failover = new FailoverService({
     repo: new FailoverRepo(db), repos,
     label: (id) => providers.get(id).label,
@@ -468,21 +394,17 @@ export function createHub(opts: HubOptions = {}): Hub {
   });
   router.failover = failover;
   const failoverApi = createFailoverApi({ failover });
-  // A bot works without a card only in the folder of the room it is replying in.
   setRoomRootsResolver((botId, roomId) => {
     const room = repos.getRoom(roomId);
     const folder = room ? roomFiles.forBot(room, botId) : null;
     return folder ? [folder.dir] : [];
   });
   const filesApi = createFilesApi({ repos, roomFiles, screenOpener, revisions });
-  // The owner's PC: run_on_pc jobs, owner-approved on a card, picked up by the helper on the PC.
   const pcRunner = new PcRunner({ db, file: path.join(DATA_DIR, 'pc-runner.json'), ...opts.pcRunner });
   runner.pcRunner = pcRunner;
-  // Bridge P3: the PC session mirror (owner-only reads, runner writes), pruned at start and daily.
   const pcSessions = new PcSessions(db, opts.pcSessions);
   runner.pcSessions = pcSessions;
   pcSessions.linker = (repo) => projects.linksFor(repo);
-  // Bridge P6: a PC session moved to the VPS; its turns run through the Claude provider (BotRunner.runOffloadTurn).
   const sessionMoves = new SessionMoves({
     db, repos, pcRunner, pcSessions, projects,
     dir: opts.sessionMoves?.dir ?? path.join(DATA_DIR, 'pc-moves'),
@@ -513,24 +435,20 @@ export function createHub(opts: HubOptions = {}): Hub {
   const offProjectBots = events.onEvent((ev) => { if (ev.type === 'bots.changed') projects.pruneMembers(ev.bots.map((b) => b.id)); });
   const projectsApi = createProjectsApi({ projects, repos, db });
   const mcpServersApi = createMcpServersApi({ store: new McpServerStore(opts.mcpServers?.file), db, fetch: opts.mcpServers?.fetch });
-  // G4: saved logins for fill_credential; secrets encrypted in data/credentials.json.
   const credentials = new CredentialStore(db, opts.credentials);
   runner.credentials = credentials;
   const credentialsApi = createCredentialsApi({ store: credentials, db });
   const contextApi = createContextApi({ context: contextRepo, projects });
   const connectorTools = contextConnectorTools(contextRepo);
 
-  // CSP, nosniff and Referrer-Policy on the app shell and its assets (POCKETROCKET_CSP: enforce|report-only|off).
   const webHeaders = webSecurityHeaders(cspModeFrom(process.env.POCKETROCKET_CSP));
 
   const MIME: Record<string, string> = {
     '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png',
     '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff',
-    // P9: PWA manifest
     '.webmanifest': 'application/manifest+json',
   };
 
-  // /screen/* -> noVNC (websockify) on the computer. Same-origin, so the SSH tunnel / Tailscale covers it.
   const screenProxy = httpProxy.createProxyServer({ target: SCREEN_URL, ws: true, changeOrigin: true });
   // Nothing secret rides these URLs any more, but the noVNC page is a live view of a real desktop: keep it
   // out of caches, out of Referer headers, and out of anyone else's frame.
@@ -548,11 +466,6 @@ export function createHub(opts: HubOptions = {}): Hub {
     }
   });
 
-  /**
-   * A GET that resolves to a real file under WEB_DIST is the app shell and its hashed assets: served without
-   * the token so the browser can load the page that then asks for one. Nothing else is public — in
-   * particular `/screen/*` resolves to no file here, so it falls through to the token check.
-   */
   const isPublicAsset = (pathname: string): boolean => {
     const file = path.join(WEB_DIST, pathname);
     if (!file.startsWith(WEB_DIST + path.sep)) return false;
@@ -564,21 +477,14 @@ export function createHub(opts: HubOptions = {}): Hub {
   };
 
   /**
-   * `/screen/*` is the one place a browser cannot set a header — it is an iframe and then a websocket — so the
-   * hub token used to ride the query string. It now presents the httpOnly cookie that `/screen/session` handed
-   * out in exchange for a ticket. A bearer header still works for scripts and curl; `?token=` no longer does,
-   * which is the whole point: the hub token can never end up in a URL, a history entry or a DOM attribute.
+   * `/screen/*` is the one place a browser cannot set a header (an iframe, then a websocket), so it presents the
+   * httpOnly cookie `/screen/session` handed out for a ticket.
    */
   const screenAuth = (req: http.IncomingMessage): boolean => {
     const { scope } = screenRoute(new URL(req.url ?? '/', 'http://localhost').pathname);
     return screenSessions.valid(cookieValue(req, screenCookieName(scope)), scope) || (token !== null && tokenMatches(bearerToken(req), token));
   };
 
-  /**
-   * P1: `/screen/<botId>/*` is that bot's computer, `/screen/*` otherwise the shared screen. The scope decides
-   * both which cookie authenticates the request and where it is proxied, so a session for bot A never reaches
-   * bot B's screen. Only a bot that already has a computer slot is a scope; anything else is the shared screen.
-   */
   function screenRoute(pathname: string): { scope: string | null; rest: string; target: string } {
     const m = /^\/screen\/([^/]+)(\/.*)?$/.exec(pathname);
     const ep = m ? computers.existingEndpoint(m[1]) : null;
@@ -588,8 +494,6 @@ export function createHub(opts: HubOptions = {}): Hub {
 
   const limiter = new AuthRateLimiter();
   const auth = new AuthService(db);
-  // Forgotten password: an env var on the hub's own process, which a bot cannot set for it. The hub token no
-  // longer resets a password (api/auth.ts), because a signed-in browser is what approves a job on the PC.
   if (process.env.POCKETROCKET_RESET_PASSWORD === '1' && auth.clearPassword(repos.owner().id)) {
     console.log('[pocketrocket] POCKETROCKET_RESET_PASSWORD=1: the owner password was cleared and every browser signed out. Set a new one in Settings, then remove the variable.');
   }
@@ -602,7 +506,6 @@ export function createHub(opts: HubOptions = {}): Hub {
     for (const s of deviceSockets.get('session:' + id) ?? []) s.close();
     deviceSockets.delete('session:' + id);
   });
-  /** The live session behind this request's cookie, if any. */
   const sessionOf = (req: http.IncomingMessage) => auth.authenticate(cookieValue(req, sessionCookieName()));
 
   const server = http.createServer(async (req, res) => {
@@ -620,8 +523,6 @@ export function createHub(opts: HubOptions = {}): Hub {
         res.end(JSON.stringify({ error: 'Too many failed authentication attempts; try again in a minute' }));
         return;
       }
-      // The screen handshake authenticates with a one-shot ticket rather than the hub token, so it answers
-      // ahead of the general check — but a bad ticket is a failed auth like any other and feeds the limiter.
       if (url.pathname === '/screen/session' && (req.method ?? 'GET') === 'GET') {
         const redeemed = screenSessions.redeemScoped(url.searchParams.get('ticket'));
         if (!redeemed) {
@@ -650,10 +551,8 @@ export function createHub(opts: HubOptions = {}): Hub {
         res.end(JSON.stringify({ error: 'Missing or invalid hub token' }));
         return;
       }
-      // P9: who this is. A device token only reaches what deviceMayAccess lists (403 otherwise, never 401).
       if (presentsHubToken(req, url, token)) setPrincipal(req, { kind: 'hub', userId: repos.owner().id });
       else if (session) {
-        // Does not clear the limiter: a held session must not wipe failed password tries from this address.
         setPrincipal(req, { kind: 'hub', sessionId: session.sessionId, userId: session.userId });
       } else if (deviceId) {
         setPrincipal(req, { kind: 'device', deviceId });
@@ -664,7 +563,6 @@ export function createHub(opts: HubOptions = {}): Hub {
           return;
         }
       } else if (runnerToken(bearerToken(req) ?? '')) {
-        // The PC runner reaches its own routes and nothing else (403, like a device).
         setPrincipal(req, { kind: 'runner' });
         limiter.succeed(ip);
         if (!runnerMayAccess(req.method ?? 'GET', url.pathname)) {
@@ -676,7 +574,6 @@ export function createHub(opts: HubOptions = {}): Hub {
       const auditMethod = req.method ?? 'GET';
       // The connector's secret is its path, so the path itself must not reach the log.
       const auditPath = url.pathname.startsWith(CONTEXT_CONNECTOR_PREFIX) ? CONTEXT_CONNECTOR_PREFIX + '*' : url.pathname;
-      // On the answer rather than on 'finish', which never fires if the client hangs up after the change is made.
       if (auditMethod !== 'GET') {
         const end = res.end.bind(res) as (...a: unknown[]) => http.ServerResponse;
         let logged = false;
@@ -689,12 +586,10 @@ export function createHub(opts: HubOptions = {}): Hub {
         }) as typeof res.end;
       }
       if (url.pathname === AUTH_STATUS_PATH && auditMethod === 'GET') { handleAuthStatus(req, res, authDeps); return; }
-      // Token-exempt, so reaching it proves nothing: it must not clear the limiter, and it feeds it on failure.
       if (url.pathname === AUTH_CALLBACK_PATH && (req.method ?? 'GET') === 'GET') {
         await handleAuthCallback(req, res, url, { account, limiter });
         return;
       }
-      // P4: same footing as /auth/callback (token-exempt, feeds the limiter when nothing is pending).
       if (url.pathname.startsWith(OAUTH_CALLBACK_PREFIX) && (req.method ?? 'GET') === 'GET') {
         await handleOAuthCallback(req, res, url, { integrations, limiter });
         return;
@@ -706,7 +601,6 @@ export function createHub(opts: HubOptions = {}): Hub {
         res.end(JSON.stringify({ error: ct.reason }));
         return;
       }
-      // P9: token-exempt; every miss feeds the limiter.
       if (url.pathname === DEVICE_PAIR_PATH && (req.method ?? 'GET') === 'POST') {
         await handleDevicePair(req, res, { devices, limiter });
         return;
@@ -780,7 +674,6 @@ export function createHub(opts: HubOptions = {}): Hub {
         screenProxy.web(req, res, { target: route.target });
         return;
       }
-      // static web/dist (production)
       let file = path.join(WEB_DIST, url.pathname === '/' ? 'index.html' : url.pathname);
       if (!file.startsWith(WEB_DIST)) { res.writeHead(403); res.end(); return; }
       if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(WEB_DIST, 'index.html');
@@ -789,13 +682,10 @@ export function createHub(opts: HubOptions = {}): Hub {
         res.end('Toki hub running. Web UI not built; run `pnpm dev` for Vite dev server or `pnpm build`.');
         return;
       }
-      // P9: the service worker and the manifest have fixed names, so they must be revalidated like the shell;
-      // an immutable sw.js would pin every installed phone to the build it first saw.
       const isShell = ['index.html', 'theme-init.js', 'sw.js', 'manifest.json', 'manifest.webmanifest'].includes(path.basename(file));
       res.writeHead(200, {
         ...webHeaders,
         'content-type': MIME[path.extname(file)] ?? 'application/octet-stream',
-        // hashed assets are immutable; the shell must always be re-fetched so a reload picks up new builds
         'cache-control': isShell ? 'no-cache, no-store, must-revalidate' : 'public, max-age=31536000, immutable',
       });
       fs.createReadStream(file).pipe(res);
@@ -815,7 +705,6 @@ export function createHub(opts: HubOptions = {}): Hub {
       socket.destroy();
       return;
     }
-    // Applies to /screen/* too: the noVNC proxy used to be exempt (audit 2026-09-09, B2).
     let deviceId: string | null = null;
     const deviceToken = (t: string) => (deviceId = devices.authenticate(t)) !== null;
     const session = sessionOf(req);
@@ -844,9 +733,7 @@ export function createHub(opts: HubOptions = {}): Hub {
     } else if (url.pathname.startsWith('/screen/')) {
       const route = screenRoute(url.pathname);
       req.url = route.rest + url.search;
-      // An open viewer keeps the bot's computer from an idle stop until it disconnects.
       if (route.scope) socket.once('close', computers.viewerOpened(route.scope));
-      // P9: a Screen a paired device opened closes with the device.
       const owner = screenSessions.ownerOf(cookieValue(req, screenCookieName(route.scope)), route.scope);
       if (owner) trackDeviceSocket(owner, { close: () => socket.destroy() }, (fn) => socket.once('close', fn));
       dropCookie(req, sessionCookieName());
@@ -861,7 +748,6 @@ export function createHub(opts: HubOptions = {}): Hub {
     stop(reason: string) {
       stopping ??= (async () => {
         console.log('[pocketrocket] ' + reason + ': shutting down');
-        // A stuck shutdown must not keep the process alive (an updater is waiting on it).
         const force = setTimeout(() => exit(0), 8000);
         force.unref();
         try {
@@ -886,7 +772,6 @@ export function createHub(opts: HubOptions = {}): Hub {
           if (resumed) console.log('resuming ' + resumed + ' turn(s) cut off by the previous run');
           workflows.recover();
           followUp.start();
-          // P2: re-apply view-only as computers come up; give up on parked cards and takeovers after 24 h.
           control.start();
           broker.sweepParked();
           failover.sweep();
@@ -900,15 +785,10 @@ export function createHub(opts: HubOptions = {}): Hub {
           mediaTimer.unref();
           scheduler.start();
           training.start();
-          // P5: after resumeInterrupted, so a resumed trigger turn is not also re-fired from the inbox.
           triggers.start();
-          // P9: content-free pushes for approval cards and finished routines (only to opted-in subscriptions).
           push.start();
-          // P7: sync the knowledge repo if its source changed, then pull it on a timer (never blocks start).
           knowledge.start(KNOWLEDGE_SYNC_MINUTES);
-          // Reconcile with systemd, prune deleted bots, move the shared screen's logins (once), start timers.
           void computers.startBackground(repos.listBots()).catch((e) => console.warn('[computers] ' + (e as Error).message));
-          // Async on purpose: an offline start must not hold the hub up (see AccountService).
           void account.start();
           console.log(
             'Toki hub v' + VERSION + ' · node ' + process.versions.node +
@@ -922,7 +802,6 @@ export function createHub(opts: HubOptions = {}): Hub {
               (settings.approvalsLocked ? 'set by POCKETROCKET_BYPASS_PERMISSIONS; =0 to restore' : 'turn approvals back on in Settings') + ')',
             );
           }
-          // Say where the token is, never what it is: this output ends up in the journal and in hub.log.
           if (token) console.log('[pocketrocket] open: http://' + HOST + ':' + port + '/  (sign in with the token from ' + (HUB_TOKEN ? 'POCKETROCKET_TOKEN' : HUB_TOKEN_PATH) + ')');
           resolve(port);
         });
@@ -930,13 +809,11 @@ export function createHub(opts: HubOptions = {}): Hub {
     async shutdown() {
       stopHistoryBackfill();
       scheduler.stop();
-      // Aborts a running pass and waits for it, so nothing writes to the database after it closes below.
       await training.stop();
       triggers.stop();
       followUp.stop();
       control.stop();
       offP2();
-      // P6: an open recording ends (its control is in memory anyway) and its computer is released.
       offP6();
       await recorder.shutdown();
       if (p2Timer) clearInterval(p2Timer);
@@ -945,25 +822,20 @@ export function createHub(opts: HubOptions = {}): Hub {
       pcSessions.stop();
       knowledge.stop();
       offComputers();
-      // Timers only: the computers are systemd units and keep running across a hub restart.
       computers.stopBackground();
-      // P4: stop listening for bot changes and drop any OAuth/device sign-in still waiting.
       offBots();
       offProjectBots();
       for (const p of integrations.pending()) integrations.cancel(p.provider);
       account.stop();
       push.stop();
-      // Aborts a link poll in flight; does not wait for it.
       telegram.stop();
       offRevoke();
       offSessionRevoke();
-      // Keep the lane journal: the turns interrupted here resume on the next start (P3).
       router.freeze();
       runner.interruptAll();
       await providers.shutdown();
       for (const c of wss.clients) c.terminate();
       wss.close();
-      // Keep-alive sockets would otherwise hold server.close() open until they time out.
       server.closeAllConnections();
       await new Promise<void>((r) => server.close(() => r()));
       try { db.raw.close(); } catch { /* already closed */ }
@@ -972,7 +844,6 @@ export function createHub(opts: HubOptions = {}): Hub {
   return hub;
 }
 
-/** P2: the line a resumed bot gets when the user answers the approval card its turn parked on. */
 function parkedDecisionNote(p: ParkedApproval, decision: 'allow' | 'always' | 'deny' | 'timeout'): string {
   const what = '"' + p.toolName + '"' + (p.reason ? ' (' + p.reason + ')' : '');
   if (decision === 'allow' || decision === 'always') {

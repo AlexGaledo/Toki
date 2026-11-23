@@ -32,10 +32,6 @@ function sessionCookie(req: IncomingMessage, name: string, value: string, maxAge
   return name + '=' + value + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + Math.floor(maxAgeMs / 1000) + (forwardedHttps(req) ? '; Secure' : '');
 }
 
-/**
- * Counts the try before the slow hash, so guesses sent in parallel cannot all pass the limiter while the first is
- * still hashing. Only the right password clears the count.
- */
 async function checkPassword(deps: AuthApiDeps, ip: string, userId: string, password: unknown): Promise<'ok' | 'wrong' | 'blocked'> {
   if (deps.limiter.blocked(ip)) return 'blocked';
   deps.limiter.fail(ip);
@@ -51,11 +47,9 @@ export interface AuthApiDeps {
   repos: Repos;
   auth: AuthService;
   limiter: AuthRateLimiter;
-  /** This hub's session cookie name. */
   cookieName: () => string;
 }
 
-/** Token-exempt: the sign-in screen asks this before it holds any credential. It reveals only these two flags. */
 export function handleAuthStatus(req: IncomingMessage, res: ServerResponse, deps: AuthApiDeps): void {
   send(res, 200, {
     passwordSet: deps.auth.hasPassword(deps.repos.owner().id),
@@ -63,7 +57,6 @@ export function handleAuthStatus(req: IncomingMessage, res: ServerResponse, deps
   });
 }
 
-/** Token-exempt, so every miss feeds the failed-auth limiter (10 a minute per IP). */
 export async function handleLogin(req: IncomingMessage, res: ServerResponse, deps: AuthApiDeps): Promise<void> {
   const ip = clientIp(req);
   const parsed = await jsonBody(req);
@@ -74,7 +67,6 @@ export async function handleLogin(req: IncomingMessage, res: ServerResponse, dep
   if (result === 'blocked') { send(res, 429, TOO_MANY, { 'retry-after': '60' }); return; }
   if (result === 'wrong') {
     recordAudit(deps.db, { kind: 'anonymous', id: null, ip }, 'auth.sign_in_failed');
-    // 403, not 401: a 401 tells the web client that the credential it already holds is wrong.
     send(res, 403, { error: 'Wrong password.' });
     return;
   }
@@ -83,7 +75,6 @@ export async function handleLogin(req: IncomingMessage, res: ServerResponse, dep
   send(res, 200, { ok: true }, { 'set-cookie': sessionCookie(req, deps.cookieName(), token, SESSION_TTL_MS) });
 }
 
-/** Everything under `/api/auth/*` that needs a credential, and `/api/audit`. A paired phone reaches none of it (guard.ts). */
 export function createAuthApi(deps: AuthApiDeps) {
   const { db, repos, auth } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
@@ -119,10 +110,6 @@ export function createAuthApi(deps: AuthApiDeps) {
       }
       if (method === 'POST' && p === '/api/auth/password') {
         const had = auth.hasPassword(owner.id);
-        // Changing a password always needs the current one, from the hub token too. A password is what a signed-in
-        // browser proves, and only a signed-in browser may approve a job on the PC (PermissionBroker SIGN_IN_TOOLS);
-        // if the token could reset it, a bot that read the token could sign itself in and answer its own card.
-        // A forgotten password is cleared by starting the hub with POCKETROCKET_RESET_PASSWORD=1.
         if (had) {
           const result = await checkPassword(deps, clientIp(req), owner.id, body.currentPassword);
           if (result === 'blocked') return send(res, 429, TOO_MANY, { 'retry-after': '60' });
@@ -132,7 +119,6 @@ export function createAuthApi(deps: AuthApiDeps) {
           }
         }
         await auth.setPassword(owner.id, checkNewPassword(body.password));
-        // A password change is often a reaction to a leak, so every other browser has to sign in again.
         const ended = auth.revokeAll(owner.id, current);
         recordAudit(db, actor, had ? 'auth.password_changed' : 'auth.password_set', null, ended ? ended + ' other sessions signed out' : null);
         return send(res, 200, { ok: true });

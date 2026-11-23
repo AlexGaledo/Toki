@@ -21,16 +21,13 @@ import { FilesError, folderIn, parentOf, resolveIn, windowsNameProblem } from '.
 import { settings } from './SettingsStore.js';
 import { logError } from '../providers/redact.js';
 
-/** A refused request; `status` is the HTTP status REST answers with. */
 export class WorkflowError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
 }
 
-/** The most text a step's output keeps (and an output step writes): the hub caps what a model returns. */
 export const MAX_STEP_OUTPUT_CHARS = 20_000;
-/** The most steers kept per step on the timeline. */
 const MAX_STEERS = 20;
 
 export interface WorkflowRunnerDeps {
@@ -38,34 +35,14 @@ export interface WorkflowRunnerDeps {
   workflows: WorkflowRepo;
   router: RoomRouter;
   usage: UsageTracker;
-  /** An output step with target 'file' writes into the room's folder. Absent in a few unit tests; such a step then fails. */
   roomFiles?: RoomFiles;
   revisions?: FileRevisions;
-  /** Whether an event trigger exists (the trigger table lives in TriggerService). Absent: not checked. */
   triggerExists?: (id: string) => boolean;
-  /** Owner refs a parked approval or takeover still holds open: a restart must not start such a step again. */
   heldOwners?: () => string[];
-  /** Clock, for tests. */
   now?: () => number;
-  /** How long an approval card waits. Default: the parked-approval limit (24 h). */
   cardTtlMs?: number;
 }
 
-/**
- * Workflows v1 (docs/specs/openbot-gaps/02-steering-workflows.md "(b) Workflows"). A run walks the workflow's single
- * path node by node:
- *
- * - **agent**: one solo, strict, hop-0 turn for the step's bot (`RoomRouter.fireStep`) on the run's thread. The turn's
- *   final text is the step's output and the next step's `{{previous}}` (fenced as data).
- * - **approval**: the run waits (`waiting`) for the owner's card: approve, reject, or send back once with a note (the
- *   previous agent step runs again). Only `decide()` answers it, and the REST route in front of it takes owner
- *   principals only; no bot tool, cta button or chat text reaches it. The card expires after a day.
- * - **output**: posts the last output to the room, or writes it into the room's files folder.
- *
- * Crash safety: progress is saved after every step. A step that has a lane journal row is resumed by FollowUp (one
- * owner, `RoomRouter.ownerDone` rebuilds `onDone` from the owner ref); `recover()` restarts only runs that are
- * running with no journal row and no parked card (a crash between steps) and leaves waiting runs to their cards.
- */
 export class WorkflowRunner {
   private readonly now: () => number;
   private readonly cardTtlMs: number;
@@ -83,8 +60,6 @@ export class WorkflowRunner {
 
   private get repo() { return this.deps.workflows; }
 
-  // ---------------------------------------------------------------- definitions (REST and the bot tools)
-  /** A sentence a person can read when the workflow cannot be saved, else null. */
   check(w: { roomId: string; graph: Workflow['graph'] }): string | null {
     const { repos } = this.deps;
     const room = repos.getRoom(w.roomId);
@@ -115,7 +90,6 @@ export class WorkflowRunner {
     return w;
   }
 
-  /** `patch` holds only the fields that were sent (the caller drops zod's defaults). */
   update(id: string, patch: WorkflowPatch): Workflow {
     const cur = this.repo.get(id);
     if (!cur) throw new WorkflowError(404, 'Workflow not found');
@@ -137,18 +111,12 @@ export class WorkflowRunner {
     events.emitEvent({ type: 'workflow.cards', cards: this.cards() });
   }
 
-  /** What is left of a run's budget: every step and every hand-off of the run shares the run's thread, so its cost is the thread's. */
   budgetLeft(runId: string): number | undefined {
     const run = this.repo.getRun(runId);
     if (!run) return undefined;
     return run.budgetUsd - (run.causeId ? this.deps.usage.causeCost(run.causeId) : run.costUsd);
   }
 
-  // ---------------------------------------------------------------- starting runs
-  /**
-   * Starts a run. `input` is what the trigger step hands the first step (the routine's prompt, or an outside event's
-   * text; fenced when a step uses it). 409 while a run of the workflow is already running or waiting.
-   */
   start(workflowId: string, o: { manual: boolean; input?: string }): WorkflowRunRow {
     const w = this.repo.get(workflowId);
     if (!w) throw new WorkflowError(404, 'Workflow not found');
@@ -169,10 +137,6 @@ export class WorkflowRunner {
     return this.repo.getRun(run.id)!;
   }
 
-  /**
-   * A routine fired: starts a run of every workflow whose trigger step is this routine instead of the routine's own
-   * prompt. False when no workflow uses the routine (the scheduler then does what it always did).
-   */
   fireRoutine(routineId: string, o: { manual: boolean }): boolean {
     const list = this.repo.forRoutine(routineId);
     if (!list.length) return false;
@@ -181,7 +145,6 @@ export class WorkflowRunner {
     return true;
   }
 
-  /** An event trigger matched: same for the workflows whose trigger step is this trigger. */
   fireTrigger(triggerId: string, event: TriggerEvent, o: { manual: boolean }): boolean {
     const list = this.repo.forTrigger(triggerId);
     if (!list.length) return false;
@@ -200,8 +163,6 @@ export class WorkflowRunner {
     }
   }
 
-  // ---------------------------------------------------------------- the walk
-  /** Runs nodes from `idx` until one has to wait (an agent turn, an approval card) or the run ends. */
   private proceed(runId: string, idx: number, redo?: { note: string }) {
     let run = this.repo.getRun(runId);
     if (!run || run.status !== 'running') return;
@@ -253,7 +214,6 @@ export class WorkflowRunner {
     this.cardsChanged();
   }
 
-  /** The owner's answer to a waiting approval card. The REST route in front of this refuses anyone but an owner. */
   decide(runId: string, d: WorkflowDecision): WorkflowRunSummary {
     const run = this.repo.getRun(runId);
     if (!run) throw new WorkflowError(404, 'Run not found');
@@ -293,7 +253,6 @@ export class WorkflowRunner {
     return summary(this.repo.getRun(runId)!);
   }
 
-  /** Approval cards waiting for the owner, oldest first. */
   cards(): WorkflowApprovalCard[] {
     const out: WorkflowApprovalCard[] = [];
     for (const run of this.repo.runsWith('waiting')) {
@@ -310,12 +269,10 @@ export class WorkflowRunner {
     return out;
   }
 
-  // ---------------------------------------------------------------- what a turn's end does
   private stepEnded(ref: Extract<ParsedOwnerRef, { kind: 'workflow' }>, r: TurnResult) {
     this.run(() => {
       const run = this.repo.getRun(ref.runId);
       const i = run ? run.steps.findIndex((s) => s.nodeId === ref.nodeId) : -1;
-      // A late answer for a run that was cancelled or moved on is not this run's step any more.
       if (!run || run.status !== 'running' || run.nodeId !== ref.nodeId || i < 0 || run.steps[i].status !== 'running') return;
       const spent = run.causeId ? this.deps.usage.causeCost(run.causeId) : run.costUsd;
       const steps = run.steps.slice();
@@ -331,7 +288,6 @@ export class WorkflowRunner {
     }, ref.runId);
   }
 
-  /** The step's turn can never run (its bot left, a restart already resumed it once). */
   private stepGone(ref: Extract<ParsedOwnerRef, { kind: 'workflow' }>, why: string) {
     this.run(() => {
       const run = this.repo.getRun(ref.runId);
@@ -352,8 +308,6 @@ export class WorkflowRunner {
     }, ref.runId);
   }
 
-  // ---------------------------------------------------------------- run control
-  /** Stops a running or waiting run. A step that is running is stopped as the owner would (the chat says so). */
   cancel(runId: string): WorkflowRunSummary {
     const run = this.repo.getRun(runId);
     if (!run) throw new WorkflowError(404, 'Run not found');
@@ -363,13 +317,11 @@ export class WorkflowRunner {
     const node = this.tryOrder(run)?.find((n) => n.id === run.nodeId);
     const wasWaiting = run.status === 'waiting';
     this.finish(cur, 'cancelled', null);
-    // After the run is closed, so the stopped turn's answer finds nothing to advance.
     if (node?.kind === 'agent') this.deps.router.stopOwner(node.botId, run.roomId, 'workflow:' + run.id + ':');
     if (wasWaiting) this.cardsChanged();
     return summary(this.repo.getRun(runId)!);
   }
 
-  /** Runs the step that failed again (409 unless the run ended in error). An expired approval asks again; a budget stop reads the workflow's current budget. */
   retry(runId: string): WorkflowRunSummary {
     const run = this.repo.getRun(runId);
     if (!run) throw new WorkflowError(404, 'Run not found');
@@ -387,12 +339,6 @@ export class WorkflowRunner {
     return summary(this.repo.getRun(runId)!);
   }
 
-  // ---------------------------------------------------------------- start-up and time
-  /**
-   * After FollowUp has resumed the turns a restart cut off. Restarts the runs that are running with no lane item
-   * journaled and no parked card (the hub died between two steps); a step with a journal row is FollowUp's, and a
-   * waiting run is left to its card (which may have expired while the hub was down).
-   */
   recover(): number {
     let n = 0;
     const held = this.deps.heldOwners?.() ?? [];
@@ -408,7 +354,6 @@ export class WorkflowRunner {
     return n;
   }
 
-  /** Expires approval cards nobody answered in time: the run ends in an error, and Retry asks again. */
   sweep(): number {
     let n = 0;
     for (const run of this.repo.runsWith('waiting')) {
@@ -424,7 +369,6 @@ export class WorkflowRunner {
     return n;
   }
 
-  // ---------------------------------------------------------------- reads
   list() {
     return this.repo.list();
   }
@@ -432,7 +376,6 @@ export class WorkflowRunner {
     return this.repo.getRun(runId);
   }
 
-  // ---------------------------------------------------------------- internals
   private orderOf(run: WorkflowRunRow): WorkflowNode[] {
     const o = linearOrder(run.graph);
     if (!o.ok) throw new Error(o.error);
@@ -443,7 +386,6 @@ export class WorkflowRunner {
     return o.ok ? o.order : null;
   }
 
-  /** The output a step at `i` works from: the nearest earlier agent step's text, or the trigger's input. */
   private previousOutput(run: WorkflowRunRow, i: number, order: WorkflowNode[]): string {
     for (let j = i - 1; j >= 0; j--) {
       if ((order[j].kind === 'agent' || order[j].kind === 'trigger') && run.steps[j]?.status === 'done') return run.steps[j].output ?? '';
@@ -461,13 +403,11 @@ export class WorkflowRunner {
     events.emitEvent({ type: 'workflow.cards', cards: this.cards() });
   }
 
-  /** Ends the run. `error` is the sentence a person reads for an error, a rejection or an over-budget stop. */
   private finish(run: WorkflowRunRow, status: 'success' | 'error' | 'cancelled', error: string | null) {
     const spent = run.causeId ? this.deps.usage.causeCost(run.causeId) : run.costUsd;
     this.save(run, { status, error, endedAt: this.now(), costUsd: spent, expiresAt: null });
   }
 
-  /** A step failed: the run ends in an error with a note in the chat, and Retry runs this step again. */
   private failStep(run: WorkflowRunRow, i: number, error: string, note: string) {
     const steps = run.steps.slice();
     steps[i] = { ...steps[i], status: 'failed', endedAt: this.now() };
@@ -483,7 +423,6 @@ export class WorkflowRunner {
     }
   }
 
-  /** Output step. Returns a sentence when it failed. */
   private writeOutput(run: WorkflowRunRow, node: Extract<WorkflowNode, { kind: 'output' }>, i: number, order: WorkflowNode[]): string | null {
     const { repos } = this.deps;
     const room = repos.getRoom(run.roomId);
@@ -503,7 +442,6 @@ export class WorkflowRunner {
     } else {
       result = this.writeFile(room, run, node.path ?? '', text);
       if (result) return result;
-      // A file is not a message: say where it went, or the chat's last word on the run is "waiting for your approval".
       const wf = this.repo.get(run.workflowId);
       this.deps.router.systemNote(room, 'Workflow "' + clean(wf?.name ?? 'workflow') + '" saved its output to ' + clean(node.path ?? '') + ' in this chat\'s files.', run.causeId, 0);
     }
@@ -543,7 +481,6 @@ export class WorkflowRunner {
     }
   }
 
-  /** Runs `fn`; anything it throws ends the run in an error rather than leaving it hanging. */
   private run(fn: () => void, runId: string) {
     try {
       fn();
@@ -555,12 +492,10 @@ export class WorkflowRunner {
   }
 }
 
-// ---------------------------------------------------------------- text helpers
 const clean = (s: string): string => s.replace(/\s+/g, ' ').replace(/"/g, "'").trim().slice(0, 120);
 const oneLine = (s: string): string => s.replace(/\s+/g, ' ').trim().slice(0, 300);
 const cap = (s: string): string => (s.length > MAX_STEP_OUTPUT_CHARS ? s.slice(0, MAX_STEP_OUTPUT_CHARS) + '\n…[cut: ' + (s.length - MAX_STEP_OUTPUT_CHARS) + ' more characters]' : s);
 
-/** Why an output step's path is not allowed (before the disk is asked), or null. The disk check is `resolveIn`'s. */
 function fileProblem(rel: string | undefined): string | null {
   if (!rel || !rel.trim()) return 'a file output needs a path.';
   const raw = rel.replaceAll('\\', '/');
@@ -576,10 +511,6 @@ function fileProblem(rel: string | undefined): string | null {
   return null;
 }
 
-/**
- * The text a step's turn is given: a header, the owner's prompt with `{{previous}}` pointing at an attached block, and
- * the earlier output fenced as data when the prompt uses it. A send-back adds the owner's note and the draft.
- */
 export function stepText(name: string, i: number, total: number, prompt: string, previous: string, redo?: { note: string; draft: string }): string {
   const uses = /\{\{\s*previous\s*\}\}/.test(prompt);
   const parts = ['[Workflow "' + clean(name) + '", step ' + i + ' of ' + (total - 1) + '] ' + prompt.replace(/\{\{\s*previous\s*\}\}/g, "(the previous step's output, attached below)")];

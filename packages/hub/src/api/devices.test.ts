@@ -88,18 +88,14 @@ describe('pairing (P9.1)', () => {
   it('redeems a code once for a device token whose hash alone is stored', async () => {
     const minted = await req('POST', '/api/devices/pairing', { token: TOKEN, body: {} });
     const code = minted.json.code as string;
-    // Typed with a dash and lower case, as a human might.
     const r = await req('POST', '/api/devices/pair', { body: { code: code.slice(0, 4).toLowerCase() + '-' + code.slice(4), name: 'Pixel' } });
     expect(r.status).toBe(200);
     expect(r.json.token).toMatch(/^prd_[A-Za-z0-9_-]{43}$/);
     expect(r.json.device.name).toBe('Pixel');
-    // Second use of the same code is refused.
     expect((await req('POST', '/api/devices/pair', { body: { code, name: 'again' } })).status).toBe(403);
-    // Only the hash is in the database.
     const row = hub.repos.db.get<{ token_hash: string }>('SELECT token_hash FROM devices WHERE id = ?', r.json.device.id)!;
     expect(row.token_hash).toBe(hashDeviceToken(r.json.token));
     expect(JSON.stringify(hub.repos.db.all('SELECT * FROM devices'))).not.toContain(r.json.token);
-    // The listing never carries a hash or a token.
     const list = await req('GET', '/api/devices', { token: TOKEN });
     expect(JSON.stringify(list.json)).not.toContain(row.token_hash);
     expect(list.json.devices.some((d: { id: string }) => d.id === r.json.device.id)).toBe(true);
@@ -131,9 +127,7 @@ describe('revocation (P9.1)', () => {
     const d = await pair('Revoke me');
     const sock = await openWs(d.token);
     expect((await req('DELETE', '/api/devices/' + d.id, { token: TOKEN })).status).toBe(200);
-    // The very next request is refused…
     expect((await req('GET', '/api/bots', { token: d.token })).status).toBe(401);
-    // …and the socket it already had open was hung up.
     expect(await sock.closed).toBe(4001);
     await expect(openWs(d.token)).rejects.toBeTruthy();
     const list = await req('GET', '/api/devices', { token: TOKEN });
@@ -146,13 +140,11 @@ describe('revocation (P9.1)', () => {
     expect(t.status).toBe(200);
     const ticket = new URL(t.json.url, 'http://x').searchParams.get('ticket')!;
     await req('DELETE', '/api/devices/' + d.id, { token: TOKEN });
-    // The ticket is gone: redeeming it is a failed auth now.
     const redeemed = await req('GET', '/screen/session?ticket=' + encodeURIComponent(ticket));
     expect(redeemed.status).toBe(401);
   });
 });
 
-// ---- hardening pass: the UI hides what a device is refused from one flag the hub sends ----
 describe('hello principal', () => {
   it('tells a paired device it is a device, and the hub token that it is the hub', async () => {
     const d = await pair('Hello phone');
@@ -219,7 +211,6 @@ describe('capability split (P9.1)', () => {
       ['POST', '/api/providers/claude/check', {}],
       ['POST', '/api/workspace/open', {}],
       ['POST', '/api/devices/pairing', {}],
-      // Opening the app on a phone wakes nothing.
       ['POST', '/api/computers/warm', {}],
       ['PATCH', '/api/devices/' + 'x', { name: 'y' }],
     ];
@@ -227,7 +218,6 @@ describe('capability split (P9.1)', () => {
       const r = await req(m, p, { token: phone.token, body });
       expect(r.status, m + ' ' + p).toBe(403);
     }
-    // Settings stayed as they were.
     expect((await req('GET', '/api/settings', { token: TOKEN })).json.approvals).not.toBe('bypass');
   });
 
@@ -351,7 +341,6 @@ describe('Web Push (P9.3)', () => {
     expect((await req('POST', '/api/push/subscribe', { token: phone.token, body: { endpoint: 'https://10.0.0.1/hook', keys: sub.keys } })).status).toBe(400);
     expect((await req('POST', '/api/push/subscribe', { token: phone.token, body: sub })).status).toBe(200);
     expect((await req('GET', '/api/push', { token: phone.token })).json.subscriptions).toBe(1);
-    // The desktop cannot be shadowed: another principal may not claim the same endpoint.
     expect((await req('POST', '/api/push/subscribe', { token: TOKEN, body: sub })).status).toBe(409);
 
     pushed.length = 0;
@@ -369,7 +358,6 @@ describe('Web Push (P9.3)', () => {
     expect(pushed[0].headers.Authorization).toMatch(/^vapid t=.+, k=/);
     expect(pushed[0].headers['Content-Encoding']).toBe('aes128gcm');
 
-    // A burst coalesces into one push.
     events.emitEvent({ type: 'approval.request', roomId: 'r1', botId: 'b1', messageId: 'm2', approval: { id: 'a2' } as never });
     await new Promise((r) => setTimeout(r, 20));
     expect(pushed).toHaveLength(1);
@@ -379,7 +367,6 @@ describe('Web Push (P9.3)', () => {
     expect(t.json).toEqual({ sent: 1, failed: 0 });
     expect(decrypt(pushed[0].body, ua, auth).equals(pushPayload('test'))).toBe(true);
 
-    // Revoking the device drops its subscription.
     await req('DELETE', '/api/devices/' + phone.id, { token: TOKEN });
     pushed.length = 0;
     expect(await hub.push.send('routine')).toEqual({ sent: 0, failed: 0 });

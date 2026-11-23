@@ -9,12 +9,9 @@ import { addSecret, logError } from '../providers/redact.js';
 import type { IntegrationVault } from './IntegrationVault.js';
 import type { PushKind } from './PushService.js';
 
-/** A link code lives this long and works once. */
 export const LINK_TTL_MS = 10 * 60 * 1000;
-/** Wrong codes from private chats before linking locks. */
 export const MAX_WRONG_CODES = 5;
 export const LOCK_MS = 15 * 60 * 1000;
-/** How long Telegram may hold one getUpdates open while a link is waiting. */
 const POLL_WAIT_SEC = 10;
 const POLL_GAP_MS = 500;
 const POLL_FAILS_MAX = 3;
@@ -23,10 +20,6 @@ const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 export const CONFLICT_MESSAGE = 'Another Toki or a webhook uses this bot. Use a separate bot for this hub.';
 
-/**
- * The whole of what Telegram is ever sent. One fixed line per kind: no bot, room, tool or message text, no
- * cost. Exported so tests can pin the bytes.
- */
 export const TELEGRAM_TEXT: Record<PushKind | 'linked', string> = {
   approval: 'A bot needs your approval.',
   routine: 'A routine finished.',
@@ -40,21 +33,12 @@ export interface TelegramServiceOptions {
   fetch?: Fetch;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
-  /** Where the owner opens the hub from a phone (their Tailscale name), or null when none is set up. */
   hubUrl?: () => string | null;
-  /** Tests: a fixed link code. */
   makeCode?: () => string;
 }
 
 interface Pending { code: string; issuedAt: number; expiresAt: number }
 
-/**
- * Telegram notifications (spec 03 Phase A). Outbound only: `sendMessage` for content-free notices, plus one short
- * `getUpdates` poll that runs only while a link code is waiting. No standing poll, no webhook, no inbound turns.
- *
- * The owner is whoever sends `/start <code>` from a private chat; what is stored is that sender's numeric id.
- * The token is in the vault; everything that can reach a log goes through `redact` (see `integrations/telegram.ts`).
- */
 export class TelegramService {
   private repo: TelegramRepo;
   private client: TelegramClient;
@@ -82,7 +66,6 @@ export class TelegramService {
     events.emitEvent({ type: 'integrations.changed' });
   }
 
-  /** The stored token. An unreadable vault reads as "not set up" so Settings still opens. */
   private token(): string | null {
     try { return this.opts.vault.get(VAULT_KEY)?.token ?? null; } catch { return null; }
   }
@@ -111,8 +94,6 @@ export class TelegramService {
     return 'Linking is locked after too many wrong codes. Try again in ' + min + ' minute' + (min === 1 ? '' : 's') + '.';
   }
 
-  // ---------------------------------------------------------------- token
-  /** Checks the token with `getMe` (a bad one gives Telegram's own words), then saves it. */
   async setToken(raw: string): Promise<TelegramState> {
     const token = String(raw ?? '').trim();
     if (!TELEGRAM_TOKEN_RE.test(token)) throw new IntegrationError('That does not look like a Telegram bot token (12345678:AA...). Copy it from @BotFather.', 400);
@@ -121,13 +102,11 @@ export class TelegramService {
     try {
       me = await new TelegramClient({ fetch: this.fetch, token: () => token }).getMe();
     } catch (e) {
-      // Telegram answers an unknown token with 401 (or 404 for a malformed one): to the owner both are "that token is wrong".
       if (e instanceof IntegrationError && (e.status === 401 || e.status === 404)) throw new IntegrationError(e.message, 400);
       throw e;
     }
     if (!me.username) throw new IntegrationError('Telegram returned no username for this bot', 502);
     const row = this.repo.get();
-    // A different bot cannot inherit the old link: that chat never talked to it.
     if (row.botId && row.botId !== String(me.id)) this.dropLink();
     this.opts.vault.set(VAULT_KEY, { token });
     this.repo.setBot(String(me.id), me.username);
@@ -148,8 +127,6 @@ export class TelegramService {
     return this.state();
   }
 
-  // ---------------------------------------------------------------- link
-  /** Issues a code and starts the short poll. 429 while locked; 409 when a webhook or another hub holds the bot. */
   async link(): Promise<TelegramState> {
     const t = this.now();
     if (!this.state().configured) throw new IntegrationError('Add a bot token first', 400);
@@ -162,7 +139,6 @@ export class TelegramService {
     this.abort = new AbortController();
     const ac = this.abort;
     try {
-      // One immediate pass, so a webhook or a second hub shows up as an error here and not as a code that never works.
       await this.pollOnce(0);
     } catch (e) {
       this.pending = null;
@@ -209,7 +185,6 @@ export class TelegramService {
     this.abort = null;
   }
 
-  /** Hub shutdown: aborts an in-flight poll and does not wait for it. */
   stop(): void {
     this.stopPolling();
     this.pending = null;
@@ -243,7 +218,6 @@ export class TelegramService {
     }
   }
 
-  /** One getUpdates call; acknowledges everything it saw and links on the first valid code. Exposed for tests. */
   async pollOnce(waitSec: number): Promise<void> {
     if (!this.pending) return;
     const updates = await this.client.getUpdates({ offset: this.offset, timeoutSec: waitSec, signal: this.abort?.signal });
@@ -254,14 +228,12 @@ export class TelegramService {
     }
     if (!linked) return;
     this.stopPolling();
-    // Tell Telegram the linking update is done, so a later link does not see it again. Best effort.
     try { await this.client.getUpdates({ offset: this.offset, timeoutSec: 0 }); } catch { /* the date check covers a redelivery */ }
     this.error = null;
     this.changed();
     await this.sendSafe('linked');
   }
 
-  /** True when this update carried the right code from the right kind of sender. */
   private handle(u: TelegramUpdate): boolean {
     const p = this.pending;
     const m = u.message;
@@ -289,8 +261,6 @@ export class TelegramService {
     return false;
   }
 
-  // ---------------------------------------------------------------- sending
-  /** Linked, and the owner switched notifications on. */
   ready(): boolean {
     const s = this.state();
     return s.linked && s.notify;
@@ -301,7 +271,6 @@ export class TelegramService {
     return TELEGRAM_TEXT[kind] + (url ? '\n\n' + url : '');
   }
 
-  /** The owner's "Send a test": throws what Telegram said when it fails. */
   async sendTest(): Promise<void> {
     const row = this.repo.get();
     if (!this.state().linked || !row.chatId) throw new IntegrationError('Link your Telegram first', 400);
@@ -310,7 +279,6 @@ export class TelegramService {
     this.changed();
   }
 
-  /** A hub event. Never throws: a Telegram outage must not break an approval card. */
   async notify(kind: PushKind): Promise<void> {
     if (!this.ready()) return;
     await this.sendSafe(kind);

@@ -30,19 +30,6 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
 };
 const issues = (e: z.ZodError) => e.issues.map((i) => i.path.join('.') + ': ' + i.message).join('; ');
 
-/**
- * `/api/context/*`. Human-only: it needs the hub token or a signed-in browser, a paired phone is refused by
- * deviceMayAccess, and no bot tool reaches it. Reviewed text becomes a file in the project's folder.
- *
- *   POST   /api/context               import into a project, already reviewed on the PC
- *   GET    /api/context               what the connector sent, waiting for review, without its text
- *   GET    /api/context/:id           one waiting item with its text
- *   POST   /api/context/:id/approve   into the project's folder
- *   DELETE /api/context/:id           reject
- *   GET    /api/context/connector     whether the connector is on
- *   POST   /api/context/connector     on, with a new secret URL (shown once; any older URL dies)
- *   DELETE /api/context/connector     off
- */
 export function createContextApi(deps: { context: ContextRepo; projects: ProjectService }) {
   const { context, projects } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -95,10 +82,6 @@ export function createContextApi(deps: { context: ContextRepo; projects: Project
   };
 }
 
-/**
- * The only tool the public connector exposes. It writes to a review queue and reads nothing back, so its URL
- * leaking costs junk in the queue (capped), never access to the hub.
- */
 export function contextConnectorTools(context: ContextRepo): HubTool[] {
   return [
     hubTool(

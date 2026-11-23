@@ -5,7 +5,6 @@ import os from 'node:os';
 import path from 'node:path';
 import type { ServerEvent } from '@pocketrocket/shared';
 
-// Codex must be enabled before config.ts reads POCKETROCKET_PROVIDERS (hub imports it).
 vi.hoisted(() => {
   process.env.POCKETROCKET_PROVIDERS = 'codex';
 });
@@ -15,7 +14,6 @@ import { events } from '../events.js';
 
 const TOKEN = 'bot-provider-token';
 
-/** M6 (spec 01 P1-3): the owner sets a bot's provider and backup over REST; the hub checks both. */
 describe('PATCH /api/bots/:id provider and backup', () => {
   let hub: Hub;
   let port: number;
@@ -61,7 +59,6 @@ describe('PATCH /api/bots/:id provider and backup', () => {
       'Bot' + n + ' switched to ' + codexDefault() + ' (claude-opus-5 is not available on codex).',
     ]);
 
-    // Back to the default: a model the default offers is named in the same patch, so nothing else moves.
     const back = await req('PATCH', '/api/bots/' + b.id, { provider: null, model: 'claude-sonnet-5' });
     expect(back.status).toBe(200);
     expect(hub.repos.getBot(b.id)).toMatchObject({ provider: null, model: 'claude-sonnet-5' });

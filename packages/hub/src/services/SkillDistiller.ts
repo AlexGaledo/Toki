@@ -13,27 +13,16 @@ import type { TurnUsage, UsageTracker } from './UsageTracker.js';
 import type { Repos } from '../db/repos.js';
 import { SKILL_NAME_RE, parseFrontmatter, type SkillService } from './SkillService.js';
 
-/**
- * P6 (6.2): turns a recording (services/Recorder.ts) into a SKILL.md, and a user's correction of a skill into a
- * new version of it. Both are one-shot Sonnet calls with no tools, the same cost-trap-proof setup as AutoMemory
- * (no settings, no MCP, no plugins, a neutral temp cwd) and a $0.25 ceiling. What comes back is only ever a
- * *proposal*: a new skill through the bot-authored flow (pending review), or a pending version.
- */
-
-/** Hard ceiling per distill or correction (grok-bot-parity.md §2.8 step 4). */
 export const DISTILL_BUDGET_USD = 0.25;
 const PASS_TIMEOUT_MS = 180_000;
-/** The trace text the model sees; longer traces keep their start and end. */
 export const MAX_TRACE_CHARS = 40_000;
 
 export interface OneShotOptions {
   model: string;
   budgetUsd: number;
   system: string;
-  /** Ends the call early (the hub is shutting down). */
   signal?: AbortSignal;
 }
-/** One model call; tests pass a fake. Must not throw (report `ok: false`). */
 export type OneShotRunner = (prompt: string, o: OneShotOptions) => Promise<PassOutcome>;
 
 export function oneShotOptions(ac: AbortController, o: OneShotOptions): Options {
@@ -59,7 +48,6 @@ export function oneShotOptions(ac: AbortController, o: OneShotOptions): Options 
   };
 }
 
-/** The Agent SDK one-shot (the user's CLI login), like AutoMemory.runPass but with the caller's model and budget. */
 export const runOneShot: OneShotRunner = async (prompt, o) => {
   const started = Date.now();
   const ac = new AbortController();
@@ -140,12 +128,10 @@ const CORRECT_SYSTEM = [
   '- Reply with the full revised SKILL.md only, no prose and no code fences.',
 ].join('\n');
 
-/** Keeps data from closing the tag it is wrapped in. */
 export const fence = (tag: string, body: string) => '<' + tag + '>\n' + body.replace(new RegExp('</' + tag, 'gi'), '<\\/' + tag) + '\n</' + tag + '>';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
-/** One trace event as one readable line for the model (frames, starts and stops are left out). */
 export function traceLine(ev: TraceEvent): string | null {
   const t = (ev.target ?? null) as Record<string, string> | null;
   const what = t
@@ -166,7 +152,6 @@ export function traceLine(ev: TraceEvent): string | null {
   }
 }
 
-/** The trace as numbered lines, within {@link MAX_TRACE_CHARS} (start and end kept). */
 export function traceText(trace: TraceEvent[]): string {
   const lines = trace.map(traceLine).filter((l): l is string => !!l).map((l, i) => i + 1 + '. ' + l);
   const all = lines.join('\n');
@@ -175,7 +160,6 @@ export function traceText(trace: TraceEvent[]): string {
   return redact(all.slice(0, half) + '\n[... ' + (all.length - MAX_TRACE_CHARS) + ' characters of the middle left out ...]\n' + all.slice(-half));
 }
 
-/** The SKILL.md out of a model reply: code fences and any prose before the frontmatter dropped. */
 export function extractSkillMd(raw: string): string | null {
   let t = raw.replace(/\r\n/g, '\n').trim();
   const fenced = t.match(/```(?:markdown|md)?\n([\s\S]*?)```/);
@@ -186,7 +170,6 @@ export function extractSkillMd(raw: string): string | null {
   return t.length >= 20 ? t + '\n' : null;
 }
 
-/** A pool-safe skill name from what the user asked for, the model's frontmatter, or the recording title. */
 export function pickName(...candidates: (string | undefined)[]): string | null {
   for (const c of candidates) {
     if (!c) continue;
@@ -201,12 +184,7 @@ export interface DistillerDeps {
   skills: SkillService;
   recorder: { get(botId: string, id: string): RecordingInfo | null; readTrace(botId: string, id: string): TraceEvent[]; setSkill(botId: string, id: string, skillId: string): void };
   usage: UsageTracker;
-  /**
-   * M6 (P1-6): Claude is set up (CLI, sign-in) and not held at a limit by ProviderHealth. The pass runs on Claude
-   * whatever provider the bot itself runs on, and is skipped while this is false.
-   */
   claudeReady: () => boolean;
-  /** Claude's models; the distill runs on its Sonnet tier. */
   models?: () => readonly ModelInfo[];
   exeExists?: () => boolean;
   run?: OneShotRunner;
@@ -234,17 +212,12 @@ export class SkillDistiller {
     const out = await (this.deps.run ?? runOneShot)(prompt, { model, budgetUsd: DISTILL_BUDGET_USD, system });
     const u = out.usage;
     if (u.costUsd || u.inputTokens || u.outputTokens) {
-      // Started by the user's click, so it counts as theirs; no cause id, so no thread cost cap is touched.
       this.deps.usage.record(botId, '', 'skill-' + nanoid(8), null, u, { model, routeReason: 'background', causeKind: 'user', provider: 'claude' });
     }
     if (!out.ok) throw new DistillError(502, 'The model call failed: ' + redact(out.error ?? 'no result'));
     return out.text;
   }
 
-  /**
-   * Recording → proposed skill. A new name becomes a pending bot-authored skill; a name already in the pool
-   * becomes a pending version of that skill. Nothing reaches any bot until the user approves it.
-   */
   async distill(botId: string, recordingId: string, o: { name?: string; hint?: string } = {}): Promise<{ skill: Skill; version: SkillVersion | null }> {
     this.ready();
     const rec = this.deps.recorder.get(botId, recordingId);
@@ -276,7 +249,6 @@ export class SkillDistiller {
     }
   }
 
-  /** "No, use the Export button" → a pending version of the skill with that change. */
   async correct(skillId: string, text: string, botId: string | null): Promise<SkillVersion> {
     this.ready();
     const skill = this.deps.repos.getSkill(skillId);

@@ -3,14 +3,7 @@ import { DECISIONS_FILE } from './FileRevisions.js';
 import { quoteTags } from '../rooms/transcript.js';
 import { redact } from '../providers/redact.js';
 
-/** File text is written by bots and Bash too: never let it pass as a hub, owner or bot tag in a turn's input. */
 const safe = (s: string) => quoteTags(redact(s));
-
-/**
- * The shared state of a room or project folder, for readers that did not write it (spec 6.2): `current.md` with its
- * version, and the newest decisions. Used for the block a bot gets at the start of a turn, and by the Claude Code
- * bridge's `read_state`.
- */
 
 export const CURRENT_FILE = 'current.md';
 const CURRENT_CHARS = 1500;
@@ -20,7 +13,6 @@ const DECISION_WHEN = /^_(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) UTC · (.+?) \((?:vps|p
 
 export interface DecisionEntry { id: string; title: string; at: number | null; by: string | null }
 
-/** Decision headings in `decisions.md`, oldest first, as `appendDecision` writes them. */
 export function parseDecisions(text: string): DecisionEntry[] {
   const lines = text.split(/\r?\n/);
   const out: DecisionEntry[] = [];
@@ -34,7 +26,6 @@ export function parseDecisions(text: string): DecisionEntry[] {
   return out;
 }
 
-/** What a reader should see of `current.md`: the `## Now` section when there is one, else its first lines. */
 export function currentExcerpt(text: string): string {
   const lines = text.split(/\r?\n/);
   const start = lines.findIndex((l) => /^##\s+now\b/i.test(l));
@@ -52,10 +43,6 @@ export function currentExcerpt(text: string): string {
 
 const when = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
-/**
- * The block for the start of a turn, with a signature that changes only when `current.md` or `decisions.md` does.
- * Null when neither file exists. Kept under about 2 KB.
- */
 export function buildStateHeader(root: FileRoot, revisions: FileRevisions): { text: string; signature: string } | null {
   const cur = revisions.readText(root, CURRENT_FILE);
   const dec = revisions.readText(root, DECISIONS_FILE);

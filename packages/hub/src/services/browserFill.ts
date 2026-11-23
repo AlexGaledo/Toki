@@ -21,13 +21,10 @@ export type FillOutcome =
 
 export interface FillRequest {
   cdpUrl: string;
-  /** The credential's origin, exact. */
   origin: string;
   field: FillField;
   secret: string;
-  /** Only check that the front tab is on `origin`; touch nothing. `secret` is ignored. */
   probe?: boolean;
-  /** Tests hand in a fake. */
   connect?: (cdpUrl: string) => Promise<CdpConnection>;
 }
 
@@ -40,7 +37,6 @@ const originOf = (url: unknown): string | null => {
   }
 };
 
-/** Runs in the page. Finds the field to fill and returns it (or null). Holds no secret. */
 const FIND_FIELD = `function (field) {
   var BAD = ['checkbox','radio','button','submit','file','hidden','image','reset','range','color'];
   function usable(el) {
@@ -62,7 +58,6 @@ const FIND_FIELD = `function (field) {
   return named[0] || plain[0] || null;
 }`;
 
-/** Runs in the page with the element as `this`. Atomic: origin check, kind check, focus and write in one turn. */
 const WRITE_FIELD = `function (expectedOrigin, field, value) {
   if (location.origin !== expectedOrigin) return 'origin';
   var t = (this.type || '').toLowerCase();
@@ -88,8 +83,6 @@ export async function fillActivePage(req: FillRequest): Promise<FillOutcome> {
     const pages = (targetInfos ?? []).filter((t) => t.type === 'page');
     if (!pages.length) return { ok: false, reason: 'no_page' };
 
-    // The front tab: the one the browser reports as visible. Not guessed from the URL, or a background tab on the
-    // right site would be filled while the bot is looking at another.
     const visible: { sessionId: string; url: string }[] = [];
     for (const p of pages) {
       const { sessionId } = (await conn.send('Target.attachToTarget', { targetId: p.targetId, flatten: true })) as { sessionId: string };
@@ -123,7 +116,6 @@ export async function fillActivePage(req: FillRequest): Promise<FillOutcome> {
     if (code === 'origin') return { ok: false, reason: 'origin' };
     return { ok: false, reason: code === 'no_field' ? 'no_field' : 'failed' };
   } catch {
-    // The message may quote the expression we sent; say nothing but the fact.
     return { ok: false, reason: 'failed' };
   } finally {
     conn.close();

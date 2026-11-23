@@ -21,26 +21,6 @@ const num = (v: string | null): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-/**
- * `/api/pc-sessions/*`, the PC session mirror (spec 3.1). Two audiences, never mixed:
- *
- * The runner on the PC (runner principal only; the hub token gets 403 here, guard.ts allows the runner these three and
- * nothing else under /api/pc-sessions):
- *   GET  /api/pc-sessions/sync            -> { sessions: { [id]: { offset, onVps } } }
- *   PUT  /api/pc-sessions/:id             session metadata (upsert) -> { ok, offset, onVps }
- *   POST /api/pc-sessions/:id/entries     { from, to, entries } -> { ok, offset, stored, truncated, onVps }; 409 { error, offset }
- *                                         when `from` is not the stored offset; 404 when the session is unknown. `onVps` (bridge P6): the
- *                                         session is moving, on the VPS or pulling; its entries are dropped (stored: 0) and the offset moves on.
- *
- * The owner (hub principal; a paired phone is refused by deviceMayAccess, the runner gets 403):
- *   GET    /api/pc-sessions?repo=&q=&limit=50&before=<lastAt>   -> { sessions }
- *   GET    /api/pc-sessions/:id                                 -> summary + children
- *   GET    /api/pc-sessions/:id/entries?after=<seq>&limit=200   -> { entries, more }
- *   DELETE /api/pc-sessions/:id                                 -> { ok: true }
- *   POST   /api/pc-sessions/:id/continue  { prompt }  -> { ok: true, turnRunning: true }: one turn of a moved session on the VPS (bridge P6).
- *                                         Only a browser signed in with the owner's password; 409 while a turn runs, when the session is not on
- *                                         the VPS, or past 120k tokens of context. The turn runs in the background.
- */
 export function createPcSessionsApi(deps: { pcSessions: PcSessions; db: Db; sessionMoves?: SessionMoves }) {
   const { pcSessions, db, sessionMoves } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -73,7 +53,6 @@ export function createPcSessionsApi(deps: { pcSessions: PcSessions; db: Db; sess
     }
     const bad = (e: z.ZodError) => send(res, 400, { error: e.issues.map((i) => i.path.join('.') + ': ' + i.message).join('; ') });
     try {
-      // ---- the PC ----
       if (runnerRoute) {
         if (method === 'GET') return send(res, 200, { sessions: pcSessions.syncState() });
         if (method === 'PUT') {
@@ -93,7 +72,6 @@ export function createPcSessionsApi(deps: { pcSessions: PcSessions; db: Db; sess
         if (r.conflict) return send(res, 409, { error: 'Offset mismatch: resend from the stored offset', offset: r.offset });
         return send(res, 404, { error: 'Unknown session: PUT it first' });
       }
-      // ---- owner ----
       if (parts.length === 0 && method === 'GET') {
         const q = url.searchParams;
         return send(res, 200, {
@@ -109,7 +87,6 @@ export function createPcSessionsApi(deps: { pcSessions: PcSessions; db: Db; sess
         return r ? send(res, 200, r) : send(res, 404, { error: 'No such session' });
       }
       if (parts.length === 2 && parts[1] === 'continue' && method === 'POST') {
-        // Same bar as starting a job on the PC: the click in a signed-in browser is the approval.
         const principal = principalOf(req);
         if (principal?.kind !== 'hub' || !principal.sessionId) {
           return send(res, 403, { error: 'Continuing a session on the VPS needs a browser signed in with your password.', signInRequired: true });

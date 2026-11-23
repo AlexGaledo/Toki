@@ -10,35 +10,11 @@ import type { ControlStatus, ComputerControl } from '@pocketrocket/shared';
 import { browserWsUrl, connectCdp, type CdpConnection } from './cdpClient.js';
 import { PAGE_SCRIPT, RECORDER_BINDING, RECORDER_WORLD, isSecretField, type ElementDesc } from './recorderPage.js';
 
-/**
- * P6 (6.1): teach by demonstration. The user presses **Teach** on a bot's Screen, does the task on the bot's
- * computer, and presses **Done**. Meanwhile this records, into `computers/<botId>/recordings/<id>/`:
- *
- * - `trace.jsonl`: navigations, clicks (robust selector, role, accessible name, text), typed values, special
- *   keys, submits and downloads, from a second CDP client on the bot's Chromium; plus the active window title
- *   (xdotool) every couple of seconds, for apps that are not the browser;
- * - `frames/*.png`: a scrot screenshot after each click;
- * - `meta.json`: the {@link RecordingInfo}.
- *
- * Redaction happens at capture time, never later: a value typed into a password, `autocomplete=*password*`,
- * `cc-*` or one-time-code field is written as «secret» (decided in the page and again here), and a screenshot is
- * dropped while such a field is focused, while a visible secret (card number, code) is filled in on the page, or
- * when the click itself was on one. Recordings never leave the machine and are erased with the bot.
- *
- * While recording, control is forced to the user (holder `recorder`), so the bot's computer tools refuse;
- * Done hands control back with a note. Handing back from the Screen tab also ends the recording.
- */
-
 export interface RecorderCaps {
-  /** Trace lines per recording. */
   maxEvents: number;
-  /** Screenshots kept per recording. */
   maxFrames: number;
-  /** Trace plus screenshots on disk. */
   maxBytes: number;
-  /** A recording stops by itself after this long. */
   maxDurationMs: number;
-  /** At most one screenshot per this interval. */
   frameIntervalMs: number;
 }
 
@@ -50,7 +26,6 @@ export const DEFAULT_CAPS: RecorderCaps = {
   frameIntervalMs: 400,
 };
 
-/** A binding payload larger than this is ignored. */
 const MAX_PAYLOAD = 16 * 1024;
 const WINDOW_POLL_MS = 2000;
 const STATUS_THROTTLE_MS = 2000;
@@ -68,17 +43,13 @@ export interface RecorderDeps {
     set(botId: string, control: ComputerControl, o?: { holder?: string | null; note?: string }): ControlStatus;
     get(botId: string): ControlStatus;
   };
-  /** Default: Linux with per-bot computers. Tests say yes. */
   available?: () => { ok: boolean; reason?: string };
-  /** Root of a bot's recordings. Default `computers/<botId>/recordings`. */
   dir?: (botId: string) => string;
-  /** Runs scrot / xdotool. Default execFile with a 5 s timeout. */
   exec?: ExecFn;
   connect?: (wsUrl: string) => Promise<CdpConnection>;
   fetchJson?: (url: string) => Promise<unknown>;
   now?: () => number;
   caps?: Partial<RecorderCaps>;
-  /** 0 turns the xdotool window log off (tests). */
   windowPollMs?: number;
 }
 
@@ -88,13 +59,9 @@ interface Session {
   endpoint: ComputerEndpoint;
   release: () => void;
   cdp: CdpConnection | null;
-  /** Target id → its attach (scripts installed), so start() can wait for every page it already saw. */
   attached: Map<string, Promise<void>>;
-  /** Per CDP session: a secret field has focus. */
   secretFocus: Map<string, boolean>;
-  /** Per CDP session: a secret that shows as text (card number, code) is filled in on that page. */
   visibleSecret: Map<string, boolean>;
-  /** Bumped whenever a secret field gains focus; a screenshot taken across a bump is dropped. */
   secretEpoch: number;
   lastFrameAt: number;
   frameSeq: number;
@@ -114,7 +81,6 @@ const clip = (v: unknown, n: number) => redact(String(v ?? '').replace(/\s+/g, '
 
 const SECRET_QUERY_RE = /token|code|key|secret|sig|auth|pass|session|otp|nonce|state|ticket|jwt/i;
 
-/** Whether a URL carries a credential, so a screenshot of its address bar would show it. */
 export function urlHasSecret(raw: string): boolean {
   try {
     const u = new URL(raw);
@@ -124,7 +90,6 @@ export function urlHasSecret(raw: string): boolean {
   }
 }
 
-/** A window title can be a URL (Chrome uses it for a page with no title): its query is scrubbed like any other. */
 export function scrubTitle(title: string): string {
   return title.replace(/\S+\?\S+/g, (tok) => {
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(tok)) return scrubUrl(tok);
@@ -132,7 +97,6 @@ export function scrubTitle(title: string): string {
   });
 }
 
-/** Query values that look like credentials are replaced; the rest of the URL is kept for the skill. */
 export function scrubUrl(raw: string): string {
   try {
     const u = new URL(raw);
@@ -147,7 +111,6 @@ export function scrubUrl(raw: string): string {
   }
 }
 
-/** The parts of an element description that go into the trace (never a value). */
 function hint(d: ElementDesc | null | undefined) {
   if (!d) return null;
   const out: Record<string, string> = {};
@@ -171,7 +134,6 @@ export class Recorder {
     this.exec = deps.exec ?? defaultExec;
   }
 
-  /** Handing back from the Screen tab (or anything else taking control from the user) ends the recording. */
   listen() {
     this.off ??=events.onEvent((ev) => {
       if (ev.type === 'computer.control' && ev.status.control !== 'user' && this.sessions.has(ev.status.botId)) {
@@ -208,14 +170,11 @@ export class Recorder {
     return this.deps.dir ? this.deps.dir(botId) : path.join(computerDir(botId), 'recordings');
   }
 
-  // ---- start / stop -------------------------------------------------------------------------------
-
   async start(botId: string, o: { title?: string } = {}): Promise<RecorderStatus> {
     const avail = this.available();
     if (!avail.ok) throw new RecorderError(409, avail.reason ?? 'Recording is not available here.');
     if (this.sessions.has(botId)) throw new RecorderError(409, 'Already recording on this computer.');
     const root = this.root(botId);
-    // Control first, so the bot stops acting before anything is captured.
     const prev = this.deps.control.get(botId);
     this.deps.control.set(botId, 'user', { holder: 'recorder' });
     const acq = await this.deps.computers.acquire(botId);
@@ -228,7 +187,6 @@ export class Recorder {
     const toId = (t: number) => new Date(t).toISOString().replace(/[:.]/g, '-');
     let stamp = startedAt;
     let id = toId(stamp);
-    // Two recordings in one millisecond would share a folder.
     while (fs.existsSync(path.join(root, id))) id = toId(++stamp);
     const dir = path.join(root, id);
     fs.mkdirSync(path.join(dir, 'frames'), { recursive: true });
@@ -245,7 +203,6 @@ export class Recorder {
     try {
       await this.attachBrowser(s);
     } catch (e) {
-      // Still useful for desktop apps: keep the window log and screenshots, say why the browser part is missing.
       s.info.error = 'Browser not recorded: ' + clip((e as Error).message, 200);
     }
     const poll = this.deps.windowPollMs ?? WINDOW_POLL_MS;
@@ -265,10 +222,6 @@ export class Recorder {
     return this.status(botId);
   }
 
-  /**
-   * Ends the recording and hands control back to the bot with a note (unless the user already did, or the hub is
-   * shutting down). Returns the finished recording, or null when nothing was recording.
-   */
   async stop(botId: string, o: { reason?: 'user' | 'handback' | 'cap' | 'shutdown' } = {}): Promise<RecordingInfo | null> {
     const s = this.sessions.get(botId);
     if (!s || s.stopping) return s ? s.info : null;
@@ -294,8 +247,6 @@ export class Recorder {
     return s.info;
   }
 
-  // ---- browser (CDP) ------------------------------------------------------------------------------
-
   private async attachBrowser(s: Session) {
     const url = await browserWsUrl(s.endpoint.cdpUrl, this.deps.fetchJson);
     const cdp = await (this.deps.connect ?? connectCdp)(url);
@@ -320,13 +271,10 @@ export class Recorder {
   private async attachNow(s: Session, t: { targetId: string; type: string }) {
     const { sessionId } = (await s.cdp!.send('Target.attachToTarget', { targetId: t.targetId, flatten: true })) as { sessionId: string };
     const send = (m: string, p: Record<string, unknown> = {}) => s.cdp!.send(m, p, sessionId);
-    // The binding and the script live in an isolated world: the page shares the DOM but cannot see or call them.
     await send('Runtime.addBinding', { name: RECORDER_BINDING, executionContextName: RECORDER_WORLD });
-    // Runtime events (bindingCalled among them) only flow once the domain is on.
     await send('Runtime.enable');
     await send('Page.enable');
     await send('Page.addScriptToEvaluateOnNewDocument', { source: PAGE_SCRIPT, worldName: RECORDER_WORLD });
-    // Already-loaded frames: one isolated world each, and the script in it.
     const tree = (await send('Page.getFrameTree')) as { frameTree?: FrameTree };
     const frames: { id: string; url?: string; parentId?: string }[] = [];
     const walk = (n?: FrameTree) => { if (!n) return; frames.push(n.frame); for (const c of n.childFrames ?? []) walk(c); };
@@ -362,7 +310,6 @@ export class Recorder {
       case 'Page.frameNavigated': {
         const frame = params.frame as { parentId?: string; url?: string } | undefined;
         if (!frame || frame.parentId) return;
-        // A new document: whatever secret was on screen is gone.
         s.visibleSecret.set(sessionId ?? '', !!frame.url && urlHasSecret(frame.url));
         s.secretFocus.set(sessionId ?? '', false);
         if (frame.url && frame.url !== 'about:blank') this.write(s, { t: 'nav', url: scrubUrl(frame.url) });
@@ -417,8 +364,6 @@ export class Recorder {
     }
   }
 
-  // ---- screenshots and the window log ------------------------------------------------------------
-
   private async frame(s: Session, blocked: boolean) {
     if (s.stopping || s.capsHit.has('frames') || s.capsHit.has('bytes')) return;
     if (blocked) {
@@ -467,8 +412,6 @@ export class Recorder {
     this.write(s, { t: 'window', title: clip(scrubTitle(title), 200) });
   }
 
-  // ---- trace ---------------------------------------------------------------------------------------
-
   private write(s: Session, ev: Omit<TraceEvent, 'ts'>) {
     const always = ev.t === 'start' || ev.t === 'stop' || ev.t === 'cap';
     if (!always && s.info.events >= this.caps.maxEvents) { this.cap(s, 'events'); return; }
@@ -507,8 +450,6 @@ export class Recorder {
     s.statusTimer.unref?.();
   }
 
-  // ---- finished recordings ------------------------------------------------------------------------
-
   list(botId: string): RecordingInfo[] {
     let root: string;
     try { root = this.root(botId); } catch { return []; }
@@ -527,7 +468,6 @@ export class Recorder {
     if (live?.info.id === id) return { ...live.info, capped: [...live.capsHit] };
     try {
       const info = JSON.parse(fs.readFileSync(path.join(this.root(botId), id, 'meta.json'), 'utf8')) as RecordingInfo;
-      // Not live but never stopped: the hub went down mid-recording. What was written is still usable.
       if (info.state === 'recording') {
         return { ...info, id, botId, state: 'stopped', endedAt: info.endedAt ?? info.startedAt, error: info.error ?? 'Interrupted: the server stopped while recording.' };
       }
@@ -537,7 +477,6 @@ export class Recorder {
     }
   }
 
-  /** The trace of a finished recording, line by line (unparseable lines skipped). */
   readTrace(botId: string, id: string): TraceEvent[] {
     if (!RECORDING_ID_RE.test(id)) return [];
     let raw = '';
@@ -550,7 +489,6 @@ export class Recorder {
     return out;
   }
 
-  /** Remembers which skill a distill produced from the recording. */
   setSkill(botId: string, id: string, skillId: string) {
     const info = this.get(botId, id);
     if (!info || info.state !== 'stopped') return;

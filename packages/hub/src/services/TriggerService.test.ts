@@ -43,7 +43,6 @@ class FakeSocket extends EventEmitter implements SocketLike {
   push(obj: unknown) { this.emit('message', Buffer.from(JSON.stringify(obj))); }
 }
 
-/** A hub slice: db, repos, integrations over a fake fetch, a router over a recording runner, a fake clock. */
 function setup(o: { db?: Db; dir?: string } = {}) {
   const dir = o.dir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'pr-trig-'));
   if (!o.dir) dirs.push(dir);
@@ -75,7 +74,6 @@ function setup(o: { db?: Db; dir?: string } = {}) {
   });
   const bot = repos.getBot('scout') ?? repos.listBots().find((b) => b.handle === 'scout') ?? repos.createBot({ name: 'Scout', handle: 'scout', title: '', description: 'x', avatar: '🔎', model: 'm', allowedTools: ['Bash'], maxBudgetUsd: 2 });
   const room = repos.listRooms()[0] ?? repos.createRoom({ kind: 'dm', name: 'Scout', memberIds: [bot.id], coordinatorBotId: null });
-  /** Connects a provider as if signed in (no network), optionally granting the bot. */
   const connect = (p: IntegrationProvider, grant = true, extra: Record<string, string> = {}) => {
     const info = integrations.repo.upsert({ provider: p, method: 'oauth', accountLabel: p + '-acct', scopes: [] });
     integrations.vault.set('conn:' + info.id, { accessToken: 'tok-' + p, ...extra });
@@ -111,17 +109,16 @@ describe('GitHub repo events poller', () => {
     const t = h.trigger({ source: 'github.repo', filter: { repo: 'acme/app' } });
 
     await h.svc.tick();
-    expect(h.reqs).toHaveLength(0); // seeded, not fired on history
+    expect(h.reqs).toHaveLength(0);
     const cur = h.svc.repo.cursor('github.repo:acme/app')!;
     expect(cur).toMatchObject({ cursor: '40000000001', etag: '"e1"', failures: 0 });
-    // X-Poll-Interval (90 s) beats the default 60 s.
     expect(cur.nextPollAt! - cur.lastPolledAt!).toBe(90_000);
 
-    await h.svc.tick(); // not due
+    await h.svc.tick();
     expect(h.f.calls).toHaveLength(1);
 
     h.advance(90);
-    await h.svc.tick(); // 304: nothing changed
+    await h.svc.tick();
     expect(h.f.calls[1].headers['if-none-match']).toBe('"e1"');
     expect(h.reqs).toHaveLength(0);
 
@@ -129,7 +126,6 @@ describe('GitHub repo events poller', () => {
     etag = '"e2"';
     h.advance(90);
     await h.svc.tick();
-    // Two events, two fires; queued together in the bot's lane they may share one turn.
     await until(() => h.svc.repo.listFires(t.id).length === 2 && h.svc.repo.listFires(t.id).every((f) => f.status === 'success'));
     const turns = h.reqs.length;
     expect(h.svc.repo.cursor('github.repo:acme/app')!.cursor).toBe('40000000003');
@@ -137,7 +133,6 @@ describe('GitHub repo events poller', () => {
     expect(msgs).toHaveLength(2);
     expect(h.reqs.every((r) => r.causeKind === 'trigger' && r.strictApprovals)).toBe(true);
 
-    // The same events again (a cursor reset, a provider replay) are dropped by the inbox.
     h.svc.repo.saveCursor({ ...h.svc.repo.cursor('github.repo:acme/app')!, cursor: '40000000001', etag: null, nextPollAt: null });
     await h.svc.tick();
     await new Promise((r) => setTimeout(r, 20));
@@ -164,14 +159,14 @@ describe('what gets polled', () => {
     const h = setup();
     h.f.on('GET', GH + '/notifications', () => ({ json: [] }));
     const t = h.trigger({ source: 'github.notifications' });
-    expect(h.svc.streams()).toEqual([]); // not connected
+    expect(h.svc.streams()).toEqual([]);
     const info = h.connect('github', false);
     expect(h.svc.streams().map((s) => s.key)).toEqual(['github.notifications']);
     h.svc.update(t.id, { enabled: false });
     expect(h.svc.streams()).toEqual([]);
     h.svc.update(t.id, { enabled: true });
     h.integrations.repo.setStatus(info.id, 'expired', 'revoked');
-    expect(h.svc.streams()).toEqual([]); // reconnect needed
+    expect(h.svc.streams()).toEqual([]);
     await h.svc.tick();
     expect(h.f.calls).toHaveLength(0);
     expect(h.svc.state().available).not.toContain('github.notifications');
@@ -186,18 +181,18 @@ describe('what gets polled', () => {
     await h.svc.tick();
     let cur = h.svc.repo.cursor('github.notifications')!;
     expect(cur.failures).toBe(1);
-    expect(cur.nextPollAt! - cur.lastPolledAt!).toBe(120_000); // 60 s × 2¹
+    expect(cur.nextPollAt! - cur.lastPolledAt!).toBe(120_000);
     expect(cur.lastError).toContain('500');
     h.advance(60);
     await h.svc.tick();
-    expect(h.f.calls).toHaveLength(1); // still backing off
+    expect(h.f.calls).toHaveLength(1);
     h.advance(60);
     await h.svc.tick();
     cur = h.svc.repo.cursor('github.notifications')!;
     expect(cur.failures).toBe(2);
     expect(cur.nextPollAt! - cur.lastPolledAt!).toBe(240_000);
 
-    status = 401; // revoked: integrations.run marks the connection expired and the stream drops out
+    status = 401;
     h.advance(240);
     await h.svc.tick();
     expect(h.integrations.repo.byProvider('github')!.status).toBe('expired');
@@ -227,7 +222,7 @@ describe('GitHub notifications poller', () => {
     await h.svc.tick();
     await until(() => h.reqs.length === 1);
     expect(h.reqs[0].injected).toContain('Fix flaky test');
-    expect(h.svc.repo.inboxCount()).toBe(2); // both stored, one matched
+    expect(h.svc.repo.inboxCount()).toBe(2);
   });
 });
 
@@ -254,7 +249,7 @@ describe('Google pollers', () => {
     h.advance(60);
     await h.svc.tick();
     const cur = h.svc.repo.cursor('gmail')!;
-    expect(cur.cursor).toBe('5000'); // re-seeded from the profile
+    expect(cur.cursor).toBe('5000');
     expect(cur.lastError).toContain('skipped');
     expect(cur.failures).toBe(0);
   });
@@ -301,7 +296,6 @@ describe('ClickUp and Teams pollers (5.4)', () => {
   it('ClickUp: resolves the first workspace, polls date_updated_gt from the stored cursor', async () => {
     const h = setup();
     h.connect('clickup');
-    // fakeFetch tries the newest route first and matches by prefix: register the shorter path first.
     h.f.on('GET', CU + '/team', () => ({ json: F.CLICKUP_TEAMS }));
     h.f.on('GET', CU + '/team/9001/task', () => ({ json: F.CLICKUP_TASKS }));
     h.trigger({ source: 'clickup', filter: { status: 'review' } });
@@ -345,7 +339,6 @@ describe('restart', () => {
     a.f.on('GET', GH + '/repos/acme/app/events', () => ({ json: F.GH_REPO_EVENTS_SEED, headers: { etag: '"e1"' } }));
     a.trigger({ source: 'github.repo', filter: { repo: 'acme/app' } });
     await a.svc.tick();
-    // An event stored just before the hub died, never matched.
     a.svc.repo.addEvent('github.repo:acme/app', 'gh.e:999', { source: 'github.repo', id: '999', title: 'Left over', text: '', from: '', url: '', at: '', fields: { repo: 'acme/app' } });
     a.db.raw.close();
 
@@ -357,7 +350,7 @@ describe('restart', () => {
     expect(b.reqs[0].injected).toContain('Left over');
     b.advance(60);
     await b.svc.tick();
-    expect(b.f.calls.at(-1)!.headers['if-none-match']).toBe('"e1"'); // the stored ETag, not a re-seed
+    expect(b.f.calls.at(-1)!.headers['if-none-match']).toBe('"e1"');
     expect(b.svc.repo.pendingEvents()).toEqual([]);
     b.svc.stop();
     b.db.raw.close();
@@ -414,7 +407,6 @@ describe('limits', () => {
     const third = h.svc.testFire(t.id)!;
     expect(third.status).toBe('skipped');
     expect(third.note).toContain('Daily budget');
-    // The router reads this for resumed turns and hops on the trigger's thread.
     expect(h.svc.remainingBudget(t.id)).toBeCloseTo(1 - 1.4);
     expect(h.svc.remainingBudget('nope')).toBeUndefined();
     h.advance(24 * 3600 + 1);
@@ -443,18 +435,17 @@ describe('Slack Socket Mode', () => {
     });
     h.connect('slack', true, { appToken: 'xapp-1-test' });
     h.svc.start();
-    expect(h.sockets).toHaveLength(0); // no Slack trigger yet
+    expect(h.sockets).toHaveLength(0);
     h.trigger({ source: 'slack', filter: { channel: 'C0123ABCD' } });
     await until(() => h.sockets.length === 1);
     const s = h.sockets[0];
     expect(s.url).toContain('ticket=1');
     s.push(F.SLACK_HELLO);
     s.push(F.slackEnvelope(1, { type: 'message', channel: 'C0123ABCD', user: 'U1', text: 'deploy failed', ts: '1793523600.000100' }));
-    // The ack went out synchronously with the envelope, before any turn ran.
     expect(s.sent).toEqual([JSON.stringify({ envelope_id: 'env-1' })]);
     s.push(F.slackEnvelope(2, { type: 'message', channel: 'C999', user: 'U1', text: 'other channel', ts: '1793523601.000100' }));
     s.push(F.slackEnvelope(3, { type: 'message', channel: 'C0123ABCD', bot_id: 'B1', text: 'our own post', ts: '1793523602.000100' }));
-    s.push(F.slackEnvelope(1, { type: 'message', channel: 'C0123ABCD', user: 'U1', text: 'deploy failed', ts: '1793523600.000100' })); // Slack retry
+    s.push(F.slackEnvelope(1, { type: 'message', channel: 'C0123ABCD', user: 'U1', text: 'deploy failed', ts: '1793523600.000100' }));
     expect(s.sent).toHaveLength(4);
     await until(() => h.reqs.length === 1);
     await new Promise((r) => setTimeout(r, 20));
@@ -462,11 +453,9 @@ describe('Slack Socket Mode', () => {
     expect(h.reqs[0].injected).toContain('deploy failed');
     expect(h.svc.repo.cursor('slack')).toMatchObject({ lastError: null, failures: 0 });
 
-    // Slack rotates the connection: a fresh URL at once.
     s.push(F.SLACK_DISCONNECT);
     await until(() => h.sockets.length === 2);
     expect(h.sockets[1].url).toContain('ticket=2');
-    // A dropped socket reconnects after a backoff timer.
     h.sockets[1].emit('close');
     expect(h.timers.at(-1)!.ms).toBe(1000);
     h.timers.at(-1)!.fn();

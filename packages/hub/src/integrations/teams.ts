@@ -21,7 +21,6 @@ const chatId = (v: string) => {
   return encodeURIComponent(v);
 };
 
-/** Microsoft Graph, delegated: the signed-in user's 1:1 and group chats. Channel messages need admin consent and are not covered. */
 export class TeamsClient extends ApiClient {
   async whoami(): Promise<{ name: string; email: string }> {
     const r = await this.call<{ displayName?: string; mail?: string | null; userPrincipalName?: string }>(GRAPH + '/me');
@@ -49,10 +48,6 @@ export class TeamsClient extends ApiClient {
     return { id: r.data.id };
   }
 
-  /**
-   * Poll API (P5): chats whose last message is newer than `cursor` (an ISO timestamp). Delegated chat
-   * delta queries do not exist, so this polls `/me/chats` with `lastMessagePreview`, as the research advises.
-   */
   async pollChats(o: { cursor?: string | null } = {}): Promise<PollResult<TeamsChat>> {
     const chats = await this.listChats(50);
     const since = o.cursor ? Date.parse(o.cursor) : 0;

@@ -9,16 +9,6 @@ import { PROVIDER_IDS, type Approvals, type ProviderId } from '@pocketrocket/sha
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * The hub package directory — the one holding `package.json` and `node_modules`.
- *
- * From source this file is `<hub>/src/config.ts`, so the package dir is one level up.
- * In the esbuild bundle everything collapses into `<hub>/hub.mjs`, so it is `here` itself.
- * Pick whichever candidate actually has `node_modules`; fall back to the parent (the
- * source layout) when neither does, e.g. when tests run before an install.
- *
- * Exported for tests.
- */
 export function resolveHubDir(from: string, exists: (p: string) => boolean = fs.existsSync): string {
   for (const dir of [from, path.resolve(from, '..')]) {
     if (exists(path.join(dir, 'node_modules'))) return dir;
@@ -26,10 +16,6 @@ export function resolveHubDir(from: string, exists: (p: string) => boolean = fs.
   return path.resolve(from, '..');
 }
 
-/**
- * Version from the nearest `package.json`: `<here>/package.json` (bundle layout, written by
- * `pnpm deploy`) before `<here>/../package.json` (source layout). Exported for tests.
- */
 export function resolveVersion(
   from: string,
   read: (p: string) => string = (p) => fs.readFileSync(p, 'utf8'),
@@ -45,21 +31,15 @@ export function resolveVersion(
   return '0.0.0-unknown';
 }
 
-// src/config.ts or dist/config.js -> packages/hub -> packages -> repo root.
-// Only used for the dev-mode defaults below; the desktop app always sets
-// POCKETROCKET_DATA and POCKETROCKET_WEB_DIST explicitly.
 export const ROOT_DIR = path.resolve(here, '..', '..', '..');
 
 export const DATA_DIR = process.env.POCKETROCKET_DATA ? path.resolve(process.env.POCKETROCKET_DATA) : path.join(ROOT_DIR, 'data');
 export const WORKSPACE_DIR = path.join(DATA_DIR, 'workspace');
 export const BOTS_DIR = path.join(DATA_DIR, 'bots');
 export const SKILLS_DIR = path.join(DATA_DIR, 'skills');
-/** Uploaded pictures. Outside WORKSPACE_DIR and BOTS_DIR, so it is in no bot's roots. */
 export const MEDIA_DIR = path.join(DATA_DIR, 'media');
-/** Copies of the pictures a person attached, one folder per bot, written by the hub only and read by the bot as a read-only root (U2a). */
 export const ATTACHMENTS_DIR = path.join(DATA_DIR, 'attachments');
 export const DB_PATH = path.join(DATA_DIR, 'pocketrocket.db');
-/** The owner's routing rules. No bot may write it (`permissions/readOnlyRoots.ts`). */
 export const ROUTING_PATH = path.join(DATA_DIR, 'routing.md');
 export const WEB_DIST = process.env.POCKETROCKET_WEB_DIST
   ? path.resolve(process.env.POCKETROCKET_WEB_DIST)
@@ -73,19 +53,10 @@ export const CLAUDE_EXE =
 
 export const HOST = '127.0.0.1';
 export const PORT = Number(process.env.PORT ?? 7788);
-/** Loopback-only, read-only view of WORKSPACE_DIR for the Browser tool (api/workspaceWeb.ts); file:// is blocked there. */
 export const WORKSPACE_WEB_PORT = Number(process.env.WORKSPACE_WEB_PORT ?? 7789);
 export const WORKSPACE_WEB_URL = 'http://127.0.0.1:' + WORKSPACE_WEB_PORT + '/';
-/** Explicit token from the environment (the desktop app sets one), or null when the hub must mint its own. */
-// `|| null`, not `?? null`: an empty POCKETROCKET_TOKEN means "unset", never "no token required".
 export const HUB_TOKEN = process.env.POCKETROCKET_TOKEN || null;
-/**
- * `1` restores the old behaviour: mint a brand-new token on every start. Off by default because it made
- * every hub restart invalidate the token the UI was already holding, which is what the "paste the hub
- * token" panel kept appearing for.
- */
 export const ROTATE_HUB_TOKEN = ['1', 'true', 'yes', 'on'].includes(String(process.env.POCKETROCKET_ROTATE_TOKEN ?? '').toLowerCase());
-/** Where a self-minted token is written so local tooling (scripts/smoke.mjs) can find it. */
 export const HUB_TOKEN_PATH = path.join(DATA_DIR, 'hub-token');
 
 /**
@@ -161,13 +132,11 @@ export function ensureHubToken(): string {
     fs.writeFileSync(HUB_TOKEN_PATH, token, { mode: 0o600 });
     restrictFile(HUB_TOKEN_PATH);
   } catch (e) {
-    // The token is never logged, so this file is the only way to learn a minted one.
     console.error('[pocketrocket] could not write ' + HUB_TOKEN_PATH + ': ' + String((e as Error).message ?? e) + '. Nobody can sign in until that is fixed or POCKETROCKET_TOKEN is set.');
   }
   return token;
 }
 
-/** OS account name, the fallback for settings.userName (the human's display name). */
 export function osUserName(): string {
   try {
     return os.userInfo().username || 'you';
@@ -176,31 +145,13 @@ export function osUserName(): string {
   }
 }
 
-/**
- * Bot-to-bot hops one thread may take. Every hop wakes a bot that loads its own full context, so a long
- * chain multiplies cost; 3 keeps lead -> worker -> reviewer possible without open-ended ping-pong.
- */
 export const MAX_HOPS = Number(process.env.MAX_HOPS ?? 3);
-/**
- * `POCKETROCKET_BYPASS_PERMISSIONS`, when set, pins the approvals setting and locks it in the UI:
- * `1`/`true`/`yes`/`on` → 'bypass' (no approval cards: the PermissionBroker allows everything, the Claude SDK
- * runs in `bypassPermissions`, `request_approval` is not offered, the Codex / Grok / OpenCode sandboxes open
- * up), any other value → 'ask'. Unset or empty → null, and `settings.approvals` decides, per turn.
- * Exported for tests.
- */
 export function parseApprovalsEnv(raw: string | undefined): Approvals | null {
   const v = String(raw ?? '').trim().toLowerCase();
   if (!v) return null;
-  // Anything unrecognised fails closed: a typo must never be what turns the approval cards off.
   return ['1', 'true', 'yes', 'on'].includes(v) ? 'bypass' : 'ask';
 }
 export const APPROVALS_ENV = parseApprovalsEnv(process.env.POCKETROCKET_BYPASS_PERMISSIONS);
-/**
- * Providers this hub offers. v1 ships Claude only; the other adapters stay in the tree and come back for
- * development with `POCKETROCKET_PROVIDERS=claude,opencode`. Gemini (M7) joins the same opt-in list
- * (`POCKETROCKET_PROVIDERS=gemini`) until the owner's live test, then becomes on by default. Claude is always on (it is the default and the
- * fallback everything resolves to); unknown ids are ignored. Exported for tests.
- */
 export function parseEnabledProviders(raw: string | undefined): ProviderId[] {
   const wanted = new Set(String(raw ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
   return PROVIDER_IDS.filter((id) => id === 'claude' || wanted.has(id));
@@ -208,66 +159,20 @@ export function parseEnabledProviders(raw: string | undefined): ProviderId[] {
 export const ENABLED_PROVIDERS: readonly ProviderId[] = parseEnabledProviders(process.env.POCKETROCKET_PROVIDERS);
 export const MAX_CONCURRENT_TURNS = Number(process.env.MAX_CONCURRENT_TURNS ?? 4);
 export const APPROVAL_TIMEOUT_MS = 10 * 60 * 1000;
-/**
- * POCKETROCKET_NO_SPEND_CAPS=1: for a server on a flat subscription, where these dollar figures are notional and only
- * stop work. Turns off the per-reply, per-request, trigger and training budgets. Not the step, hop or rate limits: those
- * stop loops, not spending. Never set it with an API key, where the dollars are real.
- */
 export const spendCapsOff = (env: NodeJS.ProcessEnv = process.env): boolean =>
   ['1', 'true', 'yes', 'on'].includes(String(env.POCKETROCKET_NO_SPEND_CAPS ?? '').trim().toLowerCase());
 export const causeCostCap = (env: NodeJS.ProcessEnv = process.env): number =>
   spendCapsOff(env) ? Infinity : Number(env.CAUSE_COST_CAP_USD ?? 5);
 export const CAUSE_COST_CAP_USD = causeCostCap();
-/**
- * Steps (model round trips) one run may take before the provider stops it.
- *
- * This is not the runaway-cost brake — `maxBudgetUsd` is, and it is enforced live inside the run — so this
- * only has to catch a loop that is cheap but endless. 40 was tuned for chat and is too tight for computer
- * use, where every navigate, snapshot, click and keystroke costs a step: reading a few pages and writing a
- * file can pass 50 on its own, and a design or coding job (read, edit, build, screenshot, fix) easily passes 30.
- * Whatever is left over is picked up by MAX_TURN_CONTINUATIONS. The token brake (TURN_CACHE_READ_CAP) is what stops
- * a runaway turn, so this can be generous.
- */
 export const MAX_TURNS_PER_QUERY = Number(process.env.MAX_TURNS_PER_QUERY ?? 100);
-/**
- * How many times a turn that ran out of steps may be resumed to finish the job.
- *
- * Raising MAX_TURNS_PER_QUERY instead would let a runaway turn burn 3x the steps before anyone sees it.
- * A continuation is cheaper and safer: the session is resumed, so the model keeps its context, and every
- * hop is re-checked against the bot's per-turn budget and its abort signal before it starts. 0 disables.
- */
 export const MAX_TURN_CONTINUATIONS = Number(process.env.MAX_TURN_CONTINUATIONS ?? 3);
-/**
- * A turn cut off by the token brake, or by the step limit after its continuations, was not finished: nobody hears back
- * and a hand-off chain stops there. RoomRouter queues the same bot again up to this many times per request, then hands
- * the job to the room's coordinator. A step-limit cut resumes the same session (it keeps its place) unless the
- * session is too large or unmeasured (see rotationReason); a token-brake cut starts a fresh, small one seeded with the
- * room summary.
- */
 export const CUTOFF_RETRIES = Number(process.env.CUTOFF_RETRIES ?? 2);
-/**
- * Context-size brake. Every step of a turn re-sends the whole session, so cost per step grows with history.
- * When the last model call of a turn saw more than this many input tokens (input + cache read + cache write),
- * the next turn starts a fresh session seeded with memory, the room summary and recent messages instead of
- * resuming. 0 disables rotation.
- */
 export const ROTATE_CONTEXT_TOKENS = Number(process.env.ROTATE_CONTEXT_TOKENS ?? 120_000);
-/** P4-2: the context window the meter assumes when a provider has not reported one (Claude's standard window). */
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
-/**
- * A session idle longer than this has a cold prompt cache (5 min TTL), so resuming it rewrites the whole
- * history at cache-write price. Past this gap, a session above ROTATE_IDLE_MIN_TOKENS rotates instead.
- */
 export const ROTATE_IDLE_MS = Number(process.env.ROTATE_IDLE_MS ?? 30 * 60 * 1000);
 export const ROTATE_IDLE_MIN_TOKENS = Number(process.env.ROTATE_IDLE_MIN_TOKENS ?? 40_000);
-/** Recent room messages replayed into a freshly rotated session. */
 export const ROTATE_SEED_MESSAGES = Number(process.env.ROTATE_SEED_MESSAGES ?? 20);
-/**
- * Per-turn token brake, independent of dollars: subscription limits count tokens, and it stays on even with
- * POCKETROCKET_NO_SPEND_CAPS. A turn whose cache-read tokens pass this is stopped and not continued. 0 disables.
- */
 export const TURN_CACHE_READ_CAP = Number(process.env.TURN_CACHE_READ_CAP ?? 3_000_000);
-/** Caps passed to the Claude Code child so one tool result cannot flood the context. */
 export const BASH_MAX_OUTPUT_CHARS = Number(process.env.BASH_MAX_OUTPUT_CHARS ?? 15_000);
 export const MAX_MCP_OUTPUT_TOKENS = Number(process.env.MAX_MCP_OUTPUT_TOKENS ?? 12_000);
 
@@ -275,25 +180,19 @@ export const VERSION: string = resolveVersion(here);
 
 export const SECRETS_PATH = path.join(DATA_DIR, 'secrets.json');
 
-// Optional Toki account (Supabase Auth). Configured only from the environment: no project URL or key
-// lives in source. Accounts are on only when both are set; otherwise the hub runs signed out (enabled: false).
-// The desktop release passes values baked in at build time from CI secrets; a VPS sets them in a systemd drop-in.
 export const SUPABASE_URL = (process.env.POCKETROCKET_SUPABASE_URL ?? '').trim();
 export const SUPABASE_PUBLISHABLE_KEY = (process.env.POCKETROCKET_SUPABASE_KEY ?? '').trim();
 // Supabase's built-in mailer only delivers to the project's own team, so email sign-in stays off (OAuth only)
 // until the project has its own SMTP sender; `1` turns it on.
 export const ACCOUNT_EMAIL = ['1', 'true', 'yes', 'on'].includes(String(process.env.POCKETROCKET_ACCOUNT_EMAIL ?? '').toLowerCase());
-/** The hub-held Supabase session (refresh token included), owner-only like secrets.json. Never under WORKSPACE_DIR. */
 export const ACCOUNT_PATH = path.join(DATA_DIR, 'account.json');
 
 export const USER_SKILLS_DIR = path.join(os.homedir(), '.claude', 'skills');
 
-// Screen (virtual browser on the computer): noVNC served by websockify, Chromium CDP for bots.
 export const HUB_DIR = resolveHubDir(here);
 export const SCREEN_URL = process.env.SCREEN_URL ?? 'http://127.0.0.1:6080';
 export const CDP_URL = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
 export const PLAYWRIGHT_MCP_CLI = path.join(HUB_DIR, 'node_modules', '@playwright', 'mcp', 'cli.js');
-// Desktop tool (computer use on the virtual display): needs xdotool + scrot on Linux.
 export const SCREEN_DISPLAY = process.env.SCREEN_DISPLAY ?? ':99';
 export const DESKTOP_HOME = path.join(DATA_DIR, 'desktop-home');
 export const DESKTOP_AVAILABLE =
@@ -310,8 +209,6 @@ export function ensureDirs() {
   for (const d of [DATA_DIR, WORKSPACE_DIR, BOTS_DIR, SKILLS_DIR]) fs.mkdirSync(d, { recursive: true });
 }
 
-// Legacy migration: copy claudebot.db (and -wal/-shm) to pocketrocket.db if the old
-// file exists and the new one hasn't been created yet. Old files are left in place.
 export function migrateLegacyDb() {
   const legacyPath = path.join(DATA_DIR, 'claudebot.db');
   if (fs.existsSync(DB_PATH) || !fs.existsSync(legacyPath)) return;
@@ -323,21 +220,13 @@ export function migrateLegacyDb() {
   console.log('migrated legacy claudebot.db -> pocketrocket.db');
 }
 
-// ---- P7: knowledge repo ----
-/** Where settings.knowledgeRepo is cloned (git URL) or linked (local folder). Read-only to every bot. */
 export const KNOWLEDGE_DIR = path.join(DATA_DIR, 'knowledge');
-/** Minutes between background `git pull --ff-only` runs of the knowledge clone. 0 turns the timer off. */
 export const KNOWLEDGE_SYNC_MINUTES = Number(process.env.KNOWLEDGE_SYNC_MINUTES ?? 60);
-// ---------------------------------------------------------------------------------------------------
-// P1: per-bot computers (services/ComputerManager.ts). Each bot that uses Browser or Desktop gets its own
-// display, Chromium profile and CDP/VNC ports — same uid, so this is NOT isolation between bots.
 
-/** Root of every bot's computer: `<COMPUTERS_DIR>/<botId>/{home,browser,files,recordings}`. */
 export const COMPUTERS_DIR = path.join(DATA_DIR, 'computers');
 export function computerDir(botId: string) {
   return path.join(COMPUTERS_DIR, botId);
 }
-/** The bot's own disk on its computer (Desktop, Downloads). `~/Shared` on that desktop is WORKSPACE_DIR. */
 export function computerFilesDir(botId: string) {
   return path.join(computerDir(botId), 'files');
 }
@@ -346,36 +235,21 @@ const posInt = (v: string | undefined, d: number) => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : d;
 };
-/**
- * Per-bot computers are opt-in by environment (`deploy/setup-vps.sh` sets `POCKETROCKET_COMPUTERS=1` in the
- * hub unit) and Linux-only. Off, every bot shares the one legacy screen exactly as before.
- */
 export const COMPUTERS_ENABLED = process.platform === 'linux' && truthy(process.env.POCKETROCKET_COMPUTERS);
-/** No fixed limit by default (one per slot): memory decides, see ComputerManager.start. Set it to cap them anyway. */
 export const MAX_RUNNING_COMPUTERS = posInt(process.env.MAX_RUNNING_COMPUTERS, 99);
 export const COMPUTER_IDLE_MIN = posInt(process.env.COMPUTER_IDLE_MIN, 30);
-/** Soft disk quota per bot computer. Warned at 80%, refused to start at 100%. */
 export const COMPUTER_QUOTA_BYTES = posInt(process.env.COMPUTER_QUOTA_GB, 10) * 1024 ** 3;
 
-/**
- * Folders a bot's file tools may touch without an approval card: the shared workspace, its private home, when
- * per-bot computers are on its own computer disk (where its Chromium downloads land) and, given the room it is
- * replying in, that room's file folder. Without a room no room folder is open.
- */
 export function botRoots(botId: string, roomId?: string): string[] {
   return [WORKSPACE_DIR, botHome(botId), ...(COMPUTERS_ENABLED ? [computerFilesDir(botId)] : []), ...(roomId ? roomRoots(botId, roomId) : [])];
 }
 
-/** Shared project folders, outside the workspace so that being in the project's room is what opens one. */
 export const PROJECTS_DIR = path.join(DATA_DIR, 'projects');
-/** File folders of group rooms with no project, `<ROOMS_DIR>/<roomId>/`. Made the first time one is needed. */
 export const ROOMS_DIR = path.join(DATA_DIR, 'rooms');
-/** A direct chat's file folder: a subfolder of the bot's home, so its memory and notes stay out of the Files panel. */
 export function botFilesDir(botId: string) {
   return path.join(botHome(botId), 'files');
 }
 let roomRoots: (botId: string, roomId: string) => string[] = () => [];
-/** Set by createHub, which owns the database that says which folder a room uses. */
 export function setRoomRootsResolver(fn: (botId: string, roomId: string) => string[]) {
   roomRoots = fn;
 }
@@ -384,11 +258,8 @@ export function setRoomRootsResolver(fn: (botId: string, roomId: string) => stri
 // which deploy/backup.sh leaves out of every archive so a leaked backup holds no usable token.
 export const VAULT_KEY_PATH = path.join(DATA_DIR, 'vault.key');
 export const INTEGRATIONS_PATH = path.join(DATA_DIR, 'integrations.json');
-// G4: saved logins for fill_credential. Secrets live encrypted in credentials.json under the same vault.key.
 export const CREDENTIALS_PATH = path.join(DATA_DIR, 'credentials.json');
 
-// ---------------------------------------------------------------------------------------------------
-// P9: phone, devices, push.
 /**
  * Hostnames (comma or space separated) the hub also answers to, besides loopback, e.g.
  * `POCKETROCKET_ALLOWED_HOSTS=myhub.tail1234.ts.net`. Off by default (decision Q9). A listed host is only
@@ -413,7 +284,6 @@ export function parseAllowedHosts(raw: string | undefined): string[] {
   return out;
 }
 export const ALLOWED_HOSTS: readonly string[] = parseAllowedHosts(process.env.POCKETROCKET_ALLOWED_HOSTS);
-/** VAPID key pair for Web Push (P9), minted locally on first use. 0600, like hub-token. */
 export const VAPID_PATH = path.join(DATA_DIR, 'vapid.json');
 /** VAPID `sub` claim. Apple wants a mailto: or https: URL here; it is sent to the push service, never to a bot. */
 export const PUSH_SUBJECT = process.env.POCKETROCKET_PUSH_SUBJECT || 'https://github.com/AlexGaledo/Toki';

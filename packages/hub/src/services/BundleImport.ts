@@ -8,20 +8,6 @@ import { pipeline } from 'node:stream/promises';
 import type { IncomingMessage } from 'node:http';
 import { vpsPathOk } from '@pocketrocket/shared';
 
-/**
- * The hub's half of a bundle sync (bridge P5). The PC uploads a git bundle of a session's snapshot commit; the hub
- * checks size and hash while the bytes stream to disk, verifies it with git, and fetches it into the project's VPS copy
- * on one branch, `wip/<machine>/<session>`. It never touches another branch or the working tree, and never runs anything
- * the bundle could carry:
- *
- *   - git runs with a clean environment (no hub token, no user or system config) and every config that can start a
- *     program is overridden on the command line (`core.hooksPath=/dev/null`, `core.fsmonitor=false`, no credential
- *     helper, no `ext::` transport), so a hook or fsmonitor planted in the VPS repo's own `.git` never runs;
- *   - objects are fsck'd on fetch (`fetch.fsckObjects`);
- *   - a new copy starts from `git init` with an empty template (no sample hooks);
- *   - a VPS path that leaves the project folder (by `..`, a symlink or a `.git` file pointing elsewhere) is refused.
- */
-
 export class BundleError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -29,7 +15,6 @@ export class BundleError extends Error {
 const GIT_TIMEOUT_MS = 120_000;
 const NULL_DEVICE = '/dev/null';
 
-/** Config git must not take from the repo's own `.git/config` or any other layer: everything that can run a program. */
 export const HARDENED_GIT_CONFIG: readonly string[] = [
   'core.hooksPath=' + NULL_DEVICE,
   'core.fsmonitor=false',
@@ -43,7 +28,6 @@ export const HARDENED_GIT_CONFIG: readonly string[] = [
   'maintenance.auto=false',
 ];
 
-/** A scrubbed environment for git: it finds itself and a temp HOME, and nothing else, least of all POCKETROCKET_TOKEN. */
 export function hardenedGitEnv(home: string): NodeJS.ProcessEnv {
   const keep = ['PATH', 'PATHEXT', 'SystemRoot', 'SYSTEMROOT', 'windir', 'ComSpec', 'TEMP', 'TMP', 'TMPDIR', 'LANG'];
   const env: NodeJS.ProcessEnv = {};
@@ -58,7 +42,6 @@ export function hardenedGitEnv(home: string): NodeJS.ProcessEnv {
   return env;
 }
 
-/** Runs git hardened. Resolves with stdout; rejects with a short, scrubbed message. */
 export function hardenedGit(cwd: string, args: string[], home: string): Promise<string> {
   const full = [...HARDENED_GIT_CONFIG.flatMap((c) => ['-c', c]), ...args];
   return new Promise((resolve, reject) => {
@@ -71,7 +54,6 @@ export function hardenedGit(cwd: string, args: string[], home: string): Promise<
   });
 }
 
-/** The nearest ancestor of `p` that exists, resolved through symlinks. */
 function realNearest(p: string): string {
   let cur = p;
   for (;;) {
@@ -87,7 +69,6 @@ const inside = (root: string, p: string, allowSame = false) => {
   return (allowSame || rel !== '') && !rel.startsWith('..') && !path.isAbsolute(rel);
 };
 
-/** `<projectDir>/<vps>`, refused when `vps` is not a plain relative path or anything on the way is a link out of the project. */
 export function vpsDir(projectDir: string, vps: string): string {
   if (!vpsPathOk(vps)) throw new BundleError(400, 'The repo\'s vps path is not a plain relative folder.');
   const root = path.resolve(projectDir);
@@ -97,7 +78,6 @@ export function vpsDir(projectDir: string, vps: string): string {
   return target;
 }
 
-/** Where an uploaded bundle waits for its import. */
 export function incomingPath(projectDir: string, vps: string, jobId: string): string {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(jobId)) throw new BundleError(400, 'Bad job id');
   return path.join(vpsDir(projectDir, vps), '.incoming', jobId + '.bundle');
@@ -105,11 +85,7 @@ export function incomingPath(projectDir: string, vps: string, jobId: string): st
 
 export type ReceiveResult = { ok: true; bytes: number } | { ok: false; status: number; error: string };
 
-/**
- * Streams the request body to `file`, counting and hashing as it goes, never holding more than a chunk in memory. Fails
- * when more than `expectBytes` arrive, when fewer do, or when the sha256 differs. The partial file is removed on failure.
- */
-export async function receiveToFile(req: IncomingMessage, file: string, o: { expectBytes: number; sha256: string; /** What it is, for the error text. Default 'bundle'. */ what?: string; header?: string }): Promise<ReceiveResult> {
+export async function receiveToFile(req: IncomingMessage, file: string, o: { expectBytes: number; sha256: string; what?: string; header?: string }): Promise<ReceiveResult> {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const hash = createHash('sha256');
   let bytes = 0;
@@ -139,10 +115,6 @@ export async function receiveToFile(req: IncomingMessage, file: string, o: { exp
   return { ok: true, bytes };
 }
 
-/**
- * Verifies `bundleFile` and fetches its single ref into `branch` of the repo at `<projectDir>/<vps>`, creating that repo
- * if there is none. Returns the commit the branch now points at. Only `refs/heads/<branch>` is written.
- */
 export async function importBundle(o: { projectDir: string; vps: string; bundleFile: string; branch: string }): Promise<{ commit: string }> {
   if (!/^wip\/[a-z0-9_-]{1,30}\/[a-z0-9]{1,8}$/.test(o.branch)) throw new BundleError(400, 'Not a wip branch name');
   const dir = vpsDir(o.projectDir, o.vps);
@@ -157,7 +129,6 @@ export async function importBundle(o: { projectDir: string; vps: string; bundleF
       fs.mkdirSync(template);
       await hardenedGit(dir, ['init', '-q', '--template=' + template], scratch);
     } else if (!st.isDirectory() || st.isSymbolicLink()) {
-      // A `.git` file or link can point anywhere.
       throw new BundleError(400, 'The VPS copy\'s .git is not a plain folder.');
     }
     await hardenedGit(dir, ['bundle', 'verify', o.bundleFile], scratch);

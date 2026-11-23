@@ -1,14 +1,8 @@
 import { redact } from '../providers/redact.js';
 
-/**
- * What `redact` cannot know: a credential given as `name: value`. A bare password with no label still gets
- * through, which is why imported text is reviewed by the owner before a bot can read it.
- * scripts/context-import.mjs carries the same rules so secrets are gone before anything leaves the PC.
- */
 const LABELLED = /\b(pass(?:word|wd|code|phrase)?|pwd|secret|api[_ -]?key|(?:access|auth|refresh)[_ -]?token|client[_ -]?secret|private[_ -]?key)\b(["']?\s*(?:[:=]|\bis\b)\s*["']?)([^\s"',;]{4,})/gi;
 const PEM = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g;
 
-/** Not secrets, but nothing a bot needs: people's addresses and numbers, and identifiers issued by government. */
 const PERSONAL: [RegExp, string][] = [
   [/\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:[^\s@/]+@[^\s]+/gi, '[redacted]'],
   [/\b([A-Z][A-Z0-9]*_[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASS|PASSWORD|PWD|DSN))\s*=\s*\S+/g, '$1=[redacted]'],

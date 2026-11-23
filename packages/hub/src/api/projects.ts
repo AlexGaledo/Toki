@@ -18,24 +18,6 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
   return true;
 };
 
-/**
- * `/api/projects/*`. Human-only: a paired phone is refused by deviceMayAccess and no bot tool reaches it, so only the
- * owner decides which bots work in which folder.
- *
- *   GET    /api/projects
- *   POST   /api/projects                { name, team?, memberIds? }; team clones the dev team template
- *   PUT    /api/projects/:slug/members  { memberIds }
- *   PUT    /api/projects/:slug/room     { roomId | null }; links a group chat to the folder
- *   GET    /api/projects/:slug/search   ?q=&archived=1, with no AI turn
- *   GET    /api/projects/:slug/lint     what has gone stale or messy
- *   GET    /api/projects/:slug/repos    { repos: ProjectRepo[] } from repos.json (bridge P5)
- *   GET    /api/projects/:slug/map      ProjectMapReply from map.json (Toki UI B2); a bad file is an `error`, not a failure
- *   GET    /api/projects/:slug/overview ProjectOverview parsed from current.md, with no AI turn (Toki UI B3)
- *   PUT    /api/projects/:slug/repos    { repos } -> saved file; 400 names every schema problem. Remotes only, never a PC path
- *   DELETE /api/projects/:slug          forgets it; the folder and any cloned bots stay
- *
- * Create, members, room and delete each emit `projects.changed` once (no payload: a paired phone gets every event).
- */
 export function createProjectsApi(deps: { projects: ProjectService; repos: Repos; db?: Db }) {
   const { projects, repos, db } = deps;
   const changed = () => events.emitEvent({ type: 'projects.changed' });

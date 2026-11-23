@@ -11,8 +11,6 @@ import { ComputerControlService } from '../services/ComputerControl.js';
 import type { BotRunner, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { RoomRouter } from './RoomRouter.js';
 
-/** P2: "Pause bot" holds its turns in the lane; a hand-back note rides along with the next turn. */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);

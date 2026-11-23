@@ -17,7 +17,6 @@ import { SCREEN_VIEWER_PATH, screenViewerPath, type ScreenSessions } from './scr
 import { AlwaysOnRefused, type ComputerManager } from '../services/ComputerManager.js';
 import { ScreenOpenError, type ScreenOpener } from '../services/screenOpen.js';
 
-/** TCP-probe a http://host:port URL; resolves true when something accepts the connection within 600ms. */
 function probe(url: string): Promise<boolean> {
   const u = new URL(url);
   return new Promise((resolve) => {
@@ -57,34 +56,22 @@ interface Route { method: string; pattern: RegExp; keys: string[]; handler: Hand
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
-/** A handler returns this to answer 204 with no body. */
 const NO_CONTENT = Symbol('no content');
 
 export interface RestDeps {
   repos: Repos; memory: MemoryService; skills: SkillService; scheduler: RoutineScheduler; router: RoomRouter; runner: BotRunner;
-  /** True when a workflow starts from this routine (deleting it is then a 409). */
   routineInUse?: (routineId: string) => boolean;
   settings: SettingsStore; secrets: SecretsStore; providers: ProviderRegistry;
-  /** Mints the single-use tickets the Screen tab trades for its `/screen` cookie. */
   screenSessions: ScreenSessions;
   account: AccountService;
-  // ---- P7 ----
   knowledge?: KnowledgeRepo;
   voice?: VoiceProposals;
-  /** Per-bot computers (P1): Screen tab status, Wake, Keep awake. */
   computers: ComputerManager;
-  /** Opens a web link in a bot's server browser (a chat link's "Open in server browser"). */
   screenOpener?: ScreenOpener;
-  /** The owner's routing rules. */
   routing?: RoutingRules;
-  /** P2: true while the viewer of this screen (bot id, or null for the shared one) may only watch. */
   viewOnly?: (scope: string | null) => boolean;
-  /** Uploaded pictures: a reference is only stored once its file is here. */
   media?: MediaStore;
-  // ---- 04-A3: update safety ----
-  /** GET /api/busy. */
   busy?: () => BusyInfo;
-  /** POST /api/maintenance/stop: schedules the graceful stop (shutdown, then exit) after this response. */
   stop?: () => void;
 }
 
@@ -102,22 +89,15 @@ export function createRest(deps: RestDeps) {
     if (!r.success) throw new HttpError(400, r.error.issues.map((i) => i.path.join('.') + ': ' + i.message).join('; '));
     return r.data;
   };
-  /**
-   * Partial body parse. zod 4 keeps `.default()` inside `.partial()`, so parsing `{name}` against a
-   * partial schema yields EVERY key filled with its default — which would silently reset the fields the
-   * caller did not send. Validate, then keep only the keys actually present in the request body.
-   */
   const parsePatch = <T extends object>(schema: z.ZodType<T>, body: unknown): Partial<T> => {
     const parsed = parse(schema, body) as Record<string, unknown>;
     const sent = new Set(Object.keys((body ?? {}) as Record<string, unknown>));
     return Object.fromEntries(Object.entries(parsed).filter(([k]) => sent.has(k))) as Partial<T>;
   };
 
-  /** A picture reference must name a file this hub holds. Icon keys and '' pass; the schemas have dropped the rest. */
   const needPicture = (avatar: string | undefined) => {
     if (isMediaRef(avatar) && !deps.media?.has(mediaHash(avatar))) throw new HttpError(400, 'That picture is gone. Upload it again.');
   };
-  /** What the owner changed in a group, as the lines the chat shows. */
   const roomChanges = (before: Room, after: Room): string[] => {
     const who = settings.get().userName;
     const label = (id: string) => { const b = repos.getBot(id); return b ? b.name + ' (@' + b.handle + ')' : 'A bot'; };
@@ -131,11 +111,6 @@ export function createRest(deps: RestDeps) {
     return lines;
   };
 
-  // ---- health
-  // Answers without the hub token (the desktop app polls it before it has one), so nothing personal goes
-  // here: no account email or plan, and no path to the CLI either — CLAUDE_EXE holds the home directory,
-  // which is the machine's user name. `ok` already says whether the CLI was found; the authenticated
-  // provider check carries the path for the people who can already ask for it.
   add('GET', '/api/health', (): HealthInfo & { provider: ProviderId; version: string } => {
     const exe = runner.constructor as typeof BotRunner;
     const chk = exe.checkExe();
@@ -146,11 +121,7 @@ export function createRest(deps: RestDeps) {
       approvals: settings.approvals(), approvalsLocked: settings.approvalsLocked,
     };
   });
-  // M6: by provider ({ claude: {...}, codex: {...} }), so two bots on two providers do not overwrite each other's.
   add('GET', '/api/debug/last-init', () => runner.lastInit);
-  // 04-A3: the desktop updater holds, polls /api/busy until `blocking` is 0, then stops the hub cleanly.
-  // Hub token or the owner's browser session only: none of these is in guard.ts DEVICE_ALLOW, so a paired
-  // device is refused (403), and the PC runner token reaches only its own routes.
   const busyNow = () => need(deps.busy, 'Busy status')();
   add('GET', '/api/busy', busyNow);
   add('POST', '/api/maintenance/hold', ({ body }) => {
@@ -167,8 +138,6 @@ export function createRest(deps: RestDeps) {
     return { ok: true, stopping: true };
   });
   add('GET', '/api/screen', async ({ query }) => {
-    // P1: `?botId=` asks about that bot's own computer. Without per-bot computers (or without a bot) it is the
-    // one shared screen, exactly as before; `computer` then says perBot: false.
     const botId = query.get('botId');
     if (botId && computers.enabled) {
       need(repos.getBot(botId), 'Bot');
@@ -186,7 +155,6 @@ export function createRest(deps: RestDeps) {
   // P1: with `{ botId }` the ticket (and the cookie it buys) opens that bot's computer and nothing else.
   add('POST', '/api/screen/ticket', ({ body, req }) => {
     const { botId } = parse(z.object({ botId: z.string().optional() }), body ?? {});
-    // P9: a ticket a paired device or signed-in browser mints is tagged with it, so revoking that closes its Screen too.
     const owner = screenOwnerOf(req);
     if (botId && computers.enabled) {
       need(repos.getBot(botId), 'Bot');
@@ -196,8 +164,6 @@ export function createRest(deps: RestDeps) {
     return { url: screenSessions.mintTicket(null, owner).url };
   });
 
-  // A web link from chat, opened in a bot's server browser. Answers the bot whose computer it used (null: the
-  // shared screen) so the client can open Screen on it. Human-only like the rest of /api/screen.
   add('POST', '/api/screen/open', async ({ body }) => {
     const { url, roomId, botId } = parse(z.object({ url: z.string().min(1).max(4096), roomId: z.string().max(64).optional(), botId: z.string().max(64).optional() }), body ?? {});
     if (!deps.screenOpener) throw new HttpError(404, 'Not available on this hub');
@@ -209,17 +175,12 @@ export function createRest(deps: RestDeps) {
     }
   });
 
-  // ---- per-bot computers (P1). Human-only: no bot tool reaches these.
   add('GET', '/api/computers/:botId', ({ params }) => computers.status(need(repos.getBot(params.botId), 'Bot').id));
-  // The app opened: warm the bot in `botId` and one more recent one, in empty places only. Answers at once; the
-  // starts show up as computer.state events. Not on DEVICE_ALLOW: opening the app on a phone wakes nothing.
   add('POST', '/api/computers/warm', ({ body }) => {
     const { botId } = parse(z.object({ botId: z.string().optional() }), body ?? {});
     void computers.warm(botId && repos.getBot(botId) ? botId : null).catch((e) => console.warn('[computers] ' + (e as Error).message));
     return { ok: true };
   });
-  // `auto`: nobody pressed anything (a bot was selected, a screen was opened), so the memory guard applies and only
-  // a cold computer may be evicted. A paired device always gets those rules. Without it this is the Retry button.
   add('POST', '/api/computers/:botId/wake', async ({ params, body, req }) => {
     const bot = need(repos.getBot(params.botId), 'Bot');
     const { auto } = parse(z.object({ auto: z.boolean().optional() }), body ?? {});
@@ -240,26 +201,18 @@ export function createRest(deps: RestDeps) {
     }
   });
   add('GET', '/api/config', () => ({ workspaceDir: WORKSPACE_DIR, version: VERSION }));
-  // Opens the workspace on the machine the HUB runs on, which is the only machine it exists on: the user's
-  // own PC for a local hub, the virtual desktop behind the Screen tab for a server one. The path is fixed,
-  // so the request carries nothing that reaches the shell.
-  // P1: with per-bot computers it opens on the requesting bot's running computer (`{ botId }`), or says why not.
   add('POST', '/api/workspace/open', ({ body }) => {
     const { botId } = parse(z.object({ botId: z.string().optional() }), body ?? {});
     const bot = botId ? need(repos.getBot(botId), 'Bot') : null;
     return openWorkspace({ screen: DESKTOP_AVAILABLE, ...workspaceTarget(computers, bot) });
   });
 
-  // ---- settings / secrets / providers
   add('GET', '/api/me', () => repos.owner());
   add('GET', '/api/settings', () => settings.get());
-  // Bridge P7: can bot tools be sandboxed here, is it on, and why not. Read-only; the switch is `sandbox` in PUT /api/settings.
   add('GET', '/api/sandbox/status', () => sandboxStatus());
-  // The only writer of `approvals`: no bot tool, MCP route or WS event reaches the SettingsStore.
   add('PUT', '/api/settings', ({ body, req }) => {
     const patch = parsePatch(SettingsPatchSchema, body);
     needPicture(patch.userAvatar);
-    // Bridge P7: turning the sandbox on while bubblewrap cannot run would only make every turn fail; say why instead.
     if (patch.sandbox === 'on' && settings.get().sandbox !== 'on') {
       const st = sandboxStatus();
       if (!st.available) throw new HttpError(409, 'sandbox: ' + st.reason);
@@ -286,18 +239,15 @@ export function createRest(deps: RestDeps) {
       throw e;
     }
   });
-  // Only which keys are set is ever returned; values stay on disk / in the environment.
   add('GET', '/api/secrets', () => secrets.status());
   add('PUT', '/api/secrets', ({ body }) => secrets.set(parse(SecretsPatchSchema, body)));
   add('GET', '/api/providers', () => providers.response());
   add('POST', '/api/providers/:id/check', ({ params }) => {
     const id = params.id as ProviderId;
-    // A disabled provider is as unknown as a made-up one: nothing may spawn its CLI.
     if (!providers.enabled.includes(id)) throw new HttpError(404, 'Unknown provider ' + params.id);
     return providers.check(id, true);
   });
 
-  // ---- account (optional). Human-only: no bot tool or MCP route reaches the AccountService.
   add('GET', '/api/account', () => account.state());
   add('POST', '/api/account/magic-link', async ({ body, req }) => {
     const { email } = parse(z.object({ email: z.string() }), body);
@@ -315,11 +265,6 @@ export function createRest(deps: RestDeps) {
   add('POST', '/api/account/cancel', () => account.cancelPending());
   add('POST', '/api/account/sign-out', () => account.signOut());
 
-  // ---- bots
-  /**
-   * M6 (P1-3): the owner's provider and backup for a bot. Only this API sets them; the bot tools refuse both. A provider
-   * must be enabled here, and a model the request names must be one its provider lists (or `auto`).
-   */
   const modelIdsOf = (id: ProviderId) => providers.modelsSync(id).map((m) => m.id);
   const checkModelOn = (field: string, id: ProviderId, model: string) => {
     const ids = modelIdsOf(id);
@@ -343,7 +288,6 @@ export function createRest(deps: RestDeps) {
     needPicture(input.avatar);
     if (repos.getBotByHandle(input.handle)) throw new HttpError(409, 'Handle already taken');
     checkProviderFields(input, sent(body, 'model'));
-    // A new bot on its own provider with no model named gets that provider's default, not the schema's Claude one.
     if (input.provider && !sent(body, 'model')) input.model = modelFor(providers.modelsSync(input.provider), input.model) ?? input.model;
     const bot = repos.createBot(input);
     memory.ensureHome(bot.id);
@@ -359,8 +303,6 @@ export function createRest(deps: RestDeps) {
     checkProviderFields(input, sent(body, 'model'));
     let bot = repos.updateBot(params.id, input)!;
     if (input.description !== undefined) memory.writeIdentity(bot.id, input.description);
-    // M6: moved to another provider without a model that fits it: its default, with the same note a default switch posts.
-    // The bot's next turn in each room starts a fresh session seeded with a summary (BotRunner, P1-4).
     const now = bot.provider ?? settings.get().provider;
     if (input.provider !== undefined && now !== (cur.provider ?? settings.get().provider) && input.model === undefined) {
       if (repointBotModel(repos, bot, now, providers.modelsSync(now))) bot = repos.getBot(bot.id)!;
@@ -378,7 +320,6 @@ export function createRest(deps: RestDeps) {
     events.emitEvent({ type: 'rooms.changed', rooms: repos.listRooms() });
     return { ok: true };
   });
-  // U10: bot files. Export reads one bot and never secrets; import always makes a NEW bot (see services/botTransfer.ts).
   const transfer = <T>(fn: () => T): T => {
     try { return fn(); } catch (e) { if (e instanceof TransferError) throw new HttpError(e.status, e.message); throw e; }
   };
@@ -392,7 +333,6 @@ export function createRest(deps: RestDeps) {
     if (out.skills.length) events.emitEvent({ type: 'skills.changed' });
     return out;
   });
-  // The Memory tab shows how full memory.md is and when auto-memory last wrote to it.
   add('GET', '/api/bots/:id/memory', ({ params }) => {
     const bot = need(repos.getBot(params.id), 'Bot');
     const text = memory.read(bot.id);
@@ -411,7 +351,6 @@ export function createRest(deps: RestDeps) {
     skills.materialize(bot.id, bot.handle);
     return { ok: true };
   });
-  // The composer's `/` menu: the app's own commands, Claude Code's (when a member runs on Claude), then the members' skills.
   add('GET', '/api/rooms/:id/commands', ({ params }) => {
     const room = need(repos.getRoom(params.id), 'Room');
     const bots = room.memberIds.map((id) => repos.getBot(id)).filter((b): b is NonNullable<typeof b> => !!b);
@@ -430,7 +369,6 @@ export function createRest(deps: RestDeps) {
     return { ok: true };
   });
 
-  // ---- rooms
   add('GET', '/api/rooms', () => repos.listRooms());
   add('POST', '/api/rooms', ({ body }) => {
     const input = parse(RoomInputSchema, body);
@@ -453,9 +391,7 @@ export function createRest(deps: RestDeps) {
     needPicture(input.avatar);
     const memberIds = input.memberIds ?? cur.memberIds;
     if (input.coordinatorBotId && !memberIds.includes(input.coordinatorBotId)) throw new HttpError(400, 'The coordinator must be in the chat');
-    // A coordinator who leaves stops being one. An empty `memberIds` never gets here: the schema wants at least one bot.
     let coordinatorBotId = input.coordinatorBotId === undefined && cur.coordinatorBotId && !memberIds.includes(cur.coordinatorBotId) ? null : input.coordinatorBotId;
-    // A group of two or more always has a coordinator: clearing it, or losing it, picks another member.
     const kept = coordinatorBotId === undefined ? cur.coordinatorBotId : coordinatorBotId;
     if ((input.kind ?? cur.kind) === 'group' && memberIds.length >= 2 && !kept) {
       coordinatorBotId = pickCoordinator(memberIds.map((id) => repos.getBot(id)!))?.id ?? null;
@@ -466,7 +402,6 @@ export function createRest(deps: RestDeps) {
     if (room.kind === 'group') for (const line of roomChanges(cur, room)) router.systemNote(room, line, null, 0);
     return room;
   });
-  // The composer's model pick for this chat. Human-only: no bot tool reaches it, and a paired device is refused.
   add('PUT', '/api/rooms/:id/model', ({ params, body }) => {
     need(repos.getRoom(params.id), 'Room');
     const room = repos.setRoomChatModel(params.id, parse(RoomModelInputSchema, body).model)!;
@@ -491,16 +426,12 @@ export function createRest(deps: RestDeps) {
     return q.length < 2 ? [] : repos.searchMessages(q.slice(0, 200), 50);
   });
   add('POST', '/api/rooms/:id/messages', ({ params, body }) => {
-    // `mode` as on WS message.send: join a busy bot's running turn, or queue. The answer's payload says which.
     const { text, mode } = parse(RoomMessageInputSchema, body);
     return router.onUserMessage(params.id, text, undefined, undefined, mode);
   });
-  // ---- queue controls (02 Phase 2): the same actions as the WS queue.* events
   const queueFail = <T>(fn: () => T): T => {
     try { return fn(); } catch (e) { if (e instanceof QueueError) throw new HttpError(e.status, e.message); throw e; }
   };
-  // P4-2: the context meter. Per member bot, its session's context size in this room, only when the provider that wrote
-  // the session reports context size (a row with no provider is the bot's own). Bots with nothing to show are left out.
   add('GET', '/api/rooms/:id/context', ({ params }) => {
     const room = need(repos.getRoom(params.id), 'Room');
     const out: Record<string, ContextUsage> = {};
@@ -533,7 +464,6 @@ export function createRest(deps: RestDeps) {
     return queueFail(() => router.setQueuePaused(params.id, botId, paused));
   });
 
-  // ---- skills
   add('GET', '/api/skills', () => repos.listSkills());
   add('GET', '/api/skills/importable', () => skills.listImportable());
   add('POST', '/api/skills/import', ({ body }) => {
@@ -557,7 +487,6 @@ export function createRest(deps: RestDeps) {
   });
   add('DELETE', '/api/skills/:id', ({ params }) => { skills.remove(params.id); return { ok: true }; });
 
-  // ---- tasks (G1), bot reports and feedback (G5)
   const taskSvc = new TaskService(repos.db);
   const botReports = new BotReports(repos.db);
   const taskFail = <T>(fn: () => T): T => {
@@ -603,10 +532,8 @@ export function createRest(deps: RestDeps) {
     const { status } = parse(z.object({ status: z.enum(['pending', 'resolved', 'dismissed']) }), body);
     return botReports.setStatus(params.id, status);
   });
-  // Read-only export of what bots sent with send_feedback. Nothing here leaves the machine.
   add('GET', '/api/feedback', ({ query }) => botReports.readFeedback(Number(query.get('limit')) || 200));
 
-  // ---- routines
   add('GET', '/api/routines', () => repos.listRoutines());
   add('POST', '/api/routines', ({ body }) => {
     const i = parse(RoutineInputSchema, body);
@@ -622,7 +549,6 @@ export function createRest(deps: RestDeps) {
     const { onceAt, ...i } = parsePatch(RoutineInputSchema.partial(), body);
     let sched = {};
     if (i.cron !== undefined || onceAt !== undefined) {
-      // Re-check the schedule only when it changes, so toggling an old one-shot is not refused as "past".
       const s = RoutineScheduler.resolveSchedule({ cron: i.cron ?? cur.cron, onceAt: onceAt === undefined ? cur.onceAt : onceAt }, scheduler.timezone());
       if ('error' in s) throw new HttpError(400, s.error);
       sched = s;
@@ -640,7 +566,6 @@ export function createRest(deps: RestDeps) {
   add('POST', '/api/routines/:id/run', ({ params }) => ({ ok: scheduler.fire(params.id, { manual: true }) }));
   add('GET', '/api/routines/:id/runs', ({ params }) => repos.listRuns(params.id));
 
-  // ---- the owner's routing rules. Human-only, like settings; a bot can only propose a line, on an approval card.
   if (deps.routing) {
     const routing = deps.routing;
     add('GET', '/api/routing', () => ({ text: routing.read() }));
@@ -655,8 +580,6 @@ export function createRest(deps: RestDeps) {
     });
   }
 
-  // ---- P7: knowledge repo, voice, notes, skill import from git
-  // Human-only, like settings: no bot tool reaches the knowledge sync or the voice approvals.
   if (deps.knowledge) {
     const knowledge = deps.knowledge;
     add('GET', '/api/knowledge', () => knowledge.status());
@@ -687,11 +610,9 @@ export function createRest(deps: RestDeps) {
     }
   });
 
-  // ---- usage
   add('GET', '/api/usage', ({ query }) => {
     const botId = query.get('botId') ?? undefined;
     const roomId = query.get('roomId') ?? undefined;
-    // byModel / byCause (P8): where the money went, so automation spend is visible next to chat spend.
     const res: UsageResponse = {
       totals: repos.usageTotals({ botId, roomId }), rows: repos.usageBreakdown(),
       byModel: repos.usageBy('model'), byCause: repos.usageBy('causeKind'), byProvider: repos.usageBy('provider'),
@@ -711,7 +632,6 @@ export function createRest(deps: RestDeps) {
       r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
       let body: unknown = undefined;
       if (method !== 'GET' && method !== 'DELETE') {
-        // 1 MB cap (audit 2026-09-09, B15): an unbounded body was a free memory-exhaustion DoS.
         const buf = await readBody(req);
         if (buf === null) return send(res, 413, { error: 'Request body too large (max 1 MB)' });
         const raw = buf.toString('utf8');

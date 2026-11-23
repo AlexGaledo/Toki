@@ -28,7 +28,6 @@ export function createMediaApi({ media }: { media: MediaStore }) {
     const method = req.method ?? 'GET';
     if (method === 'POST' && /^\/api\/media\/?$/.test(pathname)) {
       if (principalOf(req)?.kind !== 'hub') return send(res, 403, { error: 'Only the desktop app can do this' });
-      // `?for=attachment` is a picture for a chat message: a larger cap than an avatar, same checks on the bytes.
       const attachment = new URL(req.url ?? '/', 'http://localhost').searchParams.get('for') === 'attachment';
       const buf = await readBody(req, attachment ? Math.ceil(MAX_ATTACHMENT_BYTES / 3) * 4 + 4096 : undefined);
       if (buf === null) return send(res, 413, { error: 'Image too large' });
@@ -46,9 +45,6 @@ export function createMediaApi({ media }: { media: MediaStore }) {
         throw e;
       }
     }
-    // Files and videos on a chat message. The body is the raw bytes (no base64, no JSON) so a 200 MB video streams
-    // straight to disk. The name rides in `x-file-name` (URI-encoded) and the browser's guess at the type in
-    // `x-file-type`; both are only ever shown. Content-Type is application/octet-stream (see checkContentType).
     if (method === 'POST' && /^\/api\/files\/?$/.test(pathname)) {
       if (principalOf(req)?.kind !== 'hub') return send(res, 403, { error: 'Only the desktop app can do this' });
       const declaredLength = Number(req.headers['content-length'] ?? 0);
@@ -73,7 +69,6 @@ export function createMediaApi({ media }: { media: MediaStore }) {
       const found = media.readFile(f[1]);
       if (!found) return send(res, 404, { error: 'Not found' });
       if (f[2]) return send(res, 200, found.meta);
-      // Always a download, never rendered by the browser: whatever the bytes are, they cannot run as a page here.
       res.writeHead(200, {
         'content-type': 'application/octet-stream',
         'content-length': found.meta.size,
@@ -91,7 +86,6 @@ export function createMediaApi({ media }: { media: MediaStore }) {
     const found = media.read(m[1]);
     if (!found) return send(res, 404, { error: 'Not found' });
     const headers = {
-      // Authenticated: each use revalidates, so a revoked device gets a 401 and an unchanged picture a 304.
       'cache-control': 'private, no-cache',
       etag: '"' + m[1] + '"',
       'x-content-type-options': 'nosniff',

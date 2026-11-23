@@ -14,13 +14,8 @@ import { isInside } from '../permissions/pathRules.js';
  */
 export const MAX_MEMORY_BYTES = 8 * 1024;
 
-/** Left in place of the dropped notes, so the bot can see its memory was trimmed. */
 export const TRIM_NOTE = '<!-- older notes were trimmed to keep this file small -->';
 
-/**
- * Trim to the newest whole lines that fit. Newest wins: memory is appended to, so the tail holds the
- * recent material and dropping from the top loses the stalest notes first. Lines are never split.
- */
 export function capMemory(text: string, limit: number = MAX_MEMORY_BYTES): { text: string; trimmed: boolean } {
   if (Buffer.byteLength(text, 'utf8') <= limit) return { text, trimmed: false };
 
@@ -34,8 +29,6 @@ export function capMemory(text: string, limit: number = MAX_MEMORY_BYTES): { tex
     kept.unshift(lines[i]);
     used += cost;
   }
-  // A single line longer than the whole budget would leave `kept` empty; hard-cut it so the write
-  // still lands under the ceiling instead of writing nothing.
   if (!kept.length) kept.push(Buffer.from(lines[lines.length - 1], 'utf8').subarray(-budget).toString('utf8'));
 
   return { text: TRIM_NOTE + '\n' + kept.join('\n'), trimmed: true };
@@ -51,7 +44,6 @@ export class MemoryService {
   ensureHome(botId: string) {
     fs.mkdirSync(botHome(botId), { recursive: true });
   }
-  /** Deletes the bot's private home (memory, identity, plugin). Used by every bot-delete path. */
   removeHome(botId: string) {
     fs.rmSync(botHome(botId), { recursive: true, force: true });
   }
@@ -73,7 +65,6 @@ export class MemoryService {
     this.ensureHome(botId);
     fs.writeFileSync(this.identityFile(botId), text);
   }
-  /** Returns true when older notes had to be dropped to fit under {@link MAX_MEMORY_BYTES}. */
   write(botId: string, text: string): boolean {
     const capped = capMemory(text);
     this.ensureHome(botId);
@@ -81,7 +72,6 @@ export class MemoryService {
     events.emitEvent({ type: 'memory.updated', botId, text: capped.text });
     return capped.trimmed;
   }
-  /** Copy of memory.md from before AutoMemory replaced it with a merged version; only the newest is kept. */
   backupFile(botId: string) {
     return this.file(botId) + '.bak';
   }
@@ -100,7 +90,6 @@ export class MemoryService {
     return true;
   }
 
-  // ---- P7: voice.md (style notes, briefly in the prompt) ----
   voiceFile(botId: string) {
     return path.join(botHome(botId), 'voice.md');
   }
@@ -111,7 +100,6 @@ export class MemoryService {
       return '';
     }
   }
-  /** Capped at {@link MAX_VOICE_BYTES}, oldest lines first, like memory. Returns true when it had to trim. */
   writeVoice(botId: string, text: string): boolean {
     const capped = capMemory(text, MAX_VOICE_BYTES);
     this.ensureHome(botId);
@@ -120,11 +108,9 @@ export class MemoryService {
     return capped.trimmed;
   }
 
-  // ---- P7: notes/ (searched on demand, never in the prompt) ----
   notesDir(botId: string) {
     return path.join(botHome(botId), 'notes');
   }
-  /** Note files (`*.md`) in the bot's notes folder, newest first, at most {@link MAX_NOTE_FILES}. */
   listNotes(botId: string): { name: string; bytes: number; mtime: number }[] {
     const dir = this.notesDir(botId);
     let names: string[] = [];
@@ -144,10 +130,6 @@ export class MemoryService {
     }
     return out.sort((a, b) => b.mtime - a.mtime).slice(0, MAX_NOTE_FILES);
   }
-  /**
-   * Write (or append to) `notes/<slug>.md`. The title becomes a kebab-case file name, so a bot cannot aim a
-   * note anywhere but its own notes folder. Each note is capped at {@link MAX_NOTE_BYTES}.
-   */
   writeNote(botId: string, title: string, text: string, mode: 'replace' | 'append' = 'replace'): { file: string; trimmed: boolean } {
     const dir = this.notesDir(botId);
     fs.mkdirSync(dir, { recursive: true });
@@ -168,10 +150,6 @@ export class MemoryService {
     fs.writeFileSync(file, body);
     return { file, trimmed };
   }
-  /**
-   * Case-insensitive term search over the notes. Every term must appear in a note (body or file name) for it
-   * to match; hits rank by how often the terms occur (a file-name hit counts extra) and carry a few lines.
-   */
   searchNotes(botId: string, query: string, limit = 8, tag?: string): NoteHit[] {
     const terms = [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}_-]+/u).filter((t) => t.length >= 2))].slice(0, 12);
     const wantTag = tag?.trim().toLowerCase().replace(/^#/, '');
@@ -205,30 +183,17 @@ export class MemoryService {
   }
 }
 
-// ---- P7 limits ----
-/**
- * voice.md rides the prompt on every turn next to memory, so it stays far smaller: 1 KB is a dozen short
- * style rules ("no emoji", "lead with the answer"), enough to sound like someone without costing a turn.
- */
 export const MAX_VOICE_BYTES = 1024;
-/** One note file. Notes are read on demand, so this only bounds a single search and a single Read. */
 export const MAX_NOTE_BYTES = 32 * 1024;
-/** Notes per bot; search reads them all, so this bounds a search too. */
 export const MAX_NOTE_FILES = 500;
 
 export interface NoteHit {
-  /** Absolute path, so the bot can Read the whole note. */
   file: string;
   name: string;
   score: number;
-  /** Up to three matching lines, each at most 200 chars. */
   lines: string[];
 }
 
-/**
- * Tags in a note's front-matter: a leading `---` block with a `tags: a, b` (or `tags: [a, b]`) line. Lower-cased,
- * at most 10, each up to 32 characters of letters, digits, `-` and `_`.
- */
 export function noteTags(body: string): string[] {
   const m = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(body);
   if (!m) return [];
@@ -237,7 +202,6 @@ export function noteTags(body: string): string[] {
   return [...new Set(line[1].replace(/^\[|\]$/g, '').split(',').map((t) => t.trim().toLowerCase().replace(/^#/, '')).filter((t) => /^[\p{L}\p{N}_-]{1,32}$/u.test(t)))].slice(0, 10);
 }
 
-/** `"Q3 Launch / Plan!"` -> `q3-launch-plan`. Never empty, never a path. */
 export function noteSlug(title: string): string {
   const s = title
     .toLowerCase()

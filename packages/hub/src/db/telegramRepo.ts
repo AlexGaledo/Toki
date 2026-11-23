@@ -1,10 +1,8 @@
 import type { Db } from './db.js';
 
-/** The one Telegram link (migration 300). No secret in here: the token lives in the vault. */
 export interface TelegramLinkRow {
   botId: string | null;
   botUsername: string | null;
-  /** Numeric Telegram user id (== private chat id), as a string. Never a username. */
   chatId: string | null;
   linkedName: string | null;
   notify: boolean;
