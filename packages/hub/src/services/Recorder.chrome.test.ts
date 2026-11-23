@@ -111,7 +111,16 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     const send = (m: string, p: Record<string, unknown> = {}) => user.send(m, p, sessionId);
     await send('Page.enable');
     await send('Page.navigate', { url: FIXTURE });
-    await sleep(800);
+    // Typing before the recorder has attached to the checkout page loses the first keystrokes, so wait for its nav
+    // and for the page to finish loading instead of sleeping a fixed time.
+    for (let i = 0; i < 100; i++) {
+      const traces = fs.readdirSync(root).map((d) => path.join(root, d, 'trace.jsonl')).filter((f) => fs.existsSync(f));
+      const navved = traces.some((f) => fs.readFileSync(f, 'utf8').split('\n').some((l) => l.includes('"t":"nav"') && l.includes('checkout.html')));
+      const { result } = (await send('Runtime.evaluate', { expression: 'document.readyState', returnByValue: true })) as { result: { value: string } };
+      if (navved && result.value === 'complete') break;
+      await sleep(100);
+    }
+    await sleep(300);
     const click = async (sel: string) => {
       const { result } = (await send('Runtime.evaluate', {
         expression: 'JSON.stringify((() => { const r = document.querySelector(' + JSON.stringify(sel) + ').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })())',
