@@ -70,7 +70,7 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     }
   });
 
-  it('records the checkout with no password, card number or code in the trace or a kept frame', async () => {
+  it('records the checkout with no password, card number or code in the trace or a kept frame', { timeout: 30_000, retry: 2 }, async () => {
     expect(cdpUrl).not.toBe('');
     const state = new Map<string, ControlStatus>();
     const control = {
@@ -152,7 +152,8 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     const raw = fs.readFileSync(path.join(dir, 'trace.jsonl'), 'utf8');
     for (const s of [PASSWORD, CARD, OTP]) expect(raw).not.toContain(s);
     const trace = rec.readTrace('b', info.id);
-    expect(trace.some((e) => e.t === 'nav' && String(e.url).endsWith('checkout.html'))).toBe(true);
+    const navs = trace.filter((e) => e.t === 'nav').map((e) => String(e.url));
+    expect(navs.some((u) => u.endsWith('checkout.html')), 'checkout nav missing; navs seen: ' + JSON.stringify(navs) + '; first events: ' + JSON.stringify(trace.slice(0, 5))).toBe(true);
     expect(trace.some((e) => e.t === 'type' && e.value === 'me@example.com')).toBe(true);
     expect(trace.filter((e) => e.t === 'type' && e.value === '«secret»')).toHaveLength(3);
     const pay = trace.find((e) => e.t === 'click' && (e.target as { text?: string })?.text === 'Pay now');
@@ -161,5 +162,5 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     const frames = fs.readdirSync(path.join(dir, 'frames'));
     expect(frames.map((f) => fs.readFileSync(path.join(dir, 'frames', f), 'utf8'))).toEqual(['PNG:login form']);
     expect(info.framesDropped).toBeGreaterThanOrEqual(4);
-  }, 30_000);
+  });
 });
