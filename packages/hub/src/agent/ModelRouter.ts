@@ -8,6 +8,7 @@ export interface RouteRequest {
   bot: Pick<Bot, 'model'>;
   causeKind: CauseKind;
   input: string;
+  /** Only this, on a turn a person started, can be an explicit ask for a stronger model. */
   latestUserText?: string;
   routinePrompt?: string;
   chosen?: boolean;

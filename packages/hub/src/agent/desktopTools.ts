@@ -19,6 +19,7 @@ export interface DesktopTarget {
   xauthority?: string;
   home: string;
   fileRoots?: string[];
+  /** Every desktop tool, screenshot included, refuses without touching the display. */
   guard?: () => string | null | Promise<string | null>;
 }
 
@@ -56,6 +57,7 @@ async function takeScreenshot(env: NodeJS.ProcessEnv): Promise<ToolOutput> {
 }
 
 export function desktopTools(target: DesktopTarget = sharedDesktop()): HubTool[] {
+  // Never the hub's own DISPLAY: bot A's clicks must only land on bot A's screen.
   const env: NodeJS.ProcessEnv = { ...process.env, DISPLAY: target.display, ...(target.xauthority ? { XAUTHORITY: target.xauthority } : {}) };
   const roots = [WORKSPACE_DIR, ...(target.fileRoots ?? [])];
   const screenshot = () => takeScreenshot(env);
@@ -134,6 +136,7 @@ export function desktopTools(target: DesktopTarget = sharedDesktop()): HubTool[]
     'Start a desktop GUI application by command, e.g. "thunar", "mousepad notes.txt", "ristretto shot.png". File arguments must be inside the shared workspace' + (target.fileRoots?.length ? ' or your computer\'s own disk' : '') + '. Returns a screenshot after it opens.',
     { command: z.string().min(1).describe('Program and arguments') },
     async (a) => {
+      // No terminals or shells: typing into one would run commands past bashRules and the approval cards.
       const allowed = /^(thunar|mousepad|ristretto|xfce4-appfinder|xdg-open)(\s|$)/;
       if (!allowed.test(a.command.trim())) return err('Only these desktop apps can be launched: thunar, mousepad, ristretto, xfce4-appfinder, xdg-open <file>. Terminals and shells are not launchable; use Bash for commands.');
       const [cmd, ...args] = a.command.trim().split(/\s+/);

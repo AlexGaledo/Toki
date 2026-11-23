@@ -188,6 +188,7 @@ export function buildArgs(o: ArgOptions): string[] {
     '--cwd', o.cwd,
     '-m', o.model,
     '--max-turns', String(o.maxTurns),
+    // Approvals are best-effort via `request_approval`; these deny rules are the hard floor.
     '--always-approve',
     // `--rules` appends to grok's system prompt; `--system-prompt-override` would replace it and drop the
     // CLI's own tool instructions. The value is a short pointer at a 0600 rules file, never the prompt

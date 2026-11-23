@@ -11,6 +11,7 @@ export function attachmentsDirFor(root: string, botId: string): string | null {
   return /^[A-Za-z0-9_-]{1,64}$/.test(botId) ? path.join(root, botId) : null;
 }
 
+/** Null when untrusted: must be a real directory (lstat) directly inside the real `root`, rechecked before every file. */
 function trustedDir(root: string, dir: string): string | null {
   try {
     const st = fs.lstatSync(dir);
@@ -24,6 +25,7 @@ function trustedDir(root: string, dir: string): string | null {
 
 const NOFOLLOW = fs.constants.O_NOFOLLOW ?? 0;
 
+/** New files only: folder rechecked, O_CREAT|O_EXCL|O_NOFOLLOW, then the handle is matched to the path before writing. */
 function writeNew(root: string, dir: string, name: string, bytes: Buffer): string | null {
   const before = trustedDir(root, dir);
   if (!before) return null;
@@ -59,6 +61,7 @@ function writeNew(root: string, dir: string, name: string, bytes: Buffer): strin
   }
 }
 
+/** `root` is hub-owned, outside the bot's home, so its file tools cannot change these; names are content hashes, never client input. */
 export function materializeImages(media: MediaStore | undefined, root: string, botId: string, refs: readonly string[] | undefined, afterWrite?: (n: number) => void): TurnImage[] {
   if (!media || !refs?.length) return [];
   const dir = attachmentsDirFor(root, botId);
@@ -203,12 +206,14 @@ export function imageNote(images: readonly TurnImage[]): string {
 
 export const ATTACHMENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** Never follows a link: a link is removed, not its target. */
 export function removeBotAttachments(root: string, botId: string): void {
   const dir = attachmentsDirFor(root, botId);
   if (!dir) return;
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* the next sweep gets it */ }
 }
 
+/** Only real directories and plain files are touched, so a planted link is never followed. */
 export function sweepAttachments(root: string, knownBotIds: ReadonlySet<string>, ttlMs = ATTACHMENT_TTL_MS, now = Date.now()): number {
   let names: string[];
   try { names = fs.readdirSync(root); } catch { return 0; }
@@ -218,6 +223,7 @@ export function sweepAttachments(root: string, knownBotIds: ReadonlySet<string>,
     try {
       const st = fs.lstatSync(dir);
       if (!st.isDirectory()) continue;
+      // never touch a stray file or a link
       if (!attachmentsDirFor(root, name) || !knownBotIds.has(name)) { fs.rmSync(dir, { recursive: true, force: true }); removed++; continue; }
       for (const f of fs.readdirSync(dir)) {
         const file = path.join(dir, f);

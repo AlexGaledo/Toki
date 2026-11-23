@@ -27,6 +27,7 @@ export interface ProviderRegistry {
   list(): AgentProvider[];
   get(id: ProviderId): AgentProvider;
   active(): AgentProvider;
+  /** A provider this hub does not enable resolves to Claude, so a bot pointed at one never runs on it. */
   forBot(bot: Pick<Bot, 'provider'>): AgentProvider;
   claudeReady(): boolean;
   modelsSync(id: ProviderId): ModelInfo[];

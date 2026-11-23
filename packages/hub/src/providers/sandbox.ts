@@ -38,6 +38,7 @@ export const realFs: SandboxFs = {
 };
 
 export interface SandboxSpec {
+  /** Never mounted whole, and no mount may contain it. */
   dataDir: string;
   home: string;
   cwd: string;
@@ -58,10 +59,12 @@ export function transcriptDirName(cwd: string): string {
 }
 
 const SYSTEM_LINKS = ['/bin', '/sbin', '/lib', '/lib32', '/lib64', '/libx32'];
+/** Nothing here holds a secret. */
 const ETC = [
   'resolv.conf', 'hosts', 'nsswitch.conf', 'host.conf', 'gai.conf', 'passwd', 'group', 'localtime', 'timezone',
   'ld.so.cache', 'ld.so.conf', 'ld.so.conf.d', 'ssl', 'ca-certificates', 'alternatives', 'mime.types',
 ];
+/** Never reach the child, whatever the allowlist let through. */
 const ENV_DENY = /^(POCKETROCKET_TOKEN|POCKETROCKET_MCP_TOKEN)$/i;
 const ENV_DROP = /^(TMPDIR|TEMP|TMP|DISPLAY|XAUTHORITY|XDG_.*|DBUS_.*|SSH_.*)$/i;
 

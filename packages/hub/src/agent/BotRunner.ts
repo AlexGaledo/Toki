@@ -60,11 +60,14 @@ export interface TurnRequest {
   injected: string;
   images?: string[];
   slashCommand?: string;
+  /** The newest message a person wrote: the only text that can ask the router for a stronger model. */
   latestUserText?: string;
+  /** A routine's own prompt: the only other text that can invoke a skill that asks for Opus. */
   routinePrompt?: string;
   chatModel?: string;
   causeBudgetUsd?: number;
   causeKind?: CauseKind;
+  /** Not started by a person (routine, trigger): approvals apply even when the hub is in bypass mode. */
   strictApprovals?: boolean;
   ownerRef?: string;
   freshSession?: boolean;
@@ -181,6 +184,7 @@ export class BotRunner {
     private hooks: RunnerHooks,
     private providers: ProviderRegistry,
     private turns: TurnRegistry,
+    /** Left out or switched off, Browser and Desktop are refused: there is no shared screen. */
     private computers?: ComputerManager,
     private p7: { knowledgeDir?: () => string | null; routing?: RoutingRules } = {},
     private media?: MediaStore,
@@ -191,6 +195,7 @@ export class BotRunner {
   interrupt(turnId: string, by?: 'owner') {
     const ac = this.aborts.get(turnId);
     if (by === 'owner' && ac) this.ownerStops.add(turnId);
+    // Only the provider the turn started on can stop it.
     const stopped = this.turnProviders.get(turnId)?.interrupt(turnId) ?? false;
     if (ac) ac.abort();
     return stopped || !!ac;
@@ -199,6 +204,7 @@ export class BotRunner {
     const lane = this.laneTurns.get(botId + ':' + roomId);
     return lane ? this.interrupt(lane.turnId, by) : false;
   }
+  /** Steers only reach a live provider run, and only through the provider the turn started on. */
   steer(botId: string, roomId: string, req: SteerRequest): LaneSteerResult {
     const lane = this.laneTurns.get(botId + ':' + roomId);
     const bot = lane ? null : this.repos.getBot(botId);
@@ -236,6 +242,7 @@ export class BotRunner {
     const { bot, room } = req;
     const turnId = nanoid(10);
     const budgetUsd = spendCapsOff() ? Infinity : Math.min(bot.maxBudgetUsd, req.causeBudgetUsd ?? Infinity);
+    // A failover turn runs only on the backup the owner pressed Continue for, never some other provider.
     const override = req.providerOverride && this.providers.get(req.providerOverride.provider).id === req.providerOverride.provider ? req.providerOverride : undefined;
     const provider = override ? this.providers.get(override.provider) : this.providerFor(bot);
     const sessionProvider = this.repos.getSession(bot.id, room.id).provider;
@@ -277,6 +284,7 @@ export class BotRunner {
 
     const wantsDesktop = bot.allowedTools.includes('Desktop') && DESKTOP_AVAILABLE;
     const wantsBrowser = bot.allowedTools.includes('Browser');
+    // Browser and Desktop never fall back to one shared screen.
     let computer: ComputerEndpoint | null = null;
     let computerDown: string | undefined;
     let releaseComputer = () => undefined as void;
@@ -303,8 +311,10 @@ export class BotRunner {
     const desktopOn = wantsDesktop && !computerDown;
     const browserOn = wantsBrowser && !computerDown;
     const computerStatus = computer?.perBot ? this.computers!.status(bot.id) : null;
+    // A strict turn (routine, trigger) ignores bypass: the provider runs in ask mode and the broker raises cards.
     const bypass = this.broker.bypassed && !req.strictApprovals;
     const bestEffort = provider.info.permissions === 'best-effort' && !bypass;
+    // Only a model the active provider lists; it never raises the budget.
     const providerModels = provider.modelsSync();
     const causeKind: CauseKind = req.causeKind ?? (req.hop > 0 ? 'bot' : 'user');
     const chatModel = !override && provider.id === 'claude' && req.chatModel && (req.chatModel === AUTO_MODEL || providerModels.some((m) => m.id === req.chatModel)) ? req.chatModel : null;
@@ -368,6 +378,7 @@ export class BotRunner {
       forms: this.forms,
       strictApprovals: !!req.strictApprovals,
       requestApproval: bestEffort ? (a) => this.broker.ask(permCtx, a, ac.signal) : undefined,
+      // The gate lives with the tool: CLI providers reach hub tools over MCP and never hit the SDK permission callback.
       confirmFleetChange: (a) => this.broker.askFleetChange(permCtx, a.tool, a.input, a.reason, ac.signal, { evenUnderBypass: a.evenUnderBypass, machine: a.machine }),
       confirmOutsideHandoff: (a) => this.broker.askOutsideHandoff(permCtx, a.input, a.reason, ac.signal),
       useStrongerModel: provider.id === 'claude' ? (reason) => {
@@ -430,6 +441,7 @@ export class BotRunner {
       }));
     }
 
+    // Integration tools only for connections granted to this bot; writes ask on every call, also under bypass.
     if (this.integrations) {
       tools.push(...createIntegrationTools(this.integrations, bot.id, (a) => this.broker.askIntegrationWrite(permCtx, a.tool, a.input, a.reason, ac.signal)));
     }
@@ -467,6 +479,7 @@ export class BotRunner {
     // The per-turn MCP bearer travels in provider config and can surface in a stderr tail: scrub it until the turn ends.
     addSecret(mcpToken);
     const outsideMcp = vpsMountable(outsideMcpFor(bot.handle, room), keyRegistry);
+    // Bearer tokens and stdio env values (the owner's API keys) are scrubbed from tool output, chat and logs.
     registerOutsideMcpSecrets(outsideMcp);
     const images = materializeImages(this.media, ATTACHMENTS_DIR, bot.id, req.images);
     const files = materializeFiles(this.media, ATTACHMENTS_DIR, bot.id, req.images);
@@ -491,6 +504,7 @@ export class BotRunner {
         computerUnavailable: computerDown,
         routing: routing?.promptText(),
         keyRegistry,
+        // The tools themselves refuse on turns where mayMoveUp / mayPropose is false.
         canMoveUp: provider.id === 'claude' && isAuto(bot),
         canProposeRouting: !!routing,
         skillIndex,
@@ -874,6 +888,7 @@ export class BotRunner {
     };
   }
 
+  /** `git push` is refused for this turn, approvals bypassed or not. */
   async runOffloadTurn(req: OffloadTurnRequest): Promise<OffloadTurnOutcome> {
     const { bot, room } = req;
     const turnId = nanoid(10);
@@ -1003,6 +1018,7 @@ export class BotRunner {
     }
   }
 
+  /** Answered without the hub token, so the error names no path. */
   static checkExe(): { ok: boolean; error?: string } {
     return fs.existsSync(CLAUDE_EXE) ? { ok: true } : { ok: false, error: 'claude executable not found' };
   }

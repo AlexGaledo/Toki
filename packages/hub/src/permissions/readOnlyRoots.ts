@@ -3,6 +3,7 @@ import { bashWritesReadOnly } from './bashRules.js';
 import { isInside, pathsFromInput } from './pathRules.js';
 import { denyMessage } from './messages.js';
 
+/** acceptEdits would auto-accept writes in a read-only root: this asks instead, or denies under bypass. */
 export const WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const;
 export const READ_ONLY_GUARD_TOOLS = [...WRITE_TOOLS, 'Bash'] as const;
 

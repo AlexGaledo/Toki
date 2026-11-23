@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+/** Under acceptEdits the CLI runs rm/rmdir/mv inside the roots unseen, so this hook (and classifyBash) catches them. */
 export interface GateHit {
   reason: string;
+  /** It destroys data, so approval rules never cover it. */
   danger: boolean;
 }
 

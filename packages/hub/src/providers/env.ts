@@ -33,6 +33,7 @@ const PROVIDER_PREFIXES: Record<ProviderKind, string[]> = {
   gemini: [],
 };
 
+/** Never forwarded, whatever a prefix says: the hub token above all. */
 const DENY = new Set(['pocketrocket_token']);
 
 function allowed(key: string, provider: ProviderKind): boolean {

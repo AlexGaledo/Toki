@@ -62,10 +62,13 @@ export interface ToolCtx {
   modelsFor?: (provider: ProviderId | null) => string[];
   skillsAsText?: boolean;
   requestApproval?: (a: { action: string; command?: string; paths?: string[]; reason?: string }) => Promise<{ allowed: boolean; message: string; approvalId?: string }>;
+  /** Fleet changes raise this card on every provider; absent only in unit tests. */
   confirmFleetChange?: (a: { tool: string; reason: string; input: Record<string, unknown>; evenUnderBypass?: boolean; machine?: string }) => Promise<{ allowed: boolean; message: string }>;
   confirmOutsideHandoff?: (a: { input: { to_bot: string; task: string; context?: string }; reason: string }) => Promise<{ allowed: boolean; message: string }>;
   useStrongerModel?: (reason: string) => boolean | string;
+  /** Refused inside on a turn the owner did not start. */
   proposeRouting?: (line: string, reason: string) => Promise<{ ok: boolean; message: string }>;
+  /** Stored and enforced only if the owner approves the card; refused on a turn the owner did not start directly. */
   proposeRule?: (rule: { kind: 'command' | 'path'; pattern: string; instead: string; reason: string }) => Promise<{ ok: boolean; message: string }>;
   routinesChanged?: () => void;
   timezone?: string;
@@ -74,6 +77,7 @@ export interface ToolCtx {
   pcSessions?: PcSessions;
   sessionMoves?: SessionMoves;
   forms?: FormBroker;
+  /** Unattended turns get no request_form: nobody is watching to answer it. */
   strictApprovals?: boolean;
   signal?: AbortSignal;
   keyRegistry?: () => KeyRegistry;
@@ -131,6 +135,7 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     events.emitEvent({ type: 'message.new', message: msg });
     return msg;
   };
+  /** Only from this bot's roots, never the hub's own files. */
   const attachImage = (imagePath: string): { ref: string } | { error: string } => {
     if (!ctx.media) return { error: 'This hub cannot store images yet.' };
     if (!isInside(imagePath, botRoots(ctx.bot.id, ctx.room.id), WORKSPACE_DIR)) {
@@ -230,6 +235,7 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
   const joinFromFleet = async (b: Bot): Promise<{ bot: Bot } | { out: ToolOutput }> => {
     const room = ctx.repos.getRoom(ctx.room.id) ?? ctx.room;
     if (room.memberIds.length >= MAX_ROOM_BOTS) return { out: err('"' + room.name + '" is full (' + MAX_ROOM_BOTS + ' bots); @' + b.handle + ' cannot join.') };
+    // The owner's call on any hub, bypass included: this bot has different logins and tools.
     if (ctx.confirmFleetChange) {
       const r = await ctx.confirmFleetChange({
         tool: 'add_to_room', evenUnderBypass: true,
@@ -937,6 +943,7 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       { readOnly: true },
     ));
   }
+  // Only the owner edits a project's repo list; no bot tool can change it.
   const scope = repoScope(ctx);
   if (scope) {
     if (ctx.pcSessions && settings.get().personaBotId !== ctx.bot.id) tools.push(...pcSessionTools(ctx, scope.slug));
@@ -965,6 +972,7 @@ const PERSONA_READS = new Set(['read_any_room', 'read_pc_session', 'list_pc_sess
 
 export const OWNER_ONLY_BOT_FIELDS = ['provider', 'backup'] as const;
 
+/** Which provider a bot runs on and fails over to is the owner's choice: refuse it, never drop it silently. */
 function ownerOnlyFields(t: HubTool): HubTool {
   return {
     ...t,
@@ -1349,6 +1357,7 @@ function workflowTools(
   return [list, create, update];
 }
 
+// Every PC job needs the owner's card (under bypass too, never pre-approved), and the PC asks again locally.
 const cwdBase = (cwd: string | null): string => (cwd ? cwd.split(/[\\/]+/).filter(Boolean).pop() ?? '' : '');
 
 export function repoScope(ctx: ToolCtx): { slug: string; repos: ProjectRepo[] } | null {
@@ -1371,6 +1380,7 @@ function syncSummary(j: PcJob, info: PcSyncJobInfo): string {
   return 'Synced ' + info.repo + ' (' + r.mode + '): the session\'s working tree at commit ' + r.commit.slice(0, 12) + ' was ' + where + '. The scan found nothing.';
 }
 
+/** Only a browser signed in with the owner's password may allow a move; the PC asks again before uploading. */
 export function proposeMoveTool(ctx: ToolCtx, pc: PcRunner, moves: SessionMoves): HubTool {
   const userName = settings.get().userName;
   const persona = settings.get().personaBotId === ctx.bot.id;
@@ -1456,11 +1466,13 @@ export function runOnPcTool(ctx: ToolCtx, pc: PcRunner): HubTool {
       const machineId = a.machine?.trim().toLowerCase() || PC_MACHINE_ID;
       if (machineId === VPS_MACHINE_ID) return err(denyMessage('unavailable', { subject: 'run_on_pc on your own computer', note: 'that is the machine you are already on', alt: 'run it yourself with your own tools' }));
       if (machineId !== PC_MACHINE_ID) return err('Unknown machine "' + a.machine + '". Call list_machines for the ids.');
+      // 'always' still keeps the sign-in-only card on every job and the PC's own prompt.
       if (new Machines(ctx.repos.db, pc).policy(PC_MACHINE_ID) === 'never') {
         return err(denyMessage('off', { subject: 'running jobs on the PC', note: userName + ' turned it off for this machine, nothing was sent', alt: 'use your own computer' }));
       }
       if (!pc.isPaired()) return err('No PC is paired with this hub. ' + userName + ' can pair one in Settings.');
       const needs = [...new Set(a.needs ?? [])];
+      // Only keys the registry says the PC holds: an unknown name is refused, never guessed.
       if (needs.length) {
         const reg = (ctx.keyRegistry ?? loadKeyRegistry)();
         const notOnPc = needs.filter((k) => !reg.get(k)?.where.includes('pc'));
@@ -1639,6 +1651,7 @@ export function escalateTool(ctx: ToolCtx, now: () => number = Date.now): HubToo
   );
 }
 
+// Local data only: nothing here changes a setting, approval or the fleet; text read back is quoted and redacted.
 function taskSearchReportTools(ctx: ToolCtx): HubTool[] {
   const tasks = new TaskService(ctx.repos.db);
   const reports = ctx.reports ?? new BotReports(ctx.repos.db);

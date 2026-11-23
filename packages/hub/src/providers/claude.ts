@@ -22,6 +22,7 @@ import { logError } from './redact.js';
 import { outsideMcpNeedsCard } from '../services/outsideMcp.js';
 import type { AgentProvider, HubTool, LimitReport, ProviderInit, SteerInput, SteerResult, TurnContext, TurnImage, TurnLimit, TurnOutcome, TurnSink } from './types.js';
 
+// A bare allowedTools entry bypasses canUseTool everywhere, so file and shell tools must never be listed here.
 const AUTO_OK = new Set(['WebSearch', 'WebFetch']);
 const ALL_BUILTINS = ['Read','Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'Bash', 'WebSearch', 'WebFetch', 'NotebookEdit', 'Task'];
 const sdkNames = (t: string) => (t === 'Task' ? ['Task', 'Agent'] : [t]);
@@ -119,6 +120,7 @@ export function limitReport(info: SDKRateLimitInfo): LimitReport {
   };
 }
 
+/** Provider errors: never posted as the bot's reply nor read for @mentions. */
 const LIMIT_ERRORS: Partial<Record<SDKAssistantMessageError, ProviderLimitKind>> = {
   rate_limit: 'usage',
   overloaded: 'overloaded',
@@ -392,6 +394,7 @@ export class ClaudeProvider implements AgentProvider {
       };
     }
 
+    // Left out of allowedTools so outside bypass each call reaches canUseTool and the broker.
     for (const s of ctx.outsideMcp ?? []) {
       mcpServers[s.name] = s.kind === 'stdio'
         ? { type: 'stdio', command: s.command, args: s.args, env: s.env }
@@ -424,6 +427,7 @@ export class ClaudeProvider implements AgentProvider {
       return d === 'allow' ? { behavior: 'allow' } : { behavior: 'deny', message: denyMessage('declined', { alt: 'choose another approach or say so in the room' }) };
     };
 
+    // Writes into the read-only knowledge repo ask (or, under bypass, are denied) before acceptEdits sees them.
     const knowledgeDir = ctx.knowledgeDir ?? null;
     const readOnlyDirs = [...(knowledgeDir ? [knowledgeDir] : []), ...(ctx.readOnlyDirs ?? [])];
     const knowledgeGuard = readOnlyDirs.length
@@ -440,6 +444,7 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
+    // A PreToolUse deny holds in bypass mode too, where canUseTool is skipped.
     const controlGuard = ctx.controlGuard
       ? [{
           matcher: 'mcp__browser__.*|mcp__pocketrocket__desktop_.*',
@@ -454,6 +459,7 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
+    // Under bypass too: bypass skips canUseTool, never a hook.
     const gatedOutside = (ctx.outsideMcp ?? []).filter((s) => s.approve !== 'none');
     const outsideGuard = gatedOutside.length
       ? [{
@@ -476,6 +482,7 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
+    // These hold in every mode: no bot writes the routing rules or touches the hub's key files.
     const guards = [
       {
         matcher: [...new Set([...READ_ONLY_GUARD_TOOLS, 'Read', 'Glob', 'Grep'])].join('|'),
@@ -490,6 +497,7 @@ export class ClaudeProvider implements AgentProvider {
           },
         ],
       },
+      // Second line behind disallowedTools: a hook deny holds in bypass mode too.
       ...(browserOn
         ? [{
             matcher: BLOCKED_BROWSER_MATCHER,
@@ -611,6 +619,7 @@ export class ClaudeProvider implements AgentProvider {
       mcpServers,
       strictMcpConfig: true,
       canUseTool: (name, toolInput, o) => decide(name, toolInput, o),
+      // Read/Glob/Grep never prompt, so this escalates out-of-workspace paths to "ask".
       hooks: ctx.bypassPermissions ? { PreToolUse: guards, ...afterWrite } : {
         ...afterWrite,
         PreToolUse: [

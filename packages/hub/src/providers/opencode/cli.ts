@@ -94,6 +94,7 @@ export function authFilePath(): string {
   return path.join(base, 'opencode', 'auth.json');
 }
 
+/** Secrets in the file are never read out. */
 export function parseAuthFile(json: string): AuthList {
   let parsed: Record<string, { type?: string }>;
   try {

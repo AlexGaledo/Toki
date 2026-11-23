@@ -22,9 +22,11 @@ export interface PermCtx {
   hop: number;
   causeId: string;
   setState: (s: 'blocked' | 'working') => void;
+  /** A routine/trigger turn: bypass does not apply, every gate still asks. */
   strictApprovals?: boolean;
   ownerRef?: string;
   park?: (why: string) => void;
+  /** Control interlock: checked before bypass. */
   controlBlocked?: () => string | null;
 }
 
@@ -96,15 +98,19 @@ export function commandMatches(pattern: string, command: string): boolean {
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep']);
 
 const HUB_PREFIX = 'mcp__pocketrocket__';
+/** Never need a card: read-only, or already visible to the user as a room message. */
 const SILENT_HUB_TOOLS = SILENT_TOOLS;
+/** Allowed here because the tool handler raises the card itself, so MCP-only CLI providers are gated the same. */
 const GATED_HUB_TOOLS = GATED_TOOLS;
 
 const ASK_EVERY_TIME = ASK_EVERY_TIME_TOOLS;
 
+/** The hub token is not enough: a bot under bypass can read it and answer its own card. */
 export { SIGN_IN_TOOLS };
 export const SIGN_IN_MESSAGE =
   'Only a browser signed in with your password can approve this. The server token is not enough. Sign in, then approve it.';
 
+/** Anything bigger is refused, never truncated. */
 const OUTSIDE_INPUT_CAP = 8000;
 
 export const GRANT_TTL_MS = 10 * 60 * 1000;
@@ -129,6 +135,7 @@ export class PermissionBroker {
     private opts: {
       bypass?: () => boolean;
       globalReadOnly?: () => boolean;
+      /** Folders bots may read but never write. */
       readOnlyRoots?: () => string[];
       store?: ApprovalStore;
       now?: () => number;
@@ -144,6 +151,7 @@ export class PermissionBroker {
   get bypassed(): boolean {
     return !!this.opts.bypass?.();
   }
+  /** Never for a strict (routine/trigger) turn, whatever the setting says. */
   bypassedFor(ctx: Pick<PermCtx, 'strictApprovals'>): boolean {
     return this.bypassed && !ctx.strictApprovals;
   }
@@ -154,19 +162,24 @@ export class PermissionBroker {
     input: Record<string, unknown>,
     opts: { signal: AbortSignal; suggestions?: PermissionUpdate[]; blockedPath?: string },
   ): Promise<PermissionResult> {
+    // Before bypass and any card: nothing can approve a bot writing the owner's routing rules.
     const refused = routingFileWrite(toolName, input, WORKSPACE_DIR);
     if (refused) return { behavior: 'deny', message: refused };
+    // Ahead of bypass and the shell allowlist: the owner already said no to exactly this.
     const learned = this.learnedRule(ctx.bot.id, toolName, input);
     if (learned) return { behavior: 'deny', message: learned };
+    // The control interlock runs before bypass: a safety stop, not an approval.
     if (isComputerTool(toolName)) {
       const why = ctx.controlBlocked?.();
       if (why) return { behavior: 'deny', message: why };
     }
+    // Ahead of bypass and every card: a write is refused outright.
     if (this.opts.globalReadOnly?.()) {
       const refusal = this.readOnlyRefusal(ctx, toolName, input);
       if (refusal) return { behavior: 'deny', message: refusal };
     }
     if (this.bypassedFor(ctx)) {
+      // A shell write into a read-only root is refused even in bypass.
       const hit = toolName === 'Bash' ? this.readOnlyShellWrite(String(input.command ?? '')) : null;
       if (hit) return { behavior: 'deny', message: denyMessage('not_allowed', { subject: 'this shell command', note: 'the knowledge repo is read-only and it writes there: ' + hit, alt: 'write inside your own workspace instead, or say so in the room' }) };
       return { behavior: 'allow' };
@@ -236,11 +249,14 @@ export class PermissionBroker {
     return null;
   }
 
+  /** Allow rules never cover a command the classifier calls dangerous, and nothing covers an integration write. */
   matchPolicy(botId: string, tool: string, subject: string, danger = false, machine?: string): 'allow' | 'deny' | null {
     if (INTEGRATION_WRITES.has(tool)) return null;
+    // Asked on every call: a deny rule still refuses, but no allow rule or "always" pre-approves it.
     if (ASK_EVERY_TIME.has(tool)) danger = true;
     const store = this.opts.store;
     if (!store) return !danger && this.alwaysAllowed.has(botId + ':' + tool) ? 'allow' : null;
+    // A deny rule with a machine also covers a call that names none.
     const rules = store.listPolicies(botId, 'all').filter((p) => p.tool === tool && patternMatches(p.pattern, subject)
       && (!p.machine || p.machine === machine || (p.decision === 'deny' && machine === undefined)));
     if (rules.some((p) => p.decision === 'deny')) return 'deny';
@@ -248,6 +264,7 @@ export class PermissionBroker {
     return null;
   }
 
+  /** Never for a write to a third party. */
   private rememberSession(botId: string, tool: string, input: Record<string, unknown>, danger: boolean) {
     if (INTEGRATION_WRITES.has(tool) || ASK_EVERY_TIME.has(tool) || danger) return;
     if (!this.opts.store) {
@@ -406,6 +423,7 @@ export class PermissionBroker {
     };
   }
 
+  /** Shows under bypass too: the other bot has different logins and tools. */
   async askOutsideHandoff(
     ctx: PermCtx,
     input: { to_bot: string; task: string; context?: string },
@@ -468,6 +486,7 @@ export class PermissionBroker {
     return { allowed: false, message: denyMessage('declined', { subject: 'this routing line', note: 'it was not added', alt: 'do not propose it again; carry on with the routing rules as they are' }) };
   }
 
+  /** Asks on every call, under bypass too, and no rule can pre-approve it. */
   async askRuleProposal(
     ctx: PermCtx,
     input: { kind: RuleKind; pattern: string; instead: string; reason: string },
@@ -487,6 +506,7 @@ export class PermissionBroker {
     return { allowed: true, message: 'Rule added. From now on that is refused with: ' + input.instead };
   }
 
+  /** Asks on EVERY call: bypass does not skip it, and "Always" is a single allow that is not remembered. */
   async askIntegrationWrite(
     ctx: PermCtx,
     toolName: string,
@@ -505,6 +525,7 @@ export class PermissionBroker {
     };
   }
 
+  /** Owner's API keys: asks on every call, under bypass and strict turns; no rule or "always" covers it. */
   async askOutsideMcp(
     ctx: PermCtx,
     server: string,
@@ -515,6 +536,7 @@ export class PermissionBroker {
     if (this.opts.globalReadOnly?.()) {
       return { allowed: false, message: denyMessage('readonly', { subject: 'outside tools', alt: 'say so in the room' }) };
     }
+    // Never ask about input the owner cannot see in full: a hidden tail could carry the real payload.
     const shown = redact(JSON.stringify(input ?? {}) ?? '{}');
     if (shown.length > OUTSIDE_INPUT_CAP) {
       return { allowed: false, message: denyMessage('unavailable', { subject: 'this call', note: 'its input is too large to show for approval (' + shown.length + ' chars)', alt: 'split it into smaller calls' }) };
@@ -559,6 +581,7 @@ export class PermissionBroker {
     input: Record<string, unknown>,
     reason: string,
     danger: boolean,
+    /** `once`: an "always" answer allows this call only and is never remembered. */
     opts: { signal: AbortSignal; once?: boolean },
   ): Promise<{ decision: Decision; approvalId: string }> {
     const gk = this.grantKey(ctx.bot.id, toolName, input);
@@ -631,6 +654,7 @@ export class PermissionBroker {
     return !!row && SIGN_IN_TOOLS.has(String(row.tool_name));
   }
 
+  /** An allow on a SIGN_IN_TOOLS card needs a browser signed in with the owner's password, not only the hub token. */
   resolve(approvalId: string, decision: 'allow' | 'always' | 'deny', opts: { device?: boolean; signedIn?: boolean } = {}): boolean {
     if (decision !== 'deny' && !opts.signedIn && this.needsSignIn(approvalId)) return false;
     const p = this.pending.get(approvalId);

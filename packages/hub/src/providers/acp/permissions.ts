@@ -54,6 +54,7 @@ function card(tc: ToolCallUpdate): BrokerAsk[] {
   }];
 }
 
+/** Never empty: what cannot be classified is one card. */
 export function brokerAsks(tc: ToolCallUpdate, cwd: string): BrokerAsk[] {
   const kind = tc.kind ?? 'other';
   const pathTool = PATH_KIND_TOOL[kind];
@@ -104,6 +105,7 @@ function pick(options: PermissionOption[], kinds: PermissionOptionKind[]): Reque
   return { outcome: { outcome: 'cancelled' } };
 }
 
+/** `allow_always` only when nothing else is offered and the turn is not strict. */
 export function allowResponse(options: PermissionOption[], strict: boolean): RequestPermissionResponse {
   return pick(options, strict ? ['allow_once'] : ['allow_once', 'allow_always']);
 }
@@ -111,8 +113,10 @@ export function denyResponse(options: PermissionOption[]): RequestPermissionResp
   return pick(options, ['reject_once', 'reject_always']);
 }
 
+/** Refused on a read-only (strict) turn. */
 export const WRITE_KINDS: ReadonlySet<string> = new Set(['edit', 'delete', 'move', 'switch_mode']);
 
+/** Bypass never applies on strict turns; the project, shipping and shared-file guards hold under bypass too. */
 export async function decideAcpPermission(
   req: RequestPermissionRequest,
   ctx: AcpPermCtx,
@@ -133,6 +137,7 @@ export async function decideAcpPermission(
   return allowResponse(req.options, strict);
 }
 
+/** Never chosen on a strict turn. */
 const PERMISSIVE = /bypass|yolo|danger|full.?access|accept.?edits|auto.?(?:approve|accept|edit)|allow.?all|(?<!un)trust(?:ed)?\b|skip/i;
 const ASKS = /\bask|always.?ask|manual|untrusted|on.?request|strict|confirm|default|normal|review/i;
 const READ_ONLY = /read.?only|\bplan\b|view.?only/i;
@@ -197,6 +202,7 @@ export function readOnlyModeChange(
   return null;
 }
 
+/** A write kind or a mode change breaks a read-only turn, even when the agent never asks. */
 export function readOnlyViolation(u: SessionUpdate, readOnlyId: string): string | null {
   if ((u.sessionUpdate === 'tool_call' || u.sessionUpdate === 'tool_call_update') && u.kind && WRITE_KINDS.has(u.kind)) {
     return 'tried to ' + (u.kind === 'switch_mode' ? 'leave read-only mode' : 'change files') + ' (' + (u.title ?? u.kind) + ')';

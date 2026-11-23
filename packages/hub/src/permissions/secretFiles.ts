@@ -183,12 +183,14 @@ function message(hit: Exclude<Hit, null>): string {
   return hit === 'hub' ? HUB_KEYS_MESSAGE : ENV_FILE_MESSAGE;
 }
 
+/** So `open('../secrets.json')` and `--file=x` are checked too. */
 function wordsOf(tok: string): string[] {
   const out = new Set([tok]);
   for (const w of tok.split(/[\s=(),;'"`<>|&]+/)) if (w) out.add(w);
   return [...out];
 }
 
+/** Unescaped, so `hub\-token` and `"secr"'ets.json'` read as the names they spell. */
 function unescapeShell(cmd: string): string {
   let out = '';
   let quote: string | null = null;
@@ -214,6 +216,7 @@ function shellPieces(cmd: string): string {
 }
 
 function bashAccess(cmd: string, startCwd: string, l: Layout): Hit {
+  // Backstop: shell syntax can hide a path from the checks, so a command naming a hub key file is refused outright.
   const flat = unescapeShell(cmd);
   if (BACKSTOP_NAMES.some((n) => flat.toLowerCase().includes(n))) return 'hub';
   // As written (Windows backslash paths) and unescaped (`.e\nv`); either one naming a guarded path is enough.
@@ -273,6 +276,7 @@ export function secretFileAccess(toolName: string, input: Record<string, unknown
     hit = classifyPath(base, l);
     const pattern = toolName === 'Glob' ? str(input.pattern) : str(input.glob);
     if (!hit && pattern) hit = classify(pattern, base, l);
+    // Refuse a search that would cover DATA_DIR itself.
     if (!hit && toolName === 'Grep' && holdsHubFiles(base, l)) hit = 'hub';
   } else if (['Read', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(toolName)) {
     for (const k of ['file_path', 'notebook_path', 'path']) {

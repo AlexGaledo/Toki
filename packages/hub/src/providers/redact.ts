@@ -29,6 +29,7 @@ const PATTERNS: RegExp[] = [
   /\bxox[abeoprs]-[A-Za-z0-9-]{10,}/g,
   /\bxapp-[A-Za-z0-9-]{10,}/g,
   /\bpk_\d+_[A-Za-z0-9]{16,}/g,
+  // Catches token shapes the hub never stored (a refreshed or mistyped one).
   // Telegram bot token, `<bot id>:<secret>`. It sits in the URL path (`/bot123456789:AAA…/getMe`), where `\b` finds
   // no boundary between `bot` and the digits, so the guard is a lookbehind on a digit instead.
   /(?<![0-9])\d{8,10}:[A-Za-z0-9_-]{35,}/g,
@@ -55,6 +56,7 @@ export function knownSecretCount(): number {
   return known.size;
 }
 
+/** Caught errors can carry token-bearing URLs or bodies: the hub prints them only through this. */
 export function logError(prefix: string, e: unknown): void {
   const text = e instanceof Error ? e.stack ?? e.message : typeof e === 'string' ? e : JSON.stringify(e) ?? String(e);
   console.error(prefix, redact(text));

@@ -19,6 +19,7 @@ export interface ToolOutput {
 export interface TurnImage {
   path: string;
   mediaType: 'image/png' | 'image/jpeg' | 'image/webp';
+  /** Never logged. */
   data?: Buffer;
 }
 
@@ -41,6 +42,7 @@ export interface TurnContext {
    * allow-all config) rather than routing asks through `permission`, which would allow them anyway.
    */
   bypassPermissions?: boolean;
+  /** Strict turn (routine, trigger, workflow step): approvals apply even under bypass. */
   strictApprovals?: boolean;
   permission: (
     toolName: string,
@@ -60,19 +62,27 @@ export interface TurnContext {
   maxTurns: number;
   signal: AbortSignal;
   mcp: { url: string; token: string };
+  /** Readable but never writable by the bot. */
   knowledgeDir?: string | null;
   readOnlyDirs?: string[];
   projectDirs?: string[];
+  /** Why this tool call may not touch a project folder, or null. Holds with approvals bypassed. */
   projectGuard?: (toolName: string, input: Record<string, unknown>, cwd: string) => string | null;
+  /** Why this shell command may not ship, or null. Holds with approvals bypassed. */
   shipGuard?: (command: string, cwd: string) => string | null;
+  /** Why this write may not touch a shared file, or null. Holds with approvals bypassed. */
   fileGuard?: (toolName: string, input: Record<string, unknown>, cwd: string) => string | null;
+  /** Why an owner-approved rule forbids this call, or null. Holds with approvals bypassed. */
   ruleGuard?: (toolName: string, input: Record<string, unknown>) => string | null;
   fileWritten?: (toolName: string, input: Record<string, unknown>, cwd: string) => void;
   cdpUrl?: string;
+  /** Never pre-approved. */
   outsideMcp?: OutsideMcpServer[];
+  /** Raises the owner's card, under bypass too. A string refuses the call. */
   outsideMcpGate?: (toolName: string, input: Record<string, unknown>) => Promise<string | null>;
   computerFilesDir?: string;
   sandboxWritableDirs?: string[];
+  /** Adapters must enforce it in bypass mode too; it is not an approval. */
   controlGuard?: () => string | null;
   computerGate?: (toolName: string, input?: Record<string, unknown>) => Promise<string | null>;
   carriedSteers?: SteerInput[];
@@ -132,6 +142,7 @@ export interface TurnOutcome {
   contextWindow?: number;
   braked?: boolean;
   steers?: { consumed: string[]; pending: string[] };
+  /** The provider's own limit text is never posted as the bot's reply. */
   limit?: TurnLimit;
   model?: string;
   accounted?: boolean;

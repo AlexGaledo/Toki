@@ -28,6 +28,7 @@ export interface AcpHandlers {
 export interface AcpProcess {
   conn: ClientConnection;
   child: ChildProcess;
+  /** Never posted unredacted. */
   stderr(): string;
   exited: Promise<number | null>;
   spawnError(): string | null;

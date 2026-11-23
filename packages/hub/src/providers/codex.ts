@@ -161,7 +161,9 @@ export interface CodexArgsInput {
   model: string;
   mcpUrl: string;
   resumeToken: string | null;
+  /** No Bash: a read-only sandbox, so it cannot shell out at all. */
   readOnly: boolean;
+  /** readOnly still wins over bypass. */
   fullAccess?: boolean;
 }
 

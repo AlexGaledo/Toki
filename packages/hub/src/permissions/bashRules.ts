@@ -4,11 +4,14 @@ import { isInside } from './pathRules.js';
 
 export type BashVerdict = { verdict: 'allow' | 'ask'; danger: boolean; reason: string };
 
+/** `allow` runs silently, so the allowlist holds only readers: no writes, no network, no running code the model wrote. */
 const READ_ONLY = new Set([
   'ls', 'dir', 'cat', 'type', 'head', 'tail', 'grep', 'rg', 'pwd', 'echo', 'wc', 'sort', 'uniq', 'tree',
 ]);
+/** Readers that can only read their path arguments (`sort -o`, `uniq in out`, `tree -o` write a file). */
 const READERS = new Set(['ls', 'dir', 'cat', 'type', 'head', 'tail', 'grep', 'rg', 'wc']);
 const GIT_READ_ONLY = new Set(['status', 'log', 'diff']);
+/** Options that turn an allowlisted reader into a writer or executor; prefixes match because getopt accepts abbreviations. */
 const EXEC_OPTS: Record<string, string[]> = {
   rg: ['pre', 'pre-glob'],
   sort: ['compress-program'],
@@ -27,8 +30,10 @@ function namesOpt(tok: string, opts: string[] | undefined): boolean {
   return !!name && opts.some((o) => o.startsWith(name));
 }
 
+/** Environment dumps always ask, never pass silently. */
 const ENV_DUMPERS = new Set(['env', 'printenv', 'set', 'export', 'Get-ChildItem env:', 'gci']);
 
+/** Interpreters turn any string into execution, so the human sees a card. */
 const INTERPRETERS = new Set([
   'node', 'nodejs', 'tsx', 'ts-node', 'deno', 'bun', 'bunx', 'python', 'python2', 'python3', 'py', 'ruby',
   'perl', 'php', 'awk', 'gawk', 'mawk', 'sed', 'xargs', 'find', 'eval', 'source', '.', 'sh', 'bash', 'zsh',
@@ -107,11 +112,13 @@ function baseName(cmd: string): string {
   return process.platform === 'win32' ? b.replace(/\.(exe|cmd|bat|ps1)$/i, '') : b;
 }
 
+/** Relative tokens resolve against `allowedRoots[0]`, and a `cd` moves it for the segments that follow. */
 export function classifyBash(cmd: string, allowedRoots: string[] = [], opts: { readOnlyRoots?: string[] } = {}): BashVerdict {
   for (const d of DANGER) if (d.test(cmd)) return { verdict: 'ask', danger: true, reason: 'Dangerous pattern: ' + d.source };
 
   const segs = segments(cmd);
   if (!segs.length) return { verdict: 'ask', danger: false, reason: 'Empty command' };
+  // `echo "$(rm x)"` must not pass as an allowlisted echo; danger also keeps approval rules from covering a real delete.
   const del = deleteGate(cmd, allowedRoots[0] ?? process.cwd());
   if (del) return { verdict: 'ask', ...del };
   if (!allowedRoots.length) return { verdict: 'ask', danger: false, reason: 'No workspace roots configured' };
@@ -196,6 +203,7 @@ export function classifyBash(cmd: string, allowedRoots: string[] = [], opts: { r
   return { verdict: 'allow', danger: false, reason: 'Allowlisted' };
 }
 
+/** Refuses a shell write into a read-only root even under bypass, which skips `classifyBash` entirely. */
 export function bashWritesReadOnly(cmd: string, cwd: string, readOnlyRoots: string[]): string | null {
   if (!readOnlyRoots.length) return null;
   const inRo = (p: string) => isInside(p, readOnlyRoots, cwd);

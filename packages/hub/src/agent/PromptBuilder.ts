@@ -26,6 +26,7 @@ export interface PromptCtx {
   fleet?: Bot[];
   computer?: { display: string; filesDir: string; diskBytes: number; quotaBytes: number };
   computerUnavailable?: string;
+  /** Owner instruction, never file or web content. */
   routing?: string;
   canMoveUp?: boolean;
   keyRegistry?: KeyRegistry;
@@ -37,6 +38,7 @@ const INDEX_POINTER = 'Before searching the shared folder, read INDEX.md at its 
 
 const gb = (b: number) => (b / 1024 ** 3).toFixed(1) + ' GB';
 
+/** Never claims isolation: the computer runs as the same OS user. */
 function computerLines(ctx: PromptCtx, userName: string): string[] {
   const c = ctx.computer!;
   const full = c.quotaBytes > 0 ? c.diskBytes / c.quotaBytes : 0;

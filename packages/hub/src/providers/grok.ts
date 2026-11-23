@@ -170,6 +170,7 @@ export class GrokProvider implements AgentProvider {
       maxTurns: ctx.maxTurns,
       resumeToken: ctx.resumeToken,
       allowedBuiltins: ctx.allowedBuiltins,
+      // Bypass drops the filesystem sandbox, but the --deny rules for tools the bot lacks still apply.
       ...(ctx.bypassPermissions ? { sandbox: null } : {}),
     });
 
