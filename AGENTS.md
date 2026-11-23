@@ -49,6 +49,7 @@ cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml   # any Rust ch
 | Computer/VNC/CDP ports on loopback; backups skip `vault.key` | `hub/src/deployScripts.test.ts` |
 | Desktop webview navigates only to splash + hub; release builds ignore `hubDir` | `lib.rs` tests (`cargo test`, CI) |
 | Web entry chunk stays lean (no workflow canvas, size budget) | `scripts/bundle-budget.mjs` (CI) |
+| Cut-off retries stay bounded, keep the session on a step-limit cut, and never end silently | `docs/formal/CutOff.tla` via `pnpm formal` (CI) |
 
 Unenforced (no check yet; keep until one exists):
 - Never log or print a token, device token or pairing code; the hub token appears only in the first `#token=` fragment.
