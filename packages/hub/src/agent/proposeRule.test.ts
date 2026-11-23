@@ -16,11 +16,6 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import { WORKSPACE_DIR, botHome } from '../config.js';
 import { BotRunner, type TurnRequest } from './BotRunner.js';
 
-/*
- * Corrections become checks: a bot turns a correction the owner repeated into a deny rule (propose_rule). The owner
- * approves the exact rule on a card; the PermissionBroker then refuses the call with the owner's "do instead" text.
- */
-
 const CLAUDE: ModelInfo[] = MODELS.map((m) => ({ id: m.id, label: m.label }));
 
 class ScriptedProvider implements AgentProvider {
@@ -70,7 +65,6 @@ function setup(input: Record<string, unknown> = FORCE_PUSH, opts: { bypass?: boo
   const turn = (p: Partial<TurnRequest> = {}) => runner.runTurn({ bot, room, members: [bot], injected: '#1 [alex]: hello', hop: 0, causeId: 'c1', ...p });
   const ctx = (b = bot): PermCtx => ({ bot: b, room, turnId: 't', hop: 0, causeId: 'c', setState: () => undefined });
   const cards = () => repos.listMessages(room.id).filter((m) => m.kind === 'approval');
-  /** Runs one owner turn that proposes `input`, answering its card with `decision`. */
   const propose = async (decision: 'allow' | 'deny', p: Partial<TurnRequest> = {}) => {
     const off = events.onEvent((ev) => { if (ev.type === 'approval.request') setTimeout(() => broker.resolve(ev.approval.approvalId, decision), 0); });
     try { await turn(p); } finally { off(); }
@@ -93,12 +87,10 @@ describe('propose_rule', () => {
       expect(r, command).toMatchObject({ behavior: 'deny' });
       expect((r as { message: string }).message).toMatch(/not allowed: a rule the user approved forbids "git push --force"\. Do not retry it; instead: open a PR and let CI merge it\.$/);
     }
-    // Bypass does not skip it, and request_approval (best-effort providers) refuses it too, before any card.
     const bypassed = new PermissionBroker(s.repos, { store: s.store, bypass: () => true });
     expect(await bypassed.decide(s.ctx(), 'Bash', { command: 'git push --force' }, { signal })).toMatchObject({ behavior: 'deny' });
     expect(await bypassed.decide(s.ctx(), 'Bash', { command: 'git push origin main' }, { signal })).toEqual({ behavior: 'allow' });
     expect(await s.broker.ask(s.ctx(), { action: 'push', command: 'git push --force origin' }, signal)).toMatchObject({ allowed: false, message: expect.stringContaining('open a PR') });
-    // Only this bot, and only what the rule names.
     expect(await bypassed.decide(s.ctx(s.other), 'Bash', { command: 'git push --force' }, { signal })).toEqual({ behavior: 'allow' });
     expect(await s.broker.decide(s.ctx(), 'Bash', { command: 'ls' }, { signal })).toEqual({ behavior: 'allow' });
     expect(s.cards()).toHaveLength(1);

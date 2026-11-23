@@ -10,11 +10,6 @@ import type { TurnContext, TurnSink } from '../types.js';
 import { AcpProvider, READ_ONLY_NOTE } from './adapter.js';
 import { MCP_STDIO_BRIDGE } from './client.js';
 
-/**
- * P2-1a / P2-1b: the generic ACP adapter against a fake agent that speaks ACP over stdio (test-fixtures/acp). It runs
- * through the Gemini preset, since that is the one wired in, but nothing here is Gemini-specific except the limit matcher.
- */
-
 const HUB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const FAKE = path.join(HUB, 'test-fixtures', 'acp', 'fake-acp-agent.mjs');
 
@@ -26,7 +21,6 @@ beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-acp-'));
   fs.mkdirSync(path.join(tmp, 'workspace'));
   recordPath = path.join(tmp, 'record.jsonl');
-  // The hub token must never reach an agent, whatever the hub's own environment holds.
   process.env.POCKETROCKET_TOKEN = 'hub-secret-token';
 });
 afterEach(() => {
@@ -39,7 +33,6 @@ function provider(knobs: Record<string, string> = {}) {
   return createGeminiProvider({ exe: FAKE, env: { FAKE_ACP_RECORD: recordPath, ...knobs }, secrets: { get: () => null } });
 }
 
-/** The same fake behind a preset whose ask mode does ask before writes: the generic strict path, without read-only. */
 function askingProvider(knobs: Record<string, string> = {}) {
   const opts = { exe: FAKE, env: { FAKE_ACP_RECORD: recordPath, ...knobs }, secrets: { get: () => null } };
   return new AcpProvider({ ...geminiPreset(opts), strictReadOnly: false }, opts);
@@ -105,18 +98,15 @@ describe('ACP adapter: a plain text turn', () => {
 
     const init = calls('initialize')[0].params!;
     expect(init.protocolVersion).toBe(1);
-    // M8 (P4-1): compaction is asked for, so an agent may report one (it becomes a quiet note).
     expect(init.clientCapabilities).toEqual({ fs: { readTextFile: false, writeTextFile: false }, terminal: false, session: { compaction: {} } });
     const sn = calls('session/new')[0].params!;
     expect(sn.cwd).toBe(path.join(tmp, 'workspace'));
     expect(sn.mcpServers).toEqual([
       { type: 'http', name: 'pocketrocket', url: 'http://127.0.0.1:7788/mcp', headers: [{ name: 'Authorization', value: 'Bearer turn-tok-abc123' }] },
     ]);
-    // A fresh session's first prompt carries the system prompt.
     const prompt = calls('session/prompt')[0].params!.prompt as Array<{ type: string; text: string }>;
     expect(prompt[0].text.startsWith('SYSTEM PROMPT')).toBe(true);
     expect(prompt[0].text).toContain('hello there');
-    // A normal (non-strict) turn leaves the agent's mode alone.
     expect(calls('session/set_mode')).toEqual([]);
   });
 
@@ -184,7 +174,6 @@ describe('ACP adapter: usage of a run that reports no cost (agy on Gemini)', () 
   it('a bot saved on a pre-live model id asks agy for its replacement', async () => {
     const o = await provider({ FAKE_ACP_SCENARIO: 'quiet', FAKE_ACP_MODEL: 'gemini-3.1-pro' }).runTurn(makeCtx({ model: 'gemini-3-pro' }), recorder().sink);
     expect(o.ok).toBe(true);
-    // Already agy's current model: nothing to set, and the usage row names what ran.
     expect(calls('session/set_config_option')).toEqual([]);
     expect(o.model).toBe('gemini-3.1-pro');
   });
@@ -289,14 +278,12 @@ describe('ACP adapter: strict turns on Gemini run read-only (live G6, spec 01 §
       r.sink,
     );
     expect(calls('session/set_mode').map((c) => c.params)).toEqual([{ sessionId: 'sess-1', modeId: 'plan' }]);
-    // The mode is set before the prompt goes out.
     const order = recorded().map((x) => x.method).filter((m) => m === 'session/set_mode' || m === 'session/prompt');
     expect(order).toEqual(['session/set_mode', 'session/prompt']);
     const prompt = calls('session/prompt')[0].params!.prompt as Array<{ text: string }>;
     expect(prompt[0].text).toContain(READ_ONLY_NOTE);
     expect(fs.existsSync(target())).toBe(false);
     expect(asked).toBe(0);
-    // The announced edit stops the turn: it is an error, not a normal reply.
     expect(o.ok).toBe(false);
     expect(o.error).toMatch(/tried to change files .*read-only run/);
   });
@@ -426,7 +413,6 @@ describe('ACP adapter: agy reports its limit as answer text (live G11, real capt
   const CAPTURE = path.join(HUB, 'src', 'providers', '__fixtures__', 'gemini', 'limit-quota.agy.json');
   type Capture = { updates: Array<{ params: { update: { content: { text: string } } } }>; promptResponse: unknown };
   const capture = () => JSON.parse(fs.readFileSync(CAPTURE, 'utf8')) as Capture;
-  /** A capture file shaped like the real one, with these chunk texts as its updates. */
   function captureOf(texts: string[]): string {
     const c = capture();
     const file = path.join(tmp, 'capture-' + String(Math.random()).slice(2) + '.json');
@@ -444,7 +430,6 @@ describe('ACP adapter: agy reports its limit as answer text (live G11, real capt
     expect(o.ok).toBe(false);
     expect(o.error).toMatch(/usage limit reached/);
     expect(o.limit?.kind).toBe('usage');
-    // The last positive "Resets in" of the capture: 167h47m0s.
     const reset = (167 * 60 + 47) * 60_000;
     expect(o.limit!.resetsAt! - before).toBeGreaterThanOrEqual(reset - 1000);
     expect(o.limit!.resetsAt! - Date.now()).toBeLessThanOrEqual(reset);
@@ -510,7 +495,6 @@ describe('ACP adapter: a model the sign-in does not offer (live G11, Google sign
     expect(o.model).toBe('gemini-3.8-flash-high');
     expect(calls('session/set_config_option').map((c) => c.params?.value)).toEqual(['gemini-4-neon']);
     expect(r.only('note')).toEqual([['note', 'could not use gemini-4-neon (agy does not offer it on this sign-in), so it ran on gemini-3.8-flash-high.']]);
-    // The next turn of the same bot is not noted again.
     const r2 = recorder();
     const o2 = await p.runTurn(makeCtx({ model: 'gemini-4-neon', turnId: 't2' }), r2.sink);
     expect(o2.ok).toBe(true);
@@ -532,7 +516,7 @@ describe('ACP adapter: a model the sign-in does not offer (live G11, Google sign
     const o = await provider({ ...tier, FAKE_ACP_MODELS: 'gemini-3.8-flash-high,gemini-3.7-flash' }).runTurn(makeCtx({ model: 'gemini-3.7-flash' }), r.sink);
     expect(o.ok).toBe(true);
     expect(calls('session/set_config_option').map((c) => c.params?.value)).toEqual(['gemini-3.7-flash']);
-    expect(o.model).toBeUndefined(); // what the bot asked for ran
+    expect(o.model).toBeUndefined();
     expect(r.only('note')).toEqual([]);
   });
 });

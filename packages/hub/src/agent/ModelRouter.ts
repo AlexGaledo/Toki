@@ -1,84 +1,41 @@
 import { AUTO_MODEL, DEFAULT_MODEL, type Bot, type CauseKind, type ModelInfo } from '@pocketrocket/shared';
 import type { TurnUsage } from '../services/UsageTracker.js';
 
-/**
- * Model router (P8, grok-bot-parity.md §2.7). A bot whose model is `auto` gets one picked per turn:
- *
- *   1. auto-memory and skill reflection          → Haiku   (`background`)
- *   2. the person's newest message on a turn they started says "think hard" or `/opus` → Opus (`explicit`)
- *      or a skill that message, or a routine's own prompt, invokes and that declares `model: opus`  (`skill`)
- *   3. a routine                                  → Sonnet  (`routine`)
- *      a trigger's triage                         → Haiku   (`triage`)
- *   4. everything else                            → Sonnet  (`default`)
- *   and, mid-turn, the bot moving itself up with `use_stronger_model`  → Opus (`stronger`, see `upgrade`)
- *   or a retry after `error_max_turns` or an error                     → Opus (`retry`, see `escalate`)
- *
- * The explicit ask and the skill check never read the injected transcript: that holds forwarded emails and other
- * bots' text, and an outsider must not be able to pick Opus. Memory and reflection passes never escalate.
- *
- * Each turn is routed on its own and nothing is stored, so a cheaper turn never holds later turns down.
- *
- * Hard limits:
- * - It only ever returns a model the active provider lists (Q12: the router stays within the provider). A tier
- *   the provider does not offer falls back to the provider's own default, then to its first model.
- * - It decides the model and nothing else. There is no budget anywhere in its input or output, so it cannot
- *   raise `max_budget_usd`; BotRunner computes the budget on its own, exactly as for a pinned bot.
- * - A bot with a pinned model is passed through untouched (reason `pinned`).
- */
-
 export type ModelTier = 'haiku' | 'sonnet' | 'opus';
 export type RouteReason = 'pinned' | 'chosen' | 'background' | 'explicit' | 'skill' | 'routine' | 'triage' | 'classifier' | 'default' | 'retry' | 'stronger';
 
 export interface RouteRequest {
   bot: Pick<Bot, 'model'>;
-  /** What started the turn. P3 (routines) and P5 (triggers) pass 'routine' / 'trigger' through TurnRequest.causeKind. */
   causeKind: CauseKind;
-  /** The text the bot is about to read (BotRunner's injected transcript). */
   input: string;
-  /** The newest message a person wrote in `input`. Only this, on a turn a person started, can be an explicit ask. */
   latestUserText?: string;
-  /** On a routine's turn: the routine's own prompt, which its owner wrote and which may invoke a skill. */
   routinePrompt?: string;
-  /** `bot.model` here is the composer's pick for this chat, not the bot's setting. */
   chosen?: boolean;
-  /** The active provider's models (`provider.modelsSync()`). Only these are ever chosen. */
   models: readonly ModelInfo[];
-  /** Approved skills of this bot whose SKILL.md declares `model: opus` (SkillService.opusSkillNames). */
   opusSkills?: readonly string[];
-  /** Used only when `models` is empty (a provider whose list is still loading): usually settings.defaultModel. */
   fallbackModel?: string;
 }
 
 export interface RouteChoice {
-  /** The model id to run. Never `auto`. */
   model: string;
-  /** Null for a pinned model. */
   tier: ModelTier | null;
   reason: RouteReason;
-  /** One line for the chat chip's tooltip, e.g. 'Auto: Haiku to triage a routine'. */
   detail: string;
 }
 
 export interface ClassifierResult {
   tier: ModelTier | null;
-  /** What the classifier call cost; recorded as its own usage row. */
   usage?: TurnUsage;
 }
-/** One cheap call that sorts a request into a tier. Must not throw; answer `{ tier: null }` when unsure. */
 export type Classifier = (input: string) => Promise<ClassifierResult>;
 
 const TIER_LABEL: Record<ModelTier, string> = { haiku: 'Haiku', sonnet: 'Sonnet', opus: 'Opus' };
 
-/** The Claude ids for each tier, tried first. */
 const PREFERRED: Record<ModelTier, readonly string[]> = {
   haiku: ['claude-haiku-4-5-20251001'],
   sonnet: ['claude-sonnet-5'],
   opus: ['claude-opus-5'],
 };
-/**
- * For other providers, or a renamed Claude id: matched in order against `id label note`, lowercased. The
- * notes on the Codex and Grok lists say "cheapest" and "hardest tasks" / "strongest", which is what these key on.
- */
 const HINTS: Record<ModelTier, readonly RegExp[]> = {
   haiku: [/haiku/, /cheapest/, /\bmini\b|\bfast(est)?\b|\blite\b|\bcheap/],
   sonnet: [/sonnet/],
@@ -89,13 +46,11 @@ export function isAuto(bot: Pick<Bot, 'model'>): boolean {
   return bot.model === AUTO_MODEL;
 }
 
-/** The phrase that asks for the strongest model, or null. Matches "think hard(er)", "ultrathink" and `/opus`. */
 export function explicitRequest(text: string): string | null {
   const m = text.match(/\bthink\s+(?:really\s+|very\s+)?hard(?:er)?\b|\bultrathink\b|(?:^|[\s(])\/opus\b/i);
   return m ? m[0].trim() : null;
 }
 
-/** The first of `skills` the text invokes, as `/name` or "the name skill", or null. */
 export function invokedSkill(text: string, skills: readonly string[]): string | null {
   for (const name of skills) {
     const n = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -104,14 +59,8 @@ export function invokedSkill(text: string, skills: readonly string[]): string | 
   return null;
 }
 
-/**
- * The model for `tier` among `models`, or the provider's default when it has nothing in that tier.
- * `exact` is false when it had to fall back.
- */
 export function resolveTier(tier: ModelTier, models: readonly ModelInfo[], fallbackModel?: string): { model: string; exact: boolean } {
   if (!models.length) {
-    // Nothing to check against. Settings' default model belongs to the active provider, so it is the safe answer;
-    // `auto` there would loop, so it falls through to the built-in default.
     const fb = fallbackModel && fallbackModel !== AUTO_MODEL ? fallbackModel : DEFAULT_MODEL;
     return { model: fb, exact: false };
   }
@@ -124,7 +73,6 @@ export function resolveTier(tier: ModelTier, models: readonly ModelInfo[], fallb
   const real = models.filter((m) => m.id !== AUTO_MODEL);
   const def = real.find((m) => m.default) ?? real[0];
   if (!def) return { model: fallbackModel && fallbackModel !== AUTO_MODEL ? fallbackModel : DEFAULT_MODEL, exact: false };
-  // Sonnet *is* the default tier, so landing on the provider's default counts as a match there.
   return { model: def.id, exact: tier === 'sonnet' };
 }
 
@@ -140,10 +88,6 @@ function pinned(req: RouteRequest): RouteChoice {
     : { model: req.bot.model, tier: null, reason: 'pinned', detail: 'Set on the bot' };
 }
 
-/**
- * The free, rule-based part of the router: no I/O, no spending. Returns the `default` choice when no rule
- * applies; `ModelRouter.pick` may then ask the classifier.
- */
 export function route(req: RouteRequest): RouteChoice {
   if (!isAuto(req.bot)) return pinned(req);
   if (req.causeKind === 'memory') return choose(req, 'haiku', 'background', 'for the auto-memory pass');
@@ -156,21 +100,17 @@ export function route(req: RouteRequest): RouteChoice {
   if (skill) return choose(req, 'opus', 'skill', 'because skill "' + skill + '" declares model: opus');
   if (req.causeKind === 'routine') return choose(req, 'sonnet', 'routine', 'for a routine');
   if (req.causeKind === 'trigger') return choose(req, 'haiku', 'triage', 'to triage a trigger');
-  // A workflow step is a scheduled, owner-written job like a routine: the router never second-guesses it.
   if (req.causeKind === 'workflow') return choose(req, 'sonnet', 'routine', 'for a workflow step');
   return choose(req, 'sonnet', 'default', '(default)');
 }
 
-/** Most of a classifier prompt's cost is the input, so only the latest part of a long transcript is sent. */
 export const CLASSIFIER_MAX_CHARS = 2000;
 
 export interface ModelRouterOptions {
   classify?: Classifier;
-  /** Read per turn, so flipping the setting applies from the next turn. */
   classifierEnabled?: () => boolean;
 }
 
-/** Whether a turn on `prev` has anywhere to move up to: Auto, on Sonnet, with a real Opus on this provider. */
 export function canUpgrade(req: RouteRequest, prev: RouteChoice): boolean {
   return isAuto(req.bot) && prev.tier === 'sonnet' && resolveTier('opus', req.models, req.fallbackModel).model !== prev.model;
 }
@@ -178,10 +118,6 @@ export function canUpgrade(req: RouteRequest, prev: RouteChoice): boolean {
 export class ModelRouter {
   constructor(private opts: ModelRouterOptions = {}) {}
 
-  /**
-   * The model for one turn. Async only because of the optional classifier; with it off this is `route()`.
-   * `classifierUsage` is set when the classifier ran, so the caller can record what it cost.
-   */
   async pick(req: RouteRequest): Promise<RouteChoice & { classifierUsage?: TurnUsage }> {
     const base = route(req);
     if (base.reason !== 'default' || !this.opts.classify || !this.opts.classifierEnabled?.()) return base;
@@ -196,18 +132,10 @@ export class ModelRouter {
     return { ...choose(req, res.tier, 'classifier', why), classifierUsage: res.usage };
   }
 
-  /** The bot asked to move up (`use_stronger_model`). Nothing is stored: the next turn routes from scratch. */
   upgrade(req: RouteRequest, reason: string): RouteChoice {
     return choose(req, 'opus', 'stronger', 'because the bot moved up: ' + reason);
   }
 
-  /**
-   * The model for a retry inside the same turn: Opus for an auto bot that hit an error and was not already on
-   * it, otherwise `prev` unchanged. Running out of steps is not a reasoning failure, so a step-limit
-   * continuation stays on the same tier: moving it up would replay the turn's whole (largest) context at
-   * Opus rates, the single most expensive thing a turn can do to a plan limit. Like `pick`, it never touches
-   * the budget; the retry spends what is left of the turn's.
-   */
   escalate(req: RouteRequest, prev: RouteChoice, after: 'error_max_turns' | 'error'): RouteChoice {
     if (after === 'error_max_turns') return prev;
     if (!isAuto(req.bot) || prev.tier === 'opus' || prev.reason === 'background') return prev;

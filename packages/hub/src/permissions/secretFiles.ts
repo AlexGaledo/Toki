@@ -52,13 +52,11 @@ const HUB_FILES = [
   // that could write it could forge a signed-in session and approve its own job on the PC.
   ...[path.basename(DB_PATH), 'claudebot.db'].flatMap((db) => DB_SIDECARS.map((s) => db + s)),
 ];
-/** Any other SQLite file at the top of DATA_DIR (a copy, a backup): `x.db`, `x.db-wal`, `x.sqlite`, `x.db.bak`. */
 const DATA_DB_RE = /\.(db|sqlite3?)([.-][^/]*)?$/i;
 const KEYS_DIR = 'keys-disabled';
 const ENV_RE = /^\.env(\..+)?$/i;
 const ENV_OK_RE = /^\.env\.(example|sample|template)(\..*)?$/i;
 const WILDCARD = /[*?[\]{}]/;
-/** Commands that read every file below a directory they are given. */
 const RECURSIVE = new Set(['rg', 'ag', 'ack', 'tar', 'zip', '7z', 'rsync', 'scp']);
 const RECURSIVE_WITH_FLAG = new Set(['grep', 'egrep', 'fgrep', 'cp']);
 
@@ -71,7 +69,6 @@ function norm(p: string): string {
   return isWin ? s.toLowerCase() : s;
 }
 
-/** realpath of `abs`, or of its nearest existing ancestor with the rest rebuilt on top; null when nothing resolves. */
 function realish(abs: string): string | null {
   const rest: string[] = [];
   let cur = abs;
@@ -89,7 +86,6 @@ function realish(abs: string): string | null {
   return null;
 }
 
-/** Both spellings of a path: as written and by realpath (deduplicated). */
 function forms(abs: string): string[] {
   const out = [norm(abs)];
   const r = realish(abs);
@@ -132,12 +128,10 @@ function classifyPath(abs: string, l: Layout): Hit {
   return null;
 }
 
-/** A directory a recursive read would search, which holds the hub's key files (DATA_DIR or above it). */
 function holdsHubFiles(abs: string, l: Layout): boolean {
   return forms(abs).some((n) => l.dataDirs.some((d) => within(d, n)) || l.keysDirs.some((k) => within(n, k)));
 }
 
-/** Shell-style glob to a regex over normalized paths. `*` and `?` stay inside one segment; `**` crosses them. */
 function globRe(glob: string): RegExp {
   let re = '';
   for (let i = 0; i < glob.length; i++) {
@@ -167,7 +161,6 @@ function classifyGlob(absGlob: string, l: Layout): Hit {
     if (l.files.some((f) => full.test(f))) return 'hub';
     const dirRe = globRe(dir);
     if (l.keysDirs.some((k) => full.test(k) || dirRe.test(k) || (!WILDCARD.test(dir) && within(dir, k)))) return 'hub';
-    // Like the shell, a wildcard does not match a leading dot: only a pattern that starts with `.` reaches `.env`.
     const lastRe = globRe(last);
     if (last.startsWith('.') && ['.env', '.env.local', '.env.production'].some((e) => lastRe.test(e))) {
       const underProjects = l.projectsDirs.some((p) =>
@@ -190,17 +183,12 @@ function message(hit: Exclude<Hit, null>): string {
   return hit === 'hub' ? HUB_KEYS_MESSAGE : ENV_FILE_MESSAGE;
 }
 
-/** Path-shaped words inside one shell token, so `open('../secrets.json')` and `--file=x` are looked at too. */
 function wordsOf(tok: string): string[] {
   const out = new Set([tok]);
   for (const w of tok.split(/[\s=(),;'"`<>|&]+/)) if (w) out.add(w);
   return [...out];
 }
 
-/**
- * The command text with quotes and backslash escapes removed (outside single quotes, a backslash keeps the next
- * character literally), so `hub\-token`, `"secr"'ets.json'` and `hub''-token` read as the names they spell.
- */
 function unescapeShell(cmd: string): string {
   let out = '';
   let quote: string | null = null;
@@ -219,22 +207,13 @@ function unescapeShell(cmd: string): string {
   return out;
 }
 
-/** Names that no Bash command may contain at all, however it is built. Not `.env`: see `bashAccess`. */
 const BACKSTOP_NAMES = [...HUB_FILES, KEYS_DIR].map((n) => n.toLowerCase());
 
-/**
- * Splits off what the shell would run as separate commands, beyond what `segments` knows: newlines, a lone `&`
- * (not `&&`, `2>&1` or `&>`), command substitution and subshells. Each becomes a `;` so `cd` inside one is seen.
- */
 function shellPieces(cmd: string): string {
   return cmd.replace(/\r?\n/g, ';').replace(/(?<![&<>|])&(?![&>])/g, ';').replace(/\$\(|[`()]/g, ';');
 }
 
 function bashAccess(cmd: string, startCwd: string, l: Layout): Hit {
-  // Backstop: the path checks below follow what the command line shows, and shell syntax has many ways to hide a
-  // path from them. Any command whose text, unescaped, names a hub key file or keys-disabled is refused outright.
-  // `.env` is left to the path checks: matching the bare name would block ordinary `cp .env.example .env` work.
-  // Known gap: a name assembled at run time (`h=hub; cat $h-token`) still passes this; see the file comment.
   const flat = unescapeShell(cmd);
   if (BACKSTOP_NAMES.some((n) => flat.toLowerCase().includes(n))) return 'hub';
   // As written (Windows backslash paths) and unescaped (`.e\nv`); either one naming a guarded path is enough.
@@ -263,7 +242,6 @@ function bashPathAccess(cmd: string, startCwd: string, l: Layout): Hit {
     if (recursive && toks.length === 1 && holdsHubFiles(cwd, l)) return 'hub';
     for (let i = 1; i < toks.length; i++) {
       let tok = toks[i];
-      // The app reads its own env file; that is the point of `node --env-file=.env server.js`.
       if (tok === '--env-file' || tok === '--env-file-if-exists') { i++; continue; }
       if (/^--env-file(-if-exists)?=/.test(tok)) continue;
       const redirect = /^\d*(>>|>|<)(.*)$/.exec(tok);
@@ -278,16 +256,11 @@ function bashPathAccess(cmd: string, startCwd: string, l: Layout): Hit {
         if (recursive && holdsHubFiles(path.resolve(cwd, w), l)) return 'hub';
       }
     }
-    // `grep -r KEY` with no directory searches the cwd.
     if (recursive && name !== 'cp' && holdsHubFiles(cwd, l) && toks.slice(1).filter((t) => !t.startsWith('-')).length <= 1) return 'hub';
   }
   return null;
 }
 
-/**
- * Why this tool call may not touch the hub's key files or a project's env file, or null. `dataDir` is for
- * tests; the hub uses DATA_DIR.
- */
 export function secretFileAccess(toolName: string, input: Record<string, unknown>, cwd: string, dataDir: string = DATA_DIR): string | null {
   const l = layout(dataDir);
   const str = (v: unknown) => (typeof v === 'string' && v.length ? v : null);
@@ -300,7 +273,6 @@ export function secretFileAccess(toolName: string, input: Record<string, unknown
     hit = classifyPath(base, l);
     const pattern = toolName === 'Glob' ? str(input.pattern) : str(input.glob);
     if (!hit && pattern) hit = classify(pattern, base, l);
-    // Grep reads every file below its path: refuse a search that would cover DATA_DIR itself.
     if (!hit && toolName === 'Grep' && holdsHubFiles(base, l)) hit = 'hub';
   } else if (['Read', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(toolName)) {
     for (const k of ['file_path', 'notebook_path', 'path']) {

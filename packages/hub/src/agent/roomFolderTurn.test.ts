@@ -18,8 +18,6 @@ import { BotRunner } from './BotRunner.js';
 import { settings } from '../services/SettingsStore.js';
 import { readOnlyWriteDecision } from '../permissions/readOnlyRoots.js';
 
-/** A turn may use the file folder of the room it is replying in, and no other room's or project's. */
-
 class RecordingProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Recording';
@@ -65,7 +63,6 @@ function setup(opts: { bypass?: boolean } = {}) {
   const plain = group('Plain');
   const other = group('Other');
   const dm = repos.createRoom({ kind: 'dm', name: 'DM', memberIds: [bot.id], coordinatorBotId: null }) as Room;
-  // The bot is on both projects; only the room decides which one it may open.
   projects.create({ name: 'Alpha', memberIds: [bot.id] });
   projects.create({ name: 'Beta', memberIds: [bot.id] });
   db.run('UPDATE projects SET room_id=? WHERE slug=?', roomA.id, 'alpha');
@@ -149,11 +146,9 @@ describe('a turn\'s file folder', () => {
     expect(readOnlyWriteDecision('Write', { file_path: path.join(beta, 'current.md') }, inA.readOnlyDirs!, inA.workspaceDir, true)?.decision).toBe('deny');
     expect(readOnlyWriteDecision('Write', { file_path: path.join(alpha, 'current.md') }, inA.readOnlyDirs!, inA.workspaceDir, true)).toBeNull();
     expect(inA.systemPrompt).toContain('read every project');
-    // It may list the projects folder to find a slug, but not other rooms' folders.
     expect(inA.projectGuard!('Glob', { path: path.dirname(alpha), pattern: '*' }, inA.workspaceDir)).toBeNull();
     expect(inA.projectGuard!('Bash', { command: 'ls ' + path.dirname(alpha).replaceAll('\\', '/') }, inA.workspaceDir)).toBeNull();
     expect(inA.projectGuard!('Glob', { path: s.roomsDir, pattern: '*' }, inA.workspaceDir)).toMatch(/another room/);
-    // Other rooms' folders stay shut.
     expect(read(inA, path.join(s.roomsDir, s.plain.id, 'x.md'))).toMatch(/another room/);
 
     const inDm = await s.run(s.dm);

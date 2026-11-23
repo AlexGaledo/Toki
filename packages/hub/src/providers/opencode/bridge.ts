@@ -24,7 +24,6 @@ import { HOST } from '../../config.js';
 export interface BridgeRoute {
   token: string;
   startedAt: number;
-  /** MCP tool names (`pocketrocket_*`) currently in flight for this session. */
   pending: Set<string>;
 }
 
@@ -33,15 +32,8 @@ export type RouteResult =
   | { ok: false; reason: 'none' | 'ambiguous' };
 
 /**
- * Pick the turn token a JSON-RPC message belongs to. Exported for tests.
- *
- * A `tools/call` that cannot be pinned to exactly one live turn is **rejected**, not guessed
- * (audit 2026-09-09, B12). The old fallback picked the most recently started turn, so with two concurrent
- * turns waiting on the same tool name, bot A's call could execute as bot B: its budget, its room, its
- * authority to edit bots. Rejecting costs one failed tool call; guessing crosses a trust boundary.
- *
- * Handshake and `tools/list` traffic still take any live turn — every turn exposes the same tool list, and
- * those calls neither act nor spend.
+ * A `tools/call` that cannot be pinned to exactly one live turn is rejected, not guessed, so bot A's call can never
+ * run as bot B.
  */
 export function routeToken(routes: Map<string, BridgeRoute>, method: string | undefined, toolName?: string): RouteResult {
   const live = [...routes.values()];
@@ -59,7 +51,6 @@ export function routeToken(routes: Map<string, BridgeRoute>, method: string | un
 const FORWARD_HEADERS = ['accept', 'content-type', 'mcp-protocol-version', 'mcp-session-id', 'last-event-id'];
 
 export class McpBridge {
-  /** Static bearer the OpenCode MCP config carries; only this process knows it. */
   readonly token = randomBytes(24).toString('base64url');
   private routes = new Map<string, BridgeRoute>();
   private server: http.Server | null = null;
@@ -67,7 +58,6 @@ export class McpBridge {
 
   constructor(private target: string) {}
 
-  /** Starts on a free loopback port and returns the URL to put in `mcp.pocketrocket.url`. */
   async start(): Promise<string> {
     if (this.url) return this.url;
     const server = http.createServer((req, res) => void this.onRequest(req, res));

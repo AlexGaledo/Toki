@@ -68,9 +68,7 @@ export class OpenCodeProvider implements AgentProvider {
   private server = new OpenCodeServer();
   private modelCache: { at: number; models: ModelInfo[] } = { at: 0, models: [] };
   private modelsInFlight: Promise<ModelInfo[]> | null = null;
-  /** turnId -> OpenCode session id, so `interrupt()` can abort the right session. */
   private active = new Map<string, string>();
-  /** Last `opencode --version` seen; reported on `GET /api/health` through `sink.onInit`. */
   private version: string | undefined;
 
   /**
@@ -103,7 +101,6 @@ export class OpenCodeProvider implements AgentProvider {
     return this.modelsInFlight;
   }
 
-  /** The awaiting variant, for the turn path. */
   private async modelList(): Promise<ModelInfo[]> {
     if (this.modelCache.models.length && Date.now() - this.modelCache.at < MODELS_TTL_MS) return this.modelCache.models;
     return this.refreshModels();
@@ -128,7 +125,7 @@ export class OpenCodeProvider implements AgentProvider {
         hint: OPENCODE_HINT,
       };
     }
-    void this.models(); // warm the model cache for the next /api/providers call
+    void this.models();
     const auth = fromFile ?? (a?.ok ? parseAuthList(a.stdout) : { providers: [], auth: 'none' as const });
     if (auth.auth === 'none') {
       return { ok: false, version, auth: 'none', error: 'No OpenCode provider is logged in', hint: OPENCODE_HINT };
@@ -157,7 +154,6 @@ export class OpenCodeProvider implements AgentProvider {
     }
   }
 
-  /** Map the bot's stored model id onto a real `provider/model` pair, falling back to the list default. */
   private async resolveModel(id: string): Promise<{ providerID: string; modelID: string }> {
     const models = await this.modelList();
     if (!models.length) return splitModelId(id);
@@ -186,7 +182,6 @@ export class OpenCodeProvider implements AgentProvider {
     }
     const { client, bridge } = server;
 
-    // --- session (one per bot+room, resumed through ctx.resumeToken) ---
     let sessionID: string | null = ctx.resumeToken;
     if (sessionID) {
       const existing = await client.session.get({ path: { id: sessionID } });
@@ -206,7 +201,6 @@ export class OpenCodeProvider implements AgentProvider {
     const model = await this.resolveModel(ctx.model);
     sink.onInit?.({ model: model.providerID + '/' + model.modelID, version: this.version });
 
-    // --- event tracker ---
     const tracker = new TurnTracker(
       sid,
       {

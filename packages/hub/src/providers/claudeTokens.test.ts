@@ -2,12 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { EMPTY_USAGE, type TurnContext, type TurnSink } from './types.js';
 
-/**
- * Token accounting in the Claude adapter, against a scripted SDK stream. Seen live: `total_cost_usd` on a resumed
- * session is the session's running total, so recording it as the turn's cost inflated usage 3-18x and the SDK's
- * own budget check (which compares the same running total) killed turns in 1-2s with 0 tokens.
- */
-
 let script: unknown[] = [];
 let seenOptions: Options | undefined;
 let interrupted = 0;
@@ -65,7 +59,6 @@ describe('per-run cost from the SDK running total', () => {
     expect(out.costUsd).toBeCloseTo(0.3);
     expect(out.usage.costUsd).toBeCloseTo(0.3);
     expect(out.sessionCostUsd).toBe(64.987);
-    // The SDK compares the flag with the running total: $64.687 already spent + $2 for this run.
     expect(seenOptions!.maxBudgetUsd).toBeCloseTo(66.687);
   });
 
@@ -77,8 +70,8 @@ describe('per-run cost from the SDK running total', () => {
   });
 
   it('pure helpers: legacy baseline, a reset total, no caps', () => {
-    expect(runCostUsd(64.687, true, null)).toBe(0); // legacy row: never bill the history to one turn
-    expect(runCostUsd(0.4, true, 10)).toBe(0.4); // total went down: the CLI started over
+    expect(runCostUsd(64.687, true, null)).toBe(0);
+    expect(runCostUsd(0.4, true, 10)).toBe(0.4);
     expect(runCostUsd(1, false, 10)).toBe(1);
     expect(sdkBudgetUsd(2, true, null)).toBeUndefined();
     expect(sdkBudgetUsd(2, true, 5)).toBe(7);
@@ -91,13 +84,12 @@ describe('context size and the token brake', () => {
   it('reports the last top-level call\'s input size, not the run\'s sum', async () => {
     script = [
       assistant('m1', 10_000), assistant('m1', 10_000, 'second block of the same call'),
-      { ...assistant('sub', 900_000), parent_tool_use_id: 'task-1' }, // a subagent's call is not this context
+      { ...assistant('sub', 900_000), parent_tool_use_id: 'task-1' },
       assistant('m2', 30_000), result(0.1, 40_000),
     ];
     const out = await new ClaudeProvider().runTurn(ctx(), sink);
     expect(out.contextTokens).toBe(callInputTokens(usage(30_000)));
     expect(out.braked).toBeUndefined();
-    // The result here carries no contextWindow, so none is reported (the meter falls back to its default).
     expect(out.contextWindow).toBeUndefined();
   });
 
@@ -121,9 +113,7 @@ describe('context size and the token brake', () => {
     expect(out.braked).toBe(true);
     expect(out.ok).toBe(false);
     expect(out.error).toMatch(/^token_budget: stopped after reading 120,000 cached tokens/);
-    // No result arrived: what the calls reported is counted.
     expect(out.usage.cacheReadTokens).toBe(120_000);
-    // Filed as external, not as a bot behaviour failure.
     expect(turnFailureNote('B', out.error!, false).payload.turnFailure).toBe('external');
     expect(tokenBrakeError(1, 2)).toContain('cap 2');
   });

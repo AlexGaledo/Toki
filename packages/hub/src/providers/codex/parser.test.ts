@@ -10,7 +10,6 @@ const FIXTURES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 type Call = [string, ...unknown[]];
 
-/** Records every sink call in order, so a test can assert the exact sequence the UI would see. */
 function recorder() {
   const calls: Call[] = [];
   const sink: TurnSink = {
@@ -24,7 +23,6 @@ function recorder() {
   return { calls, sink, only: (kind: string) => calls.filter((c) => c[0] === kind) };
 }
 
-/** Feed a fixture in two odd-sized chunks, proving the line buffer survives a split mid-JSON. */
 function feed(name: string, sink: TurnSink): CodexEventParser {
   const raw = fs.readFileSync(path.join(FIXTURES, name), 'utf8');
   const parser = new CodexEventParser(sink);
@@ -47,7 +45,7 @@ describe('codex JSONL parser', () => {
     expect(r.calls).toEqual([
       ['session', '0199a213-81c0-7800-8aa1-bbab2a035a53'],
       ['state', 'thinking'],
-      ['state', 'thinking'], // reasoning item
+      ['state', 'thinking'],
       ['delta', 'pong'],
       ['text', 'pong'],
     ]);
@@ -80,7 +78,6 @@ describe('codex JSONL parser', () => {
       ['result', 'item_4', 'delivered', false],
       ['result', 'item_5', 'the user declined this action', true],
     ]);
-    // todo_list and an unknown future item type are dropped without touching the sink.
     expect(r.only('text')).toEqual([['text', 'Listed the repo and wrote the notes.']]);
     expect(p.error).toBeNull();
     expect(estimateCostUsd('gpt-5.6-terra', {
@@ -104,7 +101,7 @@ describe('codex JSONL parser', () => {
     p.push('Reading prompt from stdin...\n');
     p.push('{ not json at all\n');
     p.push('{"type":"totally.new.event","payload":1}\n');
-    p.push('{"type":"item.completed","item":{"type":"agent_message"}}\n'); // no id, empty text
+    p.push('{"type":"item.completed","item":{"type":"agent_message"}}\n');
     p.push('{"type":"error","message":"stream error: broken pipe"}');
     p.end();
     expect(p.error).toBe('stream error: broken pipe');
@@ -152,7 +149,6 @@ describe('codex pricing', () => {
   });
 
   it('charges cache reads at the cached rate and never goes negative', () => {
-    // 1M fresh input at $2 + 1M cached at $0.20 + 1M output at $12.
     expect(estimateCostUsd('gpt-5.6-terra', { inputTokens: 2e6, cachedInputTokens: 1e6, outputTokens: 1e6 })).toBe(14.2);
     expect(estimateCostUsd('gpt-5.6-terra', { inputTokens: 0, cachedInputTokens: 500, outputTokens: 0 })).toBe(0.0001);
   });

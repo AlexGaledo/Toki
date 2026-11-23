@@ -31,7 +31,6 @@ describe('classifyBash', () => {
       expect(classifyBash(c, [ws]), c).toMatchObject({ verdict: 'ask', danger: true });
   });
 
-  // ---- audit 2026-09-09, B4: interpreters are not silent any more ----
   it('asks for anything that can execute arbitrary code', () => {
     for (const c of [
       'node -e "require(\'child_process\').execSync(\'whoami\')"', 'node greet.js alex', 'python setup.py',
@@ -42,7 +41,6 @@ describe('classifyBash', () => {
     ]) {
       const v = classifyBash(c, [ws]);
       expect(v.verdict, c).toBe('ask');
-      // "ask", not "danger": a test run is normal work, it just needs a human to see it.
       if (!/rm|push|sudo/.test(c)) expect(v.danger, c).toBe(false);
     }
   });
@@ -52,7 +50,6 @@ describe('classifyBash', () => {
       expect(classifyBash(c, [ws]), c).toMatchObject({ verdict: 'ask', danger: false });
   });
 
-  // ---- audit 2026-09-09, B3: relative paths and cd targets ----
   it('asks when a relative path escapes the roots', () => {
     expect(classifyBash('cat ../secrets.json', [ws]).verdict).toBe('ask');
     expect(classifyBash('cat ../../etc/passwd', [ws]).verdict).toBe('ask');
@@ -66,7 +63,6 @@ describe('classifyBash', () => {
     expect(classifyBash('cd .. && cat secrets.json', [ws]).verdict).toBe('ask');
     expect(classifyBash('cd ../.. && ls', [ws]).verdict).toBe('ask');
     expect(classifyBash('cd sub && cat a.txt', [ws]).verdict).toBe('allow');
-    // The cwd carries forward: `sub/..` is still the workspace, `sub/../..` is not.
     expect(classifyBash('cd sub && cd .. && ls', [ws]).verdict).toBe('allow');
     expect(classifyBash('cd sub && cd ../.. && ls', [ws]).verdict).toBe('ask');
   });
@@ -74,10 +70,8 @@ describe('classifyBash', () => {
   it('path-checks redirection targets and never lets echo write silently', () => {
     expect(classifyBash('echo x > ../../startup.bat', [ws]).verdict).toBe('ask');
     expect(classifyBash('echo x > ' + path.join(os.homedir(), 'x.bat'), [ws]).verdict).toBe('ask');
-    // Inside the roots it is still a write, so echo asks either way.
     expect(classifyBash('echo x > out.txt', [ws]).verdict).toBe('ask');
     expect(classifyBash('echo hello', [ws]).verdict).toBe('allow');
-    // `2>&1` is fd duplication, not a path.
     expect(classifyBash('ls -la 2>&1', [ws]).verdict).toBe('allow');
   });
 
@@ -88,7 +82,6 @@ describe('classifyBash', () => {
     expect(classifyBash('git remote -v', [ws]).verdict).toBe('ask');
   });
 
-  // ---- hardening pass: reader options that write a file or run a program ----
   it('asks for allowlisted readers given an option that writes or executes', () => {
     for (const c of [
       'git diff --output=/tmp/x', 'git diff --output out.patch', 'git log --output=x.txt', 'git log --outp=x',
@@ -102,7 +95,6 @@ describe('classifyBash', () => {
       expect(v.verdict, c).toBe('ask');
     }
     expect(classifyBash('rg --pre ./x.sh TODO', [ws]).reason).toMatch(/execute/);
-    // The harmless neighbours stay silent.
     for (const c of [
       'git --no-pager log -3', 'git diff --no-ext-diff', 'git diff --no-textconv', 'git log --pretty=%h:%s',
       'rg --pretty TODO', 'sort -u a.txt', 'rg --glob=*.ts TODO', 'grep --color=auto x a.txt',
@@ -140,7 +132,6 @@ describe('isInside', () => {
     expect(isInside(path.join(ws.toUpperCase(), 'x'), [ws])).toBe(true);
   });
 
-  // ---- audit 2026-09-09, B5 ----
   it('rejects home-relative, UNC, extended and drive-relative paths', () => {
     expect(isInside('~/secret.txt', [ws], ws)).toBe(false);
     expect(isInside('~', [ws], ws)).toBe(false);
@@ -148,16 +139,13 @@ describe('isInside', () => {
     if (process.platform === 'win32') {
       expect(isInside('\\\\server\\share\\x', [ws], ws)).toBe(false);
       expect(isInside('\\\\?\\UNC\\server\\share\\x', [ws], ws)).toBe(false);
-      // C:foo is drive-relative: it resolves against a per-drive cwd the hub does not control.
       expect(isInside('C:foo', [ws], ws)).toBe(false);
-      // The \\?\ prefix is stripped, then judged like any other absolute path.
       expect(isInside('\\\\?\\' + path.join(ws, 'a.txt'), [ws], ws)).toBe(true);
       expect(isInside('\\\\?\\C:\\Windows\\win.ini', [ws], ws)).toBe(false);
     }
   });
 });
 
-// ---- audit 2026-09-09, B5: the symlink/junction escape, empirically ----
 describe('isInside and symlinks', () => {
   let root: string;
   let outside: string;
@@ -181,16 +169,13 @@ describe('isInside and symlinks', () => {
 
   it('rejects a path that reaches outside through a junction inside the root', () => {
     if (!linked) return;
-    // Lexically `<root>/escape/secret.txt` is inside; its realpath is not. Both must be inside now.
     expect(isInside(path.join(root, 'escape', 'secret.txt'), [root])).toBe(false);
     expect(isInside(path.join(root, 'escape'), [root])).toBe(false);
   });
 
   it('rejects a not-yet-existing file whose nearest existing ancestor escapes', () => {
     if (!linked) return;
-    // The file does not exist, so the old code had "no opinion" from realpath and allowed the write.
     expect(isInside(path.join(root, 'escape', 'new-file.txt'), [root])).toBe(false);
-    // A genuinely new file in a genuinely inside directory is still fine.
     expect(isInside(path.join(root, 'sub', 'deep', 'new-file.txt'), [root])).toBe(true);
   });
 

@@ -12,7 +12,6 @@ import type { TurnSink } from '../types.js';
  */
 
 export interface CodexUsageTotals {
-  /** OpenAI's `input_tokens` (cached reads INCLUDED). */
   inputTokens: number;
   cachedInputTokens: number;
   outputTokens: number;
@@ -50,7 +49,6 @@ function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
-/** Flatten an MCP CallToolResult (or anything else) into the text the tool chip shows. */
 function resultText(result: unknown): string {
   if (result == null) return '';
   if (typeof result === 'string') return result;
@@ -82,7 +80,6 @@ function errorText(e: unknown): string | null {
   }
 }
 
-/** add -> Write, delete -> Delete, anything else (update/modify/rename) -> Edit. */
 function fileToolName(kind: string | undefined): string {
   if (kind === 'add' || kind === 'create') return 'Write';
   if (kind === 'delete' || kind === 'remove') return 'Delete';
@@ -93,22 +90,16 @@ export class CodexEventParser {
   /** `thread.started.thread_id` — the id `codex exec resume <id>` wants. */
   threadId: string | null = null;
   usage: CodexUsageTotals = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningTokens: 0 };
-  /** Set by turn.completed. A stream that ends without it died mid-turn. */
   completed = false;
-  /** First fatal error seen (turn.failed / error event). */
   error: string | null = null;
-  /** Number of `turn.completed` events, so the caller can re-check the budget after each one. */
   turns = 0;
 
   private buf = '';
-  /** Tool-use ids already announced via onToolUse, so a result always has a matching chip. */
   private opened = new Set<string>();
-  /** Per-item text already streamed as deltas (agent_message arrives whole on completion). */
   private streamed = new Map<string, string>();
 
   constructor(private sink: TurnSink) {}
 
-  /** Feed a raw stdout chunk; complete lines are parsed, the trailing partial line is buffered. */
   push(chunk: string): void {
     this.buf += chunk;
     let nl = this.buf.indexOf('\n');
@@ -119,7 +110,6 @@ export class CodexEventParser {
     }
   }
 
-  /** Flush whatever is left when the process exits without a trailing newline. */
   end(): void {
     if (this.buf.trim()) this.line(this.buf);
     this.buf = '';
@@ -171,7 +161,7 @@ export class CodexEventParser {
         if (ev.item) this.item(ev.type, ev.item);
         return;
       default:
-        return; // unknown event type: ignore
+        return;
     }
   }
 
@@ -182,7 +172,6 @@ export class CodexEventParser {
       case 'agent_message': {
         const text = item.text ?? '';
         if (!done) {
-          // Some CLI versions stream partial text through item.updated; forward only the new suffix.
           const seen = this.streamed.get(id) ?? '';
           if (text.startsWith(seen) && text.length > seen.length) this.sink.onDelta(text.slice(seen.length));
           this.streamed.set(id, text);
@@ -205,7 +194,6 @@ export class CodexEventParser {
         this.sink.onState('thinking');
         return;
       }
-      // 'patch' / 'patch_apply' are older aliases of 'file_change'.
       case 'file_change':
       case 'patch':
       case 'patch_apply': {
@@ -236,15 +224,13 @@ export class CodexEventParser {
         return;
       }
       case 'error':
-        // An item-level error (e.g. truncated output) is not fatal; keep it only if nothing worse turned up.
         this.error = this.error ?? item.message ?? null;
         return;
       default:
-        return; // todo_list and anything new: ignore
+        return;
     }
   }
 
-  /** Emit onToolUse exactly once per id, whether the CLI sent item.started or only item.completed. */
   private open(id: string, name: string, input: Record<string, unknown>): void {
     if (this.opened.has(id)) return;
     this.opened.add(id);

@@ -22,7 +22,6 @@ import { ModelRouter } from './ModelRouter.js';
 
 const CLAUDE: ModelInfo[] = MODELS.map((m) => ({ id: m.id, label: m.label }));
 
-/** Plays a script of outcomes and records every context it was handed (the model and budget in particular). */
 class ScriptedProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Scripted';
@@ -67,7 +66,6 @@ describe('BotRunner routes auto bots per turn', () => {
     expect(s.provider.seen[0].model).toBe('claude-sonnet-5');
     expect(r.model).toBe('claude-sonnet-5');
     expect(usageRows(s.repos)).toEqual([{ model: 'claude-sonnet-5', route_reason: 'routine', cause_kind: 'routine', cost_usd: 0.01 }]);
-    // The bot's message carries the model and the reason for the chat chip.
     const msg = s.repos.listMessages(s.room.id).find((m) => m.authorType === 'bot')!;
     expect(msg).toMatchObject({ model: 'claude-sonnet-5', modelReason: 'Auto: Sonnet for a routine' });
   });
@@ -105,9 +103,7 @@ describe('BotRunner routes auto bots per turn', () => {
   it('keeps the step-limit continuation on the same tier and never raises the budget', async () => {
     const s = setup([{ error: 'error_max_turns', costUsd: 0.5 }, { ok: true, text: 'done', costUsd: 0.25 }], { maxBudgetUsd: 2 });
     const r = await s.turn({ causeBudgetUsd: 1.5 });
-    // No Opus replay of the turn's largest context: running out of steps is not a reasoning failure.
     expect(s.provider.seen.map((c) => c.model)).toEqual(['claude-sonnet-5', 'claude-sonnet-5']);
-    // min(bot budget, cause budget) first, then what is left of it: the same numbers a pinned bot gets.
     expect(s.provider.seen.map((c) => c.maxBudgetUsd)).toEqual([1.5, 1.0]);
     for (const c of s.provider.seen) expect(c.maxBudgetUsd).toBeLessThanOrEqual(s.bot.maxBudgetUsd);
     expect(r).toMatchObject({ ok: true, model: 'claude-sonnet-5' });
@@ -121,7 +117,6 @@ describe('BotRunner routes auto bots per turn', () => {
     await s.turn();
     expect(s.provider.seen).toHaveLength(1 + MAX_TURN_CONTINUATIONS);
     expect(new Set(s.provider.seen.map((c) => c.model))).toEqual(new Set(['claude-sonnet-5']));
-    // Each continuation gets what is left: 2, then 1.5, then 1 ... for as many as MAX_TURN_CONTINUATIONS allows (3 now).
     expect(s.provider.seen.map((c) => c.maxBudgetUsd)).toEqual([2, 1.5, 1, 0.5].slice(0, 1 + MAX_TURN_CONTINUATIONS));
   });
 
@@ -163,7 +158,6 @@ describe('RoomRouter tells the runner what started a turn', () => {
     router.runner = {
       runTurn: async (req: TurnRequest): Promise<TurnResult> => {
         reqs.push(req);
-        // Ann hands off to Bob once, on the user's message.
         const text = req.bot.id === a.id && req.causeKind === 'user' ? '@bob please take this' : '';
         return { ok: true, turnId: 't' + reqs.length, finalText: text, costUsd: 0 };
       },
@@ -234,7 +228,6 @@ describe('P8 migrations', () => {
     dirs.push(dir);
     const file = path.join(dir, 'hub.db');
     const old = new DatabaseSync(file);
-    // Stand-in for a pre-P8 database: today's tables minus the P8 columns (SCHEMA_SQL never had them).
     old.exec(SCHEMA_SQL);
     const ins = old.prepare('INSERT INTO messages (id, room_id, seq, author_type, kind, text, cause_id, hop, turn_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,1)');
     ins.run('u1', 'r', 1, 'user', 'text', 'hi', 'u1', 0, null);
@@ -256,7 +249,6 @@ describe('P8 migrations', () => {
       { turn_id: 'turn-hop', cause_kind: 'bot', model: null },
       { turn_id: 'mem-abc', cause_kind: 'memory', model: null },
     ]);
-    // Old messages have no model, so they show no chip rather than a wrong one.
     expect(new Repos(db).getMessage('h1')!.model).toBeUndefined();
     db.raw.close();
   });

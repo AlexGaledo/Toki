@@ -1,5 +1,3 @@
-// P2 (docs/specs/grok-bot-parity.md §2.2): `request_takeover`, the bot's way to hand its own computer to the
-// user for something only a person should do (log in, pass a captcha, confirm a payment page).
 import { z } from 'zod';
 import type { Bot, Room, TakeoverPayload } from '@pocketrocket/shared';
 import type { Repos } from '../db/repos.js';
@@ -15,15 +13,12 @@ export interface TakeoverToolCtx {
   turnId: string;
   hop: number;
   causeId: string;
-  /** What this turn belongs to (`routine:<runId>`...); see rooms/ownerRef.ts. */
   ownerRef?: string;
   repos: Repos;
   control: ComputerControlService;
   signal: AbortSignal;
   setState: (s: 'waiting' | 'working') => void;
-  /** Ends this turn; the bot is resumed (with the hand-back note) by a new turn later. */
   park: (why: string) => void;
-  /** Starts the computer if this turn has not used it yet. Returns why it cannot, or null. */
   useComputer?: () => Promise<string | null>;
 }
 

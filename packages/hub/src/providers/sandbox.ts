@@ -25,10 +25,8 @@ import { posix as path } from 'node:path';
 import type { SandboxStatus } from '@pocketrocket/shared';
 import { settings } from '../services/SettingsStore.js';
 
-/** What the argv builder needs to look at on disk. Injected so tests need no Linux. */
 export interface SandboxFs {
   exists(p: string): boolean;
-  /** The target when `p` is a symlink, else null. */
   readlink(p: string): string | null;
   realpath(p: string): string;
 }
@@ -40,45 +38,31 @@ export const realFs: SandboxFs = {
 };
 
 export interface SandboxSpec {
-  /** The hub's data folder. Never mounted whole, and no mount may contain it. */
   dataDir: string;
-  /** The hub user's home (real path). Inside the sandbox it is an empty tmpfs plus what is listed below. */
   home: string;
-  /** Working directory of the CLI; also writable. */
   cwd: string;
-  /** This bot's own folder, writable. Holds its private `~/.claude` (transcripts). */
   botHome: string;
-  /** More folders the bot may write: its room/project folders, its computer disk, a session's VPS worktree. */
   writable: readonly string[];
-  /** Folders it may read but not write: the knowledge repo, the Support bot's source view, attached pictures, the Browser MCP's packages. */
   readOnly: readonly string[];
-  /** The Claude CLI binary (resolved through symlinks). Mounted read-only. */
   executable: string;
-  /** Host path of the CLI's login file. Mounted into the private `~/.claude`. Absent = the CLI is not logged in by file. */
   credentials?: string;
-  /** The env the CLI would have had (already allowlisted by `claudeChildEnv`). */
   env: NodeJS.ProcessEnv;
 }
 
-/** Where a bot's private Claude config dir lives on the host. It is mounted at `<home>/.claude`. */
 export function botClaudeDir(botHome: string): string {
   return path.join(botHome, '.claude-sandbox');
 }
 
-/** `~/.claude/projects/<this>` is where the CLI keeps the transcripts for a working directory. */
 export function transcriptDirName(cwd: string): string {
   return cwd.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
 const SYSTEM_LINKS = ['/bin', '/sbin', '/lib', '/lib32', '/lib64', '/libx32'];
-/** The few /etc entries a CLI, DNS and TLS need. Missing ones are skipped. Nothing here holds a secret. */
 const ETC = [
   'resolv.conf', 'hosts', 'nsswitch.conf', 'host.conf', 'gai.conf', 'passwd', 'group', 'localtime', 'timezone',
   'ld.so.cache', 'ld.so.conf', 'ld.so.conf.d', 'ssl', 'ca-certificates', 'alternatives', 'mime.types',
 ];
-/** Names that never reach the child, whatever the allowlist let through. */
 const ENV_DENY = /^(POCKETROCKET_TOKEN|POCKETROCKET_MCP_TOKEN)$/i;
-/** Host-specific: they point at host paths that do not exist inside. */
 const ENV_DROP = /^(TMPDIR|TEMP|TMP|DISPLAY|XAUTHORITY|XDG_.*|DBUS_.*|SSH_.*)$/i;
 
 function within(root: string, p: string): boolean {
@@ -112,10 +96,6 @@ export function assertMountable(mount: string, spec: Pick<SandboxSpec, 'dataDir'
 
 interface Bind { mode: 'ro' | 'rw'; src: string; dest: string }
 
-/**
- * The bwrap arguments up to (not including) the `--` that precedes the command. Deterministic: mounts are ordered
- * parents first, then by path.
- */
 export function sandboxArgv(spec: SandboxSpec, fsx: SandboxFs = realFs): string[] {
   const out: string[] = ['--die-with-parent', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--new-session'];
 
@@ -137,12 +117,10 @@ export function sandboxArgv(spec: SandboxSpec, fsx: SandboxFs = realFs): string[
   };
   const gitconfig = path.join(spec.home, '.gitconfig');
   if (fsx.exists(gitconfig)) add('ro', gitconfig, gitconfig, false);
-  // The CLI binary, not its folder: the folder also holds every older version. Under /usr it is already there.
   const exe = fsx.realpath(spec.executable);
   if (!within('/usr', exe)) add('ro', exe, exe, false);
   for (const p of spec.readOnly) add('ro', p);
   for (const p of [spec.cwd, spec.botHome, ...spec.writable]) add('rw', p);
-  // The private ~/.claude: this bot's transcripts only. The shared one holds every bot's conversations.
   const claudeDest = path.join(spec.home, '.claude');
   add('rw', botClaudeDir(spec.botHome), claudeDest, false);
   // The login file. Writable because the CLI refreshes its OAuth token in place; a read-only copy would make every
@@ -164,14 +142,11 @@ export function sandboxArgv(spec: SandboxSpec, fsx: SandboxFs = realFs): string[
   return out;
 }
 
-// ---- availability --------------------------------------------------------------------------------------------
-
 export interface BwrapProbe { ok: boolean; reason: string }
 
 const APPARMOR_HINT =
   ' On Ubuntu 24.04 this is the AppArmor rule that blocks unprivileged user namespaces: install deploy/apparmor/pocketrocket-bwrap (deploy/setup-vps.sh does it).';
 
-/** Makes a throwaway sandbox. Cheap (about 10 ms), so a failure is retried soon and a success remembered for a minute. */
 export function realProbe(): BwrapProbe {
   if (process.platform !== 'linux') return { ok: false, reason: 'Bot sandboxing needs a Linux server with bubblewrap.' };
   // /usr/bin/true needs the loader under /lib64 (a symlink into /usr on current distros), so link /lib and friends the
@@ -196,7 +171,6 @@ let cache: { at: number; res: BwrapProbe } | null = null;
 const OK_MS = 60_000;
 const FAIL_MS = 5_000;
 
-/** Tests inject a probe; passing nothing restores the real one. */
 export function setSandboxProbeForTests(fn?: () => BwrapProbe) {
   probeFn = fn ?? realProbe;
   cache = null;
@@ -209,12 +183,10 @@ export function bwrapUsable(now: number = Date.now()): BwrapProbe {
   return res;
 }
 
-/** The setting. Read per turn, so a change applies from the next turn. */
 export function sandboxMode(): 'off' | 'on' {
   return settings.get().sandbox === 'on' ? 'on' : 'off';
 }
 
-/** On and working: turns run sandboxed, so client repos may sync. Never true when bubblewrap is unusable. */
 export function sandboxActive(): boolean {
   return sandboxMode() === 'on' && bwrapUsable().ok;
 }
@@ -224,7 +196,6 @@ export function sandboxStatus(): SandboxStatus {
   return { available: p.ok, active: sandboxMode() === 'on' && p.ok, reason: p.reason };
 }
 
-/** A turn that must not run because the sandbox is on but cannot be made. */
 export class SandboxUnavailable extends Error {
   constructor(reason: string) {
     super('The bot sandbox is on but unusable, so this turn was not run (it fails closed instead of running unsandboxed): ' + reason +
@@ -233,17 +204,10 @@ export class SandboxUnavailable extends Error {
   }
 }
 
-// ---- spawning -----------------------------------------------------------------------------------------------
-
 export type SandboxTurn = Omit<SandboxSpec, 'env' | 'executable' | 'dataDir' | 'home' | 'credentials'> & {
-  /** The session being resumed: its transcript is copied into the bot's private config dir the first time. */
   resumeToken?: string | null;
 };
 
-/**
- * Copies a session's transcript from the shared `~/.claude` into the bot's private one, once, so a conversation that
- * began before the sandbox was turned on still resumes. Reads only; a missing transcript is left for the CLI to report.
- */
 export function migrateTranscript(hostClaudeDir: string, botHome: string, cwd: string, sessionId: string): void {
   if (!/^[0-9a-fA-F-]{8,64}$/.test(sessionId)) return;
   const name = transcriptDirName(cwd);
@@ -257,7 +221,6 @@ export function migrateTranscript(hostClaudeDir: string, botHome: string, cwd: s
   if (fs.existsSync(side)) fs.cpSync(side, path.join(to, sessionId), { recursive: true });
 }
 
-/** A bare command name resolved against PATH (the SDK passes the executable as given). */
 function which(cmd: string, pathVar: string): string {
   for (const dir of pathVar.split(path.delimiter)) {
     const p = path.join(dir, cmd);
@@ -268,7 +231,6 @@ function which(cmd: string, pathVar: string): string {
 
 export interface SandboxedCommand { command: string; args: string[]; env: NodeJS.ProcessEnv }
 
-/** A turn's mounts, with the host-side mount points made. Shared by the spawn path and `sandboxCli`. */
 export function prepareSandbox(
   turn: SandboxTurn,
   layout: { dataDir: string; home?: string },
@@ -277,7 +239,6 @@ export function prepareSandbox(
 ): { argv: string[]; exe: string } {
   const home = layout.home ?? os.homedir();
   const hostClaude = path.join(home, '.claude');
-  // Pre-create the mount points we own, so bubblewrap does not leave stubs behind in the bot's folder.
   const claudeDir = botClaudeDir(turn.botHome);
   fs.mkdirSync(claudeDir, { recursive: true });
   const cred = path.join(hostClaude, '.credentials.json');
@@ -289,10 +250,6 @@ export function prepareSandbox(
   return { argv, exe };
 }
 
-/**
- * What to spawn instead of `command`. Returns null when the sandbox is off (the caller spawns as before) and throws
- * `SandboxUnavailable` when it is on but cannot be made.
- */
 export function sandboxCommand(
   o: { command: string; args: string[]; env: NodeJS.ProcessEnv },
   turn: SandboxTurn,
@@ -305,7 +262,6 @@ export function sandboxCommand(
   return { command: 'bwrap', args: [...argv, '--', exe, ...o.args], env: { PATH: '/usr/local/bin:/usr/bin:/bin' } };
 }
 
-/** Folders the Playwright MCP (a Node process the CLI starts) needs to read: node itself and the packages it loads. */
 export function browserMcpRoots(cli: string, nodeExe: string = process.execPath): string[] {
   const roots: string[] = [];
   const real = realFs.realpath(cli);

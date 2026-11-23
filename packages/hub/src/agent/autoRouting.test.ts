@@ -98,7 +98,6 @@ describe('use_stronger_model', () => {
     expect(s.provider.seen.map((c) => c.maxBudgetUsd)).toEqual([2, 1.5]);
     expect(r).toMatchObject({ ok: true, model: OPUS, finalText: 'Here is the design.', costUsd: 0.75 });
     expect(s.notes()).toEqual(['Moved to Opus 5: multi-step design']);
-    // The reply is stamped with the model that wrote it, and usage splits by model.
     const msg = s.repos.listMessages(s.room.id).find((m) => m.authorType === 'bot' && m.kind === 'text')!;
     expect(msg).toMatchObject({ model: OPUS, modelReason: expect.stringContaining('multi-step design') });
     const rows = s.repos.db.all<{ model: string; route_reason: string }>('SELECT model, route_reason FROM usage ORDER BY id');
@@ -139,7 +138,6 @@ describe('use_stronger_model', () => {
   });
 
   it('is approved only on Auto on Sonnet, on a thread a person started, on Claude', async () => {
-    // Offered on every Claude turn (a tool list that changes between turns busts the prompt cache) and refused inside.
     const offered = async (o: Parameters<typeof setup>[1], p: Partial<TurnRequest> = {}) => {
       const s = setup([{ text: 'x' }], o);
       await s.turn(p);
@@ -149,13 +147,12 @@ describe('use_stronger_model', () => {
       return !out.isError && (out.content[0] as { text: string }).text.startsWith('Approved');
     };
     expect(await offered({})).toBe(true);
-    expect(await offered({}, { hop: 1 })).toBe(true); // a hand-off on a person's thread
+    expect(await offered({}, { hop: 1 })).toBe(true);
     expect(await offered({ model: SONNET })).toBe(false);
     expect(await offered({ model: OPUS })).toBe(false);
     expect(await offered({}, { chatModel: OPUS })).toBe(false);
     expect(await offered({}, { chatModel: SONNET })).toBe(false);
-    expect(await offered({}, { latestUserText: 'ultrathink' })).toBe(false); // already on Opus
-    // Forwarded text must not be able to buy Opus.
+    expect(await offered({}, { latestUserText: 'ultrathink' })).toBe(false);
     expect(await offered({}, { causeKind: 'routine' })).toBe(false);
     expect(await offered({}, { causeKind: 'trigger' })).toBe(false);
     expect(await offered({}, { causeKind: 'bot', hop: 1, strictApprovals: true })).toBe(false);
@@ -184,7 +181,6 @@ describe('the chat picker', () => {
     expect(pick.provider.seen.map((c) => c.model)).toEqual([SONNET, SONNET]);
     const auto = setup([{ ok: false, error: 'error_max_turns' }, { text: 'done' }], { model: HAIKU });
     await auto.turn({ chatModel: AUTO_MODEL });
-    // Running out of steps stays on the tier: an Opus replay of the turn's largest context is what burns a plan.
     expect(auto.provider.seen.map((c) => c.model)).toEqual([SONNET, SONNET]);
   });
 
@@ -275,7 +271,7 @@ describe('routing.md belongs to the owner', () => {
     r.ensureSeeded();
     expect(r.read()).toBe('- mine\n');
     expect(() => r.write('x'.repeat(3000))).toThrow(/limited/);
-    fs.writeFileSync(f, 'é'.repeat(3000)); // edited over SSH, too long and cut mid-character
+    fs.writeFileSync(f, 'é'.repeat(3000));
     const capped = r.promptText();
     expect(Buffer.byteLength(capped)).toBeLessThanOrEqual(2048);
     expect(capped).not.toContain('�');
@@ -303,7 +299,6 @@ describe('routing.md belongs to the owner', () => {
       expect(await broker.ask(ctx, { action: 'edit', command: 'echo x > ' + ROUTING_PATH.replace(/\\/g, '/') }, signal)).toMatchObject({ allowed: false });
     }
     expect(repos.listMessages(room.id)).toEqual([]);
-    // Reading it, or writing next to it, is not refused here.
     expect(routingFileWrite('Bash', { command: 'cat ' + ROUTING_PATH.replace(/\\/g, '/') }, WORKSPACE_DIR)).toBeNull();
     expect(routingFileWrite('Write', { file_path: path.join(WORKSPACE_DIR, 'routing.md') }, WORKSPACE_DIR)).toBeNull();
     expect(routingFileWrite('Read', { file_path: ROUTING_PATH }, WORKSPACE_DIR)).toBeNull();
@@ -337,7 +332,6 @@ describe('routing.md belongs to the owner', () => {
 
   it('is proposed only on a turn the owner started, never on automation or a hand-off', async () => {
     const routing = new RoutingRules(path.join(tmp(), 'routing.md'));
-    // Present on every turn, so the tool list stays stable; refused before any card on the others.
     const offered = async (p: Partial<TurnRequest>) => {
       const s = setup([{ call: { name: 'propose_routing_change', input: { line: 'Invoices go to @finance', reason: 'Asked for it' } }, text: 'x' }], { routing, bypass: true });
       const off = events.onEvent((ev) => { if (ev.type === 'approval.request') setTimeout(() => s.broker.resolve(ev.approval.approvalId, 'deny'), 0); });
@@ -390,7 +384,7 @@ describe('a first hand-off to a bot outside the chat', () => {
     expect((await s.ask('finance')).allowed).toBe(true);
     expect((await s.ask('finance')).allowed).toBe(true);
     expect(s.cards()).toBe(1);
-    await s.ask('research'); // another bot is another first time
+    await s.ask('research');
     off();
     expect(s.cards()).toBe(2);
     expect(s.store.listPolicies(s.bot.id).map((p) => [p.tool, p.pattern, p.decision])).toEqual([['handoff', 'finance', 'allow'], ['handoff', 'research', 'allow']]);
@@ -473,17 +467,14 @@ describe('a hand-off from a DM, through the real router and runner', () => {
     const work = () => repos.listRooms().find((r) => r.memberIds[0] === fin.id);
     for (let i = 0; i < 200 && !(work() && !router.isBusy(chief.id, dm.id) && !router.isBusy(fin.id, work()!.id)); i++) await new Promise((res) => setTimeout(res, 5));
     off();
-    // The pick is for the turn the person started; the hand-off uses the target's own model and session.
     expect(provider.seen.map((c) => [c.bot.handle, c.model, c.resumeToken])).toEqual([['chief', OPUS, null], ['finance', HAIKU, null]]);
     expect(repos.getRoom(dm.id)!.memberIds).toEqual([chief.id]);
     const here = repos.listMessages(dm.id);
     expect(here.filter((m) => m.kind === 'approval')).toHaveLength(1);
     expect(here.filter((m) => m.kind === 'handoff')).toHaveLength(1);
     expect(here.at(-1)).toMatchObject({ authorId: fin.id, text: 'Invoices compared: all match.', payload: { workRoomId: work()!.id } });
-    // It is the same thread, so the hop and cost caps still bound it.
     const there = repos.listMessages(work()!.id).find((m) => m.authorId === fin.id)!;
     expect(there).toMatchObject({ hop: 1, causeId: here[0].id });
-    // The chief reads the result on its next turn.
     expect(repos.messagesAfter(dm.id, 0).some((m) => m.authorId === fin.id && m.kind === 'text')).toBe(true);
   });
 });
@@ -515,7 +506,6 @@ describe('REST', () => {
     expect((await api<Room>('PUT', '/api/rooms/' + room.id + '/model', { model: OPUS })).body.chatModel).toBe(OPUS);
     expect((await api<Room[]>('GET', '/api/rooms')).body.find((r) => r.id === room.id)!.chatModel).toBe(OPUS);
     expect((await api<Bot[]>('GET', '/api/bots')).body.find((b) => b.id === bot.id)!.model).toBe(before);
-    // PATCHing the room does not lose it.
     await api('PATCH', '/api/rooms/' + room.id, { name: 'Renamed' });
     expect((await api<Room[]>('GET', '/api/rooms')).body.find((r) => r.id === room.id)!.chatModel).toBe(OPUS);
     for (const bad of ['claude-fable-5-1', 'nonsense', 3]) expect((await api('PUT', '/api/rooms/' + room.id + '/model', { model: bad })).status).toBe(400);
@@ -527,7 +517,7 @@ describe('REST', () => {
     expect((await api<{ text: string }>('PUT', '/api/routing', { text: '- Invoices go to @finance\n' })).status).toBe(200);
     expect((await api<{ text: string }>('GET', '/api/routing')).body.text).toBe('- Invoices go to @finance\n');
     expect((await api('PUT', '/api/routing', { text: 'x'.repeat(3000) })).status).toBe(400);
-    expect((await api('PUT', '/api/routing', { text: 'é'.repeat(1500) })).status).toBe(400); // over in bytes
+    expect((await api('PUT', '/api/routing', { text: 'é'.repeat(1500) })).status).toBe(400);
     expect((await api<{ text: string }>('GET', '/api/routing')).body.text).toBe('- Invoices go to @finance\n');
   });
 

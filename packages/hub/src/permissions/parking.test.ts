@@ -19,13 +19,6 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner } from '../agent/BotRunner.js';
 import { RoomRouter } from '../rooms/RoomRouter.js';
 
-/**
- * P2 2.4, acceptance: "a 3 a.m. routine waits for a morning approval, then completes". A routine (strict) turn
- * whose card nobody answers does not time out into a denial: it parks (card stays pending, turn ends, slot
- * freed), survives a hub restart, and the user's answer hours later resumes the bot, which then finishes.
- * A card parked longer than the max park age (24 h) is denied. The clock is fake.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 400 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -59,7 +52,6 @@ describe('PermissionBroker parking (unit)', () => {
     expect(p).toMatchObject({ botId: s.bot.id, roomId: s.room.id, toolName: 'Bash', causeId: 'cause', hop: 2, ownerRef: 'routine:run-9' });
     const card = s.repos.messagesAfter(s.room.id, 0).find((m) => m.kind === 'approval')!;
     expect(card.payload).toMatchObject({ status: 'pending', parked: true });
-    // A hub restart expires ordinary open cards, not parked ones.
     s.repos.expirePendingApprovals();
     expect(s.store.listParked()).toHaveLength(1);
     expect((s.repos.getMessage(card.id)!.payload as ApprovalPayload).status).toBe('pending');
@@ -83,15 +75,13 @@ describe('PermissionBroker parking (unit)', () => {
     const [p] = s.store.listParked();
     const decided: string[] = [];
     s.broker.onParkedDecision = (_p, d) => decided.push(d);
-    t += 7 * HOUR; // the morning
+    t += 7 * HOUR;
     expect(s.broker.resolve(p.id, 'allow')).toBe(true);
     expect(decided).toEqual(['allow']);
     expect(s.store.listParked()).toHaveLength(0);
     let cards = 0;
     const off = events.onEvent((ev) => { if (ev.type === 'approval.request') { cards++; setTimeout(() => s.broker.resolve(ev.approval.approvalId, 'deny'), 0); } });
-    // The retry (its description may differ) goes through once...
     expect(await s.broker.decide(s.ctx(false), 'Bash', { command: 'git push origin main', description: 'retry' }, { signal: signal() })).toEqual({ behavior: 'allow' });
-    // ...and only once.
     expect((await s.broker.decide(s.ctx(false), 'Bash', { command: 'git push origin main' }, { signal: signal() })).behavior).toBe('deny');
     off();
     expect(cards).toBe(1);
@@ -113,16 +103,12 @@ describe('PermissionBroker parking (unit)', () => {
     const off = events.onEvent((ev) => { if (autoDeny && ev.type === 'approval.request') { cards++; setTimeout(() => s.broker.resolve(ev.approval.approvalId, 'deny', { signedIn: true }), 0); } });
     await park();
     autoDeny = true;
-    // Another room asking for the same fill gets its own card; it does not spend the grant.
     expect((await s.broker.askCredentialFill(ctx2, input, signal())).allowed).toBe(false);
     expect(cards).toBe(1);
-    // The originating room spends it once, without a card...
     expect((await s.broker.askCredentialFill(s.ctx(false), input, signal())).allowed).toBe(true);
     expect(cards).toBe(1);
-    // ...and only once.
     expect((await s.broker.askCredentialFill(s.ctx(false), input, signal())).allowed).toBe(false);
     expect(cards).toBe(2);
-    // Ten minutes is the limit for this kind of tool.
     autoDeny = false;
     await park();
     autoDeny = true;
@@ -172,7 +158,6 @@ class ScriptedProvider implements AgentProvider {
   modelsSync(): ModelInfo[] { return []; }
   async check(): Promise<ProviderCheck> { return { ok: true, auth: 'unknown' }; }
   interrupt(): boolean { return false; }
-  /** Every turn tries the same risky push; a parked turn is cut off by the abort. */
   async runTurn(ctx: TurnContext): Promise<TurnOutcome> {
     this.inputs.push(ctx.input);
     const d = await ctx.permission('Bash', { command: 'git push origin main' });
@@ -187,7 +172,6 @@ describe('a 3 a.m. routine parks on its card and completes after the morning app
     const repos = new Repos(db);
     const store = new ApprovalStore(db, now);
     const usage = new UsageTracker(repos);
-    // Bypass on: a routine still asks (decision Q6), and with nobody there its card parks.
     const broker = new PermissionBroker(repos, { bypass: () => true, store, now, parkAfterMs: 20 });
     const provider = new ScriptedProvider();
     const router = new RoomRouter(repos, usage);
@@ -204,7 +188,7 @@ describe('a 3 a.m. routine parks on its card and completes after the morning app
   it('parks, survives a restart, resumes on the answer, and closes the routine run as a success', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-park-'));
     const file = path.join(dir, 'hub.db');
-    let t = Date.UTC(2026, 10, 2, 3, 0); // 03:00
+    let t = Date.UTC(2026, 10, 2, 3, 0);
     const now = () => t;
     const h1 = hub(file, now);
     const bot = h1.repos.createBot({ name: 'Nightly', handle: 'nightly', title: '', description: '', avatar: '🤖', model: 'm', allowedTools: ['Bash'], maxBudgetUsd: 2 });
@@ -219,14 +203,12 @@ describe('a 3 a.m. routine parks on its card and completes after the morning app
     expect(h1.repos.messagesAfter(room.id, 0).some((m) => / turn ended: /.test(m.text))).toBe(false);
     h1.scheduler.stop();
 
-    // The hub restarts overnight: the parked card and its open run survive.
     const h2 = hub(file, now);
     h2.repos.expirePendingApprovals();
     new FollowUp({ repos: h2.repos, router: h2.router, heldRuns: () => h2.store.parkedOwnerRefs() }).resumeInterrupted();
     expect(h2.store.listParked()).toHaveLength(1);
     expect(h2.repos.listRuns(routine.id)[0].status).toBe('running');
 
-    // 08:30: the user allows it. The bot is resumed with the answer, retries the push without a new card, finishes.
     t = Date.UTC(2026, 10, 2, 8, 30);
     let cards = 0;
     const off = events.onEvent((ev) => { if (ev.type === 'approval.request') cards++; });

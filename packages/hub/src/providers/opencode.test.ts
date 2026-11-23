@@ -65,7 +65,6 @@ describe('opencode CLI parsers (captured output from opencode 1.17.6)', () => {
     const sonnet = models.find((m) => m.id === 'opencode/claude-sonnet-5')!;
     expect(sonnet.label).toBe('Claude Sonnet 5');
     expect(sonnet.note).toBe('opencode');
-    // Every id keeps its provider prefix: nothing about the model list is hardcoded.
     expect(models.every((m) => m.id.includes('/'))).toBe(true);
     expect(models.filter((m) => m.default)).toHaveLength(1);
   });
@@ -77,7 +76,6 @@ describe('opencode CLI parsers (captured output from opencode 1.17.6)', () => {
   it('marks a sensible cheap default, preferring an authenticated first-party provider', () => {
     expect(pickDefault(['opencode/gpt-5.4', 'opencode/claude-sonnet-5', 'opencode/nemotron-3-ultra-free'])).toBe('opencode/claude-sonnet-5');
     expect(pickDefault(['anthropic/claude-sonnet-5', 'opencode/claude-sonnet-5'])).toBe('anthropic/claude-sonnet-5');
-    // Nothing preferred available: fall back to the first id in provider order.
     expect(pickDefault(['zed/mystery-1'])).toBe('zed/mystery-1');
     expect(pickDefault([])).toBeUndefined();
   });
@@ -153,7 +151,6 @@ describe('serve child spawn', () => {
 
   it('spawns `opencode serve` on a loopback port with the inline config and a server password', async () => {
     const server = new OpenCodeServer();
-    // The fake exe exits immediately, so booting must fail with the child's exit code.
     await expect(server.ensure('http://127.0.0.1:7788/mcp')).rejects.toThrow(/exited with code 3/);
     await server.stop();
 
@@ -166,7 +163,6 @@ describe('serve child spawn', () => {
     expect(got.env.OPENCODE_SERVER_PASSWORD).toMatch(/^[\w-]{20,}$/);
 
     const cfg = JSON.parse(got.env.OPENCODE_CONFIG_CONTENT) as { mcp: Record<string, { url: string; headers: Record<string, string> }> };
-    // The MCP url is the bridge's, never the hub's per-turn endpoint (OpenCode reads it once, at startup).
     expect(cfg.mcp.pocketrocket.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/mcp$/);
     expect(cfg.mcp.pocketrocket.url).not.toContain('7788');
     expect(cfg.mcp.pocketrocket.headers.Authorization).toMatch(/^Bearer [\w-]{20,}$/);
@@ -180,21 +176,17 @@ describe('MCP bridge', () => {
       ['ses_b', { token: 'B', startedAt: 2, pending: new Set(['pocketrocket_send_message']) }],
     ]);
     expect(routeToken(routes, 'tools/call', 'pocketrocket_send_message')).toEqual({ ok: true, token: 'B' });
-    // Handshake / listing traffic carries no session hint: any live turn serves the same tool schemas.
     expect(routeToken(routes, 'tools/list')).toEqual({ ok: true, token: 'B' });
     expect(routeToken(new Map(), 'tools/list')).toEqual({ ok: false, reason: 'none' });
     expect(routeToken(new Map([['ses_a', { token: 'A', startedAt: 1, pending: new Set<string>() }]]), 'tools/call', 'pocketrocket_x')).toEqual({ ok: true, token: 'A' });
   });
 
   it('refuses an ambiguous tools/call rather than guessing the newest turn (audit B12)', () => {
-    // Two live turns, both waiting on the same hub tool: attributing this to either one would let bot A
-    // act, spend budget and edit the fleet as bot B.
     const both = new Map<string, BridgeRoute>([
       ['ses_a', { token: 'A', startedAt: 1, pending: new Set(['pocketrocket_send_message']) }],
       ['ses_b', { token: 'B', startedAt: 2, pending: new Set(['pocketrocket_send_message']) }],
     ]);
     expect(routeToken(both, 'tools/call', 'pocketrocket_send_message')).toEqual({ ok: false, reason: 'ambiguous' });
-    // Neither turn claims it: still ambiguous, never "the newest one".
     const neither = new Map<string, BridgeRoute>([
       ['ses_a', { token: 'A', startedAt: 1, pending: new Set<string>() }],
       ['ses_b', { token: 'B', startedAt: 2, pending: new Set<string>() }],

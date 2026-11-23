@@ -9,11 +9,6 @@ import { events } from '../../events.js';
 import { PermissionBroker } from '../../permissions/PermissionBroker.js';
 import { brokerAsks, commandOf, decideAcpPermission, readOnlyModeChange, readOnlyViolation, strictModeChange, strictModeId, type AcpPermCtx } from './permissions.js';
 
-/**
- * P2-1b: an ACP `session/request_permission` goes through the real PermissionBroker after it is mapped onto the
- * broker's tool names: path kinds through `pathRules.isInside`, `execute` through `classifyBash`, the rest a card.
- */
-
 const OPTIONS: PermissionOption[] = [
   { optionId: 'once', name: 'Allow once', kind: 'allow_once' },
   { optionId: 'always', name: 'Always', kind: 'allow_always' },
@@ -42,7 +37,6 @@ function setup(o: { bypass?: boolean; strict?: boolean; answer?: 'allow' | 'deny
     }
   });
   const signal = new AbortController().signal;
-  // What BotRunner hands an adapter: bypass is off on a strict turn, whatever the setting.
   const ctx: AcpPermCtx = {
     workspaceDir: WORKSPACE_DIR,
     bypassPermissions: !!o.bypass && !o.strict,
@@ -199,7 +193,6 @@ describe('strict mode choice', () => {
 
 describe('read-only mode for strict turns on an agent that writes without asking', () => {
   const m = (id: string, name = id, description?: string) => ({ id, name, description });
-  // agy 1.5.12's modes, live (G7).
   const AGY = [m('default', 'Default', 'Ask before edits and commands, per your permission settings'), m('accept-edits', 'Accept edits'), m('plan', 'Plan')];
   it("picks agy's plan mode, never default or accept-edits", () => {
     expect(readOnlyModeChange({ currentModeId: 'default', availableModes: AGY }, null)).toEqual({ kind: 'mode', modeId: 'plan', current: false });

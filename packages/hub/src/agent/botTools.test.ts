@@ -92,13 +92,9 @@ describe('createHubTools', () => {
       'send_message', 'handoff', 'update_memory', 'read_memory', 'save_skill', 'list_bots', 'read_room',
       'list_rooms', 'create_bot', 'create_room', 'add_to_room', 'update_bot', 'delete_bot',
       'remove_from_room', 'delete_room',
-      // P3
       'list_routines', 'create_routine', 'update_routine', 'delete_routine',
-      // Key routing
       'where_to_run', 'list_machines', 'escalate',
-      // P7
       'search_notes', 'write_note',
-      // G1-G5
       'create_task', 'update_task', 'list_tasks', 'search_history', 'recall_memory', 'report_blocked', 'send_feedback',
     ]);
   });
@@ -125,10 +121,8 @@ describe('createHubTools', () => {
     const out = await byName(tools, 'create_bot').handler({ name: 'Worker', handle: 'worker', title: '', description: 'a description' });
     expect(out.isError).toBeFalsy();
     expect(s.repos.getBotByHandle('worker')!.model).toBe('claude-sonnet-5');
-    // Opus only when it is asked for by name.
     await byName(tools, 'create_bot').handler({ name: 'Lead', handle: 'lead', title: '', description: 'a description', model: 'claude-opus-5' });
     expect(s.repos.getBotByHandle('lead')!.model).toBe('claude-opus-5');
-    // Another provider has no Sonnet id: Auto, which routes to its own default tier, rather than the creator's model.
     const other = createHubTools({ ...s.ctx, bot: { ...s.bot, model: 'opencode/claude-opus-4-6' }, models: ['opencode/claude-opus-4-6', 'opencode/claude-sonnet-4-5', 'auto'] });
     await byName(other, 'create_bot').handler({ name: 'Other', handle: 'other', title: '', description: 'a description' });
     expect(s.repos.getBotByHandle('other')!.model).toBe('auto');
@@ -160,7 +154,6 @@ describe('createHubTools', () => {
     const tool = byName(tools, 'request_approval');
     expect(tool).toBeTruthy();
 
-    // The approval card reaches the UI as an approval.request event; answer it like the web client does.
     const seen: ApprovalPayload[] = [];
     const off = events.onEvent((ev) => {
       if (ev.type === 'approval.request') {
@@ -173,7 +166,6 @@ describe('createHubTools', () => {
 
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({ toolName: 'request_approval', reason: 'delete the build cache', danger: true });
-    // The approval now returns the id of the recorded grant (audit 2026-09-09, B10).
     const parsed = JSON.parse((out.content[0] as { text: string }).text) as { allowed: boolean; message: string; approvalId: string };
     expect(parsed).toMatchObject({ allowed: true, message: 'Approved by the user.' });
     expect(parsed.approvalId).toBe(seen[0].approvalId);
@@ -280,12 +272,10 @@ describe('M6: provider per bot in the bot tools (P1-3, P1-7)', () => {
     const s = setup({ modelsFor });
     const cy = s.repos.createBot({ name: 'Cy', handle: 'cy', title: '', description: 'x', avatar: '', model: 'gpt-5-codex', allowedTools: [], maxBudgetUsd: 1, provider: 'codex' });
     const tools = createHubTools(s.ctx);
-    // A Claude model on a Codex bot is refused, though the caller (on Claude) lists it.
     const bad = await byName(tools, 'update_bot').handler({ bot: 'cy', model: 'claude-opus-5' });
     expect(bad.isError).toBe(true);
     expect(bad.content[0]).toMatchObject({ text: expect.stringContaining('gpt-5-codex') });
     expect(s.repos.getBot(cy.id)!.model).toBe('gpt-5-codex');
-    // And a Codex model on the caller's own Claude bot is refused too.
     expect((await byName(tools, 'update_bot').handler({ bot: 'me', model: 'gpt-5-codex' })).isError).toBe(true);
     expect((await byName(tools, 'update_bot').handler({ bot: 'cy', model: 'auto' })).isError).toBeFalsy();
   });
@@ -296,13 +286,12 @@ describe('M6: provider per bot in the bot tools (P1-3, P1-7)', () => {
     const tools = createHubTools({ ...s.ctx, bot: onCodex, models: MODELS.codex });
     expect((await byName(tools, 'create_bot').handler({ name: 'X', handle: 'xx', title: '', description: 'a description', model: 'gpt-5-codex' })).isError).toBe(true);
     expect((await byName(tools, 'create_bot').handler({ name: 'Y', handle: 'yy', title: '', description: 'a description' })).isError).toBeFalsy();
-    // The default (Claude) default, not the Codex creator's model.
     expect(s.repos.getBotByHandle('yy')).toMatchObject({ model: 'claude-sonnet-5', provider: null });
   });
 
   it('a bot cannot set a provider or a backup, for itself or another bot, even with approvals off', async () => {
     const s = setup({ modelsFor });
-    const tools = createHubTools(s.ctx); // no confirmFleetChange: every other change would go through unguarded
+    const tools = createHubTools(s.ctx);
     const self = await byName(tools, 'update_bot').handler({ bot: 'me', provider: 'codex' });
     expect(self.isError).toBe(true);
     expect(self.content[0]).toMatchObject({ text: expect.stringContaining('only by the owner') });
@@ -313,7 +302,6 @@ describe('M6: provider per bot in the bot tools (P1-3, P1-7)', () => {
     const created = await byName(tools, 'create_bot').handler({ name: 'X', handle: 'xx', title: '', description: 'a description', provider: 'codex' });
     expect(created.isError).toBe(true);
     expect(s.repos.getBotByHandle('xx')).toBeUndefined();
-    // Without those fields the same calls still work.
     expect((await byName(tools, 'update_bot').handler({ bot: 'me', name: 'Renamed' })).isError).toBeFalsy();
   });
 

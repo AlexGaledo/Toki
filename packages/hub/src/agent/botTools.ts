@@ -53,93 +53,32 @@ export interface ToolCtx {
   repos: Repos;
   memory: MemoryService;
   skills: SkillService;
-  /** Project folders. Absent in a few unit tests. */
   projects?: ProjectService;
-  /** Uploaded pictures, shared with the avatar upload endpoint. Absent in a few unit tests; send_message then refuses an image. */
   media?: MediaStore;
-  /**
-   * Route a bot-authored message to target bots (hop+1). Returns handles actually dispatched.
-   * `room` defaults to the room the turn is running in; pass another to wake bots in that room instead.
-   * `onDone` runs when the target's turn ends.
-   */
   dispatchFromBot: (targets: Bot[], room?: Room, onDone?: (r: { ok: boolean; finalText: string; error?: string; parked?: boolean }) => void) => string[];
   setState: (s: 'waiting' | 'working') => void;
-  /** Attach desktop (computer-use) tools for this turn. */
   desktop?: boolean;
-  /** Model ids this bot's provider offers (plus `auto`), [] when it has no list. */
   models: string[];
-  /**
-   * M6 (P1-3): model ids a provider offers (plus `auto`); null = the default provider, where a new bot or a bot with
-   * `provider: null` runs. create_bot and update_bot check a model against the target bot's provider with it. Absent
-   * (unit tests), every bot is taken to share `models`.
-   */
   modelsFor?: (provider: ProviderId | null) => string[];
-  /** M6 (P1-7): this bot's provider does not load skills from a plugin dir (every provider but Claude). Adds `read_skill`. */
   skillsAsText?: boolean;
-  /**
-   * Ask the user for approval through the PermissionBroker. Present only for providers whose permission
-   * parity is 'best-effort' (everything but Claude); adds the `request_approval` tool.
-   */
   requestApproval?: (a: { action: string; command?: string; paths?: string[]; reason?: string }) => Promise<{ allowed: boolean; message: string; approvalId?: string }>;
-  /**
-   * Approval card for a fleet change (create/update/delete a bot, create/delete a room, add/remove a
-   * member). Wired by BotRunner for every provider (the broker allows it without a card when approvals are
-   * bypassed); when absent (unit tests) the change goes through unguarded. See audit 2026-09-09, B6/B14.
-   */
   confirmFleetChange?: (a: { tool: string; reason: string; input: Record<string, unknown>; evenUnderBypass?: boolean; machine?: string }) => Promise<{ allowed: boolean; message: string }>;
-  /** The card for a first hand-off to a bot outside this chat. Absent in unit tests, where it goes through. */
   confirmOutsideHandoff?: (a: { input: { to_bot: string; task: string; context?: string }; reason: string }) => Promise<{ allowed: boolean; message: string }>;
-  // ---- Auto routing ----
-  /**
-   * Adds `use_stronger_model`. True = approved; false = it already asked on this turn; a string = why this turn may
-   * not move up. Offered on every Claude turn and refused here, so the tool list (which sits ahead of the system
-   * prompt in the prompt cache) stays the same from turn to turn.
-   */
   useStrongerModel?: (reason: string) => boolean | string;
-  /**
-   * Adds `propose_routing_change`; the line goes in only if the owner approves it. Offered whenever routing rules
-   * exist, for the same cache reason, and refused inside on a turn the owner did not start.
-   */
   proposeRouting?: (line: string, reason: string) => Promise<{ ok: boolean; message: string }>;
-  /**
-   * Adds `propose_rule`: a deny rule (a shell command or a path) with what to do instead, stored and enforced by the
-   * PermissionBroker only if the owner approves the card. Offered on every turn (cache), refused inside on a turn the
-   * owner did not start directly.
-   */
   proposeRule?: (rule: { kind: 'command' | 'path'; pattern: string; instead: string; reason: string }) => Promise<{ ok: boolean; message: string }>;
-  // ---- P3: routine tools ----
-  /** Reschedule after a routine tool changed the table (RoutineScheduler.reload). Absent in unit tests. */
   routinesChanged?: () => void;
-  /** Zone routine times are read in. Defaults to `settings.timezone`. */
   timezone?: string;
-  // ---- Workflows ----
-  /** Adds `list_workflows`, `create_workflow` and `update_workflow` (the last two ask the owner first, like the routine tools). Absent in most unit tests. */
   workflows?: WorkflowRunner;
-  // ---- PC runner ----
-  /** The owner's PC as a job runner. Adds `run_on_pc` while it is paired. */
   pcRunner?: PcRunner;
-  /** Bridge P4: the PC session mirror, read-only. Only @persona's tools (and run_on_pc mode resume) read it. */
   pcSessions?: PcSessions;
-  /** Bridge P6: moved PC sessions. Adds `propose_move` for @persona and repo-linked bots, and makes run_on_pc refuse a resume of a session that is on the VPS. */
   sessionMoves?: SessionMoves;
-  /** U4: adds `request_form`. Absent in most unit tests. */
   forms?: FormBroker;
-  /**
-   * A routine/trigger turn (see PermissionBroker.strictApprovals): nobody is watching, so `request_form` is refused
-   * instead of holding the turn slot for up to 10 minutes. Approvals park such turns; a form is plain data the bot
-   * can ask for in text, so the simplest safe choice is to not offer the wait at all.
-   */
   strictApprovals?: boolean;
-  /** The turn's abort signal; run_on_pc cancels its job when the turn is stopped. */
   signal?: AbortSignal;
-  /** key-registry.json, read on every call. Defaults to the file in DATA_DIR; tests hand in their own. */
   keyRegistry?: () => KeyRegistry;
-  /** Blocked-site reports and feedback (G5). Defaults to the hub's own file in DATA_DIR; tests hand in a temp one. */
   reports?: BotReports;
-  // ---- Bridge P1: shared files ----
-  /** This turn's room or project folder as a tracked root; adds log_decision and file_history. */
   fileRoot?: FileRoot | null;
-  /** Who this turn writes as, for file history. */
   fileAuthor?: RevisionAuthor;
   revisions?: FileRevisions;
 }
@@ -147,11 +86,7 @@ export interface ToolCtx {
 export const text = (t: string): ToolOutput => ({ content: [{ type: 'text' as const, text: t }] });
 export const err = (t: string): ToolOutput => ({ content: [{ type: 'text' as const, text: t }], isError: true });
 
-/**
- * memory.md rides every prompt and notes/ are plain files that end up in backups, so neither may hold a secret.
- * Text that `redact()` would change (a known hub token or a key-shaped string) is refused whole, not saved
- * half-redacted. Returns the tool error, or null when the text is clean.
- */
+/** memory.md and notes/ end up in prompts and backups, so text `redact()` would change is refused whole. */
 export function refuseSecret(what: string, ...texts: (string | undefined)[]): ToolOutput | null {
   if (!texts.some((t) => t && redact(t) !== t)) return null;
   return err(
@@ -160,7 +95,6 @@ export function refuseSecret(what: string, ...texts: (string | undefined)[]): To
   );
 }
 
-/** Build a provider-agnostic HubTool from a zod shape; the handler sees parsed, typed args. */
 export function hubTool<S extends z.ZodRawShape>(
   name: string,
   description: string,
@@ -182,10 +116,6 @@ export function hubTool<S extends z.ZodRawShape>(
   };
 }
 
-/**
- * The hub's own tools, independent of any provider SDK. `providers/claude.ts` wraps them with the Agent
- * SDK's `tool()`; CLI providers call the same handlers over the HTTP MCP endpoint.
- */
 export function createHubTools(ctx: ToolCtx): HubTool[] {
   const userName = settings.get().userName;
   const others = () => ctx.members.filter((m) => m.id !== ctx.bot.id);
@@ -201,10 +131,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     events.emitEvent({ type: 'message.new', message: msg });
     return msg;
   };
-  /**
-   * Reads a local image for `send_message`'s `image_path` and stores it, or the reason it could not: outside
-   * this bot's roots (never the hub's own files), missing, or refused by `MediaStore` (too big / not an image).
-   */
   const attachImage = (imagePath: string): { ref: string } | { error: string } => {
     if (!ctx.media) return { error: 'This hub cannot store images yet.' };
     if (!isInside(imagePath, botRoots(ctx.bot.id, ctx.room.id), WORKSPACE_DIR)) {
@@ -224,11 +150,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
   };
   const roomMembers = (room: Room) =>
     room.memberIds.map((id) => ctx.repos.getBot(id)).filter((b): b is Bot => !!b);
-  /**
-   * Resolve a room reference to that room and its live members. Every room tool takes an optional `room`
-   * and defaults to the one the turn is running in, so a bot can manage a room it is not a member of --
-   * before this, a bot that created a room could never touch it again.
-   */
   type RoomRef = { ok: true; room: Room; members: Bot[] } | { ok: false; out: ToolOutput };
   const resolveRoom = (ref?: string): RoomRef => {
     if (!ref || !ref.trim()) {
@@ -248,26 +169,17 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     return { ok: true, room: hits[0], members: roomMembers(hits[0]) };
   };
   const ROOM_ARG = z.string().optional().describe('Room name or id. Omit for the room you are in.');
-  /**
-   * Gate for anything that changes the fleet. Returns null when the user approved (or no gate is wired),
-   * or the ToolOutput to hand straight back to the bot when they declined. Called BEFORE any mutation.
-   */
   const gate = async (tool: string, reason: string, input: Record<string, unknown>): Promise<ToolOutput | null> => {
     if (!ctx.confirmFleetChange) return null;
     const r = await ctx.confirmFleetChange({ tool, reason, input });
     return r.allowed ? null : err(r.message);
   };
-  /**
-   * A bot reads and posts freely in a room it belongs to, or the one this turn runs in. Any other room belongs to
-   * other bots' work, and a bot may be acting on text it picked up elsewhere, so the owner decides.
-   */
+  /** Any other room is other bots' work, and the bot may be acting on text it picked up elsewhere, so the owner decides. */
   const gateOutsideRoom = async (tool: string, verb: string, room: Room, input: Record<string, unknown>) =>
     room.id === ctx.room.id || room.memberIds.includes(ctx.bot.id)
       ? null
       : gate(tool, '@' + ctx.bot.handle + ' wants to ' + verb + ' "' + room.name + '", a chat it is not in', input);
-  /** M6: the models of the provider a bot runs on (its own, or the default for null). */
   const modelsOf = (provider: ProviderId | null | undefined): string[] => ctx.modelsFor?.(provider ?? null) ?? ctx.models;
-  // New bots run on the default provider, so the hint lists its models.
   const defaultModels = modelsOf(null);
   const modelHint = defaultModels.length ? ' One of: ' + defaultModels.join(', ') + '.' : '';
   const checkModel = (m: string | undefined, provider: ProviderId | null | undefined) => {
@@ -276,12 +188,7 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       ? null
       : err('Unknown model "' + m + '" for the provider this bot runs on. Available: ' + models.join(', ') + '.');
   };
-  /**
-   * A new bot's model when create_bot names none: the provider's default (Sonnet on Claude), never the creator's.
-   * An Opus lead must not quietly fill a room with Opus workers; they burn the owner's plan limit much faster.
-   * Another provider's list has no Sonnet id, so it gets Auto (its own default tier per turn); with no list at all
-   * there is nothing to check against, so it keeps the creator's model.
-   */
+  /** Never the creator's model: an Opus lead must not quietly fill a room with Opus workers. */
   const newBotModel = () =>
     defaultModels.includes(DEFAULT_MODEL) || (!defaultModels.length && settings.get().provider === 'claude') ? DEFAULT_MODEL
       : defaultModels.includes(AUTO_MODEL) ? AUTO_MODEL
@@ -315,10 +222,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     },
   );
 
-  /**
-   * P7 (7.3): resolve `ref` against the whole fleet and add that bot to the current group room behind the
-   * add_to_room approval card. `{ bot: undefined }` = no such bot anywhere (the caller reports it).
-   */
   const fleetBot = (ref: string) => {
     const r = ref.replace(/^@/, '').toLowerCase();
     const b = ctx.repos.getBotByHandle(r) ?? ctx.repos.listBots().find((x) => x.name.toLowerCase() === r);
@@ -327,7 +230,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
   const joinFromFleet = async (b: Bot): Promise<{ bot: Bot } | { out: ToolOutput }> => {
     const room = ctx.repos.getRoom(ctx.room.id) ?? ctx.room;
     if (room.memberIds.length >= MAX_ROOM_BOTS) return { out: err('"' + room.name + '" is full (' + MAX_ROOM_BOTS + ' bots); @' + b.handle + ' cannot join.') };
-    // The owner's call on any hub, bypass included: this bot has different logins and tools.
     if (ctx.confirmFleetChange) {
       const r = await ctx.confirmFleetChange({
         tool: 'add_to_room', evenUnderBypass: true,
@@ -344,11 +246,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     return { bot: b };
   };
 
-  /**
-   * A DM cannot take another bot, so one from the fleet works in its own DM, in its own session and under its own
-   * logins. The first time for this pair the owner approves it. This chat gets one line now and one result later,
-   * and the hop and cost caps still hold: it is the same thread.
-   */
   const handoffToItsChat = async (b: Bot, a: { task: string; context?: string }): Promise<ToolOutput> => {
     if (ctx.hop + 1 > MAX_HOPS) return err(denyMessage('unavailable', { subject: 'this hand-off', note: 'the hop budget is used up', alt: 'finish the task yourself' }));
     const r = await ctx.confirmOutsideHandoff?.({
@@ -389,8 +286,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     },
     async (a) => {
       let target = findBot(a.to_bot);
-      // P7 (7.3): a bot from the fleet directory that is not in this room is added first, through the same
-      // gated path as add_to_room, so the coordinator can route work to anyone on the account.
       if (!target) {
         const b = fleetBot(a.to_bot);
         if (b && (ctx.repos.getRoom(ctx.room.id) ?? ctx.room).kind !== 'group') return handoffToItsChat(b, a);
@@ -433,8 +328,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
         if (!a.find) return err('patch mode needs `find`');
         if (!ctx.memory.patch(ctx.bot.id, a.find, a.text)) return err('`find` text not present in memory');
       }
-      // Memory is capped because it rides the system prompt every turn. Say so, so the bot prunes
-      // deliberately instead of appending into a file that silently drops its oldest notes.
       return text(
         trimmed
           ? 'Memory updated, but it hit the ' + Math.round(MAX_MEMORY_BYTES / 1024) +
@@ -608,7 +501,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       const name = a.name.trim();
       if (!name) return err('A room needs a name.');
 
-      // Resolve every handle before asking, so a typo is a plain error rather than a declined card.
       const wanted: Bot[] = [];
       for (const h of a.handles) {
         const found = ctx.repos.getBotByHandle(h.replace(/^@/, '').toLowerCase());
@@ -689,10 +581,7 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       if (a.max_budget_usd !== undefined) patch.maxBudgetUsd = a.max_budget_usd;
       if (!Object.keys(patch).length) return err('Nothing to change: pass at least one field.');
 
-      // A bot may still tidy its own presentation. Anything that changes what a bot is *allowed to do* —
-      // tools, model, budget — or that touches another bot needs the human (audit 2026-09-09, B6).
       const SELF_EDITABLE = new Set(['name', 'title', 'avatar', 'description']);
-      // A picture is the owner's upload (bots can only pick icons), so replacing one asks as well.
       const security = Object.keys(patch).filter((k) => !SELF_EDITABLE.has(k) || (k === 'avatar' && isMediaRef(target.avatar)));
       const isSelf = target.id === ctx.bot.id;
       if (!isSelf || security.length) {
@@ -786,8 +675,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       if (!r.ok) return r.out;
       const room = r.room;
       if (room.kind !== 'group') return err('"' + room.name + '" is a ' + room.kind + ', not a group chat. DMs belong to ' + userName + ' and are not yours to delete.');
-      // Deleting the room this turn is running in would drop the transcript mid-turn, including the reply
-      // about to be posted. Refuse rather than corrupt the run; another room can always do it.
       if (room.id === ctx.room.id) return err('You are in "' + room.name + '" right now, so you cannot delete it from inside it. Ask from another room, or have ' + userName + ' delete it.');
       const denied = await gate('delete_room', 'Delete group chat "' + room.name + '" and its whole history', a as unknown as Record<string, unknown>);
       if (denied) return denied;
@@ -800,8 +687,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
   );
 
   const tools: HubTool[] = [sendMessage, handoff, updateMemory, readMemory, saveSkill, listBots, readRoom, listRooms, ownerOnlyFields(createBot), createRoom, addToRoom, ownerOnlyFields(updateBot), deleteBot, removeFromRoom, deleteRoom];
-  // M6 (P1-7): Claude loads skills from its plugin dir; other providers read them as text. Read-only: it opens only a
-  // skill assigned to this bot and approved by the owner.
   if (ctx.skillsAsText) {
     tools.push(hubTool(
       'read_skill',
@@ -825,7 +710,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
   if (ctx.pcRunner?.isPaired()) tools.push(runOnPcTool(ctx, ctx.pcRunner));
   if (ctx.pcRunner?.isPaired() && ctx.pcSessions && ctx.sessionMoves && ctx.confirmFleetChange) tools.push(proposeMoveTool(ctx, ctx.pcRunner, ctx.sessionMoves));
   tools.push(whereToRunTool(ctx), listMachinesTool(ctx), escalateTool(ctx));
-  // ---- P7 (7.2): notes/, searched on demand so memory.md can stay small ----
   tools.push(
     hubTool(
       'search_notes',
@@ -856,8 +740,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
         const secret = refuseSecret('note', a.title, a.text, ...(a.tags ?? []));
         if (secret) return secret;
         try {
-          // Tags go in a front-matter block this tool writes. Where it cannot (append, or a body with its own
-          // front matter) say so rather than saving without them.
           if (a.tags?.length && (a.mode ?? 'replace') === 'append') return err('Nothing saved: tags only apply when a note is replaced, not appended to. Call again with mode "replace", or leave tags out.');
           if (a.tags?.length && a.text.trimStart().startsWith('---')) return err('Nothing saved: the text starts with its own "---" front matter, so tags cannot be added. Put a "tags: a, b" line in that front matter yourself and leave the tags argument out.');
           const body = a.tags?.length ? '---\ntags: ' + a.tags.join(', ') + '\n---\n' + a.text : a.text;
@@ -894,7 +776,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       'Ask ' + userName + ' for a few plain values in one card (text, a choice, or yes/no; at most 8 fields; at most ' + FORM_RATE_MAX + ' per hour). Waits for them to fill it in and returns their answers as data. Never ask for passwords, keys, tokens or codes: such forms are refused. If they cancel or do not answer, carry on without or say so in the room.',
       FormInputShape,
       async (a) => {
-        // Unattended (routine/trigger) turns never block on a person; interactive turns are unchanged.
         if (ctx.strictApprovals) return err(denyMessage('unavailable', { subject: 'a form', note: 'this run is unattended, so nobody is there to fill it in', alt: 'ask ' + userName + ' in plain text in the room and carry on without the answer' }));
         const built = buildForm(a);
         if (!built.ok) return err(built.error);
@@ -964,7 +845,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       },
     ));
   }
-  // Bridge P1: the shared folder's decision log (append-only) and who changed a file.
   if (ctx.fileRoot && ctx.revisions && ctx.fileAuthor) {
     const root = ctx.fileRoot;
     const revisions = ctx.revisions;
@@ -1006,7 +886,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       },
     ));
   }
-  // Granted by the owner through the personaBotId setting, which no bot tool can change.
   if (settings.get().personaBotId === ctx.bot.id) {
     tools.push(hubTool(
       'read_owner_messages',
@@ -1036,8 +915,7 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     ));
     tools.push(...personaTools(ctx, { resolveRoom, gateOutsideRoom, post }));
   }
-  // Only this room's project, and only for a bot on it. Membership is set by the owner (/api/projects), which no bot
-  // tool can change; a bot asked about a project from another room cannot search it from there.
+  // Membership is set by the owner, which no bot tool can change.
   const roomProject = ctx.projects?.forRoom(ctx.room.id);
   const memberOf = roomProject && roomProject.memberIds.includes(ctx.bot.id) ? [roomProject.slug] : [];
   if (memberOf.length) {
@@ -1059,8 +937,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       { readOnly: true },
     ));
   }
-  // Bridge P5: a bot on a project chat whose project lists repos. The owner edits the list (/api/projects/:slug/repos), which no
-  // bot tool can change. It reads the PC sessions that belong to those repos, never the rest (the persona already has all).
   const scope = repoScope(ctx);
   if (scope) {
     if (ctx.pcSessions && settings.get().personaBotId !== ctx.bot.id) tools.push(...pcSessionTools(ctx, scope.slug));
@@ -1079,7 +955,6 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
   return tools.map((t) => (AUDITED_TOOLS.has(t.name) ? audited(t, ctx) : t));
 }
 
-/** Bot actions that change the fleet. With approvals off no card records them, so the log is the only trace. */
 const AUDITED_TOOLS = new Set([
   'read_any_room', 'read_pc_session', 'list_pc_sessions', 'dispatch',
   'create_bot', 'update_bot', 'delete_bot', 'create_room', 'add_to_room', 'remove_from_room', 'delete_room',
@@ -1088,13 +963,8 @@ const AUDITED_TOOLS = new Set([
 
 const PERSONA_READS = new Set(['read_any_room', 'read_pc_session', 'list_pc_sessions']);
 
-/** M6 (P1-3): Bot fields only the owner sets, in the bot dialog (REST). No bot tool may set them, for itself or another bot. */
 export const OWNER_ONLY_BOT_FIELDS = ['provider', 'backup'] as const;
 
-/**
- * create_bot and update_bot refuse a provider or a backup outright, rather than dropping the field unseen (the
- * argument schema would strip it): which provider a bot runs on, and where it fails over to, is the owner's choice.
- */
 function ownerOnlyFields(t: HubTool): HubTool {
   return {
     ...t,
@@ -1120,8 +990,6 @@ function audited(t: HubTool, ctx: ToolCtx): HubTool {
       if (!out.isError) {
         const a = (input ?? {}) as Record<string, unknown>;
         const target = [a.bot, a.handle, a.room, a.routine, a.name, a.id].find((v) => typeof v === 'string') as string | undefined;
-        // The tool's own reply says what happened: "already in" and the like changed nothing, and "me" gets its real name.
-        // A persona read's first line is someone's text from another room or a PC session: the log names the read, not the content.
         const said = PERSONA_READS.has(t.name) ? '' : out.content.find((c) => c.type === 'text')?.text?.split('\n')[0]?.slice(0, 160) ?? '';
         recordAudit(ctx.repos.db, { kind: 'bot', id: ctx.bot.id }, 'bot_tool.' + t.name, target ?? null, said + ' (room ' + ctx.room.id + ')');
       }
@@ -1130,16 +998,11 @@ function audited(t: HubTool, ctx: ToolCtx): HubTool {
   };
 }
 
-// ---------------------------------------------------------------------------------------------------
-// P3: routine tools. A routine a bot schedules is autonomous future spend, so creating, changing and
-// deleting one always goes through `gate()` (fleet approval). Listing is silent.
 const MAX_ROUTINES = 100;
 
-/** `2026-11-02 09:00` style, in `tz`. */
 function fmtAt(ms: number, tz: string): string {
   return new Date(ms).toLocaleString('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
 }
-/** How a routine's schedule reads on an approval card and in list_routines. */
 export function describeSchedule(r: Pick<Routine, 'cron' | 'onceAt'>, tz: string): string {
   return r.onceAt !== null ? 'once at ' + fmtAt(r.onceAt, tz) + ' (' + tz + ')' : 'cron "' + r.cron + '" (' + tz + ')';
 }
@@ -1294,12 +1157,6 @@ function routineTools(
   return [listRoutines, createRoutine, updateRoutine, deleteRoutine];
 }
 
-// ---------------------------------------------------------------------------------------------------
-// Workflows: a step chain that runs bots on a routine's schedule or when the owner presses Run now. A workflow a bot
-// writes is autonomous future spend, so creating and changing one always goes through `gate()` (fleet approval) and
-// nothing a bot passes can change settings or approvals. Listing is silent. A bot passes plain steps; the hub turns
-// them into the graph the owner sees on the canvas.
-
 const STEP_SHAPE = z.object({
   bot: z.string().optional().describe('An agent step: the @handle of the bot that does it (it must be in the chat)'),
   prompt: z.string().min(1).max(8000).optional().describe("An agent step: what the bot is told. {{previous}} stands for the previous step's output, which arrives fenced as data"),
@@ -1309,7 +1166,6 @@ const STEP_SHAPE = z.object({
 });
 type StepInput = z.infer<typeof STEP_SHAPE>;
 
-/** The plain steps as graph nodes after the trigger, or a sentence saying what is wrong with them. */
 function stepNodes(steps: StepInput[], resolveBot: (ref: string) => Bot | undefined): WorkflowNode[] | string {
   const out: WorkflowNode[] = [];
   for (const [n, s] of steps.entries()) {
@@ -1493,17 +1349,8 @@ function workflowTools(
   return [list, create, update];
 }
 
-// ---------------------------------------------------------------------------------------------------
-// PC runner: a Claude Code job on the owner's PC, in a folder the PC allowlists. The owner approves every job
-// on a card (under bypass too; no "always" and no approval rule covers it), and the PC asks again locally.
-
-/** The last path segment of a Windows or POSIX path: all a card or a tool result shows of a session's directory. */
 const cwdBase = (cwd: string | null): string => (cwd ? cwd.split(/[\\/]+/).filter(Boolean).pop() ?? '' : '');
 
-/**
- * What a bot that is not the persona may use of the PC session mirror: the project of the room it is replying in, when it
- * is on that project (the owner sets that) and the project lists repos (the owner edits repos.json). Null otherwise.
- */
 export function repoScope(ctx: ToolCtx): { slug: string; repos: ProjectRepo[] } | null {
   const p = ctx.projects?.forRoom(ctx.room.id);
   if (!p || !p.memberIds.includes(ctx.bot.id)) return null;
@@ -1511,11 +1358,9 @@ export function repoScope(ctx: ToolCtx): { slug: string; repos: ProjectRepo[] } 
   return repos.length ? { slug: p.slug, repos } : null;
 }
 
-/** The persona sees every session; a repo-scoped bot only those mapped to its project's repos. */
 const sessionAllowed = (s: { links: readonly { project: string }[] }, persona: boolean, scope: { slug: string } | null): boolean =>
   persona || (!!scope && s.links.some((l) => l.project === scope.slug));
 
-/** What a finished sync says to the bot: where the work went, and why when the scan stopped it. */
 function syncSummary(j: PcJob, info: PcSyncJobInfo): string {
   const r = j.syncResult;
   if (!r) return 'The sync of ' + info.repo + ' ' + (j.status === 'done' ? 'finished' : 'did not finish') + ' on the PC.';
@@ -1526,11 +1371,6 @@ function syncSummary(j: PcJob, info: PcSyncJobInfo): string {
   return 'Synced ' + info.repo + ' (' + r.mode + '): the session\'s working tree at commit ' + r.commit.slice(0, 12) + ' was ' + where + '. The scan found nothing.';
 }
 
-/**
- * Bridge P6: proposes moving a mirrored PC session to the VPS so it can keep going there, or pulling it back. The card is the
- * proposal and only a browser signed in with the owner's password may allow it ('signInOnly'); the PC then asks again before
- * it uploads anything. @persona, or a bot on a project chat whose repos the session belongs to. Never waits for the move.
- */
 export function proposeMoveTool(ctx: ToolCtx, pc: PcRunner, moves: SessionMoves): HubTool {
   const userName = settings.get().userName;
   const persona = settings.get().personaBotId === ctx.bot.id;
@@ -1559,7 +1399,6 @@ export function proposeMoveTool(ctx: ToolCtx, pc: PcRunner, moves: SessionMoves)
       let input: Record<string, unknown>;
       try {
         if (action === 'move') {
-          // A bot on the project chat runs the turns in that chat when it is one of the project's rooms.
           const asked = a.room ?? (moves.roomCandidates(session.links).some((r) => r.id === ctx.room.id) ? ctx.room.id : undefined);
           const plan = moves.planMove(session, asked);
           reason = 'Move your Claude Code session "' + (session.title ?? session.id) + '" to the VPS: ' + plan.repos.map((r) => r.project + '/' + r.repo).join(', ') +
@@ -1590,8 +1429,6 @@ export function proposeMoveTool(ctx: ToolCtx, pc: PcRunner, moves: SessionMoves)
 
 export function runOnPcTool(ctx: ToolCtx, pc: PcRunner): HubTool {
   const userName = settings.get().userName;
-  // Resuming or syncing a mirrored session is @persona's, or a bot's on a project chat whose repos the session belongs to:
-  // the owner names the persona in settings and sets project members and repos, none of which a bot tool can change.
   const persona = settings.get().personaBotId === ctx.bot.id;
   const scope = repoScope(ctx);
   return hubTool(
@@ -1619,27 +1456,22 @@ export function runOnPcTool(ctx: ToolCtx, pc: PcRunner): HubTool {
       const machineId = a.machine?.trim().toLowerCase() || PC_MACHINE_ID;
       if (machineId === VPS_MACHINE_ID) return err(denyMessage('unavailable', { subject: 'run_on_pc on your own computer', note: 'that is the machine you are already on', alt: 'run it yourself with your own tools' }));
       if (machineId !== PC_MACHINE_ID) return err('Unknown machine "' + a.machine + '". Call list_machines for the ids.');
-      // The owner's per-machine setting. 'never' sends nothing. 'always' changes nothing here: the card below
-      // (sign-in only, asked on every job) and the PC's own prompt stay.
       if (new Machines(ctx.repos.db, pc).policy(PC_MACHINE_ID) === 'never') {
         return err(denyMessage('off', { subject: 'running jobs on the PC', note: userName + ' turned it off for this machine, nothing was sent', alt: 'use your own computer' }));
       }
       if (!pc.isPaired()) return err('No PC is paired with this hub. ' + userName + ' can pair one in Settings.');
       const needs = [...new Set(a.needs ?? [])];
-      // Only keys the registry says the PC holds. An unknown name is refused, never guessed.
       if (needs.length) {
         const reg = (ctx.keyRegistry ?? loadKeyRegistry)();
         const notOnPc = needs.filter((k) => !reg.get(k)?.where.includes('pc'));
         if (notOnPc.length) return err('The PC does not hold: ' + notOnPc.join(', ') + '. Call where_to_run with these needs and follow its answer.');
       }
       const allowed = pc.folders();
-      // A resume has no folder of its own: the PC finds the session's directory and checks it is inside an allowed one.
       let session: ReturnType<PcSessions['get']> = null;
       let syncInfo: PcSyncJobInfo | null = null;
       if (mode === 'resume' || mode === 'sync') {
         if (!a.session_id || a.session_id.includes(':')) return err('Pass session_id: the id of a session from list_pc_sessions (not a subagent transcript).');
         session = ctx.pcSessions?.get(a.session_id) ?? null;
-        // Same answer for a session that is not there and one that is not this bot's to use.
         if (!session || !sessionAllowed(session, persona, scope)) return err('No session "' + a.session_id + '" in the PC session mirror. Call list_pc_sessions.');
         if (session.parentId) return err('That is a subagent transcript. Use its parent session instead.');
         if (ctx.sessionMoves?.locked(session.id)) return err('That session is on the VPS (or on its way). It has to be pulled back to the PC first: use propose_move with action "pull".');
@@ -1660,7 +1492,6 @@ export function runOnPcTool(ctx: ToolCtx, pc: PcRunner): HubTool {
       }
       const prompt = syncInfo ? 'Sync ' + syncInfo.project + '/' + syncInfo.repo + ' (' + syncInfo.mode + ')' : a.prompt!;
       if (Buffer.byteLength(prompt, 'utf8') > MAX_PC_PROMPT_BYTES) return err('The prompt is over 8 KB. Make it shorter.');
-      // Fails closed: without a card nobody approved it.
       if (!ctx.confirmFleetChange) return err(denyMessage('unavailable', { subject: 'a job on the PC', note: userName + "'s approval is needed and none can be asked for here", alt: 'do the work on your own computer, or say so in the room' }));
       let jobId: string;
       try {
@@ -1731,10 +1562,6 @@ export function runOnPcTool(ctx: ToolCtx, pc: PcRunner): HubTool {
   );
 }
 
-// ---------------------------------------------------------------------------------------------------
-// Key routing: where a job that needs the owner's keys runs. Deterministic (services/keyRegistry.ts); the
-// model asks, it does not choose.
-
 function needsArg() {
   return z.array(z.string().regex(KEY_NAME_RE)).max(20);
 }
@@ -1765,16 +1592,9 @@ export function whereToRunTool(ctx: ToolCtx): HubTool {
 }
 
 
-/** One post per bot and blocker in this window, so a bot stuck in a loop cannot flood the room with the same ask. */
 export const ESCALATE_COOLDOWN_MS = 30 * 60_000;
 const escalations = new Map<string, number>();
 
-/**
- * Option A of the 2026-11-20 escalation gap: bots diagnosed a dead service correctly but almost never asked anyone
- * to fix it, and rewording their skills did not change that. A named tool is the salient way to ask. It posts who is
- * blocked, the exact error and one concrete ask, addressed to @pocketrocket-support or the owner, and wakes support
- * when it is in the room. No approval card: it only posts in the turn's own room.
- */
 export function escalateTool(ctx: ToolCtx, now: () => number = Date.now): HubTool {
   return hubTool(
     'escalate',
@@ -1819,11 +1639,6 @@ export function escalateTool(ctx: ToolCtx, now: () => number = Date.now): HubToo
   );
 }
 
-// ===================================================================================================
-// G1 tasks, G2 history search and recall, G5 bot self-reports. Everything below is one block.
-// Tasks, search results and reports are local data: no tool here changes a setting, an approval or the fleet, and what
-// they read back from other people's words is quoted (quoteTags) and redacted before a bot sees it.
-// ===================================================================================================
 function taskSearchReportTools(ctx: ToolCtx): HubTool[] {
   const tasks = new TaskService(ctx.repos.db);
   const reports = ctx.reports ?? new BotReports(ctx.repos.db);
@@ -2087,11 +1902,6 @@ function personaTools(
   return [readAnyRoom, ...pcSessionTools(ctx, null), dispatch];
 }
 
-/**
- * list_pc_sessions and read_pc_session. The persona's see every session (`scopeSlug` null); a bot on a project chat with
- * repos gets the same two limited to sessions mapped to that project's repos, and a session outside them answers as if
- * it were not in the mirror.
- */
 function pcSessionTools(ctx: ToolCtx, scopeSlug: string | null): HubTool[] {
   const userName = settings.get().userName;
   const sessionLine = (s: NonNullable<ReturnType<PcSessions['get']>>) =>

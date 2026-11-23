@@ -1,43 +1,26 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/**
- * The delete gate. Under `acceptEdits` the CLI approves `rm`, `rmdir` and `mv` inside the working roots by itself,
- * so neither canUseTool nor classifyBash ever sees them. This runs as a PreToolUse hook (providers/claude.ts) and
- * again inside classifyBash, because a hook's `ask` lands in the broker and must not be allowed back through there.
- *
- * - Anything that deletes always asks. So does a command whose name is only known at run time (`$CMD x`).
- * - `mv` asks only when it would replace something, or when the command line does not show whether it would.
- *
- * This reads a command line; it is not a sandbox. It cannot see inside a script, an interpreter's code or an alias.
- * Those are not auto-approved by the CLI, so they still reach classifyBash and raise its generic card.
- */
-
 export interface GateHit {
   reason: string;
-  /** It will destroy data, so approval rules never cover it. False when the command line just does not show. */
   danger: boolean;
 }
 
 interface Word {
   text: string;
-  /** Holds an expansion (`$x`, `$(...)`, a glob, `~`), so `text` is not what the shell will really use. */
   dynamic: boolean;
 }
 
 const MAX_DEPTH = 4;
 const DELETERS = new Set(['rm', 'rmdir', 'unlink', 'shred']);
-/** Run the command named by a later argument. Their own options vary, so every later argument is tried. */
 const WRAPPERS = new Set([
   'sudo', 'doas', 'su', 'command', 'builtin', 'exec', 'env', 'nice', 'ionice', 'nohup', 'timeout', 'stdbuf', 'setsid',
   'xargs', 'parallel', 'busybox', 'toybox', 'watch', 'flock', 'chroot', 'unshare', 'ssh',
 ]);
-/** Run their string arguments as shell code. */
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ash', 'ksh', 'fish', 'eval']);
 const KEYWORDS = new Set(['if', 'then', 'elif', 'else', 'while', 'until', 'do', '!', 'time', 'coproc', 'function']);
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 
-/** Index of the `)` closing the `(` at `open`, skipping quotes; the end of `src` when it is unterminated. */
 function closingParen(src: string, open: number): number {
   let depth = 0;
   let quote = '';
@@ -54,10 +37,6 @@ function closingParen(src: string, open: number): number {
   return src.length;
 }
 
-/**
- * Splits a command line into simple commands. Substitutions (`$(...)`, backticks) become commands of their own,
- * and quoted text stays one word, so `grep "rm x" log` is not a delete but `r''m x` and `\rm x` are.
- */
 function simpleCommands(src: string, depth = 0): Word[][] {
   const out: Word[][] = [];
   let cur: Word[] = [];
@@ -65,7 +44,7 @@ function simpleCommands(src: string, depth = 0): Word[][] {
   let started = false;
   let quoted = false;
   let dynamic = false;
-  let dropNext = false; // The next word is a redirect target, not an argument.
+  let dropNext = false;
 
   const endWord = () => {
     if (started) {
@@ -90,9 +69,8 @@ function simpleCommands(src: string, depth = 0): Word[][] {
   const nested = (inner: string) => {
     started = dynamic = true;
     if (depth < MAX_DEPTH) out.push(...simpleCommands(inner, depth + 1));
-    else out.push([{ text: inner, dynamic: true }]); // Too deep to read: fails closed as a dynamic command.
+    else out.push([{ text: inner, dynamic: true }]);
   };
-  /** `$...` at `i`, inside or outside double quotes. Returns the index after it. */
   const dollar = (i: number): number => {
     if (src[i + 1] === '(') {
       const end = closingParen(src, i + 1);
@@ -152,14 +130,12 @@ function simpleCommands(src: string, depth = 0): Word[][] {
       const end = src.indexOf('\n', i);
       i = end < 0 ? src.length : end;
     } else if (c === '<' || c === '>') {
-      // `2>` is a redirect of fd 2, not the argument "2".
       if (/^\d+$/.test(text) && !quoted) text = '', started = false;
       endWord();
       while (src[i] === '<' || src[i] === '>' || src[i] === '&') i++;
       if (src[i] !== '(') dropNext = true;
     } else {
       if (c === '*' || c === '?' || (c === '[' && started && text !== '[') || (c === '~' && !started)) dynamic = true;
-      // Brace expansion, as opposed to a `{` group or find's `{}`.
       if (c === '{' && src[i + 1] && !/[\s}]/.test(src[i + 1])) dynamic = true;
       text += c;
       started = true;
@@ -180,7 +156,6 @@ function withoutPrefixes(words: Word[]): Word[] {
   return words.slice(at);
 }
 
-/** Why this simple command deletes something, or null. */
 function deletion(raw: Word[], depth = 0, isCommand = true): GateHit | null {
   const words = withoutPrefixes(raw);
   if (!words.length || depth > MAX_DEPTH) return null;
@@ -191,7 +166,6 @@ function deletion(raw: Word[], depth = 0, isCommand = true): GateHit | null {
   if (DELETERS.has(name)) return { reason: 'Deletes files: ' + words.map((w) => w.text).join(' ').slice(0, 80), danger: true };
   const anySuffix = (from: Word[]): GateHit | null => {
     for (let k = 0; k < from.length; k++) {
-      // Past the first word this may just be an argument (`{}`, `"$f"`), so an expansion there proves nothing.
       const hit = deletion(from.slice(k), depth + 1, k === 0);
       if (hit) return hit;
     }
@@ -216,7 +190,6 @@ function deletion(raw: Word[], depth = 0, isCommand = true): GateHit | null {
   return null;
 }
 
-/** Why this `mv` may replace something, or null when the command line shows it will not. */
 function mvOverwrite(args: Word[], cwd: string | null, moved: Set<string>): GateHit | null {
   const paths: Word[] = [];
   let target: Word | undefined;
@@ -254,7 +227,7 @@ function mvOverwrite(args: Word[], cwd: string | null, moved: Set<string>): Gate
   if (noClobber) return null;
   const toDir = !!target;
   if (!target) target = paths.pop();
-  if (!target || !paths.length) return null; // mv only prints a usage error.
+  if (!target || !paths.length) return null;
 
   const unknown = (w: Word): GateHit => ({ reason: 'Cannot tell whether this mv overwrites a file: ' + w.text, danger: false });
   const overwrites = (what: string): GateHit => ({ reason: 'mv overwrites an existing file: ' + what, danger: true });
@@ -281,7 +254,6 @@ function mvOverwrite(args: Word[], cwd: string | null, moved: Set<string>): Gate
   return null;
 }
 
-/** Why this shell command must raise a card, or null. `cwd` is where the command starts. */
 export function deleteGate(command: string, cwd: string): GateHit | null {
   let dir: string | null = cwd;
   const moved = new Set<string>();

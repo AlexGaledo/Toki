@@ -42,7 +42,6 @@ describe('classifyVerification (B1)', () => {
 
   it('a command that only looks around does not count as a check', () => {
     expect(classifyVerification([edit(), bash('git status'), bash('cat src/a.ts')])?.state).toBe('unverified');
-    // "latest" contains "test" but not as a word.
     expect(classifyVerification([edit(), bash('echo latest')])?.state).toBe('unverified');
   });
 

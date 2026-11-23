@@ -8,7 +8,6 @@ import { ApprovalStore } from '../db/approvalStore.js';
 import { readOnlyWriteDecision, routingFileWrite } from './readOnlyRoots.js';
 import { WORKSPACE_DIR } from '../config.js';
 
-/** The three parts every refusal the model reads must have (B1). */
 function parts(msg: string): { outcome: string; noRetry: string; alt: string } {
   const m = /^(.*?\S)\s+(Do not retry (?:it|this))\b[;,:]?\s*(.*)$/s.exec(msg);
   if (!m) throw new Error('no "Do not retry" in: ' + msg);

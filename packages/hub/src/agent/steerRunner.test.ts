@@ -12,24 +12,14 @@ import { EMPTY_USAGE, type AgentProvider, type SteerInput, type SteerResult, typ
 import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner, type TurnResult } from './BotRunner.js';
 
-/**
- * Steering, task 1.2: BotRunner.steer only reaches a live provider run, always the provider the turn started on, and
- * a steer a run leaves unconsumed is carried into the next run of the same turn (continuation, stale-session retry)
- * or returned as unanswered, never dropped.
- */
-
 interface Step {
   ok?: boolean;
   error?: string;
-  /** Hold this run open until `release()` (or Stop). */
   block?: boolean;
-  /** Whether the steers this run knew of were consumed (else they come back pending). */
   consume?: boolean;
-  /** Narration/reply text sent before the run returns. */
   text?: string;
 }
 
-/** A steering provider driven by a script, one step per run. */
 class SteerProvider implements AgentProvider {
   readonly id: ProviderId = 'claude';
   readonly label = 'Steer';
@@ -75,7 +65,6 @@ class SteerProvider implements AgentProvider {
   }
 }
 
-/** Codex-like: no live input channel. */
 class PlainProvider extends SteerProvider {
   constructor(script: Step[]) {
     super(script);
@@ -96,7 +85,6 @@ function setup(provider: SteerProvider) {
   const start = (resume = false): Promise<TurnResult> => {
     if (resume) {
       repos.saveSession(bot.id, room.id, { sdkSessionId: 'old-session', provider: 'claude' });
-      // Measured and recent, so the session is resumed rather than rotated.
       repos.saveSessionState(bot.id, room.id, { contextTokens: 1000, contextAt: Date.now(), costTotal: 0 });
     }
     return runner.runTurn({ bot, room, members: [bot], injected: 'go', hop: 0, causeId: 'c1' } as never);
@@ -132,7 +120,6 @@ describe('BotRunner.steer', () => {
     const p = new SteerProvider([{ error: 'error_max_turns', text: 'partial' }, { ok: true }]);
     const s = setup(p);
     expect(s.runner.steer(s.bot.id, s.room.id, { uuid: 'u0', text: 'x' })).toEqual({ status: 'queued', reason: 'between-runs' });
-    // The held text of run 1 is posted after that run returned and before the continuation starts.
     const inGap: unknown[] = [];
     offs.push(events.onEvent((ev) => {
       if (ev.type === 'message.new' && ev.message.text === 'partial') inGap.push(s.runner.steer(s.bot.id, s.room.id, { uuid: 'u1', text: 'x' }));
@@ -193,7 +180,6 @@ describe('BotRunner.steer', () => {
     expect(res.stopped).toBe(true);
     expect(res.consumedSteers).toEqual([]);
     expect(res.unansweredSteers).toEqual(['u1']);
-    // No continuation was started for it after Stop.
     expect(p.seen).toHaveLength(1);
   });
 

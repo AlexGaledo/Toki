@@ -3,15 +3,8 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import type { ModelInfo } from '@pocketrocket/shared';
 
-/**
- * Thin `opencode` CLI helpers: locating the executable and parsing the two commands the provider check
- * needs (`--version`, `auth list`) plus the model list (`models`). Kept free of any process state so the
- * parsers can be unit-tested against captured real output in `test-fixtures/opencode/`.
- */
-
 let cachedExe: string | null = null;
 
-/** `OPENCODE_EXE`, else the first `opencode[.cmd|.exe|.bat]` on PATH, else the bare name. */
 export function resolveOpencodeExe(): string {
   if (process.env.OPENCODE_EXE) return process.env.OPENCODE_EXE;
   if (cachedExe) return cachedExe;
@@ -42,15 +35,10 @@ export interface CliResult {
   error?: string;
 }
 
-/**
- * A single command string for the `shell: true` path. Passing an args array together with `shell: true` is
- * deprecated in Node (DEP0190) because the args are concatenated unescaped, so we do the quoting ourselves.
- */
 export function shellCommand(exe: string, args: string[]): string {
   return ['"' + exe + '"', ...args.map((a) => (/[\s"&|<>^]/.test(a) ? '"' + a.replace(/"/g, '\\"') + '"' : a))].join(' ');
 }
 
-/** `unref` detaches the child from the event loop; used for background refreshes nobody is waiting on. */
 export function runCli(exe: string, args: string[], timeout = 5000, unref = false): Promise<CliResult> {
   const shell = needsShell(exe);
   return new Promise((resolve) => {
@@ -74,9 +62,7 @@ export function stripAnsi(s: string): string {
 }
 
 export interface AuthList {
-  /** Display names of the configured providers, in the order the CLI printed them. */
   providers: string[];
-  /** `oauth` entries mean a subscription login; `api` means a stored key. */
   auth: 'subscription' | 'apiKey' | 'none';
 }
 
@@ -108,7 +94,6 @@ export function authFilePath(): string {
   return path.join(base, 'opencode', 'auth.json');
 }
 
-/** `{ "<providerID>": { "type": "api" | "oauth", ... } }`. Secrets in the file are never read out. */
 export function parseAuthFile(json: string): AuthList {
   let parsed: Record<string, { type?: string }>;
   try {
@@ -128,7 +113,6 @@ export function parseAuthFile(json: string): AuthList {
   return { providers, auth: oauth ? 'subscription' : api ? 'apiKey' : 'none' };
 }
 
-/** The auth file when it exists and holds at least one credential, else null (caller falls back to the CLI). */
 export function readAuthFile(): AuthList | null {
   try {
     const a = parseAuthFile(fs.readFileSync(authFilePath(), 'utf8'));
@@ -149,8 +133,6 @@ function pretty(segment: string): string {
     .join(' ');
 }
 
-// Ranked cheap/balanced defaults: the first match in this list becomes ModelInfo.default. Nothing here is
-// hardcoded as available — it only orders whatever `opencode models` actually printed.
 const DEFAULT_PREFERENCE: RegExp[] = [
   /(^|\/)claude-sonnet-5$/,
   /(^|\/)claude-sonnet-4-6$/,
@@ -162,10 +144,6 @@ const DEFAULT_PREFERENCE: RegExp[] = [
 ];
 const PROVIDER_PREFERENCE = ['anthropic', 'openai', 'xai', 'opencode', 'github-copilot', 'google'];
 
-/**
- * `opencode models` prints one `provider/model` id per line. Ids are never hardcoded: the picker shows
- * exactly what the user's logins expose.
- */
 export function parseModels(stdout: string): ModelInfo[] {
   const ids: string[] = [];
   for (const raw of stripAnsi(stdout).split('\n')) {
@@ -184,7 +162,6 @@ export function parseModels(stdout: string): ModelInfo[] {
   return models;
 }
 
-/** First id matching the preference list, tie-broken by provider order, else the first id at all. */
 export function pickDefault(ids: string[]): string | undefined {
   const byProvider = [...ids].sort((a, b) => {
     const pa = PROVIDER_PREFERENCE.indexOf(a.slice(0, a.indexOf('/')));
@@ -198,7 +175,6 @@ export function pickDefault(ids: string[]): string | undefined {
   return byProvider[0];
 }
 
-/** `opencode --version` prints just the semver. */
 export function parseVersion(stdout: string): string | undefined {
   const line = stripAnsi(stdout).trim().split('\n')[0]?.trim();
   return line ? line : undefined;

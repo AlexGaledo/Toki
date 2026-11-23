@@ -11,13 +11,6 @@ import { EMPTY_USAGE, type AgentProvider, type TurnContext, type TurnOutcome, ty
 import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner, isStaleSessionError } from './BotRunner.js';
 
-/**
- * The CLI owns its session store, not the hub. When the transcript our `sessions` row points at is gone
- * (re-login, cleanup sweep, redeploy) every turn in that room used to die with "No conversation found with
- * session ID" until someone nulled the row by hand. Now the runner forgets the token and reruns the same
- * input once from a fresh session. Seen live on the VPS on 2026-09-10.
- */
-
 const STALE = 'error_during_execution: No conversation found with session ID: d226bdfb-a2c2-41dd-9b7c-6f97600565fb';
 
 class ScriptedProvider implements AgentProvider {
@@ -33,7 +26,6 @@ class ScriptedProvider implements AgentProvider {
   async runTurn(ctx: TurnContext, sink: TurnSink): Promise<TurnOutcome> {
     this.seen.push({ ...ctx });
     const step = this.script[Math.min(this.seen.length - 1, this.script.length - 1)];
-    // A run that failed to resume never reports a session; a fresh one does.
     if (!step.error) sink.onSession('fresh-' + this.seen.length);
     return { ok: step.ok ?? false, error: step.error, costUsd: 0, usage: { ...EMPTY_USAGE }, durationMs: 1 };
   }
@@ -45,7 +37,6 @@ function setup(script: Array<Partial<TurnOutcome>>, savedSession: string | null)
   const room = repos.createRoom({ kind: 'dm', name: 'DM', memberIds: [bot.id], coordinatorBotId: null });
   if (savedSession) {
     repos.saveSession(bot.id, room.id, { sdkSessionId: savedSession, provider: 'claude' });
-    // A measured, small, recently used session: resumed rather than rotated.
     repos.saveSessionState(bot.id, room.id, { contextTokens: 1000, contextAt: Date.now(), costTotal: 0 });
   }
   const provider = new ScriptedProvider(script);

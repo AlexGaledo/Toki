@@ -37,7 +37,6 @@ const TOOL_CHIPS: Record<string, string> = {
   apply_patch: 'ApplyPatch', patch: 'Patch', question: 'Question', invalid: 'Invalid',
 };
 
-/** OpenCode tool id -> the chip name the web UI shows. Hub tools keep their plain name. */
 export function chipName(tool: string): string {
   if (tool.startsWith(MCP_TOOL_PREFIX)) return tool.slice(MCP_TOOL_PREFIX.length);
   return TOOL_CHIPS[tool] ?? tool.replace(/(^|_)([a-z])/g, (_m: string, _s: string, c: string) => c.toUpperCase());
@@ -52,12 +51,6 @@ export interface PermissionAsk {
   tool?: { messageID: string; callID: string };
 }
 
-/**
- * Turn an OpenCode permission ask into the (toolName, input) pair the hub's PermissionBroker understands, so
- * its normal path/bash rules decide and only genuinely out-of-workspace or dangerous calls raise a card.
- * `toolFor(callID)` supplies the OpenCode tool that triggered the ask (`external_directory` fires for reads
- * and writes alike, and only the tool name tells them apart).
- */
 export function permissionToTool(
   ask: PermissionAsk,
   toolFor: (callID: string) => string | undefined,
@@ -96,7 +89,6 @@ export function permissionToTool(
     case 'glob':
     case 'grep':
     case 'list':
-      // These are `allow` in the shipped config; handled anyway so flipping them to `ask` behaves sanely.
       return {
         name: chipName(triggering ?? ask.permission),
         input: { file_path: str('filepath') ?? str('path') ?? str('pattern') ?? ask.patterns?.[0] ?? '' },
@@ -114,13 +106,9 @@ export function permissionToTool(
 
 export interface TurnHooks {
   sink: TurnSink;
-  /** Route to the hub's PermissionBroker (approval cards). */
   permission: (name: string, input: Record<string, unknown>, extra: { reason: string; danger: boolean }) => Promise<'allow' | 'deny'>;
-  /** Answer OpenCode: `once` lets the blocked tool call proceed, `reject` fails it. */
   reply: (permissionID: string, response: 'once' | 'reject') => Promise<void>;
-  /** Accumulated cost passed `maxBudgetUsd`; the provider aborts the session. */
   onOverBudget: (costUsd: number) => void;
-  /** An MCP tool call started (true) or ended (false); the hub MCP bridge routes on this. */
   onMcpToolPending?: (toolName: string, pending: boolean) => void;
 }
 
@@ -132,35 +120,23 @@ export interface TurnTotals {
   cacheWriteTokens: number;
 }
 
-/**
- * Accumulates one turn: text/tool parts to the sink, per-assistant-message cost + tokens, permission asks,
- * and the `session.idle` / `session.error` terminators.
- */
 export class TurnTracker {
-  /** Resolved when the turn is over (idle, error, or aborted). */
   readonly finished: Promise<void>;
   error?: string;
-  /** How many permission asks were routed to the hub this turn (logging + tests). */
   asks = 0;
 
   private resolveFinished!: () => void;
   private settled = false;
   private sawActivity = false;
   private idleGrace: ReturnType<typeof setTimeout> | null = null;
-  /** partID -> part type, so `message.part.delta` knows whether it streams visible text or reasoning. */
   private partTypes = new Map<string, string>();
-  /** callID -> OpenCode tool id, for the permission mapping and the tool chips. */
   private toolByCall = new Map<string, string>();
-  /** callID -> the tool call's parsed input, the fallback path source for permission asks. */
   private inputByCall = new Map<string, Record<string, unknown>>();
   private announced = new Set<string>();
   private finishedCalls = new Set<string>();
   private emittedText = new Set<string>();
-  /** Ids of user messages, so the echoed prompt part is never posted back to the room as bot text. */
   private userMessages = new Set<string>();
-  /** tool+input -> the decision already asked for this turn, so one action never shows two cards. */
   private decided = new Map<string, Promise<'allow' | 'deny'>>();
-  /** assistant messageID -> its latest cost/token snapshot (they are cumulative per message). */
   private perMessage = new Map<string, TurnTotals>();
   private overBudget = false;
 
@@ -192,7 +168,6 @@ export class TurnTracker {
     this.resolveFinished();
   }
 
-  /** Feed one SSE event. The caller filters events down to this session. */
   handle(ev: OcEvent): void {
     const p = (ev.properties ?? {}) as Record<string, unknown>;
     switch (ev.type) {
@@ -202,8 +177,6 @@ export class TurnTracker {
         return;
       }
       case 'session.idle':
-        // `session.idle` can land before the prompt has been picked up: only end the turn once the session
-        // actually went busy, or after a short grace period if it never does.
         if (this.sawActivity) this.finish();
         else if (!this.idleGrace) this.idleGrace = setTimeout(() => this.finish(), 5000);
         return;
@@ -232,7 +205,6 @@ export class TurnTracker {
   private onDelta(p: Record<string, unknown>) {
     if (p.field !== 'text') return;
     const partID = String(p.partID ?? '');
-    // Reasoning parts stream on the same channel; only visible assistant text reaches the room.
     if (this.partTypes.get(partID) !== 'text') return;
     const delta = String(p.delta ?? '');
     if (delta) this.hooks.sink.onDelta(delta);
@@ -244,7 +216,6 @@ export class TurnTracker {
     if (part.id) this.partTypes.set(part.id, part.type);
     if (part.messageID && this.userMessages.has(part.messageID)) return;
     if (part.type === 'text') {
-      // A text part is created empty, streams via message.part.delta, then repeats with time.end once done.
       if (part.time?.end && part.id && !this.emittedText.has(part.id)) {
         this.emittedText.add(part.id);
         if (part.text && part.text.trim()) this.hooks.sink.onText(part.text);
@@ -318,8 +289,6 @@ export class TurnTracker {
       (callID) => this.toolByCall.get(callID),
       (callID) => this.inputByCall.get(callID),
     );
-    // One write outside the project raises two asks (`edit` and `external_directory`); the user should see
-    // one card, so a repeat of the same tool+input inside this turn reuses the first answer.
     const key = mapped.name + '|' + JSON.stringify(mapped.input);
     let decision: 'allow' | 'deny' = 'deny';
     const seen = this.decided.get(key);

@@ -17,11 +17,8 @@ export interface CredentialToolDeps {
   db: Db;
   bot: { id: string };
   roomId: string;
-  /** The bot's browser (DevTools endpoint). */
   cdpUrl: string;
-  /** The approval card: the broker's askCredentialFill. Absent (unit tests that forgot it) fails closed. */
   confirm?: (a: { credential: string; site: string; field: string; page: string }) => Promise<{ allowed: boolean; message: string }>;
-  /** Tests: a fake browser. */
   fill?: (r: FillRequest) => Promise<FillOutcome>;
 }
 
@@ -67,7 +64,6 @@ export function credentialTools(d: CredentialToolDeps): HubTool[] {
       if (field === 'password' && !secret) return err(denyMessage('unavailable', { subject: '"' + cred.name + '"', note: 'its secret is missing; the owner needs to enter it again in Settings', alt: 'say so in the room' }));
       if (!d.confirm) return err(denyMessage('unavailable', { subject: 'filling "' + cred.name + '"', note: 'the owner\'s approval is needed and none can be asked for here', alt: 'say so in the room' }));
 
-      // Look before asking: a wrong page is refused without bothering the owner. The probe carries no secret.
       const pre = await fill({ cdpUrl: d.cdpUrl, origin: cred.origin, field, secret: '', probe: true });
       if (!pre.ok) return err(refusal(pre, cred.name, cred.origin));
       const r = await d.confirm({ credential: cred.name, site: cred.origin, field, page: cred.origin });

@@ -11,12 +11,6 @@ import { EMPTY_USAGE, type AgentProvider, type TurnContext, type TurnOutcome, ty
 import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner, narrationNote } from './BotRunner.js';
 
-/**
- * A bot driving a browser test used to post every "Let's click X…" line between tool calls as its own room
- * message (seen live in the Wika room, 2026-11-09: a dozen narration posts in one turn). Text followed by a
- * tool call is narration and becomes a status note; only text with nothing after it is posted.
- */
-
 type Step = { text: string } | { tool: string };
 
 class NarratingProvider implements AgentProvider {
@@ -73,7 +67,6 @@ describe('narration between tool calls is not posted to the room', () => {
     ]);
     const r = await s.run();
     expect(s.texts()).toEqual(['Booth layout done: mascot left, tiles right, QR strip at the bottom.']);
-    // finalText drives @mention routing: narration naming @lead must not wake it.
     expect(r.finalText).toBe('Booth layout done: mascot left, tiles right, QR strip at the bottom.');
     expect(s.notes).toContain("Server's running. Let me resize the tab and take a screenshot.");
   });

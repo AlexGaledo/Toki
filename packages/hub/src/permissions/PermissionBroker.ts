@@ -22,23 +22,14 @@ export interface PermCtx {
   hop: number;
   causeId: string;
   setState: (s: 'blocked' | 'working') => void;
-  /** P3, decision Q6: a routine/trigger turn. Bypass does not apply to it; every gate still asks. */
   strictApprovals?: boolean;
-  // ---- P2 ----
-  /** What the turn belongs to (`routine:<runId>`, `workflow:<runId>:<nodeId>`), kept on a parked card so the resumed turn settles it. */
   ownerRef?: string;
-  /**
-   * Ends the turn because a card parked (a strict turn waited `parkAfterMs` with no answer). BotRunner wires
-   * it; without it a strict card times out and denies as before.
-   */
   park?: (why: string) => void;
-  /** Control interlock: why this bot's computer tools must not act now, or null. Checked before bypass. */
   controlBlocked?: () => string | null;
 }
 
 type Decision = ApprovalPayload['status'] | 'parked';
 
-/** What a tool call's card is about, matched against an approval rule's pattern (P2). */
 export function approvalSubject(toolName: string, input: Record<string, unknown>): string {
   const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
   if (toolName === 'Bash') return s(input.command) || '*';
@@ -46,13 +37,11 @@ export function approvalSubject(toolName: string, input: Record<string, unknown>
   if (toolName === 'WebFetch') return s(input.url) || '*';
   if (toolName === 'WebSearch') return s(input.query) || '*';
   if (toolName === 'request_approval') return s(input.command) || s(input.action) || '*';
-  // A rule for an outside hand-off is per pair: this bot to that one.
   if (toolName === 'handoff') return s(input.to_bot) || '*';
   if (toolName === 'read_room' || toolName === 'send_message') return s(input.room) || '*';
   return '*';
 }
 
-/** Stable JSON (sorted keys), so the same call retried after a park matches its grant. */
 function stableJson(v: unknown): string {
   if (Array.isArray(v)) return '[' + v.map(stableJson).join(',') + ']';
   if (v && typeof v === 'object') {
@@ -65,17 +54,13 @@ export const PARKED_MESSAGE =
   'Nobody has answered this approval card yet. Your turn ends now: do not retry it or work around it, and say ' +
   'nothing more. When the user answers you get a new turn telling you the answer.';
 const INTEGRATION_WRITES = new Set<string>(INTEGRATION_WRITE_TOOLS);
-/** A parked card's "allow" is good for one retry of the same call within this window. */
 const PARKED_GRANT_TTL_MS = 60 * 60 * 1000;
-/** Ask-every-time tools (fill_credential, ...): the owner said yes for right now, so the grant is short-lived. */
 const PARKED_GRANT_ASK_EVERY_TIME_TTL_MS = 10 * 60 * 1000;
-/** A parked card nobody answers is denied after this long (POCKETROCKET_MAX_PARK_HOURS, default 24). */
 export const MAX_PARK_MS = (Number(process.env.POCKETROCKET_MAX_PARK_HOURS) || 24) * 60 * 60 * 1000;
 interface Pending {
   resolve: (d: Decision) => void;
 }
 
-/** A `request_approval` the user said yes to, with the scope they saw on the card (audit 2026-09-09, B10). */
 export interface ApprovalGrant {
   approvalId: string;
   botId: string;
@@ -87,14 +72,8 @@ export interface ApprovalGrant {
 }
 
 const PATH_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Glob', 'Grep']);
-/** The PATH_TOOLS that write: what a learned `file_write` rule covers. */
 const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 
-/**
- * Corrections become checks: what a bot's `propose_rule` can ask the owner to forbid, and the policy tool each kind is
- * stored under. A `command` rule refuses a shell command containing the pattern; a `path` rule refuses writing a file
- * at or under it. Both are deny rules with a message (what to do instead), checked by `learnedRule`.
- */
 export const RULE_KINDS = { command: 'Bash', path: 'file_write' } as const;
 export type RuleKind = keyof typeof RULE_KINDS;
 
@@ -114,39 +93,22 @@ export function commandMatches(pattern: string, command: string): boolean {
   return new RegExp('(?:^|' + edge + ')' + esc + (prefix ? '' : '(?=$|' + edge + ')'), 'i').test(norm(command));
 }
 
-/** P7: the PATH_TOOLS that only read; they alone may reach a read-only root without a card. */
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep']);
 
 const HUB_PREFIX = 'mcp__pocketrocket__';
-/** Hub tools that never need a card: read-only, or already visible to the user as a room message. */
 const SILENT_HUB_TOOLS = SILENT_TOOLS;
-/**
- * Fleet-changing hub tools. They are allowed through *this* gate because the tool handler itself raises the
- * approval card (see `agent/botTools.ts`) — that way CLI providers, which reach hub tools over MCP and never
- * touch `decide()`, are gated identically. Before the audit every `mcp__pocketrocket__*` call was allowed
- * unconditionally and a Read-only bot could grant itself Bash (audit 2026-09-09, B6).
- */
 const GATED_HUB_TOOLS = GATED_TOOLS;
 
-/** Answered once per card: no "for this session", and no rule can pre-approve it. */
 const ASK_EVERY_TIME = ASK_EVERY_TIME_TOOLS;
 
-/**
- * Cards only a browser signed in with the owner's password may allow. The hub token is not enough: it sits in
- * DATA_DIR, where a bot under bypass can read it and answer its own card over the socket. Anyone may deny.
- * Keyed by tool name, so a parked card keeps the rule across a restart.
- */
 export { SIGN_IN_TOOLS };
 export const SIGN_IN_MESSAGE =
   'Only a browser signed in with your password can approve this. The server token is not enough. Sign in, then approve it.';
 
-/** The largest outside MCP call input (as JSON) a card shows; anything bigger is refused, never truncated. */
 const OUTSIDE_INPUT_CAP = 8000;
 
-/** How long a `request_approval` grant stays valid. */
 export const GRANT_TTL_MS = 10 * 60 * 1000;
 
-/** What a bot reads when a learned rule refuses a call: the rule, no retry, and the owner's "do instead" text. */
 function learnedRuleMessage(rule: StoredPolicy): string {
   return denyMessage('not_allowed', {
     subject: rule.tool === RULE_KINDS.command ? 'this command' : 'writing this file',
@@ -157,39 +119,20 @@ function learnedRuleMessage(rule: StoredPolicy): string {
 
 export class PermissionBroker {
   private pending = new Map<string, Pending>();
-  /** Cards a paired device answered. It answers once; a standing grant is the desktop's call. */
   private answeredByDevice = new Set<string>();
-  /** approvalId -> what the user actually approved. */
   private grants = new Map<string, ApprovalGrant>();
-  /**
-   * `<botId>:<toolName>` the user chose "always" for, for the life of this hub process. Only used when no
-   * ApprovalStore is wired (unit tests); with one, "always" is a session row in `approval_policies` (P2).
-   */
   private alwaysAllowed = new Set<string>();
-  /** P2: one-shot grants from a parked card the user allowed: key -> expiry. */
   private parkedGrants = new Map<string, { expiresAt: number; roomId: string }>();
-  /** P2: an answer to a parked card (or its expiry). RoomRouter queues the resumed turn. Set by createHub. */
   onParkedDecision?: (p: ParkedApproval, decision: 'allow' | 'always' | 'deny' | 'timeout') => void;
-  /**
-   * `bypass`: when it returns true, allow every tool call, every `request_approval` and every fleet change
-   * without a card. Nothing raises an approval card at all. A function, not a flag, so it follows the
-   * approvals setting live (the hub passes `settings.approvals() === 'bypass'`).
-   */
   constructor(
     private repos: Repos,
     private opts: {
       bypass?: () => boolean;
-      /** The approvals setting is 'read-only': refuse every write outright, no card, nothing to bypass into. */
       globalReadOnly?: () => boolean;
-      /** P7: folders bots may read but never write (the knowledge repo). Read live, per decision. */
       readOnlyRoots?: () => string[];
-      // ---- P2 ----
-      /** Parked approvals and approval rules. Left out (tests), "always" stays in memory and nothing parks. */
       store?: ApprovalStore;
       now?: () => number;
-      /** How long a strict (routine/trigger) card waits before its turn parks. Default APPROVAL_TIMEOUT_MS. */
       parkAfterMs?: number;
-      /** A parked card unanswered this long is denied. Default MAX_PARK_MS (24 h). */
       maxParkMs?: number;
     } = {},
   ) {}
@@ -198,11 +141,9 @@ export class PermissionBroker {
     return (this.opts.now ?? Date.now)();
   }
 
-  /** Whether approvals are bypassed right now. BotRunner reads it once per turn to set up the provider. */
   get bypassed(): boolean {
     return !!this.opts.bypass?.();
   }
-  /** Bypass for one turn: never for a strict (routine/trigger) turn, whatever the setting says. */
   bypassedFor(ctx: Pick<PermCtx, 'strictApprovals'>): boolean {
     return this.bypassed && !ctx.strictApprovals;
   }
@@ -213,26 +154,19 @@ export class PermissionBroker {
     input: Record<string, unknown>,
     opts: { signal: AbortSignal; suggestions?: PermissionUpdate[]; blockedPath?: string },
   ): Promise<PermissionResult> {
-    // Before bypass and before any card: nothing can approve a bot writing the owner's routing rules.
     const refused = routingFileWrite(toolName, input, WORKSPACE_DIR);
     if (refused) return { behavior: 'deny', message: refused };
-    // A rule the owner approved from this bot's correction: ahead of bypass and of the shell allowlist, since the owner
-    // already said no to exactly this.
     const learned = this.learnedRule(ctx.bot.id, toolName, input);
     if (learned) return { behavior: 'deny', message: learned };
-    // P2: the control interlock runs before bypass. It is a safety stop, not an approval.
     if (isComputerTool(toolName)) {
       const why = ctx.controlBlocked?.();
       if (why) return { behavior: 'deny', message: why };
     }
-    // Read-only: ahead of bypass (the two settings are mutually exclusive anyway) and of every card, so a
-    // write is refused outright rather than asked about.
     if (this.opts.globalReadOnly?.()) {
       const refusal = this.readOnlyRefusal(ctx, toolName, input);
       if (refusal) return { behavior: 'deny', message: refusal };
     }
     if (this.bypassedFor(ctx)) {
-      // Hardening pass: a shell write into a read-only root is refused even in bypass (P7 read-only rule).
       const hit = toolName === 'Bash' ? this.readOnlyShellWrite(String(input.command ?? '')) : null;
       if (hit) return { behavior: 'deny', message: denyMessage('not_allowed', { subject: 'this shell command', note: 'the knowledge repo is read-only and it writes there: ' + hit, alt: 'write inside your own workspace instead, or say so in the room' }) };
       return { behavior: 'allow' };
@@ -247,7 +181,6 @@ export class PermissionBroker {
       reason = 'Unknown hub tool: ' + bare;
     } else if (PATH_TOOLS.has(toolName)) {
       const paths = opts.blockedPath ? [opts.blockedPath] : pathsFromInput(toolName, input);
-      // P7: a read-only root (the knowledge repo) counts as inside for the read tools only.
       const readOnly = this.opts.readOnlyRoots?.() ?? [];
       const readRoots = READ_TOOLS.has(toolName) ? [...roots, ...readOnly] : roots;
       const outside = paths.filter((p) => !isInside(p, readRoots, WORKSPACE_DIR));
@@ -274,10 +207,6 @@ export class PermissionBroker {
     return this.promptUser(ctx, toolName, input, reason, danger, opts);
   }
 
-  /**
-   * The refusal for a call a learned rule (propose_rule, approved by the owner) forbids, with the owner's "do instead"
-   * text, or null. Covers Bash (`command` rules) and the file-writing tools (`path` rules).
-   */
   learnedRule(botId: string, toolName: string, input: Record<string, unknown>): string | null {
     const store = this.opts.store;
     if (!store) return null;
@@ -292,17 +221,10 @@ export class PermissionBroker {
     return rule ? learnedRuleMessage(rule) : null;
   }
 
-  /** A shell command's write into a read-only root (the knowledge repo), if the command line shows one. */
   private readOnlyShellWrite(cmd: string): string | null {
     return bashWritesReadOnly(cmd, WORKSPACE_DIR, this.opts.readOnlyRoots?.() ?? []);
   }
 
-  /**
-   * The global 'read-only' approvals setting: a plain-language refusal for a call that writes anything, or
-   * null when the call only reads. `Bash` goes through the same allowlist 'ask' mode uses for "safe enough
-   * not to ask" — here that list draws the read/write line instead, so `ls`/`cat`/`grep` pass and anything
-   * not on it (including every command classifyBash cannot prove is safe) does not.
-   */
   private readOnlyRefusal(ctx: PermCtx, toolName: string, input: Record<string, unknown>): string | null {
     const bare = toolName.startsWith(HUB_PREFIX) ? toolName.slice(HUB_PREFIX.length) : toolName;
     if (GATED_HUB_TOOLS.has(bare)) return denyMessage('readonly', { subject: 'fleet, room and integration changes', alt: 'do the work with your own tools, or say so in the room' });
@@ -314,20 +236,11 @@ export class PermissionBroker {
     return null;
   }
 
-  // ---------- P2: approval rules ----------
-  /**
-   * The user's rule for this call, if one matches: deny rules first, then allow rules. Allow rules never cover
-   * a command the classifier calls dangerous, and nothing covers an integration write (P4: always asks).
-   */
   matchPolicy(botId: string, tool: string, subject: string, danger = false, machine?: string): 'allow' | 'deny' | null {
     if (INTEGRATION_WRITES.has(tool)) return null;
-    // Asked on every call: a deny rule still refuses, but no allow rule or "always" pre-approves it.
     if (ASK_EVERY_TIME.has(tool)) danger = true;
     const store = this.opts.store;
     if (!store) return !danger && this.alwaysAllowed.has(botId + ':' + tool) ? 'allow' : null;
-    // An allow rule with a machine covers only calls on that machine. A deny rule with a machine also covers a call
-    // that names none, because a refusal must not be skipped just because the caller left the machine out.
-    // Expired rules are not listed.
     const rules = store.listPolicies(botId, 'all').filter((p) => p.tool === tool && patternMatches(p.pattern, subject)
       && (!p.machine || p.machine === machine || (p.decision === 'deny' && machine === undefined)));
     if (rules.some((p) => p.decision === 'deny')) return 'deny';
@@ -335,7 +248,6 @@ export class PermissionBroker {
     return null;
   }
 
-  /** "Allow for this session": a session rule (cleared at the next hub start). Never for a write to a third party. */
   private rememberSession(botId: string, tool: string, input: Record<string, unknown>, danger: boolean) {
     if (INTEGRATION_WRITES.has(tool) || ASK_EVERY_TIME.has(tool) || danger) return;
     if (!this.opts.store) {
@@ -345,16 +257,11 @@ export class PermissionBroker {
     this.opts.store.addPolicy({ botId, tool, pattern: approvalSubject(tool, input), decision: 'allow', scope: 'session' });
   }
 
-  // ---------- P2: parked approvals ----------
   private grantKey(botId: string, tool: string, input: Record<string, unknown>): string {
     const subject = approvalSubject(tool, input);
     return botId + '\u0000' + tool + '\u0000' + (subject !== '*' ? subject : stableJson(input));
   }
 
-  /**
-   * The user answered a card whose turn had parked. Records the answer, and an "allow" as a one-shot grant for
-   * the same call when the resumed turn retries it. Returns false when no such parked card exists.
-   */
   resolveParked(approvalId: string, decision: 'allow' | 'always' | 'deny' | 'timeout'): boolean {
     const store = this.opts.store;
     const p = store?.getParked(approvalId);
@@ -379,7 +286,6 @@ export class PermissionBroker {
     return true;
   }
 
-  /** Denies parked cards older than `maxParkMs` (run every minute by the hub). Returns their ids. */
   sweepParked(): string[] {
     const store = this.opts.store;
     if (!store) return [];
@@ -393,12 +299,10 @@ export class PermissionBroker {
     return out;
   }
 
-  /** Cards a running turn is waiting on right now; parked ones are not counted (GET /api/busy). */
   liveCardCount(): number {
     return this.pending.size;
   }
 
-  /** Parked cards still waiting (REST, tests). */
   parked(): ParkedApproval[] {
     return this.opts.store?.listParked() ?? [];
   }
@@ -465,7 +369,6 @@ export class PermissionBroker {
     };
   }
 
-  /** The recorded grant for an approvalId, or null when it is unknown or expired. */
   getGrant(approvalId: string): ApprovalGrant | null {
     const g = this.grants.get(approvalId);
     if (!g) return null;
@@ -477,10 +380,8 @@ export class PermissionBroker {
   }
 
   /**
-   * Approval card for a hub tool that changes the fleet (audit 2026-09-09, B6/B14): create/update/delete a
-   * bot, add/remove one from a room. The human confirms, not the bot — a bot-supplied `confirm: true` is not
-   * consent, and a bot rewriting another bot's `description` is persistent cross-bot prompt injection.
-   * "Always" is remembered per bot + tool for the life of this hub process.
+   * The human confirms, not the bot: a bot-supplied `confirm: true` is not consent, and a bot rewriting another bot's
+   * `description` is persistent cross-bot prompt injection.
    */
   async askFleetChange(
     ctx: PermCtx,
@@ -488,7 +389,6 @@ export class PermissionBroker {
     input: Record<string, unknown>,
     reason: string,
     signal: AbortSignal,
-    /** A hand-off that adds a bot to this chat: the owner's call on any hub, because that bot has other logins. */
     opts: { evenUnderBypass?: boolean; machine?: string } = {},
   ): Promise<{ allowed: boolean; message: string }> {
     if (this.opts.globalReadOnly?.()) return { allowed: false, message: denyMessage('readonly', { subject: 'fleet and room changes', alt: 'say so in the room' }) };
@@ -506,12 +406,6 @@ export class PermissionBroker {
     };
   }
 
-  /**
-   * The first hand-off from this bot to one outside the chat. That bot has different logins and tools, so the card
-   * shows under bypass too. Saying yes records an approval rule for the pair, listed and revocable in Settings, so
-   * later hand-offs go straight through. A strict (routine, trigger) turn may be acting on forwarded text, so it
-   * neither uses nor records the rule; nor does a paired device record one.
-   */
   async askOutsideHandoff(
     ctx: PermCtx,
     input: { to_bot: string; task: string; context?: string },
@@ -574,11 +468,6 @@ export class PermissionBroker {
     return { allowed: false, message: denyMessage('declined', { subject: 'this routing line', note: 'it was not added', alt: 'do not propose it again; carry on with the routing rules as they are' }) };
   }
 
-  /**
-   * A deny rule a bot proposes after the owner corrected the same thing twice (propose_rule). Asks on every call, under
-   * bypass too, and no rule can pre-approve it: the owner reads the exact rule and its "do instead" text on the card.
-   * On yes the rule is stored for this bot and `learnedRule` enforces it from the next call on.
-   */
   async askRuleProposal(
     ctx: PermCtx,
     input: { kind: RuleKind; pattern: string; instead: string; reason: string },
@@ -598,12 +487,6 @@ export class PermissionBroker {
     return { allowed: true, message: 'Rule added. From now on that is refused with: ' + input.instead };
   }
 
-  /**
-   * P4: approval card for an integration write (send mail, post to Slack, comment on GitHub, ...). Unlike the
-   * other gates this one asks on EVERY call: approvals bypass does not skip it, and "Always" counts as a
-   * single allow and is not remembered. Acting as the user towards third parties is never pre-approved
-   * (spec §2.5); persisted policies that could relax it belong to P2.
-   */
   async askIntegrationWrite(
     ctx: PermCtx,
     toolName: string,
@@ -622,13 +505,6 @@ export class PermissionBroker {
     };
   }
 
-  /**
-   * A call to an owner-configured outside MCP server whose `approve` setting asks for a card
-   * (services/outsideMcp.ts). Those servers carry the owner's own API keys, so this asks on every call: under
-   * bypass too, for a strict turn too, and no approval rule or "always" answer covers it ("always" counts as a
-   * single allow and is not remembered). The card shows the server, the tool and the whole input, redacted; an
-   * input too long to show in full is refused without a card.
-   */
   async askOutsideMcp(
     ctx: PermCtx,
     server: string,
@@ -639,7 +515,6 @@ export class PermissionBroker {
     if (this.opts.globalReadOnly?.()) {
       return { allowed: false, message: denyMessage('readonly', { subject: 'outside tools', alt: 'say so in the room' }) };
     }
-    // Never ask about input the owner cannot see in full: a hidden tail could carry the real payload.
     const shown = redact(JSON.stringify(input ?? {}) ?? '{}');
     if (shown.length > OUTSIDE_INPUT_CAP) {
       return { allowed: false, message: denyMessage('unavailable', { subject: 'this call', note: 'its input is too large to show for approval (' + shown.length + ' chars)', alt: 'split it into smaller calls' }) };
@@ -668,7 +543,6 @@ export class PermissionBroker {
     const { decision } = await this.prompt(ctx, toolName, input, reason, danger, opts);
     if (decision === 'allow') return { behavior: 'allow' };
     if (decision === 'always') return { behavior: 'allow', updatedPermissions: opts.suggestions };
-    // `interrupt` stops the SDK turn right here; BotRunner's park() ends it for every other provider.
     if (decision === 'parked') return { behavior: 'deny', message: PARKED_MESSAGE, interrupt: true };
     return {
       behavior: 'deny',
@@ -679,17 +553,14 @@ export class PermissionBroker {
     };
   }
 
-  /** Post the card, block until the user (or the timeout, or an abort) answers, and report the raw decision. */
   private async prompt(
     ctx: PermCtx,
     toolName: string,
     input: Record<string, unknown>,
     reason: string,
     danger: boolean,
-    /** `once`: an "always" answer allows this call only and is never remembered. */
     opts: { signal: AbortSignal; once?: boolean },
   ): Promise<{ decision: Decision; approvalId: string }> {
-    // P2: the retry of a call the user allowed on a parked card goes through once, without a second card.
     const gk = this.grantKey(ctx.bot.id, toolName, input);
     const grant = this.parkedGrants.get(gk);
     // An ask-every-time grant belongs to the room whose card was answered: a retry from another room does not use
@@ -703,7 +574,6 @@ export class PermissionBroker {
       approvalId, toolName, toolInput: input, reason, danger, status: 'pending',
       ...(SIGN_IN_TOOLS.has(toolName) ? { signInRequired: true } : {}),
     };
-    // Tells the card to offer no "for this session": this answer is never remembered.
     if (opts.once || ASK_EVERY_TIME.has(toolName)) payload.once = true;
     const msg = this.repos.insertMessage({
       roomId: ctx.room.id,
@@ -730,8 +600,6 @@ export class PermissionBroker {
         resolve(d);
       };
       const onAbort = () => { aborted = true; finish('deny'); };
-      // P2: a strict (routine/trigger) turn nobody is watching parks instead of timing out: the card stays
-      // pending, the turn ends and frees its slot, and the answer resumes the bot later (resolveParked).
       const canPark = !!(ctx.strictApprovals && ctx.park && this.opts.store);
       const timer = canPark
         ? setTimeout(() => {
@@ -758,20 +626,14 @@ export class PermissionBroker {
     return { decision, approvalId };
   }
 
-  /** Whether allowing this card needs a signed-in browser (SIGN_IN_TOOLS). Reads the card's row, so parked cards count. */
   needsSignIn(approvalId: string): boolean {
     const row = this.repos.db.get('SELECT tool_name FROM approvals WHERE id=?', approvalId);
     return !!row && SIGN_IN_TOOLS.has(String(row.tool_name));
   }
 
-  /**
-   * An answer to a card. `signedIn`: the answer came from a browser signed in with the owner's password, not
-   * only the hub token. Without it an allow on a SIGN_IN_TOOLS card is refused (false) and the card stays open.
-   */
   resolve(approvalId: string, decision: 'allow' | 'always' | 'deny', opts: { device?: boolean; signedIn?: boolean } = {}): boolean {
     if (decision !== 'deny' && !opts.signedIn && this.needsSignIn(approvalId)) return false;
     const p = this.pending.get(approvalId);
-    // P2: no turn is waiting in memory, but a parked one may be.
     if (!p) return this.resolveParked(approvalId, decision);
     if (opts.device) this.answeredByDevice.add(approvalId);
     p.resolve(decision);
