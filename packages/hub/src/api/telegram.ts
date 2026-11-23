@@ -10,6 +10,7 @@ import { logError } from '../providers/redact.js';
 const TokenBody = z.object({ token: z.string().trim().min(1).max(200) });
 const NotifyBody = z.object({ notify: z.boolean() });
 
+/** Owner only: a paired phone is refused twice, and no bot tool reaches REST. */
 export function createTelegramApi(deps: { telegram: TelegramService }) {
   const svc = deps.telegram;
 

@@ -17,6 +17,7 @@ class HttpError extends Error {
 type Ctx = { params: Record<string, string>; body: unknown; req: IncomingMessage };
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx) => unknown | Promise<unknown> }
 
+/** Human-only: needs the hub token; no bot tool or MCP route reaches it. */
 export function createIntegrationsApi(deps: { integrations: IntegrationService; repos: Repos }) {
   const { integrations: svc, repos } = deps;
   const routes: Route[] = [];

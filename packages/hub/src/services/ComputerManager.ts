@@ -41,6 +41,7 @@ export function slotPorts(slot: number): SlotPorts {
   };
 }
 
+/** Refuses ids that could smuggle anything into a unit name. */
 export function unitName(slot: number, botId: string): string {
   if (!BOT_ID_RE.test(botId)) throw new Error('bad bot id for a computer unit');
   slotPorts(slot);
@@ -55,7 +56,9 @@ export interface ComputerEndpoint {
   xauthority: string;
   home: string;
   filesDir: string | null;
+  /** Loopback only. */
   cdpUrl: string;
+  /** Loopback only. */
   screenUrl: string;
   vncPort: number | null;
 }

@@ -77,6 +77,7 @@ export class FormBroker {
     if (!o) return 'This form is no longer waiting for an answer.';
     const v = validateAnswers(o.fields, answers);
     if (!v.ok) return v.error;
+    // A pasted key or token is refused, not passed on to the bot.
     for (const val of Object.values(v.value)) {
       if (typeof val === 'string' && redact(val) !== val) return 'One answer looks like a secret (a key or token). Forms are not for secrets: take it out.';
     }

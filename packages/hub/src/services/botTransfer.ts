@@ -28,6 +28,7 @@ const PATHS: RegExp[] = [
 const PEM = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g;
 const ASSIGNED = /\b([A-Za-z0-9_]*(?:password|passwd|secret|token|api[_-]?key|apikey|credential)[A-Za-z0-9_]*\s*[:=]\s*)(?!\[redacted\]|\[path\])["']?[^\s"']{6,}["']?/gi;
 
+/** Takes secrets and machine paths out of free text about to leave this machine. */
 export function scrubForExport(text: string): { text: string; removed: number } {
   let removed = 0;
   let out = text.replace(PEM, () => { removed++; return '[redacted]'; });
@@ -89,6 +90,7 @@ export function freeHandle(taken: (h: string) => boolean, handle: string): strin
 
 export const IMPORT_DEFAULT_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebSearch'] as const;
 
+/** Never touches an existing bot; skills arrive imported and pending. */
 export function importBot(d: Deps, raw: unknown, opts: { includeMemory: boolean }): BotImportResult {
   const parsed = BotExportSchema.safeParse(raw);
   if (!parsed.success) {

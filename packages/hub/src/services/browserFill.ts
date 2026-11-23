@@ -37,6 +37,7 @@ const originOf = (url: unknown): string | null => {
   }
 };
 
+/** Holds no secret. */
 const FIND_FIELD = `function (field) {
   var BAD = ['checkbox','radio','button','submit','file','hidden','image','reset','range','color'];
   function usable(el) {

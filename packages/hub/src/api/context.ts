@@ -30,6 +30,7 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
 };
 const issues = (e: z.ZodError) => e.issues.map((i) => i.path.join('.') + ': ' + i.message).join('; ');
 
+/** Human-only: hub token or signed-in browser; paired phones and bot tools never reach it. */
 export function createContextApi(deps: { context: ContextRepo; projects: ProjectService }) {
   const { context, projects } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -82,6 +83,7 @@ export function createContextApi(deps: { context: ContextRepo; projects: Project
   };
 }
 
+/** Writes to a review queue and reads nothing back, so a leaked URL never grants access to the hub. */
 export function contextConnectorTools(context: ContextRepo): HubTool[] {
   return [
     hubTool(

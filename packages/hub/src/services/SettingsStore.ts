@@ -75,6 +75,7 @@ export class SettingsStore {
     if (this.approvalsLocked && next.approvals !== prev.approvals) {
       throw new SettingsRejected('approvals: set by the server environment (POCKETROCKET_BYPASS_PERMISSIONS)', 409);
     }
+    // Reaches git as an argument, never a shell, and is checked before it is stored.
     if (p.knowledgeRepo !== undefined && p.knowledgeRepo !== prev.knowledgeRepo) {
       const bad = knowledgeSourceError(p.knowledgeRepo);
       if (bad) throw new SettingsRejected('knowledgeRepo: ' + bad);

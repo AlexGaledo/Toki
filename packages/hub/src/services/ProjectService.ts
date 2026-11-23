@@ -205,6 +205,7 @@ export class ProjectService {
     this.db.run('DELETE FROM projects WHERE slug=?', slug);
   }
 
+  /** A bad file reads as no repos, so it never links or syncs anything. */
   reposFile(slug: string): ProjectReposFile {
     const file = path.join(this.dirOf(slug), REPOS_FILE);
     let st: fs.Stats;

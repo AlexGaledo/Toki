@@ -12,6 +12,7 @@ export interface TaskCreate {
 }
 export type TaskPatch = Partial<TaskCreate>;
 
+/** Rows grant nothing, and title/notes are free text: treat them as untrusted. */
 export class TaskService {
   constructor(private db: Db, private now: () => number = Date.now) {}
 

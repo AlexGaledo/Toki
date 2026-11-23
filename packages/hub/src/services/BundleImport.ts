@@ -8,6 +8,7 @@ import { pipeline } from 'node:stream/promises';
 import type { IncomingMessage } from 'node:http';
 import { vpsPathOk } from '@pocketrocket/shared';
 
+/** git runs with a clean env and every program-starting config overridden, so nothing the bundle carries runs. */
 export class BundleError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -28,6 +29,7 @@ export const HARDENED_GIT_CONFIG: readonly string[] = [
   'maintenance.auto=false',
 ];
 
+/** A scrubbed env for git: no hub token, no user or system config. */
 export function hardenedGitEnv(home: string): NodeJS.ProcessEnv {
   const keep = ['PATH', 'PATHEXT', 'SystemRoot', 'SYSTEMROOT', 'windir', 'ComSpec', 'TEMP', 'TMP', 'TMPDIR', 'LANG'];
   const env: NodeJS.ProcessEnv = {};
@@ -69,6 +71,7 @@ const inside = (root: string, p: string, allowSame = false) => {
   return (allowSame || rel !== '') && !rel.startsWith('..') && !path.isAbsolute(rel);
 };
 
+/** Refused unless a plain relative path with no link out of the project on the way. */
 export function vpsDir(projectDir: string, vps: string): string {
   if (!vpsPathOk(vps)) throw new BundleError(400, 'The repo\'s vps path is not a plain relative folder.');
   const root = path.resolve(projectDir);

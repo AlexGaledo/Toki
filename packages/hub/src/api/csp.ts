@@ -32,6 +32,7 @@ export const WEB_CSP = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+/** Existing hardening on the response is never replaced by the caller. */
 export function webSecurityHeaders(mode: CspMode): Record<string, string> {
   const h: Record<string, string> = {
     'x-content-type-options': 'nosniff',

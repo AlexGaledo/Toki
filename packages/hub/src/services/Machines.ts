@@ -5,6 +5,7 @@ import {
 import type { Db } from '../db/db.js';
 import type { PcRunner } from './PcRunner.js';
 
+/** `always` is not a bypass: run_on_pc keeps its card and the PC's own prompt on every job. */
 export class Machines {
   constructor(private db: Db, private pc?: PcRunner, private now: () => number = Date.now) {}
 

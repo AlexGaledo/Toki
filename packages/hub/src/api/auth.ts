@@ -32,6 +32,7 @@ function sessionCookie(req: IncomingMessage, name: string, value: string, maxAge
   return name + '=' + value + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + Math.floor(maxAgeMs / 1000) + (forwardedHttps(req) ? '; Secure' : '');
 }
 
+/** Counted before the slow hash, so parallel guesses cannot all pass the limiter. */
 async function checkPassword(deps: AuthApiDeps, ip: string, userId: string, password: unknown): Promise<'ok' | 'wrong' | 'blocked'> {
   if (deps.limiter.blocked(ip)) return 'blocked';
   deps.limiter.fail(ip);
@@ -50,6 +51,7 @@ export interface AuthApiDeps {
   cookieName: () => string;
 }
 
+/** Token-exempt: reveals only these two flags. */
 export function handleAuthStatus(req: IncomingMessage, res: ServerResponse, deps: AuthApiDeps): void {
   send(res, 200, {
     passwordSet: deps.auth.hasPassword(deps.repos.owner().id),
@@ -57,6 +59,7 @@ export function handleAuthStatus(req: IncomingMessage, res: ServerResponse, deps
   });
 }
 
+/** Token-exempt, so every miss feeds the failed-auth limiter. */
 export async function handleLogin(req: IncomingMessage, res: ServerResponse, deps: AuthApiDeps): Promise<void> {
   const ip = clientIp(req);
   const parsed = await jsonBody(req);
@@ -110,6 +113,7 @@ export function createAuthApi(deps: AuthApiDeps) {
       }
       if (method === 'POST' && p === '/api/auth/password') {
         const had = auth.hasPassword(owner.id);
+        // Always needs the current password, even with the hub token: a bot that read the token must not sign itself in.
         if (had) {
           const result = await checkPassword(deps, clientIp(req), owner.id, body.currentPassword);
           if (result === 'blocked') return send(res, 429, TOO_MANY, { 'retry-after': '60' });
@@ -119,6 +123,7 @@ export function createAuthApi(deps: AuthApiDeps) {
           }
         }
         await auth.setPassword(owner.id, checkNewPassword(body.password));
+        // A password change is often a reaction to a leak, so every other browser has to sign in again.
         const ended = auth.revokeAll(owner.id, current);
         recordAudit(db, actor, had ? 'auth.password_changed' : 'auth.password_set', null, ended ? ended + ' other sessions signed out' : null);
         return send(res, 200, { ok: true });

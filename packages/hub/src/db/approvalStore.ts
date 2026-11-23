@@ -64,6 +64,7 @@ export class ApprovalStore {
     return this.listParked().map((p) => p.ownerRef).filter((r): r is string => !!r);
   }
 
+  /** Expired rules are never listed, so never matched. */
   listPolicies(botId?: string, scope: PolicyScope | 'all' = 'always'): StoredPolicy[] {
     const where: string[] = ['(expires_at IS NULL OR expires_at > ?)'];
     const args: (string | number)[] = [this.now()];

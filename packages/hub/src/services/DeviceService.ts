@@ -7,6 +7,7 @@ const CODE_LENGTH = 8;
 export const PAIRING_TTL_MS = 5 * 60_000;
 const MAX_CODES = 5;
 const TOUCH_EVERY_MS = 60_000;
+/** Prefixed so a device token can never be mistaken for the hub token. */
 const TOKEN_PREFIX = 'prd_';
 
 export class PairingError extends Error {
@@ -36,6 +37,7 @@ export class DeviceService {
 
   constructor(private repo: DevicesRepo, private now: () => number = Date.now) {}
 
+  /** Only the hub token may call this. */
   mintPairingCode(): { code: string; expiresAt: number } {
     this.sweep();
     let code = '';
@@ -59,6 +61,7 @@ export class DeviceService {
     return { token, device };
   }
 
+  /** Revoked devices never match. */
   authenticate(supplied: string | null): string | null {
     if (!supplied || !supplied.startsWith(TOKEN_PREFIX)) return null;
     const h = Buffer.from(hashDeviceToken(supplied), 'hex');
@@ -75,6 +78,7 @@ export class DeviceService {
   get(id: string): DeviceInfo | undefined { return this.repo.get(id); }
   rename(id: string, name: string): DeviceInfo | undefined { return this.repo.rename(id, name.trim().slice(0, 40) || 'Phone'); }
 
+  /** The next request with its token is refused, and its sockets close. */
   revoke(id: string): boolean {
     const ok = this.repo.revoke(id);
     this.touched.delete(id);

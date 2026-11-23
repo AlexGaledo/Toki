@@ -116,6 +116,7 @@ export function buildSummaryPrompt(
   ].join('\n\n');
 }
 
+/** Secrets scrubbed. */
 export function cleanSummary(outcome: PassOutcome): string | null {
   if (!outcome.ok) return null;
   const text = redact(outcome.text.trim());

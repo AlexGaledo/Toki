@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Db } from '../db/db.js';
 
+/** `appendDecision` is the only writer of decisions.md; the provider hook refuses a bot's own edits to it. */
 export type RootKind = 'room' | 'project' | 'dm';
 export interface FileRoot {
   kind: RootKind;
@@ -153,6 +154,7 @@ export class FileRevisions {
     return { ok: true, hash, rev: r?.rev ?? this.latest(root, rel)?.rev ?? 0 };
   }
 
+  /** Earlier entries are never touched. */
   appendDecision(root: FileRoot, a: { title: string; text: string; supersedes?: string[] }, author: RevisionAuthor): { id: string; rev: number } {
     const abs = path.join(root.dir, DECISIONS_FILE);
     const cur = readOrNull(abs)?.toString('utf8') ?? '';

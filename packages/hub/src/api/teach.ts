@@ -19,6 +19,7 @@ class HttpError extends Error {
 type Ctx = { params: Record<string, string>; body: unknown };
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx) => unknown }
 
+/** Human-only: a paired phone reaches only the routes DEVICE_ALLOW lists. */
 export function createTeachApi(deps: { repos: Repos; skills: SkillService; recorder: Recorder; distiller: SkillDistiller; training: Training }) {
   const { repos, skills, recorder, distiller, training } = deps;
   const routes: Route[] = [];

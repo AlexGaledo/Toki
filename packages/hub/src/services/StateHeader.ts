@@ -3,6 +3,7 @@ import { DECISIONS_FILE } from './FileRevisions.js';
 import { quoteTags } from '../rooms/transcript.js';
 import { redact } from '../providers/redact.js';
 
+/** File text is written by bots too: never let it pass as a hub, owner or bot tag. */
 const safe = (s: string) => quoteTags(redact(s));
 
 export const CURRENT_FILE = 'current.md';

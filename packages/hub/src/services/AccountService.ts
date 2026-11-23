@@ -36,6 +36,7 @@ const Profile = z.object({
 });
 const AuthSettings = z.object({ external: z.record(z.string(), z.unknown()).optional() });
 
+/** Re-restricted to the owner on every change, like secrets.json. */
 export class FileStorage implements SupportedStorage {
   constructor(readonly file: string) {}
 

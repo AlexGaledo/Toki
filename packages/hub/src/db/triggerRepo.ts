@@ -4,6 +4,7 @@ import type {
 } from '@pocketrocket/shared';
 import type { Db, Row } from './db.js';
 
+/** Ids and text, never request headers. */
 export interface InboxRow {
   id: string;
   source: TriggerSource;

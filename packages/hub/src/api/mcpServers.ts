@@ -22,10 +22,12 @@ export const MCP_SIGN_IN_MESSAGE =
 
 export interface McpCheck {
   ok: boolean;
+  /** A fixed word, never the remote's own text. */
   result: string;
   at: number;
 }
 
+/** Human-only; a stdio server runs a program with the owner's keys, so changing one needs a signed-in browser. */
 export function createMcpServersApi(deps: {
   store: McpServerStore;
   db: Db;
@@ -57,6 +59,7 @@ export function createMcpServersApi(deps: {
           'content-type': 'application/json',
           accept: 'application/json, text/event-stream',
         };
+        // A token bound to another origin than the url is never sent.
         const bound = typeof raw.tokenOrigin !== 'string' || raw.tokenOrigin === new URL(raw.url).origin;
         if (typeof raw.token === 'string' && raw.token && bound) headers.authorization = 'Bearer ' + raw.token;
         const r = await doFetch(raw.url, {

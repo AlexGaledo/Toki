@@ -62,6 +62,7 @@ interface Session {
   attached: Map<string, Promise<void>>;
   secretFocus: Map<string, boolean>;
   visibleSecret: Map<string, boolean>;
+  /** A screenshot taken across a bump is dropped. */
   secretEpoch: number;
   lastFrameAt: number;
   frameSeq: number;
@@ -111,6 +112,7 @@ export function scrubUrl(raw: string): string {
   }
 }
 
+/** Never a value. */
 function hint(d: ElementDesc | null | undefined) {
   if (!d) return null;
   const out: Record<string, string> = {};

@@ -8,6 +8,7 @@ import { SECRET_PLACEHOLDER } from '@pocketrocket/shared';
 export const SECRET_AUTOCOMPLETE_RE = /password|(^|\s)cc-|one-time-code/i;
 export const SECRET_NAME_RE = /passw(or)?d|pwd|passcode|cvv|cvc|csc|card.?num|cc.?num|cc.?number|security.?code|one.?time|otp|api.?key|access.?key|private.?key|secret|token|bearer|credential|passphrase/i;
 
+/** Never an input's value. */
 export interface ElementDesc {
   tag?: string;
   type?: string;
@@ -19,6 +20,7 @@ export interface ElementDesc {
   text?: string;
   placeholder?: string;
   selector?: string;
+  /** The hub ORs it with isSecretField; it can only add redaction. */
   secret?: boolean;
 }
 

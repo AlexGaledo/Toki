@@ -15,6 +15,7 @@ class HttpError extends Error {
 type Ctx = { params: Record<string, string>; query: URLSearchParams; body: unknown; req: IncomingMessage };
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx) => unknown | Promise<unknown> }
 
+/** Owner-only: a bot reaches workflows only through the gated tools, never this file. */
 export function createWorkflowsApi(deps: { repos: Repos; workflows: WorkflowRepo; runner: WorkflowRunner }) {
   const { repos, workflows, runner } = deps;
   const routes: Route[] = [];
@@ -69,6 +70,7 @@ export function createWorkflowsApi(deps: { repos: Repos; workflows: WorkflowRepo
   add('POST', '/api/workflow-runs/:runId/retry', ({ params }) => runner.retry(params.runId));
   add('GET', '/api/workflow-cards', () => runner.cards());
   add('POST', '/api/workflow-runs/:runId/decision', ({ params, body, req }) => {
+    // Person-only: no bot, cta button or chat text ever reaches this route.
     const kind = principalOf(req)?.kind;
     if (kind !== 'hub' && kind !== 'device') throw new HttpError(403, 'Only you can answer this card');
     return runner.decide(params.runId, parse(WorkflowDecisionSchema, body));

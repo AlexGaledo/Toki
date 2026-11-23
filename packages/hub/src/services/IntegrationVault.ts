@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { INTEGRATIONS_PATH, VAULT_KEY_PATH, renameOver, restrictFile } from '../config.js';
 import { addSecret, removeSecret } from '../providers/redact.js';
 
+/** A fixed associated-data string, so a blob from another program never decrypts here. */
 export class VaultError extends Error {}
 
 const AAD = Buffer.from('pocketrocket/integration-vault/v1');
@@ -26,6 +27,7 @@ export class IntegrationVault {
       if (e instanceof VaultError) throw e;
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new VaultError('Cannot read vault.key');
       if (!create) return null;
+      // A blob with no key can never be read again: refuse to mint a new key over it.
       if (fs.existsSync(this.file)) throw new VaultError('integrations.json exists but vault.key is missing; restore the key or delete integrations.json');
       const key = crypto.randomBytes(32);
       fs.mkdirSync(path.dirname(this.keyFile), { recursive: true });
@@ -115,6 +117,7 @@ function decrypt(raw: string, key: Buffer): Record<string, Entry> {
     const out = Buffer.concat([d.update(Buffer.from(blob.data, 'base64')), d.final()]).toString('utf8');
     return JSON.parse(out) as Record<string, Entry>;
   } catch {
+    // One message for every failure: which check failed is no business of whoever tampered with the file.
     throw new VaultError('integrations.json failed its integrity check (tampered, truncated or wrong vault.key)');
   }
 }

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 
+/** The source never touches a shell; a `-` source and the ext::/fd:: helpers are refused. */
 const URL_RE = /^(https?:\/\/|ssh:\/\/|git:\/\/|file:\/\/)[^\s]+$/i;
 const SCP_RE = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s]+$/;
 

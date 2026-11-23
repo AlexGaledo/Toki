@@ -50,6 +50,7 @@ export interface IntegrationServiceOptions {
   now?: () => number;
 }
 
+/** Human-only: REST is the only writer; bots only read and write through clients behind an approval card. */
 export class IntegrationService {
   readonly repo: IntegrationRepo;
   readonly vault: IntegrationVault;

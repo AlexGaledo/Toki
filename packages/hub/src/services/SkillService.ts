@@ -77,6 +77,7 @@ export class SkillService {
 
   save(name: string, description: string, markdown: string, opts: { source: 'authored' | 'bot'; createdByBot?: string }): Skill {
     const dir = resolveSkillDir(name);
+    // A bot never rewrites a pool skill; its text becomes a pending version.
     const existing = opts.source === 'bot' ? this.repos.getSkillByName(name) : undefined;
     if (existing) {
       this.proposeVersion(existing.id, markdown, { origin: 'bot', note: '', createdByBot: opts.createdByBot ?? null, description });
@@ -93,6 +94,7 @@ export class SkillService {
     });
   }
 
+  /** Imported skills land pending: nothing in them reaches a bot until the owner approves. */
   importPending(name: string, description: string, markdown: string): { skill: Skill; renamed: boolean } {
     let final = name;
     for (let n = 2; this.repos.getSkillByName(final) || fs.existsSync(path.join(SKILLS_DIR, final)); n++) {
@@ -155,6 +157,7 @@ export class SkillService {
   remove(id: string) {
     const s = this.repos.getSkill(id);
     if (!s) return;
+    // Never recursively delete a path that does not live in the pool.
     if (isInside(s.path, [SKILLS_DIR])) {
       try {
         fs.rmSync(s.path, { recursive: true, force: true });
@@ -234,6 +237,7 @@ export class SkillService {
       .map((s) => s.name);
   }
 
+  // Skill versions are never applied without the user.
   private _versions?: SkillVersionsRepo;
   get versionsRepo(): SkillVersionsRepo {
     return (this._versions ??= new SkillVersionsRepo(this.repos.db));

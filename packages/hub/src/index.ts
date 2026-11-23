@@ -2,6 +2,7 @@ import { createHub } from './hub.js';
 import { startWorkspaceWeb } from './api/workspaceWeb.js';
 import { WORKSPACE_DIR, WORKSPACE_WEB_PORT } from './config.js';
 
+// Bare allowedTools entries bypass canUseTool on purpose; file and shell tools are never pre-approved.
 const origEmitWarning = process.emitWarning.bind(process);
 process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
   if (String(warning).includes('canUseTool will not be invoked')) return;

@@ -39,6 +39,7 @@ export interface TelegramServiceOptions {
 
 interface Pending { code: string; issuedAt: number; expiresAt: number }
 
+/** Everything that can reach a log goes through `redact`. */
 export class TelegramService {
   private repo: TelegramRepo;
   private client: TelegramClient;
@@ -107,6 +108,7 @@ export class TelegramService {
     }
     if (!me.username) throw new IntegrationError('Telegram returned no username for this bot', 502);
     const row = this.repo.get();
+    // A different bot cannot inherit the old link.
     if (row.botId && row.botId !== String(me.id)) this.dropLink();
     this.opts.vault.set(VAULT_KEY, { token });
     this.repo.setBot(String(me.id), me.username);

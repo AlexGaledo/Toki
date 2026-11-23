@@ -145,6 +145,7 @@ export function parseNotes(raw: string): string[] | null {
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
+/** Anything secret-shaped is dropped whole: a half-redacted fact is worse than none. */
 export function cleanNotes(notes: string[], memory: string): string[] {
   const seen = new Set(memory.split('\n').map(normalize).filter(Boolean));
   const out: string[] = [];
@@ -235,6 +236,7 @@ export function splitKept(memory: string): { kept: string[]; rest: string } {
   return { kept, rest };
 }
 
+/** Redacted and wrapped as data. */
 export function buildConsolidatePrompt(bot: Bot, rest: string): string {
   const body = rest.split('\n').filter((l) => l.trim() !== TRIM_NOTE).join('\n').trim();
   return [
@@ -258,6 +260,7 @@ export function parseMerged(raw: string): string | null {
   return null;
 }
 
+/** Null when anything secret-shaped is left in it. */
 export function mergedMemory(kept: string[], merged: string): string | null {
   if (redact(merged) !== merged || merged.includes('[redacted]')) return null;
   const out = [...kept, merged.trim()].join('\n\n') + '\n';
@@ -335,6 +338,7 @@ export class AutoMemory {
       memory.write(bot.id, appendNotes(current, saved, today()));
       repos.markAutoMemorySaved(bot.id, roomId);
     }
+    // Same hygiene as memory notes: no secrets, one line, capped.
     if (this.deps.voice) {
       const voice = cleanNotes(parseVoice(outcome.text), memory.readVoice(bot.id)).slice(0, MAX_VOICE_NOTES);
       if (voice.length) this.deps.voice.propose(bot.id, voice);
@@ -356,6 +360,7 @@ export class AutoMemory {
     events.emitEvent({ type: 'message.new', message: msg });
   }
 
+  /** Any doubt, a secret in the result included, leaves memory.md as it was. */
   private async consolidate(bot: Bot, roomId: string) {
     const { repos, memory } = this.deps;
     const before = memory.read(bot.id);

@@ -6,6 +6,7 @@ import { SECRETS_PATH, restrictFile } from '../config.js';
 export const SECRET_KEYS = ['XAI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY'] as const;
 export type SecretKey = (typeof SECRET_KEYS)[number];
 
+/** Values never leave the hub: the REST layer only reports which keys are set. */
 export class SecretsStore {
   constructor(private file: string = SECRETS_PATH) {}
 
@@ -35,6 +36,7 @@ export class SecretsStore {
     return this.read()[key] ?? null;
   }
 
+  /** Never the values themselves. */
   status(): SecretsStatus {
     const stored = this.read();
     const keys: Record<string, boolean> = {};

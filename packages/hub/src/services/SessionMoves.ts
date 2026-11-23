@@ -275,6 +275,7 @@ export class SessionMoves {
     if (room) this.post(room.id, 'Session "' + (session.title ?? m.sessionId) + '" moved to the VPS (' + m.repos.map((r) => r.project + '/' + r.repo).join(', ') + '). Continue it from the app; pull it back when you want it on your PC again.');
   }
 
+  /** The file must carry this session's id and no other. */
   verifySessionFile(file: string, sessionId: string): string | null {
     const fd = fs.openSync(file, 'r');
     let head: string;

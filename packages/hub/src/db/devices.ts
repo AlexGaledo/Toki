@@ -1,5 +1,6 @@
 import type { Db } from './db.js';
 
+/** Never carries the token or its hash. */
 export interface DeviceInfo {
   id: string;
   name: string;

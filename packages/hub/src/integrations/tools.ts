@@ -7,6 +7,7 @@ import { label, type IntegrationClients, type IntegrationService } from '../serv
 import { IntegrationError } from './http.js';
 import { denyMessage } from '../permissions/messages.js';
 
+/** Asks on every call, also under bypass. */
 export type ConfirmWrite = (a: { tool: string; reason: string; input: Record<string, unknown> }) => Promise<{ allowed: boolean; message: string }>;
 
 const LIMIT = (max: number) => z.number().int().min(1).max(max).optional().describe('How many to return (max ' + max + ')');

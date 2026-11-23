@@ -1,5 +1,6 @@
 import { apiRequest, IntegrationError, type ApiResponse, type Fetch, type RequestOpts } from './http.js';
 
+/** The client never holds a credential: it asks `token()` per call. */
 export interface ClientDeps {
   fetch: Fetch;
   token(refresh?: boolean): Promise<string>;

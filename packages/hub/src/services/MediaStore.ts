@@ -37,6 +37,7 @@ export function cleanFileName(raw: string | undefined): string {
   return n || 'file';
 }
 
+/** Shown, never trusted. */
 const cleanType = (t: string | undefined): string => (t && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(t) && t.length <= 100 ? t.toLowerCase() : 'application/octet-stream');
 
 export class MediaRejected extends Error {
@@ -69,6 +70,7 @@ export class MediaStore {
     return 'img:' + hash;
   }
 
+  /** The type is read from the bytes again; one bad ref refuses them all. */
   checkAttachments(refs: readonly string[]): string | null {
     if (refs.length > MAX_ATTACHMENTS) return 'At most ' + MAX_ATTACHMENTS + ' attachments per message';
     for (const ref of refs) {

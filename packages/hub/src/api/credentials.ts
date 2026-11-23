@@ -16,6 +16,7 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
 export const CREDENTIAL_SIGN_IN_MESSAGE =
   'Saving, changing or deleting a login needs a browser signed in with your password; the server token is not enough. Set a password in Settings, sign in, then try again.';
 
+/** Changes need a signed-in browser. The secret is write-only: no route returns it, and errors never echo the body. */
 export function createCredentialsApi(deps: { store: CredentialStore; db: Db }) {
   const { store, db } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -66,6 +67,7 @@ export function createCredentialsApi(deps: { store: CredentialStore; db: Db }) {
   };
 }
 
+/** Zod issue messages here never quote the submitted value. */
 const issues = (e: { issues: { path: PropertyKey[]; message: string }[] }): string =>
   e.issues.map((i) => (i.path.length ? i.path.join('.') + ': ' : '') + i.message).join('; ');
 

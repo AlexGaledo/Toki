@@ -53,8 +53,10 @@ export const CLAUDE_EXE =
 
 export const HOST = '127.0.0.1';
 export const PORT = Number(process.env.PORT ?? 7788);
+/** Loopback-only and read-only; file: is blocked there. */
 export const WORKSPACE_WEB_PORT = Number(process.env.WORKSPACE_WEB_PORT ?? 7789);
 export const WORKSPACE_WEB_URL = 'http://127.0.0.1:' + WORKSPACE_WEB_PORT + '/';
+// `|| null`, not `?? null`: an empty POCKETROCKET_TOKEN means unset, never "no token required".
 export const HUB_TOKEN = process.env.POCKETROCKET_TOKEN || null;
 export const ROTATE_HUB_TOKEN = ['1', 'true', 'yes', 'on'].includes(String(process.env.POCKETROCKET_ROTATE_TOKEN ?? '').toLowerCase());
 export const HUB_TOKEN_PATH = path.join(DATA_DIR, 'hub-token');
@@ -132,6 +134,7 @@ export function ensureHubToken(): string {
     fs.writeFileSync(HUB_TOKEN_PATH, token, { mode: 0o600 });
     restrictFile(HUB_TOKEN_PATH);
   } catch (e) {
+    // The token is never logged, so this file is the only way to learn a minted one.
     console.error('[pocketrocket] could not write ' + HUB_TOKEN_PATH + ': ' + String((e as Error).message ?? e) + '. Nobody can sign in until that is fixed or POCKETROCKET_TOKEN is set.');
   }
   return token;
@@ -149,6 +152,7 @@ export const MAX_HOPS = Number(process.env.MAX_HOPS ?? 3);
 export function parseApprovalsEnv(raw: string | undefined): Approvals | null {
   const v = String(raw ?? '').trim().toLowerCase();
   if (!v) return null;
+  // Anything unrecognised fails closed: a typo must never turn the approval cards off.
   return ['1', 'true', 'yes', 'on'].includes(v) ? 'bypass' : 'ask';
 }
 export const APPROVALS_ENV = parseApprovalsEnv(process.env.POCKETROCKET_BYPASS_PERMISSIONS);
@@ -180,11 +184,13 @@ export const VERSION: string = resolveVersion(here);
 
 export const SECRETS_PATH = path.join(DATA_DIR, 'secrets.json');
 
+// No project URL or key lives in source.
 export const SUPABASE_URL = (process.env.POCKETROCKET_SUPABASE_URL ?? '').trim();
 export const SUPABASE_PUBLISHABLE_KEY = (process.env.POCKETROCKET_SUPABASE_KEY ?? '').trim();
 // Supabase's built-in mailer only delivers to the project's own team, so email sign-in stays off (OAuth only)
 // until the project has its own SMTP sender; `1` turns it on.
 export const ACCOUNT_EMAIL = ['1', 'true', 'yes', 'on'].includes(String(process.env.POCKETROCKET_ACCOUNT_EMAIL ?? '').toLowerCase());
+/** Owner-only like secrets.json, and never under WORKSPACE_DIR. */
 export const ACCOUNT_PATH = path.join(DATA_DIR, 'account.json');
 
 export const USER_SKILLS_DIR = path.join(os.homedir(), '.claude', 'skills');
@@ -284,6 +290,7 @@ export function parseAllowedHosts(raw: string | undefined): string[] {
   return out;
 }
 export const ALLOWED_HOSTS: readonly string[] = parseAllowedHosts(process.env.POCKETROCKET_ALLOWED_HOSTS);
+/** 0600, like hub-token. */
 export const VAPID_PATH = path.join(DATA_DIR, 'vapid.json');
 /** VAPID `sub` claim. Apple wants a mailto: or https: URL here; it is sent to the push service, never to a bot. */
 export const PUSH_SUBJECT = process.env.POCKETROCKET_PUSH_SUBJECT || 'https://github.com/AlexGaledo/Toki';

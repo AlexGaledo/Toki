@@ -14,6 +14,7 @@ type Ctx = { params: Record<string, string>; body: unknown };
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx) => unknown | Promise<unknown> }
 
 export function createTriggersApi(deps: { triggers: TriggerService; inUse?: (id: string) => boolean }) {
+/** Human-only, so a bot can never create, widen or enable a trigger. */
   const svc = deps.triggers;
   const routes: Route[] = [];
   const add = (method: string, path: string, handler: Route['handler']) => {

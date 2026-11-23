@@ -5,9 +5,11 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { HOST, PORT, VERSION } from '../config.js';
 import type { HubTool } from '../providers/types.js';
 
+/** Each turn's bearer token dies with the turn. */
 export class TurnRegistry {
   private turns = new Map<string, { tools: HubTool[]; guard?: ToolGuard }>();
 
+  /** Carries the computer control interlock to providers that only reach hub tools over MCP. */
   registerTurn(tools: HubTool[], guard?: ToolGuard): string {
     const token = randomBytes(24).toString('base64url');
     this.turns.set(token, { tools, guard });
@@ -71,6 +73,7 @@ export async function serveTools(tools: HubTool[], req: IncomingMessage, res: Se
   await transport.handleRequest(req, res, body);
 }
 
+/** Auth is the per-turn bearer token: no token, no tools. */
 export function createMcpHandler(registry: TurnRegistry) {
   return async function handleMcp(req: IncomingMessage, res: ServerResponse, body: unknown): Promise<void> {
     const token = bearer(req);

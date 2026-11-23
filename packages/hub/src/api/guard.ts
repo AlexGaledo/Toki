@@ -17,6 +17,7 @@ function port(hostHeader: string | undefined): string | null {
   return i > 0 && !h.endsWith(']') ? h.slice(i + 1) : null;
 }
 
+/** Empty means loopback only. */
 export interface OriginOptions {
   allowedHosts?: readonly string[];
 }
@@ -78,6 +79,7 @@ export function checkRequestOrigin(
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH']);
 
+/** A cross-site form cannot send JSON, and asking for JSON forces a preflight the Origin check fails. */
 export function checkContentType(req: IncomingMessage, url: URL): { ok: true } | { ok: false; status: number; reason: string } {
   if (!url.pathname.startsWith('/api/')) return { ok: true };
   if (!MUTATING.has(req.method ?? 'GET')) return { ok: true };
@@ -128,6 +130,7 @@ export function tokenMatches(supplied: string | null, expected: string): boolean
 
 export interface TokenOptions {
   isPublicAsset?: (pathname: string) => boolean;
+  /** Left out, `/screen` is refused outright, never the looser query-string rule. */
   screenAuth?: (req: IncomingMessage) => boolean;
   deviceToken?: (supplied: string) => boolean;
   session?: (req: IncomingMessage) => boolean;
@@ -152,6 +155,7 @@ export const AUTH_CALLBACK_PATH = '/auth/callback';
  */
 export const OAUTH_CALLBACK_PREFIX = '/oauth/callback/';
 
+/** Allowlist, not deny-list: with a token configured, everything needs it except the paths below. */
 export function checkToken(req: IncomingMessage, url: URL, token: string | null, opts: TokenOptions = {}): boolean {
   if (!token) return true;
   const method = req.method ?? 'GET';
@@ -172,6 +176,7 @@ export function checkToken(req: IncomingMessage, url: URL, token: string | null,
   return supplied !== null && (opts.deviceToken?.(supplied) ?? false);
 }
 
+/** Only a request that carried the hub token may clear the rate limiter, not a token-exempt path. */
 export function presentsHubToken(req: IncomingMessage, url: URL, token: string | null): boolean {
   return token !== null && tokenMatches(bearerToken(req) ?? url.searchParams.get('token'), token);
 }
@@ -294,6 +299,7 @@ export const DEVICE_ALLOW: readonly [method: string, path: RegExp][] = [
   ['GET', /^\/api\/control$/],
   ['GET', /^\/api\/computers\/[^/]+\/control$/],
   ['PUT', /^\/api\/computers\/[^/]+\/control$/],
+  // Creating or revoking an approval rule changes policy, so it stays a hub-token action.
   ['GET', /^\/api\/approval-policies$/],
   ['GET', /^\/api\/approvals\/parked$/],
   ['GET', /^\/api\/routines$/],
@@ -308,6 +314,7 @@ export const DEVICE_ALLOW: readonly [method: string, path: RegExp][] = [
   ['DELETE', /^\/api\/triggers\/[^/]+$/],
   ['GET', /^\/api\/triggers\/[^/]+\/fires$/],
   ['POST', /^\/api\/triggers\/[^/]+\/test$/],
+  // The handlers refuse anything but the device itself.
   ['GET', /^\/api\/devices$/],
   ['DELETE', /^\/api\/devices\/[^/]+$/],
   ['GET', /^\/api\/push$/],
@@ -320,17 +327,21 @@ export const DEVICE_ALLOW: readonly [method: string, path: RegExp][] = [
   ['GET', /^\/api\/skills\/[^/]+\/versions\/[^/]+$/],
   ['GET', /^\/api\/bots\/[^/]+\/skill-reflection$/],
   ['GET', /^\/api\/bots\/[^/]+\/training$/],
+  // Creating or changing a task assigns work to bots, so it stays a desktop action.
   ['GET', /^\/api\/rooms\/[^/]+\/tasks$/],
+  // Only the owner's own messages can be cancelled or edited, from any principal.
   ['GET', /^\/api\/rooms\/[^/]+\/queue$/],
   ['POST', /^\/api\/rooms\/[^/]+\/queue\/(cancel|edit|send-now|pause)$/],
 ];
 
+/** Nothing under `/oauth/`, which starts integration sign-ins. */
 export function deviceMayAccess(method: string, pathname: string): boolean {
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
   if (!p.startsWith('/api/')) return method === 'GET' && !p.startsWith('/oauth/') && p !== '/mcp' && !p.startsWith('/mcp/');
   return DEVICE_ALLOW.some(([m, re]) => m === method && re.test(p));
 }
 
+// The runner token reaches exactly its own routes; the hub token cannot pose as the runner.
 const RUNNER_ALLOW: readonly [method: string, path: RegExp][] = [
   ['POST', /^\/api\/pc-runner\/heartbeat$/],
   ['GET', /^\/api\/pc-runner\/jobs\/next$/],

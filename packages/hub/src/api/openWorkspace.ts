@@ -42,6 +42,7 @@ export function workspaceTarget(computers: OpenComputers, bot: { id: string; nam
   return { computer: { display: ep.display, xauthority: ep.xauthority, home: ep.home } };
 }
 
+/** The path is always WORKSPACE_DIR and never comes from the request. */
 export function openWorkspace(deps: OpenDeps = {}): Promise<OpenResult> {
   const platform = deps.platform ?? process.platform;
   const onScreen = deps.screen ?? false;

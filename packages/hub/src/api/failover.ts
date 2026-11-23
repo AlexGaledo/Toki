@@ -6,6 +6,7 @@ import { publicCard } from '../db/failoverRepo.js';
 import { FailoverError, type FailoverService } from '../services/Failover.js';
 import { logError } from '../providers/redact.js';
 
+/** Person-only: a bot never reaches this file. */
 export function createFailoverApi(deps: { failover: FailoverService }) {
   const DECISION = /^\/api\/failover-cards\/([^/]+)\/decision\/?$/;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {

@@ -84,6 +84,7 @@ export class FailoverService {
     return card;
   }
 
+  /** The REST route in front of this refuses anyone but an owner principal. */
   decide(id: string, d: FailoverDecision): FailoverRecord {
     const card = this.deps.repo.get(id);
     if (!card) throw new FailoverError(404, 'Card not found');
@@ -108,6 +109,7 @@ export class FailoverService {
       this.changed();
       return this.deps.repo.get(card.id)!;
     }
+    // Only on the backup the card offered, and only while it can run.
     if (!sameBackup(bot.backup, card.backup)) {
       this.expire(card, 'gone');
       this.changed();

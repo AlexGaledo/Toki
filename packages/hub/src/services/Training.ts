@@ -17,6 +17,7 @@ import { settings } from './SettingsStore.js';
 import { fence, runOneShot, type OneShotRunner } from './SkillDistiller.js';
 import type { TurnUsage, UsageTracker } from './UsageTracker.js';
 
+/** The verifier never sees the proposer's reasoning; only the owner's Approve changes a bot. */
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_ITEM_CHARS = 2000;
 const MAX_NOTE_CHARS = 300;
@@ -346,6 +347,7 @@ export class Training {
       }
     }
 
+    // Fail closed: only a verifier's pass makes a proposal the owner can approve.
     this.repo.clearRetries(botId);
     const proposal = this.repo.insert({ botId, status: pass ? 'pending' : 'blocked', rule, reason, evidenceSummary: evidence.summary, verifierNote: note, retry: !judged });
     if (judged) this.repo.setLastRun(botId, until);

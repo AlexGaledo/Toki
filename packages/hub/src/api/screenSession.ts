@@ -5,6 +5,7 @@ export const SCREEN_VIEWER_PATH = '/screen/vnc.html?autoconnect=1&resize=scale&r
 
 export const SCREEN_COOKIE = 'pr_screen';
 
+/* A session is valid for its scope only, so a viewer of bot A's screen is refused on bot B's. */
 const SCOPE_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 export function screenCookieName(scope: string | null): string {

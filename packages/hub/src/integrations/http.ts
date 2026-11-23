@@ -2,6 +2,7 @@ import { redact } from '../providers/redact.js';
 
 export type Fetch = typeof fetch;
 
+/** `message` is redacted and capped, never the request (which carries the token). */
 export class IntegrationError extends Error {
   constructor(message: string, readonly status: number, readonly auth = false) {
     super(redact(message).slice(0, 400));

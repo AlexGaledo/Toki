@@ -5,6 +5,7 @@ import { events } from '../events.js';
 import type { ComputerEndpoint, ComputerManager } from './ComputerManager.js';
 import { DESKTOP_AVAILABLE } from '../config.js';
 
+/* While a person drives, the bot's desktop and Browser tools refuse, under bypass too: an interlock, not an approval. */
 export interface VncControl {
   setViewOnly(ep: ComputerEndpoint, on: boolean): Promise<void>;
 }

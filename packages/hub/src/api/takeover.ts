@@ -21,6 +21,7 @@ interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: 
 const INTEGRATION_WRITES = new Set<string>(INTEGRATION_WRITE_TOOLS);
 const toPublic = ({ scope: _scope, ...p }: StoredPolicy): ApprovalPolicy => p;
 
+/** Human-only: no bot tool or MCP route reaches it. */
 export function createTakeoverApi(deps: { repos: Repos; control: ComputerControlService; store: ApprovalStore; broker: PermissionBroker }) {
   const { repos, control, store, broker } = deps;
   const routes: Route[] = [];

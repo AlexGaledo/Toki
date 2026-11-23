@@ -214,6 +214,7 @@ export class WorkflowRunner {
     this.cardsChanged();
   }
 
+  /** The REST route in front of this refuses anyone but an owner. */
   decide(runId: string, d: WorkflowDecision): WorkflowRunSummary {
     const run = this.repo.getRun(runId);
     if (!run) throw new WorkflowError(404, 'Run not found');

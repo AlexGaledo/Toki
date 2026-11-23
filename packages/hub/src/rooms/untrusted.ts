@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { TriggerEvent } from '@pocketrocket/shared';
 
+/** Event text is written by third parties: shown as data in a nonce-fenced block, never as instructions. */
 const MAX_TEXT = 8_000;
 const MAX_FIELD = 300;
 

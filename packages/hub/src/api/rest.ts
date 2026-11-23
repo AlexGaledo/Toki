@@ -111,6 +111,7 @@ export function createRest(deps: RestDeps) {
     return lines;
   };
 
+  // Answers without the hub token, so nothing personal goes here: no email, plan or CLI path.
   add('GET', '/api/health', (): HealthInfo & { provider: ProviderId; version: string } => {
     const exe = runner.constructor as typeof BotRunner;
     const chk = exe.checkExe();
@@ -122,6 +123,7 @@ export function createRest(deps: RestDeps) {
     };
   });
   add('GET', '/api/debug/last-init', () => runner.lastInit);
+  // Hub token or the owner's browser only: paired devices and the PC runner are refused.
   const busyNow = () => need(deps.busy, 'Busy status')();
   add('GET', '/api/busy', busyNow);
   add('POST', '/api/maintenance/hold', ({ body }) => {
@@ -265,6 +267,7 @@ export function createRest(deps: RestDeps) {
   add('POST', '/api/account/cancel', () => account.cancelPending());
   add('POST', '/api/account/sign-out', () => account.signOut());
 
+  /** Only this API sets a bot's provider and backup; the bot tools refuse both. */
   const modelIdsOf = (id: ProviderId) => providers.modelsSync(id).map((m) => m.id);
   const checkModelOn = (field: string, id: ProviderId, model: string) => {
     const ids = modelIdsOf(id);
@@ -320,6 +323,7 @@ export function createRest(deps: RestDeps) {
     events.emitEvent({ type: 'rooms.changed', rooms: repos.listRooms() });
     return { ok: true };
   });
+  // Export never carries secrets; import always makes a NEW bot.
   const transfer = <T>(fn: () => T): T => {
     try { return fn(); } catch (e) { if (e instanceof TransferError) throw new HttpError(e.status, e.message); throw e; }
   };
@@ -402,6 +406,7 @@ export function createRest(deps: RestDeps) {
     if (room.kind === 'group') for (const line of roomChanges(cur, room)) router.systemNote(room, line, null, 0);
     return room;
   });
+  // Human-only: no bot tool reaches it, and a paired device is refused.
   add('PUT', '/api/rooms/:id/model', ({ params, body }) => {
     need(repos.getRoom(params.id), 'Room');
     const room = repos.setRoomChatModel(params.id, parse(RoomModelInputSchema, body).model)!;

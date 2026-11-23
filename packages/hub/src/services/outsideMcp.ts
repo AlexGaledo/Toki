@@ -4,6 +4,7 @@ import { DATA_DIR } from '../config.js';
 import { addSecret } from '../providers/redact.js';
 import { routeByNeeds, type KeyRegistry } from './keyRegistry.js';
 
+/** No UI or bot tool writes it, and a bot's file and shell tools are refused it. */
 export const OUTSIDE_MCP_PATH = path.join(DATA_DIR, 'mcp-servers.json');
 
 export const RESERVED = new Set(['pocketrocket', 'browser']);
@@ -38,6 +39,7 @@ export function outsideMcpNeedsCard(server: Pick<OutsideMcpServer, 'approve' | '
   return true;
 }
 
+/** Registers every key an outside server carries for redaction. */
 export function registerOutsideMcpSecrets(servers: readonly OutsideMcpServer[]): void {
   for (const s of servers) {
     if (s.kind === 'http') addSecret(s.token);
@@ -108,6 +110,7 @@ export function outsideMcpFor(handle: string, room: { id: string; name: string }
     // A key only ever travels over TLS, or to this machine.
     const local = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) continue;
+    // A saved token is bound to its origin: a url edited to another origin must not carry it.
     if (typeof s.token === 'string' && s.token && typeof s.tokenOrigin === 'string' && s.tokenOrigin !== url.origin) {
       logOnce('[outside-mcp] not mounting "' + name + '": its token was saved for another origin than its url; re-save the token');
       continue;

@@ -19,6 +19,7 @@ export interface DevicesApiDeps {
   allowedHosts: readonly string[];
 }
 
+/** A device may only see, unpair and manage push for itself; minting a code and renaming need the hub token. */
 export function createDevicesApi(deps: DevicesApiDeps) {
   const { devices, push } = deps;
   const routes: Route[] = [];
@@ -39,6 +40,7 @@ export function createDevicesApi(deps: DevicesApiDeps) {
   add('POST', '/api/devices/pairing', ({ req }) => {
     hubOnly(req);
     const { code, expiresAt } = devices.mintPairingCode();
+    // The QR carries the hub's URL and this code, never the hub token.
     return { code, expiresAt, ttlMs: PAIRING_TTL_MS, hosts: deps.allowedHosts };
   });
   add('PATCH', '/api/devices/:id', ({ req, params, body }) => {
@@ -91,6 +93,7 @@ export function createDevicesApi(deps: DevicesApiDeps) {
   };
 }
 
+/** Token-exempt; every miss feeds the limiter, so the 8-character code cannot be walked. */
 export async function handleDevicePair(
   req: IncomingMessage,
   res: ServerResponse,
@@ -104,6 +107,7 @@ export async function handleDevicePair(
     const b = (body ?? {}) as { code?: unknown; name?: unknown };
     const { token, device } = deps.devices.redeem(b.code, b.name);
     deps.limiter.succeed(ip);
+    // no-store: the device token is in this body and nowhere else, ever.
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify({ token, device }));
   } catch (e) {

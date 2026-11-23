@@ -18,6 +18,7 @@ export function attachWs(
     media?: MediaStore;
     forms?: FormBroker;
     repos: Repos; router: RoomRouter; broker: PermissionBroker; settings: SettingsStore;
+    /** Asked at answer time, so signing out takes effect at once. */
     signedIn?: (req: IncomingMessage) => boolean;
     pingMs?: number;
   },
@@ -40,6 +41,7 @@ export function attachWs(
 
   wss.on('connection', (ws, req?: IncomingMessage) => {
     const device = req ? deviceIdOf(req) : null;
+    // A paired phone is never "signed in" for this purpose, even if a session cookie rides along.
     const signedIn = () => !device && !!req && !!deps.signedIn?.(req);
     send(ws, { type: 'hello', bots: deps.repos.listBots(), rooms: deps.repos.listRooms(), botStates: deps.router.botStates(), settings: deps.settings.get(), principal: device ? 'device' : 'hub', signedIn: signedIn(), openApprovals: deps.repos.openApprovals() });
     ws.on('message', (raw) => {
@@ -71,6 +73,7 @@ export function attachWs(
           const card = deps.repos.db.get('SELECT tool_name, bot_id FROM approvals WHERE id=?', ev.approvalId);
           const who = req ? actorOf(req) : null;
           const isSignedIn = signedIn();
+          // The hub token alone cannot allow a PC job: a bot that read the token could answer itself.
           if (ev.decision !== 'deny' && !isSignedIn && deps.broker.needsSignIn(ev.approvalId)) {
             if (who && card) recordAudit(deps.repos.db, who, 'approval.refused_not_signed_in', ev.approvalId, String(card.tool_name) + ' by bot ' + String(card.bot_id));
             return send(ws, { type: 'error', message: SIGN_IN_MESSAGE, context: ev.approvalId });

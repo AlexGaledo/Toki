@@ -1,6 +1,7 @@
 import { apiRequest, IntegrationError, type Fetch } from './http.js';
 import { addSecret } from '../providers/redact.js';
 
+/** Checked before it is put into a URL path. */
 export const TELEGRAM_TOKEN_RE = /^\d{6,12}:[A-Za-z0-9_-]{30,60}$/;
 
 export interface TelegramMe { id: number; username: string; firstName: string }

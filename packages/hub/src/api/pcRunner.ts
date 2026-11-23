@@ -76,6 +76,7 @@ const ResultInput = z.object({
   pull: PullResultInput.optional(),
 });
 
+/** Two audiences, never mixed: the owner and the PC runner. */
 export function createPcRunnerApi(deps: { pcRunner: PcRunner; repos: Repos; db: Db; pcSessions?: PcSessions; projects?: ProjectService; sessionMoves?: SessionMoves; bundleMaxBytes?: number; sessionMaxBytes?: number }) {
   const { pcRunner, repos, db, pcSessions, projects, sessionMoves } = deps;
   const sessionMax = deps.sessionMaxBytes ?? PC_SESSION_UPLOAD_MAX_BYTES;
@@ -275,6 +276,7 @@ export function createPcRunnerApi(deps: { pcRunner: PcRunner; repos: Repos; db: 
         return send(res, 200, pcRunner.list(Number.isFinite(limit) ? limit : 50).map(view));
       }
       if (parts[0] === 'jobs' && parts.length === 1 && method === 'POST') {
+        // The click in a signed-in browser is the approval; the hub token alone never counts.
         const principal = principalOf(req);
         if (principal?.kind !== 'hub' || !principal.sessionId) {
           return send(res, 403, { error: 'Starting a job on the PC needs a browser signed in with your password.', signInRequired: true });
@@ -282,6 +284,7 @@ export function createPcRunnerApi(deps: { pcRunner: PcRunner; repos: Repos; db: 
         const p = JobCreateInput.safeParse(body);
         if (!p.success) return bad(p.error);
         if (!pcRunner.isPaired()) return send(res, 409, { error: 'No PC runner is paired with this hub.' });
+        // "Never" on the PC means never, for the owner's own clicks too.
         if (machines.policy(PC_MACHINE_ID) === 'never') {
           return send(res, 409, { error: 'Your PC is set to "never" in Machines. Change its policy to run jobs there.' });
         }
@@ -392,6 +395,7 @@ export function createPcRunnerApi(deps: { pcRunner: PcRunner; repos: Repos; db: 
           if (cur.sync && s.mode !== cur.sync.mode) return send(res, 400, { error: 'sync.mode does not match the job.' });
           if (s.mode === 'wip-branch' && !s.scan.blocked && !(s.branch && s.branch.startsWith('wip/'))) return send(res, 400, { error: 'A wip-branch sync reports the wip/ branch it pushed.' });
           if (s.mode === 'bundle' && !s.scan.blocked && !cur.syncImport) return send(res, 400, { error: 'No bundle was uploaded for this job.' });
+          // A blocked scan is never a success, whatever the runner says.
           if (s.scan.blocked) ok = false;
         }
         let output = p.data.output;

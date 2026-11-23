@@ -21,6 +21,7 @@ const num = (v: string | null): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+/** Two audiences, never mixed: the PC runner (the hub token gets 403) and the owner. */
 export function createPcSessionsApi(deps: { pcSessions: PcSessions; db: Db; sessionMoves?: SessionMoves }) {
   const { pcSessions, db, sessionMoves } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {

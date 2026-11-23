@@ -7,6 +7,8 @@ import { addSecret, logError, redact, removeSecret } from '../providers/redact.j
 import { events } from '../events.js';
 import type { PcMoveJobInfo, PcMoveResult, PcPullJobInfo, PcPullResult, PcSyncImport, PcSyncJobInfo, PcSyncResult } from '@pocketrocket/shared';
 
+/** Names only: the hub never sees a real path. */
+/** The hub keeps only a sha256 of the runner token: a bot on a bypass hub can read DATA_DIR. */
 export const PC_FOLDER_RE = /^[a-z0-9][a-z0-9_-]{0,40}$/;
 export const MAX_PC_FOLDERS = 50;
 export const MAX_PC_PROMPT_BYTES = 8 * 1024;
@@ -204,6 +206,7 @@ export class PcRunner {
     return n;
   }
 
+  /** Constant-time check against the stored hash. */
   authenticate(supplied: string | null): boolean {
     const c = this.cfg;
     if (!c || !supplied) return false;
@@ -320,6 +323,7 @@ export class PcRunner {
     return this.get(id)!;
   }
 
+  /** Redacted, then capped, before it is stored or handed to the bot. */
   finish(id: string, r: { ok: boolean; refusedLocally?: boolean; output: string; costUsd?: number; durationMs?: number; resolvedFolder?: string; newSessionId?: string; sync?: PcSyncResult; move?: PcMoveResult; pull?: PcPullResult }): PcJob {
     const j = this.get(id);
     if (!j) throw new PcRunnerError(404, 'No such job');
@@ -381,6 +385,7 @@ export function capOutput(s: string): string {
   return s.slice(0, MAX_PC_OUTPUT) + '\n…(cut at 20 KB; ' + (s.length - MAX_PC_OUTPUT) + ' more characters on the PC)';
 }
 
+/** Redacted and capped before it is stored or shown. */
 export function cleanSyncResult(r: PcSyncResult): PcSyncResult {
   const out: PcSyncResult = {
     mode: r.mode,
@@ -392,6 +397,7 @@ export function cleanSyncResult(r: PcSyncResult): PcSyncResult {
   return out;
 }
 
+/** Redacted and capped before it is stored or shown. */
 export function cleanMoveResult(r: PcMoveResult): PcMoveResult {
   return {
     repos: r.repos.slice(0, 20).map((x) => ({

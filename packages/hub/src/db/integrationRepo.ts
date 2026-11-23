@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import type { IntegrationInfo, IntegrationMethod, IntegrationProvider, IntegrationStatus } from '@pocketrocket/shared';
 import type { Db, Row } from './db.js';
 
+/** Secrets never touch these tables; see IntegrationVault. */
 export class IntegrationRepo {
   constructor(private db: Db) {}
 

@@ -7,6 +7,7 @@ import { events } from '../events.js';
 import { isInside } from '../permissions/pathRules.js';
 import { parseGitSource, runGit, type GitRunner } from './git.js';
 
+/** Every bot reads it, none writes: a write asks, or is denied outright under bypass. */
 export function knowledgeSourceError(raw: string): string | null {
   if (!raw.trim()) return null;
   const src = parseGitSource(raw);
@@ -97,6 +98,7 @@ export class KnowledgeRepo {
     events.emitEvent({ type: 'knowledge.status', status: this.status() });
   }
 
+  /** Removes only what this service put there; a link is removed, never followed. */
   private clear(): string | null {
     if (!exists(this.dir)) return null;
     if (isLink(this.dir)) {

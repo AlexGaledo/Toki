@@ -17,6 +17,7 @@ import type { Db } from '../db/db.js';
 import { events } from '../events.js';
 import { redact } from '../providers/redact.js';
 
+/** Every text, title and path is redacted and capped here, whatever the runner claims to have done. */
 const CUT_TAIL_ALLOWANCE = 40;
 const DAY_MS = 24 * 60 * 60_000;
 export const PC_EVENT_COALESCE_MS = 2000;
@@ -93,6 +94,7 @@ export class PcSessions {
     return { ok: true, offset: to, stored: r.stored, truncated: r.truncated };
   }
 
+  /** Stored like the PC's: redacted and capped. */
   appendServerEntries(id: string, machine: string | null, entries: readonly PcEntry[]): { stored: number } | null {
     if (!this.db.get('SELECT 1 AS x FROM pc_sessions WHERE id = ?', id)) return null;
     const r = this.store(id, entries, machine, null);

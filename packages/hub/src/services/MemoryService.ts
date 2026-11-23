@@ -202,6 +202,7 @@ export function noteTags(body: string): string[] {
   return [...new Set(line[1].replace(/^\[|\]$/g, '').split(',').map((t) => t.trim().toLowerCase().replace(/^#/, '')).filter((t) => /^[\p{L}\p{N}_-]{1,32}$/u.test(t)))].slice(0, 10);
 }
 
+/** Never empty, never a path. */
 export function noteSlug(title: string): string {
   const s = title
     .toLowerCase()

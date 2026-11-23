@@ -37,6 +37,7 @@ const header = (req: IncomingMessage, name: string): string | undefined => {
   return Array.isArray(v) ? v[0] : v;
 };
 
+/** Runner principal only: the hub token and every other caller get 403. */
 export function createCcApi(deps: { repos: Repos; roomFiles: RoomFiles; revisions: FileRevisions; router: RoomRouter; projects?: ProjectService; sessionMoves?: SessionMoves }) {
   const { repos, roomFiles, revisions, router, projects, sessionMoves } = deps;
 

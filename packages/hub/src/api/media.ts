@@ -69,6 +69,7 @@ export function createMediaApi({ media }: { media: MediaStore }) {
       const found = media.readFile(f[1]);
       if (!found) return send(res, 404, { error: 'Not found' });
       if (f[2]) return send(res, 200, found.meta);
+      // Always a download, never rendered: whatever the bytes are, they cannot run as a page here.
       res.writeHead(200, {
         'content-type': 'application/octet-stream',
         'content-length': found.meta.size,

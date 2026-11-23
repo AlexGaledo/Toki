@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from '../config.js';
 
+/** Key names only, never values; no UI or bot tool writes it, and bot file tools are refused it. */
 export const KEY_REGISTRY_PATH = path.join(DATA_DIR, 'key-registry.json');
 
 export type KeyTier = 0 | 1 | 2 | 3;
@@ -73,6 +74,7 @@ export interface Route {
 
 const on = (r: KeyRegistry, k: string, p: KeyPlace) => r.get(k)!.where.includes(p);
 
+/** A need the registry does not name is blocked, never guessed. */
 export function routeByNeeds(registry: KeyRegistry, needs: readonly string[], runnerPaired: boolean): Route {
   const want = [...new Set(needs.map((n) => n.trim()).filter(Boolean))];
   const unknown = want.filter((k) => !registry.has(k));

@@ -1,5 +1,6 @@
 import type { Db } from './db.js';
 
+/** No secret in here: the token lives in the vault. */
 export interface TelegramLinkRow {
   botId: string | null;
   botUsername: string | null;

@@ -11,6 +11,7 @@ export interface ContextMeta {
 }
 export interface ContextItem extends ContextMeta { body: string }
 
+/** Capped, so a leaked connector URL cannot fill the disk. */
 export const MAX_PENDING_CONTEXT = 200;
 const COLUMNS = 'id,project,title,length(body) AS bytes,created_at';
 

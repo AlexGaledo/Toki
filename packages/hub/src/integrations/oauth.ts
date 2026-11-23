@@ -132,6 +132,7 @@ async function tokenRequest(fetchFn: Fetch, url: string, form: Record<string, st
 const clientAuth = (spec: OAuthSpec, app: OAuthApp): Record<string, string> =>
   ({ client_id: app.clientId, ...(app.clientSecret && !spec.publicClient ? { client_secret: app.clientSecret } : {}) });
 
+/** The PKCE verifier proves this hub started the flow. */
 export async function exchangeCode(fetchFn: Fetch, spec: OAuthSpec, app: OAuthApp, o: { code: string; redirectUri: string; verifier: string }, now = Date.now()): Promise<TokenSet> {
   const form: Record<string, string> = { ...clientAuth(spec, app), grant_type: 'authorization_code', code: o.code, redirect_uri: o.redirectUri };
   if (spec.pkce) form.code_verifier = o.verifier;

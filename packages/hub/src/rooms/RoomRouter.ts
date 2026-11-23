@@ -33,6 +33,7 @@ export interface LaneItem {
   messageId?: string;
   attended?: boolean;
   providerOverride?: BotBackup;
+  /** Approvals apply even in bypass mode: the backup always runs strict. */
   forceStrict?: boolean;
   rewind?: { fromSeq: number; toSeq: number };
 }
@@ -284,6 +285,7 @@ export class RoomRouter {
     return { ...(Object.keys(steered).length ? { steered } : {}), ...(Object.keys(queued).length ? { queued } : {}) };
   }
 
+  /** Only a person's own message at hop 0 steers, so a steer never wakes a bot or loops. */
   private trySteer(bot: Bot, room: Room, msg: Message, mode?: SendMode): { status: 'accepted'; turnId: string } | { status: 'queued'; reason: QueueReason } {
     if (mode === 'queue') return { status: 'queued', reason: 'shortcut' };
     if (!mode && settings.get().busyMessages === 'queue') return { status: 'queued', reason: 'setting' };
@@ -458,6 +460,7 @@ export class RoomRouter {
             this.emitQueue(botId, roomId);
             continue;
           }
+          // A routine, trigger or workflow step never switches to the backup without its own press.
           let override = items.find((i) => i.providerOverride)?.providerOverride;
           if (!override && this.failover && items.every((i) => this.isAttended(i.causeId, i))) override = this.failover.stickyFor(bot.id) ?? undefined;
           const rewind = items.find((i) => i.rewind)?.rewind;
@@ -483,7 +486,9 @@ export class RoomRouter {
           this.toolDispatched.set(key, { causeId, botIds: wokeByTool });
           const causeBudgetUsd = Math.min(CAUSE_COST_CAP_USD - this.usage.causeCost(causeId), ...items.map((i) => i.budgetUsd ?? Infinity));
           const causeKind = items.find((i) => i.causeKind === 'user')?.causeKind ?? items[0].causeKind;
+          // A turn a person did not start, or one on a backup, is strict: approvals apply even under bypass.
           const strictApprovals = !!override || items.some((i) => i.forceStrict || this.requiresApprovals(i.causeId));
+          // Only a person's own newest words can ask for a stronger model, never a forwarded trigger payload.
           const latestUserText = unread.filter((m) => m.authorType === 'user').at(-1)?.text;
           const cause = causeKind === 'routine' ? this.repos.getMessage(causeId) : undefined;
           const routinePrompt = cause?.kind === 'routine' ? cause.text : undefined;
@@ -850,12 +855,14 @@ export class RoomRouter {
   }
 
   private frozen = false;
+  /** Such turns ask for approvals even in bypass mode; an unknown cause counts as not-user. */
   requiresApprovals(causeId: string): boolean {
     return this.repos.getMessage(causeId)?.authorType !== 'user';
   }
   freeze() {
     this.frozen = true;
   }
+  /** Parked work too: `resumeParked` refuses a non-member. */
   botLeftRoom(botId: string, roomId: string) {
     this.repos.setLanePaused(botId, roomId, false);
     this.wakeQueue(botId + ':' + roomId);
@@ -929,6 +936,7 @@ export class RoomRouter {
     this.note(room, text, causeId, hop);
   }
 
+  /** The event is fenced as untrusted data, and every turn it causes is strict. */
   fireTrigger(
     room: Room,
     bot: Bot,

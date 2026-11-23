@@ -26,6 +26,7 @@ const TYPES: Record<string, string> = {
   pdf: 'application/pdf', json: 'application/json', zip: 'application/zip',
   mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
 };
+// Shown as plain text, never run: an .html file previews as its source.
 const TEXT = new Set([
   'md', 'markdown', 'txt', 'csv', 'tsv', 'log', 'yaml', 'yml', 'toml', 'ini', 'xml', 'html', 'htm', 'css', 'js', 'mjs', 'cjs',
   'ts', 'tsx', 'jsx', 'py', 'rb', 'go', 'rs', 'java', 'kt', 'c', 'h', 'cpp', 'hpp', 'cs', 'php', 'sh', 'ps1', 'bat', 'sql', 'env',
@@ -86,6 +87,7 @@ function checkNewName(name: string): void {
   if (why) throw new FilesError(400, why + ': ' + name);
 }
 
+/** Each level goes through resolveIn first, so a link leading out of the folder is refused, not followed. */
 export function folderIn(root: string, rel: string, parents: boolean): { abs: string; rel: string; made: string[] } {
   const dir = resolveIn(root, rel);
   const made: string[] = [];
@@ -109,6 +111,7 @@ export function folderIn(root: string, rel: string, parents: boolean): { abs: st
 }
 export const parentOf = (rel: string) => (rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '');
 
+/** Hub token only: a paired phone and a bot's per-turn MCP bearer are refused. */
 export function createFilesApi(deps: { repos: Repos; roomFiles: RoomFiles; screenOpener?: ScreenOpener; revisions?: FileRevisions }) {
   const { repos, roomFiles } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {

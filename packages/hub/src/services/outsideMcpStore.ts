@@ -6,6 +6,7 @@ import { renameOver, restrictFile } from '../config.js';
 import { addSecret } from '../providers/redact.js';
 import { ENV_KEY_RE, NAME_RE, OUTSIDE_MCP_PATH, RESERVED, stdioCommand } from './outsideMcp.js';
 
+/** Values never leave through `list`. */
 export class McpStoreError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -65,6 +66,7 @@ export type McpServerPatch = z.infer<typeof McpServerPatchSchema>;
 
 const MASK = '***';
 const SECRETISH = /key|token|secret|passw|auth|bearer|credential/i;
+/** A value that looks like a credential is never shown. */
 export function maskArgs(args: readonly string[]): { args: string[]; masked: boolean } {
   let masked = false;
   const out = args.map((a, i) => {
@@ -188,6 +190,7 @@ export class McpServerStore {
     return Object.entries(this.read()).map(([name, v]) => viewOf(name, v));
   }
 
+  /** Never serialised to a client. */
   rawEntry(name: string): Raw | null {
     const all = this.read();
     return Object.hasOwn(all, name) && isObj(all[name]) ? all[name] : null;
@@ -213,6 +216,7 @@ export class McpServerStore {
     if (!stdio && (input.command !== undefined || input.args !== undefined || input.env !== undefined)) throw new McpStoreError(400, 'command, args and env belong to a command server');
     if (input.args?.some((a) => a.includes(MASK))) throw new McpStoreError(400, 'args holds a masked value (***); send the real arguments');
     const next: Raw = { ...cur };
+    // A stored token must not follow a new url to another origin.
     if (!stdio && input.url !== undefined && input.token === undefined && typeof cur.token === 'string' && cur.token) {
       const was = typeof cur.tokenOrigin === 'string' ? cur.tokenOrigin : typeof cur.url === 'string' ? safeOrigin(cur.url) : null;
       if (was !== new URL(input.url).origin) {

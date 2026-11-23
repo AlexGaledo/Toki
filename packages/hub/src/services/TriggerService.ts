@@ -384,6 +384,7 @@ export class TriggerService {
     this.repo.markEvent(row.id, hit ? 'matched' : 'ignored', this.now());
   }
 
+  /** The turn is strict: approvals stay on even under bypass. */
   fire(t: Trigger, event: TriggerEvent, o: { eventId: string | null; test?: boolean }): TriggerFire {
     const now = this.now();
     const skip = (note: string) => {

@@ -18,6 +18,7 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
   return true;
 };
 
+/** Human-only: only the owner decides which bots work in which folder. */
 export function createProjectsApi(deps: { projects: ProjectService; repos: Repos; db?: Db }) {
   const { projects, repos, db } = deps;
   const changed = () => events.emitEvent({ type: 'projects.changed' });

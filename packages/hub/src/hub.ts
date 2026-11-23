@@ -339,6 +339,7 @@ export function createHub(opts: HubOptions = {}): Hub {
     deviceSockets.delete(id);
   });
   const mediaApi = createMediaApi({ media });
+  // A hub on a test database must never sweep the real folder.
   const sweepMedia = () => {
     if (opts.skipBootstrap && !opts.mediaDir) return;
     try { media.sweep(referencedMedia(repos, settings.get())); } catch (e) { logError('[media]', e); }
@@ -466,6 +467,7 @@ export function createHub(opts: HubOptions = {}): Hub {
     }
   });
 
+  /** Only real files under WEB_DIST are public; `/screen` falls through to the token check. */
   const isPublicAsset = (pathname: string): boolean => {
     const file = path.join(WEB_DIST, pathname);
     if (!file.startsWith(WEB_DIST + path.sep)) return false;
@@ -485,6 +487,7 @@ export function createHub(opts: HubOptions = {}): Hub {
     return screenSessions.valid(cookieValue(req, screenCookieName(scope)), scope) || (token !== null && tokenMatches(bearerToken(req), token));
   };
 
+  /** The scope picks both the cookie and the proxy target, so a session for bot A never reaches bot B's screen. */
   function screenRoute(pathname: string): { scope: string | null; rest: string; target: string } {
     const m = /^\/screen\/([^/]+)(\/.*)?$/.exec(pathname);
     const ep = m ? computers.existingEndpoint(m[1]) : null;
@@ -494,6 +497,7 @@ export function createHub(opts: HubOptions = {}): Hub {
 
   const limiter = new AuthRateLimiter();
   const auth = new AuthService(db);
+  // Password reset is an env var a bot cannot set; the hub token no longer resets a password.
   if (process.env.POCKETROCKET_RESET_PASSWORD === '1' && auth.clearPassword(repos.owner().id)) {
     console.log('[pocketrocket] POCKETROCKET_RESET_PASSWORD=1: the owner password was cleared and every browser signed out. Set a new one in Settings, then remove the variable.');
   }
@@ -523,6 +527,7 @@ export function createHub(opts: HubOptions = {}): Hub {
         res.end(JSON.stringify({ error: 'Too many failed authentication attempts; try again in a minute' }));
         return;
       }
+      // A bad ticket is a failed auth like any other and feeds the limiter.
       if (url.pathname === '/screen/session' && (req.method ?? 'GET') === 'GET') {
         const redeemed = screenSessions.redeemScoped(url.searchParams.get('ticket'));
         if (!redeemed) {
@@ -551,8 +556,10 @@ export function createHub(opts: HubOptions = {}): Hub {
         res.end(JSON.stringify({ error: 'Missing or invalid hub token' }));
         return;
       }
+      // A device token only reaches what deviceMayAccess lists.
       if (presentsHubToken(req, url, token)) setPrincipal(req, { kind: 'hub', userId: repos.owner().id });
       else if (session) {
+        // A held session must not wipe failed password tries from this address.
         setPrincipal(req, { kind: 'hub', sessionId: session.sessionId, userId: session.userId });
       } else if (deviceId) {
         setPrincipal(req, { kind: 'device', deviceId });
@@ -586,10 +593,12 @@ export function createHub(opts: HubOptions = {}): Hub {
         }) as typeof res.end;
       }
       if (url.pathname === AUTH_STATUS_PATH && auditMethod === 'GET') { handleAuthStatus(req, res, authDeps); return; }
+      // Token-exempt: it must not clear the limiter, and it feeds it on failure.
       if (url.pathname === AUTH_CALLBACK_PATH && (req.method ?? 'GET') === 'GET') {
         await handleAuthCallback(req, res, url, { account, limiter });
         return;
       }
+      // Token-exempt; feeds the limiter when nothing is pending.
       if (url.pathname.startsWith(OAUTH_CALLBACK_PREFIX) && (req.method ?? 'GET') === 'GET') {
         await handleOAuthCallback(req, res, url, { integrations, limiter });
         return;
@@ -601,6 +610,7 @@ export function createHub(opts: HubOptions = {}): Hub {
         res.end(JSON.stringify({ error: ct.reason }));
         return;
       }
+      // Token-exempt; every miss feeds the limiter.
       if (url.pathname === DEVICE_PAIR_PATH && (req.method ?? 'GET') === 'POST') {
         await handleDevicePair(req, res, { devices, limiter });
         return;
@@ -802,6 +812,7 @@ export function createHub(opts: HubOptions = {}): Hub {
               (settings.approvalsLocked ? 'set by POCKETROCKET_BYPASS_PERMISSIONS; =0 to restore' : 'turn approvals back on in Settings') + ')',
             );
           }
+          // Say where the token is, never what it is: this output ends up in logs.
           if (token) console.log('[pocketrocket] open: http://' + HOST + ':' + port + '/  (sign in with the token from ' + (HUB_TOKEN ? 'POCKETROCKET_TOKEN' : HUB_TOKEN_PATH) + ')');
           resolve(port);
         });

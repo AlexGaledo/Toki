@@ -86,6 +86,7 @@ export class CredentialStore {
     this.db.run('UPDATE credentials SET last_used_at=? WHERE id=?', Date.now(), id);
   }
 
+  /** The only way the secret leaves the store; never serialise the result. */
   readSecret(id: string): string | null {
     return this.vault.get(id)?.secret ?? null;
   }

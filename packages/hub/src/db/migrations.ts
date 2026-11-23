@@ -203,6 +203,7 @@ registerMigrations([80, 89], [
   { version: 84, name: 'messages.model_reason', up: (db) => addColumnIfMissing(db, 'messages', 'model_reason', 'TEXT') },
 ]);
 
+// A device row holds only the SHA-256 of its token; the token itself is never stored.
 registerMigrations([90, 99], [
   {
     version: 90,
@@ -517,6 +518,7 @@ registerMigrations([190, 199], [
   },
 ]);
 
+// The secret lives in the encrypted vault, never in this table.
 registerMigrations([210, 219], [
   {
     version: 210,
@@ -731,6 +733,7 @@ registerMigrations([290, 299], [
   { version: 293, name: 'workflow_runs.room_id', up: (db) => addColumnIfMissing(db, 'workflow_runs', 'room_id', 'TEXT') },
 ]);
 
+// The bot token is in the encrypted vault, never here.
 registerMigrations([300, 309], [
   {
     version: 300,
