@@ -1,12 +1,7 @@
-/**
- * Tasteful WebAudio-synthesized UI sounds. No audio files — every cue is built from
- * oscillators/noise + gain envelopes at call time. Guarded end-to-end: AudioContext can be
- * unavailable, blocked by autoplay policy, or throw mid-render, and none of that should ever
- * surface to the caller.
- */
+/** AudioContext can be unavailable, blocked by autoplay policy, or throw mid-render; none of that reaches the caller. */
 export type Cue = 'send' | 'receive' | 'approvalRequest' | 'approve' | 'deny' | 'done' | 'error' | 'connected';
 
-const PEAK = 0.126; // ~ -18 dBFS
+const PEAK = 0.126;
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -58,7 +53,6 @@ function reducedMotion(): boolean {
   }
 }
 
-/** receive/done are quieter while the tab is visible and the room is the one on screen. */
 function attenuation(cue: Cue, opts?: { roomActive?: boolean }): number {
   if (cue !== 'receive' && cue !== 'done') return 1;
   try {
@@ -69,8 +63,6 @@ function attenuation(cue: Cue, opts?: { roomActive?: boolean }): number {
     return 1;
   }
 }
-
-// ---------- synthesis primitives ----------
 
 function tone(c: AudioContext, dest: AudioNode, opts: { freq: number; freqEnd?: number; type?: OscillatorType; start: number; dur: number; peak: number }) {
   const osc = c.createOscillator();
@@ -108,24 +100,19 @@ function noiseSweep(c: AudioContext, dest: AudioNode, opts: { start: number; dur
   src.stop(opts.start + opts.dur + 0.03);
 }
 
-// ---------- per-cue design ----------
-
 function render(cue: Cue, c: AudioContext, dest: AudioNode) {
   const t0 = c.currentTime + 0.006;
   switch (cue) {
     case 'send':
-      // soft high tick, quick rising sweep
       tone(c, dest, { freq: 880, freqEnd: 1320, type: 'sine', start: t0, dur: 0.06, peak: PEAK * 0.8 });
       break;
 
     case 'receive':
-      // two-note soft chime: E5 -> A5, triangle
       tone(c, dest, { freq: 659.25, type: 'triangle', start: t0, dur: 0.09, peak: PEAK });
       tone(c, dest, { freq: 880, type: 'triangle', start: t0 + 0.09, dur: 0.11, peak: PEAK * 0.9 });
       break;
 
     case 'approvalRequest':
-      // attention ping: two quick 1kHz pulses with a whisper of noise texture
       for (const at of [0, 0.12]) {
         tone(c, dest, { freq: 1000, type: 'sine', start: t0 + at, dur: 0.07, peak: PEAK * 1.15 });
         noiseSweep(c, dest, { start: t0 + at, dur: 0.07, freqFrom: 1400, freqTo: 1400, peak: PEAK * 0.12, peakAt: 0.3 });
@@ -133,17 +120,14 @@ function render(cue: Cue, c: AudioContext, dest: AudioNode) {
       break;
 
     case 'approve':
-      // short upward blip
       tone(c, dest, { freq: 600, freqEnd: 900, type: 'sine', start: t0, dur: 0.09, peak: PEAK });
       break;
 
     case 'deny':
-      // short downward blip
       tone(c, dest, { freq: 700, freqEnd: 450, type: 'sine', start: t0, dur: 0.09, peak: PEAK });
       break;
 
     case 'done': {
-      // gentle three-note resolve (C5-E5-G5), triangle, slight overlap
       tone(c, dest, { freq: 523.25, type: 'triangle', start: t0, dur: 0.1, peak: PEAK * 0.8 });
       tone(c, dest, { freq: 659.25, type: 'triangle', start: t0 + 0.08, dur: 0.1, peak: PEAK * 0.85 });
       tone(c, dest, { freq: 783.99, type: 'triangle', start: t0 + 0.16, dur: 0.14, peak: PEAK });
@@ -151,7 +135,6 @@ function render(cue: Cue, c: AudioContext, dest: AudioNode) {
     }
 
     case 'error': {
-      // low soft buzz: sawtooth through a lowpass
       const osc = c.createOscillator();
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(110, t0);
@@ -170,7 +153,6 @@ function render(cue: Cue, c: AudioContext, dest: AudioNode) {
     }
 
     case 'connected':
-      // rising whoosh: filtered noise sweep 200->2000Hz + a soft sine swell underneath
       noiseSweep(c, dest, { start: t0, dur: 0.45, freqFrom: 200, freqTo: 2000, peak: PEAK * 0.55, type: 'bandpass', peakAt: 0.55 });
       tone(c, dest, { freq: 440, freqEnd: 660, type: 'sine', start: t0 + 0.04, dur: 0.4, peak: PEAK * 0.65 });
       break;
@@ -187,7 +169,6 @@ function playInternal(cue: Cue, volumeScale: number) {
   render(cue, c, g);
 }
 
-/** Play a cue, respecting the sounds setting and prefers-reduced-motion. */
 export function play(cue: Cue, opts?: { roomActive?: boolean }) {
   try {
     if (!enabled || reducedMotion()) return;
@@ -197,7 +178,6 @@ export function play(cue: Cue, opts?: { roomActive?: boolean }) {
   }
 }
 
-/** Used by the settings toggle to demo a cue regardless of the sounds setting. */
 export function preview(cue: Cue) {
   try {
     playInternal(cue, 1);

@@ -16,7 +16,6 @@ import { importChunk } from '../lib/lazyChunk';
 import { useActiveProject, useToki } from '../lib/useProject';
 import { FilesPanel } from './files/FilesPanel';
 
-// The Map tab is its own chunk (the canvas inside it is another), so the entry bundle only grows by this line.
 const MapPage = lazy(() => importChunk(() => import('./map/MapPage').then((m) => ({ default: m.MapPage }))));
 import { BotPage } from './BotPage';
 import { AutomationsPage, UsagePage } from './FleetPages';
@@ -36,12 +35,10 @@ import { Onboarding } from './Onboarding';
 import { TokenPrompt } from './TokenPrompt';
 import { Button, ConfirmHost, cn } from './ui';
 
-/** Below these the sidebar becomes a drawer over the chat, and a screen the user opens covers the window. */
 const SIDEBAR_QUERY = '(min-width: ' + SIDEBAR_INLINE_MIN + 'px)';
 const PANEL_QUERY = '(min-width: ' + PANEL_INLINE_MIN + 'px)';
 const PANEL_SOLO_QUERY = '(min-width: ' + PANEL_SOLO_MIN + 'px)';
 
-/** How long "Connecting to the hub" may show before it turns into a card that says what is wrong. */
 const CONNECT_GRACE_MS = 5000;
 
 export function App() {
@@ -54,7 +51,6 @@ export function App() {
   const setPaneOpen = useStore((s) => s.setPaneOpen);
   const panelOpen = useStore((s) => s.panelOpen);
   const filesOpen = useStore((s) => s.panelOpen && s.panelKind === 'files');
-  // New layout: the overview holds the right slot, folded to a rail or open (components/overview).
   const toki = useToki();
   const overviewOpen = useStore((s) => s.panelOpen && s.panelKind === 'overview') && toki;
   const overviewRail = useStore((s) => s.overviewRail);
@@ -67,33 +63,22 @@ export function App() {
   const settings = useStore((s) => s.settings);
   const helloReceived = useStore((s) => s.helloReceived);
   const device = useStore((s) => s.device);
-  // P9: a paired phone cannot write settings, so it never gets the first-run setup.
   const showOnboarding = helloReceived && settings.onboarded === false && !device;
-  // Side by side needs room: the panes' minimums plus the chat's must fit, or the panel's close button ends
-  // up off-screen.
   const sidebarFits = useMediaQuery(SIDEBAR_QUERY);
   const panelFits = useMediaQuery(PANEL_QUERY);
   const panelFitsAlone = useMediaQuery(PANEL_SOLO_QUERY);
-  // Between the two, an open panel folds the sidebar away instead of covering the window (lib/panes.ts).
-  // The overview is the exception: it never pushes the sidebar out, and covers the window below the three-pane width.
   const squeezed = panelOpen && !overviewOpen && panelFitsAlone && !panelFits;
   const sidebarInline = sidebarFits && !squeezed;
   const panelInline = panelFits || squeezed;
   const focus = screenSize === 'focus';
-  // Files takes the panel unless the user is driving a screen, which always wins the room.
   const filesShown = filesOpen && !focus;
   const overviewShown = overviewOpen && !focus;
   const covering = !panelInline && (screenSize !== 'glance' || filesShown || overviewShown);
-  // The overview over a narrow window is a sheet pulled up from the bottom, not a full cover: it is a glance at what
-  // waits, and the chat stays in sight above it. The screen and Files keep the whole window, they need the room.
   const sheet = covering && overviewShown && !filesShown && screenSize === 'glance';
-  // A project's Map tab lies over its chat under the project header; every other page covers the whole pane.
   const mapPage = page?.kind === 'map' && !!projectRoom;
-  // Its Tasks tab, likewise under the header.
   const tasksTab = page?.kind === 'projectTasks' && !!projectRoom;
   const coverPage = page && page.kind !== 'map' && page.kind !== 'projectTasks' ? page : null;
 
-  // U3: the skill pool feeds the Needs you inbox; refetched when skills change. The tab title carries the count.
   const skillsRev = useStore((s) => s.skillsRev);
   useEffect(() => {
     if (helloReceived) void useStore.getState().loadInboxSkills();
@@ -103,8 +88,6 @@ export function App() {
     document.title = titleWithCount(document.title, waiting);
   }, [waiting]);
 
-  // Pane widths are CSS variables, so a resize never re-renders the chat. A drag paints them itself until
-  // release, so a store change arriving mid-drag (any streaming message) must not paint over it.
   useLayoutEffect(() => {
     let last = '';
     const apply = () => {
@@ -126,34 +109,25 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Ctrl/Cmd+B mirrors the editor convention for showing and hiding a side panel.
       if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault();
         useStore.getState().toggleSidebar();
         return;
       }
-      // A Radix layer that already took this Escape (a confirm over the dialog, an open menu) marks it handled;
-      // closing the dialog as well would take two steps back for one key.
+      // A Radix layer that already took this Escape (a confirm, an open menu) marks it handled.
       if (e.key === 'Escape' && dialog && !e.defaultPrevented) openDialog(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [dialog, openDialog]);
 
-  // Declared before the breakpoint effect below, so the sidebar is already closed when that one looks. Written to
-  // the store directly, like the focus effect further down, so it isn't saved as the user's preference.
   useEffect(() => {
     if (!squeezed) return;
     const was = useStore.getState().sidebarOpen;
     useStore.setState({ sidebarOpen: false });
-    // A window shrunk to phone width in the meantime starts with the drawer closed, as it would on load.
     return () => useStore.setState({ sidebarOpen: was && window.innerWidth >= SIDEBAR_INLINE_MIN });
   }, [squeezed]);
 
-  // Shrinking the window past a breakpoint closes that side rather than dropping an open drawer over the
-  // chat, and growing back past it reopens what that shrink closed (lib/paneAutoClose.ts). Only on the change
-  // itself; the store already starts both closed on a narrow window. Open state is read from the store because
-  // the squeezed effect above may have just changed it; it is a dependency so a user's open is seen too.
   const auto = useRef({ sidebar: { inline: sidebarInline, autoClosed: false }, panel: { inline: panelInline, autoClosed: false } });
   useEffect(() => {
     const s = useStore.getState();
@@ -165,8 +139,6 @@ export function App() {
     else if (pane.act === 'open') setPaneOpen('panel', true);
   }, [sidebarInline, panelInline, sidebarOpen, panelOpen, setSidebarOpen, closePanel, setPaneOpen]);
 
-  // The screen gets the room while the user drives it, and Hand back puts the sidebar back as it was. Written
-  // to the store directly so it isn't saved as the user's preference.
   useEffect(() => {
     if (!focus) return;
     const was = useStore.getState().sidebarOpen;
@@ -174,7 +146,6 @@ export function App() {
     return () => useStore.setState({ sidebarOpen: was });
   }, [focus]);
 
-  // Covering the chat, or driving: focus moves to the screen, and back to where it was afterwards.
   const screenRef = useRef<HTMLDivElement>(null);
   const takesFocus = covering || focus;
   useEffect(() => {
@@ -189,8 +160,6 @@ export function App() {
   return (
     <div className="flex h-dvh w-full overflow-clip pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[env(safe-area-inset-top)]">
       {!(sidebarOpen && sidebarInline) && (
-        // Collapsed: a single button rather than a rail, so the chat gets the whole width back. On a phone it sits
-        // in the page header's left corner (the headers leave room with max-md:pl-14) instead of taking a column.
         <button
           className="ml-2 mt-3 flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-md text-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent pointer-coarse:h-10 pointer-coarse:w-10 max-md:fixed max-md:left-[calc(env(safe-area-inset-left)+0.75rem)] max-md:top-[calc(env(safe-area-inset-top)+0.75rem)] max-md:z-20 max-md:m-0 max-md:pointer-coarse:left-[calc(env(safe-area-inset-left)+0.5rem)] max-md:pointer-coarse:top-[calc(env(safe-area-inset-top)+0.5rem)]"
           title="Show bots (Ctrl+B)"
@@ -201,16 +170,13 @@ export function App() {
           <PanelLeftOpen size={16} />
         </button>
       )}
-      {/* The wrappers stay mounted while empty: they are what each separator's aria-controls points at. */}
       <div id="pane-sidebar" hidden={!(sidebarOpen && sidebarInline)} className="flex shrink-0" style={{ width: 'var(--sidebar-w)' }}>
         {sidebarOpen && sidebarInline && <Sidebar />}
       </div>
       {sidebarInline && <PaneSeparator pane="sidebar" label="Resize sidebar" controls="pane-sidebar" />}
       <main className={cn('@container panel relative flex min-w-0 flex-col overflow-clip', focus && panelInline ? 'shrink-0 border-r border-line' : 'flex-1')} style={focus && panelInline ? { width: CHAT_RAIL_W } : undefined}>
-        {/* New layout: a project room's header sits above both of its tabs, so switching tabs never moves it. */}
         {projectRoom && project && <div inert={!!coverPage} className="flex shrink-0 flex-col"><ProjectHeader project={project} room={projectRoom} /></div>}
         <div className="relative flex min-h-0 flex-1 flex-col">
-          {/* Pages lie over the chat rather than replace it, so its draft and scroll position wait underneath. */}
           <div
             inert={!!page}
             className="flex min-h-0 flex-1 flex-col"
@@ -237,8 +203,7 @@ export function App() {
       </main>
       {panelInline && !focus && !(overviewShown && overviewRail) && <PaneSeparator pane="panel" label={filesShown ? 'Resize files' : overviewShown ? 'Resize overview' : 'Resize screen'} controls="pane-panel" />}
       {sheet && <div aria-hidden className="pr-scrim fixed inset-0 z-30 bg-scrim backdrop-blur-[2px]" onClick={closePanel} />}
-      {/* One element at every size, thumbnail included, with only its CSS changing. Moving an iframe in the DOM
-          reloads it, which would spend a ticket and drop the noVNC connection on every change of size. */}
+      {/* One element at every size: moving an iframe in the DOM reloads it, spending a ticket and dropping noVNC. */}
       <div
         id="pane-panel"
         ref={screenRef}
@@ -247,8 +212,7 @@ export function App() {
         aria-modal={covering || undefined}
         aria-label={covering ? (filesShown ? 'Files' : overviewShown ? 'Overview' : 'Screen') : undefined}
         onKeyDown={(e) => {
-          // The DOM check: Escape in a dialog opened from in here (a file preview) bubbles through its portal to
-          // this handler, and must close that dialog only.
+          // Escape in a dialog opened from in here bubbles through its portal to this handler, and must close that dialog only.
           if (e.key === 'Escape' && covering && !focus && e.currentTarget.contains(e.target as Node)) {
             e.stopPropagation();
             closePanel();
@@ -256,14 +220,11 @@ export function App() {
         }}
         className={cn(
           'flex focus:outline-none',
-          // The sheet: full width, top corners rounded like a dialog's, as tall as its content up to just under the
-          // top edge, clear of the home indicator. No transition, so nothing new moves.
           sheet ? 'fixed inset-x-0 bottom-0 z-30 max-h-[calc(100dvh-2.5rem)] overflow-clip rounded-t-xl bg-panel pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-lg)]'
             : covering ? 'fixed inset-0 z-30 bg-bg pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]' : focus ? 'min-w-0 flex-1' : 'shrink-0',
         )}
         style={covering || focus ? undefined : { width: 'var(--panel-w)' }}
       >
-        {/* Under Files the screen stays mounted: a thumbnail while the bot uses it, else hidden but connected. */}
         <RightPanel inline={panelInline} parked={filesShown && screenParked} beside={filesShown || overviewShown ? (covering ? 'cover' : 'inline') : null} />
         {filesOpen && <div className={focus ? 'hidden' : 'flex min-w-0 flex-1'}><FilesPanel inline={panelInline} /></div>}
         {overviewShown && <div className="flex min-w-0 flex-1"><OverviewPanel inline={panelInline} /></div>}
@@ -293,11 +254,6 @@ export function App() {
   );
 }
 
-/**
- * The sidebar laid over the chat on a narrow window: backdrop click or Escape closes it, focus moves in
- * on open and goes back to where it was on close. It sits under the dialogs (z-40/50) so a bot's settings
- * opened from inside the drawer still come up on top.
- */
 function Drawer({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -313,9 +269,8 @@ function Drawer({ label, onClose, children }: { label: string; onClose: () => vo
       <div
         ref={ref}
         tabIndex={-1}
-        // On the panel rather than window: Escape inside a dialog opened over the drawer must close that
-        // dialog only. React events bubble through portals, so a menu or dialog opened from in here still
-        // reaches this handler; the DOM check is what tells them apart.
+        // React events bubble through portals, so Escape in a dialog opened from in here reaches this handler; the DOM
+        // check tells them apart.
         onKeyDown={(e) => {
           if (e.key === 'Escape' && e.currentTarget.contains(e.target as Node)) {
             e.stopPropagation();
@@ -330,10 +285,6 @@ function Drawer({ label, onClose, children }: { label: string; onClose: () => vo
   );
 }
 
-/**
- * "Connecting to the hub" for the first few seconds, then a card with the likely cause and a Retry. Hidden
- * when the cause is a rejected token, since the token panel is already asking for one.
- */
 function HubStatus() {
   const connected = useStore((s) => s.connected);
   const disconnectedAt = useStore((s) => s.disconnectedAt);
@@ -372,17 +323,11 @@ function HubStatus() {
   );
 }
 
-/**
- * Above the onboarding overlay and dialogs, so an error during setup is never hidden behind the blur. The
- * container is the live region; pointer-events stay on for the toasts themselves so a modal's inert body
- * does not swallow the dismiss button.
- */
+/** pointer-events stay on for the toasts so a modal's inert body does not swallow the dismiss button. */
 function Toasts() {
   const toasts = useStore((s) => s.toasts);
   const dismissToast = useStore((s) => s.dismissToast);
-  // Hand back and Done are at the bottom right while the user drives, and an error toast stays until dismissed.
   const driving = useStore(selectScreenSize) === 'focus';
-  // The project map's prompt bar sits at the bottom of the map: toasts rise above it.
   const onMap = useStore((s) => s.page?.kind === 'map');
   return (
     <div role="status" aria-live="polite" className={cn('pointer-events-none fixed right-5 z-[100] flex max-w-[calc(100vw-2.5rem)] flex-col items-end gap-2', driving || onMap ? 'bottom-24' : 'bottom-5 max-sm:bottom-[calc(10rem+env(safe-area-inset-bottom))]')}>

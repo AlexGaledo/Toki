@@ -1,8 +1,3 @@
-/**
- * Settings › Tools. The outside MCP servers bots may use. The hub keeps them in data/mcp-servers.json; this is the
- * owner's list and editor. Tokens and environment values are write-only: the list shows that one is set, never what it
- * is. A server that runs a command needs a browser signed in with a password (the hub says so in its answer).
- */
 import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Plug, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useStore } from '../../store';

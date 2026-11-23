@@ -21,7 +21,7 @@ describe('Continue on PC form', () => {
   it('is disabled with the offline hint', () => {
     const html = renderToStaticMarkup(<PcRunForm {...base} blocked="Your PC is offline. Start the Toki helper on it." />);
     expect(html).toContain('Your PC is offline');
-    expect(disabledCount(html)).toBe(2); // textarea and button
+    expect(disabledCount(html)).toBe(2);
     expect(html).toContain('aria-describedby');
   });
   it('is disabled with the sign-in hint', () => {

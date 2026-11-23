@@ -1,17 +1,11 @@
 /**
- * Desktop auth bootstrap. When Toki is launched by the desktop shell the URL is
- * http://127.0.0.1:7788/?desktop=1#token=<hex>. We stash the token + desktop flag in
- * sessionStorage (survives reloads within the tab, not across tabs/restarts) and strip the
- * hash so it never ends up in history or gets shared accidentally.
- *
- * This runs once, as a side effect of importing this module. Import it before any fetch()
- * or WebSocket connection is made (lib/api.ts and lib/ws.ts both do).
+ * The desktop shell opens `/?desktop=1#token=<hex>`. The hash is stripped at once so the token never lands in
+ * history or a shared link. Runs on import: import this before anything reads the URL.
  */
 import { getItem, removeItem, setItem } from './persist';
 
 const TOKEN_KEY = 'pocketrocket.token';
 const DESKTOP_KEY = 'pocketrocket.desktop';
-/** Comma-separated features the desktop app that opened this page handles (older apps send none). */
 const DESKTOP_CAPS_KEY = 'pocketrocket.desktopCaps';
 
 function boot() {
@@ -34,7 +28,6 @@ function boot() {
 boot();
 
 export function getToken(): string | null {
-  // The hub token (desktop app, a pasted token) wins; otherwise this browser's paired-device token (P9).
   return getItem(TOKEN_KEY, 'session') ?? getDeviceToken();
 }
 
@@ -42,16 +35,10 @@ export function isDesktopMode(): boolean {
   return getItem(DESKTOP_KEY, 'session') === '1';
 }
 
-/** True when the desktop app showing this page can do `cap` (e.g. 'localcopy': save a chat file on this PC and open it). */
 export function desktopCan(cap: string): boolean {
   return isDesktopMode() && (getItem(DESKTOP_CAPS_KEY, 'session') ?? '').split(',').includes(cap);
 }
 
-/**
- * The hub now always requires a token. When the API 401s or the WS upgrade is refused, the UI
- * shows a small "paste the hub token" panel. This is a tiny pub-sub outside the zustand store so
- * lib/api.ts and lib/ws.ts (which the store itself imports) can report failures without a cycle.
- */
 type Listener = () => void;
 let needsToken = false;
 const listeners = new Set<Listener>();
@@ -61,8 +48,6 @@ function emit() {
 }
 
 export function reportAuthFailure(): void {
-  // P9: a device token the hub refuses has been revoked (or the hub's data was reset). It never comes back,
-  // so drop it; the token panel then says to pair again rather than to paste a hub token.
   if (!hasHubToken() && getDeviceToken()) {
     clearDeviceToken();
     unpaired = true;
@@ -92,10 +77,6 @@ export function setToken(token: string): void {
   clearAuthFailure();
 }
 
-// ---------------------------------------------------------------------------------------------------
-// P9: paired devices. A phone scans the QR from the desktop's Settings › Devices, which opens
-// `https://<hub>/#pair=<CODE>`. The code is one-time and short-lived; this browser trades it for a device
-// token of its own, kept in localStorage (a phone app has to survive restarts) and never in a URL.
 const DEVICE_KEY = 'pocketrocket.deviceToken';
 let unpaired = false;
 let pairError: string | null = null;
@@ -110,20 +91,16 @@ function hasHubToken(): boolean {
   return !!getItem(TOKEN_KEY, 'session');
 }
 
-/** True when this page talks to the hub as a paired device (narrower rights than the hub token). */
 export function isDevice(): boolean {
   return !hasHubToken() && !!getDeviceToken();
 }
-/** True once a device token was refused: the phone has been unpaired on the desktop. */
 export function wasUnpaired(): boolean {
   return unpaired;
 }
-/** Why the last pairing attempt failed, for the token panel. */
 export function getPairError(): string | null {
   return pairError;
 }
 
-/** A short, human name for this device from the user agent; editable later on the desktop. */
 export function guessDeviceName(): string {
   const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent;
   if (/iPhone/i.test(ua)) return 'iPhone';
@@ -135,10 +112,6 @@ export function guessDeviceName(): string {
   return 'Phone';
 }
 
-/**
- * Redeem a pairing code. Resolves true when this browser now holds a device token. A wrong or expired code is
- * a 403 from the hub; the reason lands in `getPairError()`.
- */
 export async function redeemPairingCode(code: string): Promise<boolean> {
   pairError = null;
   try {
@@ -165,10 +138,7 @@ export async function redeemPairingCode(code: string): Promise<boolean> {
   }
 }
 
-/**
- * Called once before the app connects (main.tsx). Takes `#pair=<CODE>` off the URL straight away, so the
- * code never sits in history, then redeems it. A failure shows in the token panel.
- */
+/** Takes `#pair=<CODE>` off the URL straight away, so the code never sits in history. */
 export async function pairFromHash(): Promise<void> {
   let code: string | null = null;
   try {

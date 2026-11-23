@@ -2,7 +2,6 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { groupSessions, type PcSeqEntry, type PcSessionSummary } from '../lib/pcSessions';
 
-// Markdown reaches for the store, which reads window at import time.
 let MirrorEmptyState: typeof import('./PcSessionViews').MirrorEmptyState;
 let SessionGroups: typeof import('./PcSessionViews').SessionGroups;
 let TranscriptEntries: typeof import('./PcSessionViews').TranscriptEntries;

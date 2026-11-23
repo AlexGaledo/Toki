@@ -1,9 +1,3 @@
-/**
- * Settings › Appearance: theme (follow the computer, light, dark), font, layout (New or Classic, a hub setting,
- * lib/layout.ts; also one click away in the profile menu), and sound cues with previews.
- * Both apply the moment they change; the store saves them and rolls back if the save fails.
- * `readOnly` (a paired phone, which may not write hub settings): shown, not changeable; previews still play.
- */
 import { useId } from 'react';
 import { Volume2 } from 'lucide-react';
 import type { Settings } from '@pocketrocket/shared';
@@ -57,7 +51,6 @@ export function AppearanceSection({ readOnly = false }: { readOnly?: boolean } =
       <SectionHeader title="Appearance" description={readOnly ? 'Change these on the desktop app.' : undefined} />
 
       <Group title="Theme" titleId={themeLabelId}>
-        {/* A group of toggle buttons (aria-pressed), not tabs: picking one changes a setting, it doesn't swap a view. */}
         <div role="group" aria-labelledby={themeLabelId} className="flex gap-0.5 rounded-md bg-card2 p-0.5">
           {THEMES.map((t) => (
             <button
@@ -98,8 +91,6 @@ export function AppearanceSection({ readOnly = false }: { readOnly?: boolean } =
         </div>
       </Group>
 
-      {/* Both layouts stay; switch any time, here or from the profile menu. A hub setting, so it follows you to every
-          browser; a paired phone (readOnly) keeps the classic layout and never sees it. */}
       {!readOnly && layoutSwitchShown() && (
         <Group title="Layout" titleId={layoutLabelId}>
           <div role="group" aria-labelledby={layoutLabelId} className="flex gap-0.5 rounded-md bg-card2 p-0.5">

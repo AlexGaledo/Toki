@@ -11,15 +11,10 @@ export function statusPill(check: ProviderCheck): { tone: 'ok' | 'warn' | 'muted
     if (check.auth && check.auth !== 'none' && check.auth !== 'unknown') parts.push(check.auth);
     return { tone: 'ok', text: parts.join(' · ') };
   }
-  // A detected version means the CLI/SDK is installed but not authenticated.
   if (check.version) return { tone: 'warn', text: 'Not logged in' };
   return { tone: 'muted', text: 'Not installed' };
 }
 
-/**
- * Re-runs a provider's detection (POST /api/providers/:id/check), e.g. after the user installs or signs
- * in. `onChecked` gets the fresh result; on failure the last known check simply stays in place.
- */
 export function useRecheck(id: ProviderId, onChecked?: (check: ProviderCheck) => void) {
   const [checking, setChecking] = useState(false);
   const recheck = async () => {
@@ -44,7 +39,6 @@ export function ProviderCard({
   info: ProviderInfo;
   selected: boolean;
   onSelect: () => void;
-  /** called with the fresh ProviderCheck after a re-check completes */
   onChecked?: (check: ProviderCheck) => void;
 }) {
   const { checking, recheck } = useRecheck(info.id, onChecked);
@@ -52,9 +46,7 @@ export function ProviderCard({
   const blurbId = 'provider-blurb-' + info.id;
 
   return (
-    // Only the title row is the radio. Interactive content inside role="radio" breaks screen-reader output and
-    // arrow-key roving, so the hint (it can hold links) and Re-check sit beside it in the card. A click anywhere
-    // else on the card still selects it, for the mouse.
+    // Only the title row is the radio: interactive content inside role="radio" breaks screen readers and arrow keys.
     <div
       className={cn(
         'cursor-pointer rounded-lg p-3.5 ring-1 transition-colors',
@@ -66,9 +58,6 @@ export function ProviderCard({
         role="radio"
         aria-checked={selected}
         aria-describedby={blurbId}
-        // A div with role=radio is invisible to the keyboard unless it is focusable and answers to keys
-        // itself. Roving tabindex (only the checked card is tabbable) plus arrows to move between cards,
-        // which is what a real radio group does.
         tabIndex={selected ? 0 : -1}
         onKeyDown={(e) => radioKeyDown(e, onSelect)}
         className="-m-1 flex items-center justify-between gap-2 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -85,7 +74,6 @@ export function ProviderCard({
         {info.maturity === 'untested' && <span className="mt-1 block text-hint text-warn">Untested. Check approvals before actions outside the shared folder.</span>}
         {info.testedVersions && <span className="mt-1 block text-hint text-muted">Tested with versions {info.testedVersions}.</span>}
       </div>
-      {/* The CLI runs, but on a version outside the tested range (or one it could not read): a warning, not a failure. */}
       {info.check.versionWarning && <p className="mt-1 pl-6 text-hint text-warn">{info.check.versionWarning}</p>}
       {!info.check.ok && info.check.hint && (
         <div className="md mt-1.5 pl-6 text-hint text-dim">

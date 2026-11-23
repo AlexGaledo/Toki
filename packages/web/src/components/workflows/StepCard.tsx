@@ -1,6 +1,3 @@
-// One step, drawn once. The Steps list row and the canvas node both render this, so the two views cannot drift.
-// Status is always a Badge with words. Warn colour appears only while a step waits for the person; an approval step
-// at rest is neutral.
 import type { ReactNode } from 'react';
 import { Bot as BotIcon, FileOutput, MoreHorizontal, ShieldCheck, Zap, type LucideIcon } from 'lucide-react';
 import type { WorkflowNode, WorkflowNodeKind, WorkflowStepResult } from '@pocketrocket/shared';
@@ -9,7 +6,6 @@ import { KIND_LABEL, STEP_STATUS_LABEL, STEP_STATUS_TONE, canDelete, canDuplicat
 
 const KIND_ICON: Record<WorkflowNodeKind, LucideIcon> = { trigger: Zap, agent: BotIcon, approval: ShieldCheck, output: FileOutput };
 
-/** What the menu on a step can do. Everything is by step id so both views pass the same handlers. */
 export interface StepOps {
   onEdit: (id: string) => void;
   onMove: (id: string, dir: -1 | 1) => void;
@@ -18,7 +14,6 @@ export interface StepOps {
   onInsertAfter: (id: string, kind: 'agent' | 'approval' | 'output') => void;
 }
 
-/** "Running" shimmers with the existing `.chip-running` (still under reduced motion); the rest are plain Badges. */
 export function StepStatus({ status }: { status: WorkflowStepResult['status'] }) {
   if (status === 'running') {
     return <span className="chip-running inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-hint text-accent">{STEP_STATUS_LABEL.running}</span>;
@@ -34,7 +29,6 @@ export function StepCard({ step, index, total, ctx, result, selected, problems, 
   result?: WorkflowStepResult;
   selected?: boolean;
   problems?: string[];
-  /** Canvas node: a fixed height, one line of detail. */
   compact?: boolean;
   actions?: ReactNode;
   className?: string;
@@ -63,7 +57,6 @@ export function StepCard({ step, index, total, ctx, result, selected, problems, 
         <span className="min-w-0 flex-1 truncate text-ui font-medium">{title}</span>
         {result && result.costUsd > 0 && <span className="shrink-0 font-mono text-hint text-muted">{fmtUsd(result.costUsd)}</span>}
       </div>
-      {/* An excerpt on the card; the whole text is in the hover text and in the step's editor. */}
       <p className={cn('text-hint text-muted', compact ? 'line-clamp-1' : 'line-clamp-2 whitespace-pre-wrap break-words')} title={typeof detail === 'string' ? detail : undefined}>{detail}</p>
       {!compact && problems?.map((p) => <p key={p} className="text-hint text-bad">{p}</p>)}
       {compact && !!problems?.length && <p className="truncate text-hint text-bad">{problems[0]}</p>}
@@ -71,7 +64,6 @@ export function StepCard({ step, index, total, ctx, result, selected, problems, 
   );
 }
 
-/** Edit, move, duplicate, delete, and add a step after this one. The trigger can only be edited or have steps added after it. */
 export function StepMenu({ steps, index, ops, label }: { steps: WorkflowNode[]; index: number; ops: StepOps; label: string }) {
   const step = steps[index];
   return (

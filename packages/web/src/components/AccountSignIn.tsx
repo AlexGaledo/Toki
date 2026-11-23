@@ -1,41 +1,23 @@
-/**
- * Sign-in for the optional Toki account, shared by Settings › Account and the onboarding
- * "Create an account" step. It covers the two states before you are signed in:
- *   - signed out: an email field ("Email me a sign-in link"), plus Google/GitHub when the hub has them on
- *     (after either button, a local "finish in your browser" state with Cancel);
- *   - waiting (`account.pendingEmail` set): the code from the email, resend, or start over.
- * The signed-in and "accounts not available" views belong to the parent. Every answer goes through
- * `store.applyAccountResponse`, and the hub's `account.changed` event keeps state live, so this
- * component never guesses what the next state is — it renders whatever the store says.
- */
 import { useId, useState, type FormEvent } from 'react';
 import { useStore } from '../store';
 import { ApiError, api } from '../lib/api';
 import { Button, Field, Input, Label } from './ui';
 import { InlineError } from './settings/parts';
 
-/** The emailed one-time code is 6 to 10 digits depending on the account project's settings. */
 const CODE_MIN = 6;
 const CODE_MAX = 10;
 
 type OAuthProvider = 'google' | 'github';
 const OAUTH_LABEL: Record<OAuthProvider, string> = { google: 'Google', github: 'GitHub' };
 
-/**
- * Turns a failed call into a sentence for the user; the hub's own error text is already plain.
- * A 409 means our picture is out of date (already signed in, or sign-in not set up here), so the
- * account state is refetched and the view corrects itself.
- */
 function messageOf(err: unknown): string {
   if (err instanceof ApiError && err.status === 409) void useStore.getState().fetchAccount();
   if (err instanceof ApiError && err.status === 404) return "Sign-in isn't available right now. Try again later.";
   return err instanceof Error && err.message ? err.message : 'Something went wrong. Try again.';
 }
 
-export function AccountSignIn({ autoFocus }: { /** Focus the email field on mount (onboarding). */ autoFocus?: boolean }) {
+export function AccountSignIn({ autoFocus }: { autoFocus?: boolean }) {
   const pendingEmail = useStore((s) => s.account.pendingEmail);
-  // After "Use a different email" the code form unmounts; putting focus back in the email field keeps
-  // keyboard and screen reader users from being dropped at the top of the page.
   const [focusEmail, setFocusEmail] = useState(!!autoFocus);
   return pendingEmail
     ? <CodeForm email={pendingEmail} onCancelled={() => setFocusEmail(true)} />
@@ -49,8 +31,6 @@ function EmailForm({ autoFocus }: { autoFocus: boolean }) {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState<'link' | OAuthProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Set while the Google/GitHub page is open in the browser. Local only: the hub keeps no pending state
-  // for OAuth, and when the sign-in completes this whole form is replaced by the signed-in view.
   const [oauthWait, setOauthWait] = useState<{ provider: OAuthProvider; url: string } | null>(null);
   const errorId = useId();
 
@@ -75,8 +55,6 @@ function EmailForm({ autoFocus }: { autoFocus: boolean }) {
     try {
       const { url } = await api.account.oauth(provider);
       setOauthWait({ provider, url });
-      // The provider's page runs in the browser; when it redirects back, the hub finishes the sign-in and
-      // sends `account.changed`, which flips this view to signed in on its own.
       window.open(url, '_blank', 'noopener');
     } catch (err) {
       setError(messageOf(err));
@@ -88,7 +66,6 @@ function EmailForm({ autoFocus }: { autoFocus: boolean }) {
   if (oauthWait) {
     return (
       <div>
-        {/* role="status" on the sentence only, so a screen reader announces it without reading the buttons. */}
         <p role="status" className="text-ui leading-relaxed text-fg">
           Finish signing in with {OAUTH_LABEL[oauthWait.provider]} in your browser.
         </p>
@@ -141,7 +118,7 @@ function EmailForm({ autoFocus }: { autoFocus: boolean }) {
               <span className="h-px flex-1 bg-line" />or<span className="h-px flex-1 bg-line" />
             </div>
           )}
-          {/* flex-1 only side by side: in a column it would set the height basis to 0 and squash the buttons. */}
+          {/* flex-1 only side by side: in a column it sets the height basis to 0 and squashes the buttons. */}
           <div className="flex flex-col gap-2 sm:flex-row">
             {oauth.google && (
               <Button className="sm:flex-1" disabled={busy !== null} onClick={() => void continueWith('google')}>
@@ -172,7 +149,6 @@ function CodeForm({ email, onCancelled }: { email: string; onCancelled: () => vo
   const [notice, setNotice] = useState<string | null>(null);
   const errorId = useId();
 
-  /** Runs one account call with the busy flag and inline error handled the same way every time. */
   const run = async (kind: 'verify' | 'resend' | 'cancel', call: () => Promise<void>) => {
     if (busy) return;
     setBusy(kind);
@@ -189,8 +165,6 @@ function CodeForm({ email, onCancelled }: { email: string; onCancelled: () => vo
 
   const codeComplete = code.length >= CODE_MIN && code.length <= CODE_MAX;
 
-  // No auto-submit on the last digit: the code's length varies (6–10), so there is no "last" digit to
-  // detect. Enter or the button submits.
   const verify = () => {
     if (!codeComplete) return;
     void run('verify', async () => applyAccountResponse(await api.account.verify(email, code)));
@@ -208,7 +182,6 @@ function CodeForm({ email, onCancelled }: { email: string; onCancelled: () => vo
             autoFocus
             inputMode="numeric"
             autoComplete="one-time-code"
-            // Digits only; spaces and dashes a user pastes along with the code are dropped as they type.
             value={code}
             onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_MAX)); setError(null); }}
             placeholder="123456"
@@ -241,8 +214,7 @@ function CodeForm({ email, onCancelled }: { email: string; onCancelled: () => vo
   );
 }
 
-/** Google's four-colour "G". Brand marks aren't in lucide, and the official colours are the point. */
-/** lucide-react 1.x dropped brand icons, so the GitHub mark is drawn here like Google's. */
+/** lucide-react 1.x dropped brand icons, so the GitHub and Google marks are drawn here. */
 function GithubMark() {
   return (
     <svg aria-hidden viewBox="0 0 16 16" width="15" height="15" fill="currentColor">

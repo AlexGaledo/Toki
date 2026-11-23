@@ -1,17 +1,9 @@
 /**
- * The one place the web app touches `localStorage` / `sessionStorage`.
- *
- * Storage can be missing or throw (a blocked-cookies browser, a sandboxed iframe, a full quota, private mode),
- * so every read and write is guarded here and callers never write their own try/catch. When a write fails the
- * value is kept in memory, so the page still behaves for the rest of the session; when a read fails the answer
- * is `null`/the fallback.
- *
- * Existing keys keep their exact names and stored formats: this module only wraps access. New keys made with
- * {@link versionedKey} carry a version, so a later change of shape can read the old one or ignore it.
+ * The one place the web app touches `localStorage` / `sessionStorage`. Storage can be missing or throw (blocked
+ * cookies, a sandboxed iframe, a full quota, private mode), so every access is guarded here.
  */
 export type Area = 'local' | 'session';
 
-/** Values that could not be written (or removed), so reads keep returning what the page last set. */
 const shadow: Record<Area, Map<string, string | null>> = { local: new Map(), session: new Map() };
 
 function store(area: Area): Storage | null {
@@ -22,7 +14,6 @@ function store(area: Area): Storage | null {
   }
 }
 
-/** `pocketrocket.<name>.v<version>`, for keys created from now on. */
 export function versionedKey(name: string, version: number): string {
   return 'pocketrocket.' + name + '.v' + version;
 }
@@ -37,7 +28,6 @@ export function getItem(key: string, area: Area = 'local'): string | null {
   }
 }
 
-/** Returns false when the value only lives in memory. */
 export function setItem(key: string, value: string, area: Area = 'local'): boolean {
   try {
     const s = store(area);
@@ -62,7 +52,6 @@ export function removeItem(key: string, area: Area = 'local'): void {
   }
 }
 
-/** The stored JSON when it parses and `ok` accepts it; otherwise `fallback` (empty, blocked, junk or wrong shape). */
 export function getJson<T>(key: string, ok: (v: unknown) => v is T, fallback: T, area: Area = 'local'): T {
   const raw = getItem(key, area);
   if (raw === null) return fallback;
@@ -78,11 +67,10 @@ export function setJson(key: string, value: unknown, area: Area = 'local'): bool
   try {
     return setItem(key, JSON.stringify(value), area);
   } catch {
-    return false; // not serialisable: nothing to keep
+    return false;
   }
 }
 
-/** Test helper: forget what could not be written. */
 export function resetPersistMemory(): void {
   shadow.local.clear();
   shadow.session.clear();

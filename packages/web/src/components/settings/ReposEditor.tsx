@@ -1,5 +1,3 @@
-// Bridge P5: the repo list of one project (Settings > Projects). A repo is a name and a remote URL; the PC finds the
-// checkout itself, so no path of yours is typed or stored here. Sync mode says how a PC session's work reaches the VPS.
 import { useEffect, useId, useState } from 'react';
 import { GitBranch, Plus, Trash2, X } from 'lucide-react';
 import { useStore } from '../../store';
@@ -20,20 +18,15 @@ const SYNC_HELP: Record<RepoSyncMode, string> = {
 export interface ReposFormProps {
   repos: ProjectRepo[];
   onChange: (next: ProjectRepo[]) => void;
-  /** Local validation plus nothing else; shown inline under the field it belongs to. */
   issues: RepoIssue[];
-  /** Show every issue, also for fields still empty (after a save attempt). */
   attempted?: boolean;
-  /** The hub's own message when the PUT is refused. */
   serverError?: string | null;
   busy?: boolean;
   dirty?: boolean;
   onSave: () => void;
-  /** Asks first; defaults to the in-app confirm dialog. */
   onRemove?: (index: number) => void;
 }
 
-/** Presentational, so a test renders the same markup the screen does. */
 export function ReposForm(p: ReposFormProps) {
   const set = (i: number, patch: Partial<ProjectRepo>) => p.onChange(p.repos.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const shown = (i: number, field: RepoIssue['field']) => {
@@ -157,7 +150,6 @@ function BranchChips({ value, onChange, describedBy }: { value: string[]; onChan
   );
 }
 
-/** Loads one project's list, validates as you edit, and saves the whole list in one PUT. */
 export function ReposEditor({ slug }: { slug: string }) {
   const toast = useStore((s) => s.toast);
   const [repos, setRepos] = useState<ProjectRepo[] | null>(null);

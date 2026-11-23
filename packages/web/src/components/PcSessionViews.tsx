@@ -1,5 +1,3 @@
-// The read-only pieces of the PC sessions view: the grouped list rows, the empty state and the transcript.
-// No store or network in here, so they render on their own (and in tests).
 import { useState } from 'react';
 import { ChevronRight, Monitor } from 'lucide-react';
 import { relativeTime, sessionTitle, toolRowLabel, type PcSeqEntry, type PcSessionSummary, type SessionGroup } from '../lib/pcSessions';
@@ -11,7 +9,6 @@ import { MoveBadge } from './PcMovePanel';
 import { Markdown } from './Markdown';
 import { useNewPages } from './PageHeader';
 
-/** How to turn the mirror on. Shown when there is nothing to list. */
 export function MirrorEmptyState({ filtered }: { filtered: boolean }) {
   if (filtered) return <EmptyState icon={<Monitor size={18} />} title="No sessions match">Try a different search or repo.</EmptyState>;
   return (
@@ -22,11 +19,9 @@ export function MirrorEmptyState({ filtered }: { filtered: boolean }) {
   );
 }
 
-/** The grouped list itself, split out so it renders without the network. */
 const COLLAPSED_KEY = 'pc-sessions.collapsed-groups';
 const isKeys = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
-/** Repo groups fold open and closed; which ones are folded is remembered in this browser. */
 export function SessionGroups({ groups, onOpen, now }: { groups: SessionGroup[]; onOpen: (id: string) => void; now?: number }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(getJson(COLLAPSED_KEY, isKeys, [])));
   const save = (next: Set<string>) => { setCollapsed(next); setJson(COLLAPSED_KEY, [...next]); };
@@ -57,7 +52,6 @@ export function SessionGroups({ groups, onOpen, now }: { groups: SessionGroup[];
                 aria-expanded={open}
                 aria-controls={id}
                 onClick={() => toggle(g.key)}
-                // New layout: the sidebar's quiet section label (dim label, mono count) instead of a bold row.
                 className={cn('flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left text-label hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent', fresh ? 'text-dim hover:text-fg' : 'text-fg')}
               >
                 <ChevronRight size={14} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90')} />
@@ -89,7 +83,6 @@ function SessionRow({ s, onOpen, now, nested }: { s: PcSessionSummary; onOpen: (
       onClick={() => onOpen(s.id)}
       className="flex w-full min-w-0 items-start gap-3 rounded-lg px-3 py-2 text-left hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
-      {/* Running: a solid green dot with a soft ping. Idle: a hollow grey ring. The words are in the right column. */}
       <span aria-hidden className="relative mt-1.5 flex h-2 w-2 shrink-0 items-center justify-center">
         {live
           ? <><span className="absolute h-2 w-2 rounded-full bg-ok opacity-60 motion-safe:animate-ping" /><span className="relative h-2 w-2 rounded-full bg-ok" /></>
@@ -138,7 +131,6 @@ function Subagents({ parent, kids, onOpen, now }: { parent: PcSessionSummary; ki
   );
 }
 
-/** The read-only transcript. Tool calls and results are collapsed rows; open one to see its text. */
 export function TranscriptEntries({ entries, truncated }: { entries: PcSeqEntry[]; truncated?: boolean }) {
   return (
     <div className="space-y-2.5">

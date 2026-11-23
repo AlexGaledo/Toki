@@ -1,8 +1,3 @@
-/**
- * The approve side of a card only a password-signed-in browser may allow (run_on_pc, `signInRequired`). The hub
- * token and a paired phone may still deny it; the card keeps its Deny button. Signing in sets the session
- * cookie, and the socket is reconnected so the hub's next `hello` says `signedIn` and the card offers Allow.
- */
 import { useEffect, useRef, useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { api, ApiError } from '../lib/api';
@@ -11,7 +6,6 @@ import { useStore } from '../store';
 import { Button, Dialog, Field, Input, Label } from './ui';
 import { InlineError } from './settings/parts';
 
-/** Whether the owner has a password yet. Asked again when a dialog closes, since Settings is where it gets set. */
 function usePasswordSet(): boolean | null {
   const dialogOpen = useStore((s) => s.dialog !== null);
   const [set, setSet] = useState<boolean | null>(null);
@@ -35,7 +29,6 @@ export function SignInToApprove() {
         <Button size="sm" variant="primary" className="touch-target" onClick={() => openDialog({ kind: 'settings', section: 'security' })}>
           Open Security settings
         </Button>
-        {/* Below the row: the flex row wraps, and Deny stays next to this button. */}
         <span className="order-last basis-full text-hint text-muted">Set a password in Settings → Security first. Only a browser signed in with it can approve a job on your PC.</span>
       </>
     );

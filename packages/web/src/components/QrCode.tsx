@@ -1,10 +1,7 @@
 import { useMemo } from 'react';
 import { encodeQr } from '../lib/qr';
 
-/**
- * A QR code as one SVG path: crisp at any size, four-module quiet zone, and always black on white (also in
- * dark mode), because that is what phone cameras read most reliably.
- */
+/** Always black on white, also in dark mode: phone cameras read that most reliably. */
 export function QrCode({ value, size = 208, label }: { value: string; size?: number; label: string }) {
   const { d, n } = useMemo(() => {
     const m = encodeQr(value);

@@ -1,10 +1,6 @@
-// One file, big. The bytes come with the hub token like any API call, so the token never rides a URL.
-//
-// Safety: a file here may be anything a bot or an upload put in the folder, including HTML or an SVG with script.
-// A blob: URL runs in the app's own origin if it is ever opened as a page, so a blob URL is only made with a type
-// from BLOB_TYPES (by extension, never the server's or the file's word), text is read as text, and SVG goes through
-// a data: URL in an <img> (no script in an image; an opaque origin, and Chromium refuses it as a top-level page).
-// Nothing here calls window.open. The hub's /raw route adds nosniff and a sandbox CSP for direct requests too.
+// A file here may be anything, including HTML or an SVG with script. A blob: URL runs in the app's origin if opened
+// as a page, so blobs are only typed from BLOB_TYPES (by extension, never the server's or the file's word), and SVG
+// goes through a data: URL in an <img>.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, Download, Map as MapIcon } from 'lucide-react';
@@ -18,12 +14,9 @@ import { Markdown, FileLinkBase } from '../Markdown';
 import { RowIcon } from './FileIcon';
 import { BLOB_TYPES, fmtBytes, fmtModifiedFull, joinPath, previewKind } from './fileKinds';
 
-/** Text and code show this much; past it, a line says so and Download has the rest. */
 const TEXT_PREVIEW_BYTES = 1024 * 1024;
-/** An SVG past this is shown as its source instead: a data: URL that big is slow and pointless. */
 const SVG_IMAGE_BYTES = 5 * 1024 * 1024;
 
-/** The bytes as a data: URL of a fixed type. */
 function dataUrl(blob: Blob, type: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -42,7 +35,6 @@ type Shown =
 export function FilePreview({ roomId, folder, files, index, onIndex, onClose, onDownload }: {
   roomId: string;
   folder: string;
-  /** The folder's files (not folders), in the order shown, for previous and next. */
   files: FileEntry[];
   index: number;
   onIndex: (i: number) => void;
@@ -79,7 +71,6 @@ export function FilePreview({ roomId, folder, files, index, onIndex, onClose, on
       }
       const head = await blob.slice(0, TEXT_PREVIEW_BYTES).text();
       if (!alive) return;
-      // A file with no known extension is shown only if it reads as text.
       if (kind === 'maybe-text' && head.slice(0, 8000).includes('\u0000')) {
         setShown({ kind: 'none', why: 'No preview: this looks like a binary file.' });
         return;
@@ -96,7 +87,6 @@ export function FilePreview({ roomId, folder, files, index, onIndex, onClose, on
     };
   }, [roomId, folder, entry]);
 
-  // New layout: the project's own map.json opens on the Map tab too.
   const project = useActiveProject();
   const openPage = useStore((s) => s.openPage);
   const closePanel = useStore((s) => s.closePanel);
@@ -119,7 +109,6 @@ export function FilePreview({ roomId, folder, files, index, onIndex, onClose, on
         ref={contentRef}
         tabIndex={-1}
         className="flex min-h-0 flex-1 flex-col focus:outline-none"
-        // Left and right step through the folder, except where they scroll or move a caret.
         onKeyDown={(e) => {
           if (e.altKey || e.ctrlKey || e.metaKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
           const t = e.target as HTMLElement;
@@ -145,7 +134,6 @@ export function FilePreview({ roomId, folder, files, index, onIndex, onClose, on
           {isMap && project && (
             <Button size="sm" variant="ghost" onClick={() => {
               onClose();
-              // Where Files covers the window, it steps aside so the map shows.
               if (window.innerWidth < PANEL_INLINE_MIN) closePanel();
               openPage({ kind: 'map', slug: project.slug });
             }}><MapIcon size={14} aria-hidden />Show on map</Button>
@@ -183,9 +171,8 @@ function Body({ shown, entry, folder, onDownload }: { shown: Shown; entry: FileE
       );
     }
     if (shown.as === 'pdf') {
-      // data-own-arrows: the PDF viewer pages with the arrow keys itself. No `sandbox`: Chromium and WebView2 refuse
-      // to show a PDF in any sandboxed frame (tried: every token set leaves it blank). The blob is always typed
-      // application/pdf here, so it opens in the browser's PDF viewer, never as a page of ours.
+      // No `sandbox`: Chromium and WebView2 refuse to show a PDF in any sandboxed frame. The blob is always
+      // application/pdf, so it opens in the browser's PDF viewer, never as a page of ours.
       return <iframe data-own-arrows title={entry.name} src={shown.url} className="block h-full w-full border-0" />;
     }
     if (shown.as === 'audio') {
@@ -200,7 +187,6 @@ function Body({ shown, entry, folder, onDownload }: { shown: Shown; entry: FileE
       )}
       {shown.markdown ? (
         <div className="md mx-auto px-6 py-5 text-body">
-          {/* Links in the file are relative to its folder, not to the room's. */}
           <FileLinkBase.Provider value={folder}><Markdown>{shown.text}</Markdown></FileLinkBase.Provider>
         </div>
       ) : (

@@ -1,5 +1,3 @@
-// What a file is, for its icon colour and its preview. Decided from the extension alone: the listing carries
-// nothing else, and sniffing 2,000 files to draw a folder would cost far more than it tells.
 import type { FileEntry } from '@pocketrocket/shared';
 
 export type FileKind = 'folder' | 'doc' | 'pdf' | 'code' | 'image' | 'data' | 'archive' | 'media' | 'other';
@@ -22,10 +20,9 @@ export function fileKind(e: Pick<FileEntry, 'kind' | 'ext'>): FileKind {
 }
 
 /**
- * The only types a preview ever gives a blob URL, chosen by extension and never taken from the server or the bytes.
- * All are passive (pictures, sound, video) or open in the browser's own PDF viewer; nothing here can run script in
- * the app's origin, even if someone opens the blob URL in a tab. HEIC and TIFF don't decode in Chromium, so they
- * aren't here; SVG can carry script, so it isn't either (it previews through a data: URL in an <img>, see FilePreview).
+ * The only types a preview gives a blob URL, by extension, never from the server or the bytes. All passive or the
+ * browser's PDF viewer, so nothing runs script in the app's origin. SVG can carry script; HEIC and TIFF don't decode
+ * in Chromium.
  */
 export const BLOB_TYPES: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
@@ -35,14 +32,12 @@ export const BLOB_TYPES: Record<string, string> = {
   mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
 };
 const IMAGE_PREVIEW = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'avif']);
-// The hub's own text list (api/files.ts), plus formats that are text whatever their content type.
 const TEXT_PREVIEW = new Set([
   'txt', 'csv', 'tsv', 'log', 'yaml', 'yml', 'toml', 'ini', 'xml', 'html', 'htm', 'css', 'scss', 'js', 'mjs', 'cjs', 'ts', 'tsx',
   'jsx', 'py', 'rb', 'go', 'rs', 'java', 'kt', 'c', 'h', 'cpp', 'hpp', 'cs', 'php', 'sh', 'ps1', 'bat', 'sql', 'env', 'json',
   'jsonl', 'lock', 'tex', 'swift', 'lua', 'vue', 'svelte', 'rtf', 'gitignore',
 ]);
 
-/** How to preview it, or null when nothing short of the app that made it can (a .docx, a .zip). */
 export function previewKind(e: Pick<FileEntry, 'ext' | 'size'>): PreviewKind | null {
   const x = e.ext;
   if (IMAGE_PREVIEW.has(x)) return 'image';
@@ -52,17 +47,14 @@ export function previewKind(e: Pick<FileEntry, 'ext' | 'size'>): PreviewKind | n
   if (TEXT_PREVIEW.has(x)) return 'text';
   if (x === 'mp3' || x === 'wav' || x === 'ogg' || x === 'm4a' || x === 'flac') return 'audio';
   if (x === 'mp4' || x === 'webm' || x === 'mov') return 'video';
-  // README, LICENSE, Dockerfile and the like: tried as text, and refused if they turn out to be binary.
   if (!x || !KIND_OF.has(x)) return e.size <= 2 * 1024 * 1024 ? 'maybe-text' : null;
   return null;
 }
 
-/** The badge on a file tile: the extension, short enough to fit. */
 export function badgeText(e: Pick<FileEntry, 'ext'>): string {
   return e.ext ? e.ext.slice(0, 4).toUpperCase() : 'FILE';
 }
 
-/** Name and type, for a screen reader: "report.pdf, PDF". The tile shows the same through its shape. */
 export const KIND_LABEL: Record<FileKind, string> = {
   folder: 'folder', doc: 'document', pdf: 'PDF', code: 'code', image: 'image', data: 'data', archive: 'archive', media: 'media', other: 'file',
 };
@@ -82,7 +74,6 @@ const DAY = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' 
 const DATE = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const FULL = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-/** "14:05" today, "Nov 3" this year, "Nov 3, 2025" before. */
 export function fmtModified(ms: number, now = new Date()): string {
   const d = new Date(ms);
   if (sameDay(d, now)) return TIME.format(d);
@@ -94,11 +85,6 @@ export const joinPath = (folder: string, name: string) => (folder ? folder + '/'
 export const parentPath = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
 export const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1);
 
-/**
- * Where a link in a message or a previewed Markdown file points, inside the room's folder. `base` is the folder
- * the link was written in ('' for chat). Returns null for a link that leaves the folder or that this cannot place;
- * an absolute path is passed back in `abs`, for the panel to match against the room's folder once it knows it.
- */
 export function resolveFileLink(href: string, base = ''): { path: string; file?: string } | { abs: string } | null {
   let h = href.split('#')[0].split('?')[0];
   try { h = decodeURIComponent(h); } catch { /* keep it as written */ }

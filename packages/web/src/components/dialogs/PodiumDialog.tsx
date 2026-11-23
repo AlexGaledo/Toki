@@ -5,7 +5,6 @@ import { api } from '../../lib/api';
 import { useStore } from '../../store';
 import { Avatar, Button, Dialog, Field, Label, Select } from '../ui';
 
-/** Which bots sit on the podium, and which one may read the owner's messages across every chat. */
 export function PodiumDialog({ onClose }: { onClose: () => void }) {
   const bots = useStore((s) => s.bots);
   const settings = useStore((s) => s.settings);

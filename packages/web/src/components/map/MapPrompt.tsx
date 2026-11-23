@@ -1,6 +1,3 @@
-// The map's prompt bar (docs/specs/toki-ui.md, W8): one line to ask the project's lead for a change, with the boxes
-// picked by "Ask about it" as removable chips above it. Enter sends an ordinary message to the project's room; the
-// owner stays on the map and a toast says where it went.
 import { forwardRef, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import type { Bot, Room } from '@pocketrocket/shared';

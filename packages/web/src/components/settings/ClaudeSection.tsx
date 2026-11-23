@@ -1,8 +1,3 @@
-/**
- * Settings › Claude: is Claude working, which model new bots start with, and an optional API key. With more than one
- * provider enabled the section is "Providers": a card per provider (status, Re-check) and the default, which bots set
- * to "Default" run on. Each bot can pick its own in the bot dialog (spec 01 P1-8).
- */
 import { useEffect, useState } from 'react';
 import { AUTO_MODEL_INFO, HEAVY_MODEL_HINT, MAX_ROUTING_BYTES, MODELS, isHeavyModel, modelOptionLabel } from '@pocketrocket/shared';
 import type { ModelInfo, ProviderCheck, ProviderId, ProviderInfo } from '@pocketrocket/shared';
@@ -29,11 +24,8 @@ export function ClaudeSection() {
   const active = list.find((p) => p.id === settings.provider) ?? list[0];
   const models: ModelInfo[] = [AUTO_MODEL_INFO, ...(active?.models?.length ? active.models : MODELS.map((m) => ({ id: m.id, label: m.label })))];
   const multiple = list.length > 1;
-  // Every enabled provider's keys, not only the default's: a bot can run on (or back up to) any of them. Gemini's key,
-  // for one, is what lets its routines run; without it a Gemini bot answers only messages a person sends.
   const secretKeys = [...new Set((multiple ? list : active ? [active] : []).flatMap((p) => p.secretKeys))];
 
-  // Refetch for the source of truth, but patch the check in place now so the card updates at once.
   const patchCheck = (id: ProviderId, check: ProviderCheck) => {
     void fetchProviders();
     useStore.setState((s) => (s.providers ? { providers: { ...s.providers, providers: s.providers.providers.map((p) => (p.id === id ? { ...p, check } : p)) } } : {}));
@@ -64,7 +56,6 @@ export function ClaudeSection() {
               {models.map((m) => (
                 <option key={m.id} value={m.id}>{modelOptionLabel(m)}</option>
               ))}
-              {/* Keep an unknown saved value visible instead of silently showing the first option. */}
               {!models.some((m) => m.id === settings.defaultModel) && <option value={settings.defaultModel}>{settings.defaultModel}</option>}
             </Select>
           </Field>
@@ -89,7 +80,6 @@ export function ClaudeSection() {
   );
 }
 
-/** Developer builds only (more than one provider enabled). Switching asks first, as it resets some bots' models. */
 function ServicePicker({ list, current, onChecked }: { list: ProviderInfo[]; current: ProviderId; onChecked: (id: ProviderId, check: ProviderCheck) => void }) {
   const updateSettings = useStore((s) => s.updateSettings);
   const [pending, setPending] = useState<ProviderId | null>(null);
@@ -116,7 +106,6 @@ function ServicePicker({ list, current, onChecked }: { list: ProviderInfo[]; cur
   );
 }
 
-/** The owner's routing.md. Bots read it every turn and can only propose a line, on a card. */
 function RoutingRulesGroup() {
   const toast = useStore((s) => s.toast);
   const [saved, setSaved] = useState<string | null>(null);

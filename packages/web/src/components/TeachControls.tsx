@@ -1,5 +1,3 @@
-// P6: Teach and the recordings on a bot's page (Computer tab), and the Done bar on its screen while recording.
-// One accent (the primary action is the ink button), no new motion: the recording indicator is a static dot.
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Circle, Trash2 } from 'lucide-react';
 import type { Bot, RecorderStatus, RecordingInfo } from '@pocketrocket/shared';
@@ -9,7 +7,6 @@ import { Badge, Button, Input, confirmAction } from './ui';
 
 const fmtWhen = (t: number) => new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-/** The recorder state for a bot: the last `recorder.state` event, else one GET. */
 export function useRecorder(botId: string): RecorderStatus | null {
   const live = useStore((s) => s.recorder[botId]);
   const [fetched, setFetched] = useState<RecorderStatus | null>(null);
@@ -21,7 +18,6 @@ export function useRecorder(botId: string): RecorderStatus | null {
   return live ?? fetched;
 }
 
-/** On the screen for as long as a recording runs. Done hands control back; the skill is made from the Bot page. */
 export function RecordingBar({ bot, recording }: { bot: Bot; recording: RecordingInfo }) {
   const toast = useStore((s) => s.toast);
   const openPage = useStore((s) => s.openPage);
@@ -70,7 +66,6 @@ export function TeachBar({ bot }: { bot: Bot }) {
       useStore.setState((cur) => ({ recorder: { ...cur.recorder, [bot.id]: s } }));
       setAsking(false);
       setTitle('');
-      // The hub has given the user control, so the screen is about to fill the pane: leave the page for it.
       useStore.getState().closePage();
     } catch (e) {
       toast("Couldn't start recording: " + (e as Error).message, true);

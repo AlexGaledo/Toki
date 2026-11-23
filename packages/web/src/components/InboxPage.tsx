@@ -1,6 +1,3 @@
-// U3: "Needs you", one list of everything waiting on the user across every bot and room. Rows come from
-// lib/inbox.ts; the primary action opens the room (or the bot's Skills tab), and a plain approval can be answered
-// here with the same store action the card uses.
 import { useEffect, useState } from 'react';
 import { ArrowRight, ClipboardList, Gauge, Hand, Inbox, Monitor, Sparkles, ShieldQuestion, Workflow as WorkflowIcon } from 'lucide-react';
 import { useStore, botById } from '../store';
@@ -23,7 +20,6 @@ export function InboxPage() {
   const items = useInbox();
   const ready = useStore((s) => s.helloReceived && s.inboxSkills !== null);
   const fresh = useNewPages();
-  // New layout: a composer docked at the foot of the page, for answering without leaving it (ChatPane.tsx).
   const dock = useToki();
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -56,17 +52,11 @@ export function InboxPage() {
 }
 
 function Row({ item: it, now, fresh }: { item: InboxItem; now: number; fresh?: boolean }) {
-  // A workflow approval is answered right here, on its card: nothing else (a bot, a button, chat text) can answer it.
   if (it.workflowCard) return <li><WorkflowApprovalCardView card={it.workflowCard} className="w-full" /></li>;
-  // A limit card likewise: only its own buttons answer it, so the row is the card.
   if (it.failoverCard) return <li><FailoverCardView card={it.failoverCard} className="w-full" /></li>;
   return <InboxRow item={it} now={now} fresh={fresh} />;
 }
 
-/**
- * New layout: the rows under the project whose room they wait in, projects in the sidebar's order and "Other rooms"
- * last. With no project involved it is the plain list, as there is nothing to group.
- */
 function GroupedRows({ items, now }: { items: InboxItem[]; now: number }) {
   const projects = useStore((s) => s.projects);
   const setActiveRoom = useStore((s) => s.setActiveRoom);
@@ -111,7 +101,6 @@ function InboxRow({ item, now, fresh }: { item: InboxItem; now: number; fresh?: 
   const room = rooms.find((r) => r.id === item.roomId);
   const Icon = KIND_ICON[item.kind];
   const age = fmtAge(item.since, now);
-  // A skill belongs to the bot that proposed it; a pool skill nobody proposed opens on the first bot.
   const skillBot = item.kind === 'skill' ? (bot ?? bots[0]) : undefined;
 
   const open = () => {
@@ -120,7 +109,6 @@ function InboxRow({ item, now, fresh }: { item: InboxItem; now: number; fresh?: 
       setActiveRoom(item.roomId);
     } else if (skillBot) openPage({ kind: 'bot', botId: skillBot.id, tab: 'skills' });
   };
-  // Context only: the tool and a one-line summary, from the same formatting the card uses. Approving needs the card.
   const words = item.approval ? cardWords(item.approval) : null;
   const summary = item.approval ? (words ? words.main : fmtInput(item.approval.toolInput)).replace(/\s+/g, ' ').trim().slice(0, 160) : '';
   const canOpen = !!item.roomId || !!skillBot;
@@ -153,7 +141,6 @@ function InboxRow({ item, now, fresh }: { item: InboxItem; now: number; fresh?: 
       </div>
     </>
   );
-  // New layout: the card with the needs edge, like the overview's cards (docs/specs/toki-ui.md).
   return fresh
     ? <li><ActionCard edge="needs" className="bg-card p-3">{body}</ActionCard></li>
     : <li className="rounded-2xl bg-card p-3 ring-1 ring-line">{body}</li>;

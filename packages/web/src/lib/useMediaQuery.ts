@@ -1,10 +1,5 @@
 import { useSyncExternalStore } from 'react';
 
-/**
- * True while a CSS media query matches, re-rendering when it flips (window resized, OS setting changed).
- * useSyncExternalStore is React's built-in way to read a browser value that changes outside React
- * without tearing; it replaces the older useState + useEffect + listener pattern.
- */
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
     (onChange) => {

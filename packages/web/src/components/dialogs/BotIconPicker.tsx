@@ -11,10 +11,6 @@ import { PictureUpload } from './PictureUpload';
 const CELL = 'flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full text-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel';
 const ON = 'text-fg ring-2 ring-accent';
 
-/**
- * `''` is Automatic. A new bot has no id yet, so its Automatic choice has no glyph or tint to show. A group chat passes
- * `automatic`, the mark it wears with no choice made. A picture picked here stays on offer while the dialog is open.
- */
 export function BotIconPicker({ botId, value, onChange, label = 'Icon', hint = "Automatic picks one from the bot's ID", automatic }: {
   botId: string | null;
   value: string;

@@ -1,7 +1,3 @@
-/**
- * The Toki app mark (same drawing as the app icon, so its colours are the icon's, not theme tokens). Decorative, so
- * hidden from screen readers. In dark mode the espresso disc sits on a brown panel, so a hairline keeps its edge.
- */
 export function TokiMark({ size = 88 }: { size?: number }) {
   return (
     <svg aria-hidden viewBox="0 0 100 100" width={size} height={size} className="shrink-0 rounded-full dark:ring-1 dark:ring-line2">

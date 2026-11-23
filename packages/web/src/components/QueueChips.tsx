@@ -6,18 +6,11 @@ import { useStore } from '../store';
 import { countWords, editRefusalText, itemSource, roomLanes } from '../lib/queue';
 import { Badge, Button, Popover, PopoverContent, PopoverTrigger, Textarea, cn, confirmAction } from './ui';
 
-/**
- * Queue controls (02 task 2.4): one chip per bot with messages waiting in this room (`@ada · 2 queued`), above the
- * composer. A chip opens a popover listing that bot's waiting items, each with Edit and Cancel, plus Pause queue and
- * Send now. This is the one place with queue buttons: bubbles in the transcript only say "Queued". A paused queue reads
- * "Queue paused", never "Paused", which is the screen takeover's word. No motion of its own.
- */
 export function QueueChips({ roomId, members, textarea }: { roomId: string; members: Bot[]; textarea: React.RefObject<HTMLTextAreaElement | null> }) {
   const queues = useStore((s) => s.queues);
   const lanes = useMemo(() => roomLanes(queues, roomId, members.map((m) => m.id)), [queues, roomId, members]);
   if (!lanes.length) return null;
   return (
-    // At 360px the row scrolls sideways inside its own box; the padding keeps the focus rings inside it.
     <div role="group" aria-label="Waiting messages" className="-mx-1 mb-1 flex gap-1.5 overflow-x-auto p-1">
       {lanes.map((q) => {
         const bot = members.find((m) => m.id === q.botId);
@@ -31,7 +24,6 @@ function LaneChip({ q, bot, bots, textarea }: { q: LaneQueue; bot: Bot; bots: Bo
   const queuePause = useStore((s) => s.queuePause);
   const toast = useStore((s) => s.toast);
   const [open, setOpen] = useState(false);
-  // Lifted here so Escape in the editor leaves the editor, not the whole popover.
   const [editingId, setEditingId] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const n = q.items.length;
@@ -40,7 +32,6 @@ function LaneChip({ q, bot, bots, textarea }: { q: LaneQueue; bot: Bot; bots: Bo
     const why = await queuePause(q.roomId, q.botId, false);
     if (why) toast("Couldn't resume " + bot.name + "'s queue: " + why, true);
   };
-  /** Back to the chip after a dialog, or to the composer when the chip has gone (its last item left the queue). */
   const refocus = () => {
     if (trigger.current?.isConnected) trigger.current.focus();
     else textarea.current?.focus();
@@ -60,7 +51,6 @@ function LaneChip({ q, bot, bots, textarea }: { q: LaneQueue; bot: Bot; bots: Bo
             )}
           >
             <Clock size={12} aria-hidden />
-            {/* The visible words are the name (speech input users say what they see); the hidden part says whose queue. */}
             <span className="sr-only">Queue for </span>
             <span className="font-medium">@{bot.handle}</span>
             {n > 0 && <span>· {n} queued</span>}
@@ -94,7 +84,6 @@ function LanePanel({ q, bot, bots, editingId, setEditingId, close, refocus }: {
   const toast = useStore((s) => s.toast);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // The item being edited left the queue (the bot took it in) before Save: say so instead of silently closing.
   const [lost, setLost] = useState(false);
   useEffect(() => {
     if (editingId && !q.items.some((i) => i.journalId === editingId)) { setEditingId(null); setLost(true); }
@@ -109,7 +98,6 @@ function LanePanel({ q, bot, bots, editingId, setEditingId, close, refocus }: {
     setError(why);
   };
   const cancel = async (item: QueueItem) => {
-    // The popover sits above dialogs, so it closes before the question opens; focus comes back to the chip after.
     close();
     const ok = await confirmAction({
       title: 'Cancel this message?',
@@ -126,7 +114,6 @@ function LanePanel({ q, bot, bots, editingId, setEditingId, close, refocus }: {
   };
   const sendNow = async () => {
     close();
-    // Only a running turn is interrupted. With none (a paused queue), Send now just resumes and runs the queue.
     if (q.running) {
       const ok = await confirmAction({
         title: 'Stop ' + bot.name + ' and send now?',
@@ -185,7 +172,6 @@ function QueueRow({ item, roomId, source, editing, onEdit, onDone, onCancel }: {
   item: QueueItem; roomId: string; source: string | null; editing: boolean; onEdit: () => void; onDone: () => void; onCancel: () => void;
 }) {
   const previewId = useId();
-  // The preview is cut at QUEUE_PREVIEW_CHARS; editing needs the whole text, which the loaded transcript has.
   const full = useStore((s) => (item.messageId ? s.messages[roomId]?.find((m) => m.id === item.messageId)?.text : undefined));
   const truncated = full === undefined && item.preview.length >= QUEUE_PREVIEW_CHARS;
   const refusal = editRefusalText(item) ?? (item.editable && truncated ? "Can't edit here: the full message isn't loaded. Scroll up to it and try again." : null);
@@ -218,7 +204,6 @@ function QueueEditor({ item, roomId, initial, onDone }: { item: QueueItem; roomI
   const [draft, setDraft] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // It can stop being editable while open (a bot read it): the hub's reason replaces the Save button's promise.
   const refusal = editRefusalText(item);
   const save = async () => {
     if (!draft.trim() || saving || refusal) return;

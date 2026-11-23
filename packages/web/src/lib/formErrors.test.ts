@@ -17,10 +17,8 @@ describe('form refusals', () => {
     s.applyEvent({ type: 'error', message: 'Forms are not for secrets', context: 'f1' });
     expect(useStore.getState().formErrors['f1']?.message).toBe('Forms are not for secrets');
     expect(useStore.getState().toasts).toEqual([]);
-    // sent again: the old refusal clears until the hub answers
     useStore.getState().formSent('f1');
     expect(useStore.getState().formErrors['f1']).toBeUndefined();
-    // an unrelated error still toasts
     useStore.getState().applyEvent({ type: 'error', message: 'boom', context: 'other' });
     expect(useStore.getState().toasts).toHaveLength(1);
   }, 60_000);

@@ -1,8 +1,3 @@
-/**
- * Settings › Claude: the "is Claude working?" card. It reads the provider check the hub already runs
- * (installed? version? subscription or API key?), says it in plain words, and when something is wrong
- * shows the steps to fix it plus a "Check again" button that re-runs the check.
- */
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CircleCheck, TriangleAlert } from 'lucide-react';
 import type { ProviderCheck, ProviderInfo } from '@pocketrocket/shared';
@@ -12,15 +7,14 @@ import { useRecheck } from '../ProviderCard';
 import { Private, maskEmail, shortPath } from './parts';
 
 /**
- * Anthropic's native installer, per platform. Not `npm install -g`: that leaves a claude.cmd shim in
- * %APPDATA%\npm, while the hub looks for the native binary in ~/.local/bin, which is where this installs it.
+ * Not `npm install -g`: that leaves a claude.cmd shim in %APPDATA%\npm, while the hub looks for the native binary
+ * in ~/.local/bin.
  */
 const INSTALL_COMMANDS = [
   { id: 'windows', label: 'Windows (PowerShell)', command: 'irm https://claude.ai/install.ps1 | iex' },
   { id: 'unix', label: 'macOS or Linux (Terminal)', command: 'curl -fsSL https://claude.ai/install.sh | bash' },
 ] as const;
 
-/** This browser's platform first. Usually the hub runs on the same computer, so that is the one they need. */
 function installCommands() {
   const windows = /Windows/i.test(navigator.userAgent);
   return windows ? INSTALL_COMMANDS : [...INSTALL_COMMANDS].reverse();
@@ -33,16 +27,14 @@ interface Summary {
   tone: Tone;
   badge: string;
   headline: string;
-  /** Short facts under the headline: version, how it signs in, which account. */
   facts: ReactNode[];
 }
 
-/** The signed-in address, masked until asked for. Settings is a dialog people screen-share. */
+/** Masked until asked for: Settings gets screen-shared. */
 export function PrivateEmail({ email }: { email: string }) {
   return <Private value={email} display={maskEmail(email)} label="email address" />;
 }
 
-/** Where the CLI was found, with the home directory folded to `~` so it carries no user name. */
 function PrivatePath({ path }: { path: string }) {
   return <Private value={path} display={shortPath(path)} label="path" />;
 }
@@ -52,7 +44,6 @@ function cleanVersion(version: string) {
   return version.replace(/\s*\(.*\)\s*$/, '');
 }
 
-/** "Using your Claude Max subscription", "Using your API key", or null when the check does not say. */
 export function authPhrase(check: ProviderCheck): string | null {
   if (check.auth === 'subscription') return check.plan ? 'Using your Claude ' + check.plan + ' subscription' : 'Using your Claude subscription';
   if (check.auth === 'apiKey') return 'Using your API key';
@@ -70,41 +61,28 @@ function summarize(info: ProviderInfo): Summary {
     if (check.account) facts.push(<PrivateEmail email={check.account} />);
     return { ok: true, tone: 'ok', badge: 'Ready', headline: app + ' is connected', facts };
   }
-  // The binary is there but did not answer: an install prompt would send the user to reinstall something
-  // that is already installed, when checking again after it warms up is all it takes.
   if (check.unresponsive) return { ok: false, tone: 'warn', badge: "Didn't respond", headline: 'Found ' + app + " but it didn't respond", facts };
-  // A version without ok means the app answered but is not signed in.
   if (check.version) return { ok: false, tone: 'warn', badge: 'Not signed in', headline: app + ' needs you to sign in', facts };
   return { ok: false, tone: 'warn', badge: 'Not found', headline: app + " isn't set up here yet", facts };
 }
 
 export function ConnectionStatus({ info, onChecked, hasKeyField, autoRecheckMs }: {
   info: ProviderInfo;
-  /** Gets the fresh check after "Check again". */
   onChecked: (check: ProviderCheck) => void;
-  /** Whether an API key field sits below, so the fix-it text can point to it. */
   hasKeyField: boolean;
-  /**
-   * Check once on mount, then again this often for as long as the check is failing, so a user following
-   * the steps in a terminal sees the card turn green without pressing anything. Off when omitted.
-   */
   autoRecheckMs?: number;
 }) {
   const { checking, recheck } = useRecheck(info.id, onChecked);
   const summary = summarize(info);
   const Icon = summary.ok ? CircleCheck : TriangleAlert;
 
-  // The latest recheck in a ref, so the timers below do not restart on every render.
   const recheckRef = useRef(recheck);
   recheckRef.current = recheck;
-  // Bumped when a timer fires while the window is hidden, so the next one gets scheduled anyway.
   const [skipped, setSkipped] = useState(0);
   useEffect(() => {
     if (autoRecheckMs) void recheckRef.current();
   }, [autoRecheckMs]);
   useEffect(() => {
-    // Chained rather than an interval: a check can take up to 10s when the CLI is slow, and overlapping
-    // ones would only pile more `claude` processes onto a machine that is already struggling.
     if (!autoRecheckMs || summary.ok || checking) return;
     const timer = setTimeout(() => {
       if (document.visibilityState === 'visible') void recheckRef.current();
@@ -139,18 +117,14 @@ export function ConnectionStatus({ info, onChecked, hasKeyField, autoRecheckMs }
             </div>
           )}
           {!summary.ok && <FixSteps info={info} check={info.check} hasKeyField={hasKeyField} />}
-          {/* Narrow window: the button goes under the text instead of squeezing it. */}
           {checkButton('mt-3 sm:hidden')}
         </div>
-        {/* max-sm:hidden, not "hidden sm:inline-flex": Button already carries inline-flex, and a variant always beats a plain utility. */}
         {checkButton('shrink-0 max-sm:hidden')}
       </div>
     </div>
   );
 }
 
-// overflow-wrap:anywhere, not break-all: a narrow window wraps at the spaces first ("… install.ps1 | iex")
-// and only splits the URL itself when it cannot fit on a line at all.
 const codeLine = 'mt-1 block w-fit max-w-full select-all rounded-xs bg-card2 px-2 py-1 font-mono text-hint [overflow-wrap:anywhere]';
 
 function FixSteps({ info, check, hasKeyField }: { info: ProviderInfo; check: ProviderCheck; hasKeyField: boolean }) {
@@ -171,7 +145,6 @@ function FixSteps({ info, check, hasKeyField }: { info: ProviderInfo; check: Pro
               {installCommands().map((c) => (
                 <div key={c.id} className="mt-1.5">
                   <span className="text-muted">{c.label}</span>
-                  {/* Its own line, and one click selects all of it for copying. */}
                   <code className={codeLine}>{c.command}</code>
                 </div>
               ))}

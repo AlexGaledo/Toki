@@ -1,12 +1,3 @@
-/**
- * Settings › Connections (P4): connect GitHub, Google, Slack, ClickUp and Microsoft Teams so bots can use
- * them. Connecting is one button. An OAuth provider needs the owner's own OAuth app saved once; until then the
- * button's place is taken by that one-time setup, and saving it starts the sign-in. WhatsApp and social media
- * are not here: those are used through a bot's browser. See docs/research/oauth-loopback.md.
- *
- * Every credential stays in the hub's encrypted vault; this page only ever sees whether one is stored.
- * Account names are masked with `Private` (people screen-share). A connection is shared by every bot.
- */
 import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import type { IntegrationInfo, IntegrationProvider, IntegrationsState, OAuthAppStatus, PendingConnect } from '@pocketrocket/shared';
@@ -17,26 +8,21 @@ import { Card, Group, InlineError, Private, SectionHeader, maskEmail } from './p
 
 type Method = 'oauth' | 'token';
 
-/** One step of the inline setup guide: plain text, links allowed. */
 type Steps = (redirectUri: string) => ReactNode[];
 
 interface ProviderMeta {
   name: string;
-  /** What bots can do with it, one line. */
   blurb: string;
   methods: Method[];
   defaultMethod: Method;
   device?: boolean;
-  /** Client secret: required for the browser flow, optional, or never used (public client). */
   secret: 'required' | 'optional' | 'none';
   tenant?: boolean;
   oauthSteps?: Steps;
   oauthNote?: string;
   tokenSteps?: Steps;
   token?: { label: string; placeholder: string };
-  /** Why there is no OAuth option, when there is none. */
   noOauth?: string;
-  /** Where the user revokes access at the provider (disconnecting here only forgets the token). */
   revokeUrl: string;
 }
 
@@ -121,10 +107,8 @@ const PROVIDERS: Record<IntegrationProvider, ProviderMeta> = {
 const MAIN: IntegrationProvider[] = ['github', 'google'];
 const OTHER: IntegrationProvider[] = ['slack', 'clickup', 'teams'];
 
-/** The page's own address is on this computer, so a provider can send the browser back through the tunnel. */
 const onLoopback = () => ['127.0.0.1', 'localhost', '[::1]'].includes(window.location.hostname);
 
-/** `alex@example.com` → `a•••@example.com`; `Acme · crewbot` → `A•••`. */
 function maskAccount(label: string): string {
   if (label.includes('@')) return maskEmail(label);
   return (Array.from(label)[0] ?? '') + '•••';
@@ -146,8 +130,6 @@ export function IntegrationsSection() {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // While a sign-in is under way the hub finishes it on its own (browser callback or device code); check
-  // back every two seconds until nothing is pending, and whenever the window regains focus.
   const waiting = !!state?.pending.length;
   useEffect(() => {
     if (!waiting) return;
@@ -219,10 +201,8 @@ function ProviderGroup({ provider, conn, app, pending, redirectUri, onChange }: 
   const meta = PROVIDERS[provider];
   const [reconnecting, setReconnecting] = useState(false);
   const showConnect = !conn || reconnecting || conn.status === 'expired';
-  // Setup and token forms stay folded until asked for, so an unconnected provider reads as one button.
   const [opened, setOpened] = useState(false);
   const folded = !conn && !pending && !opened && !app.configured;
-  // A finished sign-in closes the reconnect form.
   const connUpdated = conn?.updatedAt;
   useEffect(() => setReconnecting(false), [connUpdated]);
 
@@ -249,7 +229,6 @@ function ConnectForms({ provider, app, pending, redirectUri, onChange }: {
 }) {
   const meta = PROVIDERS[provider];
   const [method, setMethod] = useState<Method>(meta.defaultMethod);
-  // Once the app is saved, or a sign-in is running, there is one thing to do: no tabs.
   const both = meta.methods.length > 1 && !pending && !(app.configured && meta.defaultMethod === 'oauth');
   const form = (m: Method) => m === 'oauth'
     ? <OAuthConnect provider={provider} app={app} pending={pending} redirectUri={redirectUri} onChange={onChange} />
@@ -309,7 +288,6 @@ function OAuthConnect({ provider, app, pending, redirectUri, onChange }: {
       setBusy(false);
     }
   };
-  /** Sign in by browser when the provider can send it back here; otherwise by code; otherwise say why not. */
   const start = async (hasSecret: boolean) => {
     if (onLoopback() && (meta.secret !== 'required' || hasSecret)) {
       const { url } = await api.integrations.startOAuth(provider);

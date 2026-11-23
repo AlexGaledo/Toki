@@ -24,10 +24,6 @@ import { listQuery, PC_ENTRY_PAGE, type PcSessionDetail, type PcSessionQuery, ty
 import type { TelegramState } from './telegram';
 import { getToken, reportAuthFailure, clearAuthFailure } from './auth';
 
-/**
- * A non-2xx answer from the hub. `message` is the hub's own `{ error }` text, ready to show the user;
- * `status` lets callers tell "not there yet" (404) or "locked" (409) apart from a plain failure.
- */
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -37,8 +33,6 @@ export class ApiError extends Error {
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = getToken();
-  // Sent on every request (GET included) so mutating routes always carry it — the hub rejects
-  // mutating routes without a JSON content type.
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (token) headers.authorization = 'Bearer ' + token;
   const r = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -53,16 +47,10 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   return j as T;
 }
 
-/** How many messages one transcript page holds. A page shorter than this means the room's start was reached. */
 export const MESSAGE_PAGE = 200;
 
-/** GET /api/health also carries the hub's version and active provider, which HealthInfo leaves out. */
 export type HealthResponse = HealthInfo & { version?: string; provider?: ProviderId };
 
-/**
- * What the account POSTs answer. The contract only pins GET /api/account to AccountState, so callers
- * treat any other body as "done, go refetch" (see `store.applyAccountResponse`).
- */
 export type AccountActionResponse = AccountState | { ok: boolean } | Record<string, unknown>;
 
 export interface ProjectInfo { slug: string; name: string; dir: string; memberIds: string[]; roomId: string | null; templateVersion: number | null; createdAt: number }
@@ -70,7 +58,6 @@ export interface ProjectLint { issues: { kind: string; path: string; detail: str
 
 const filesBase = (roomId: string) => '/api/rooms/' + encodeURIComponent(roomId) + '/files';
 
-/** A File as plain base64 (no `data:` prefix), the shape POST /api/rooms/:id/files/upload takes. */
 function fileToBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -80,12 +67,10 @@ function fileToBase64(file: Blob): Promise<string> {
   });
 }
 
-/** A bot's own account of being stopped (GET /api/bot-reports). */
 export interface BotReportRow {
   id: string; botId: string; roomId: string | null; kind: 'captcha' | 'login' | 'blocked' | 'other'; site: string; reason: string;
   status: 'pending' | 'resolved' | 'dismissed'; createdAt: number;
 }
-/** One outside MCP server as the hub lists it. Tokens and env values are never in it, only whether they are set. */
 export interface McpServerRow {
   name: string; kind: 'http' | 'stdio' | 'invalid'; status: 'configured' | 'invalid'; problems: string[];
   url?: string; urlHasQuery?: boolean; tokenSet?: boolean; command?: string; args?: string[]; argsMasked?: boolean; envKeys?: string[];
@@ -119,20 +104,13 @@ export const api = {
     remove: (name: string) => req<{ ok: true }>('DELETE', '/api/mcp-servers/' + encodeURIComponent(name)),
     check: (name: string) => req<{ ok: boolean; result: string; at: number }>('POST', '/api/mcp-servers/' + encodeURIComponent(name) + '/check', {}),
   },
-  /**
-   * A room's file folder (hub token only; a paired phone gets 403). Paths are relative to the room's folder with '/'
-   * separators, '' being the folder itself. `files.changed` events name the folder whose listing changed.
-   */
   files: {
     list: (roomId: string, path = '') => req<FileListing>('GET', filesBase(roomId) + '?path=' + encodeURIComponent(path)),
-    /** Where an absolute server path (as a bot writes it) sits in the room's folder; 404 when it is outside it. */
     where: (roomId: string, abs: string) => req<{ path: string; kind: 'file' | 'dir' }>('GET', filesBase(roomId) + '/where?path=' + encodeURIComponent(abs)),
-    /** Opens a file of the room's folder in a bot's server browser. Answers whose screen it used. */
     browse: (roomId: string, path: string, botId?: string) => req<{ botId: string | null }>('POST', filesBase(roomId) + '/browse', { path, ...(botId ? { botId } : {}) }),
-    /** The raw-bytes URL. It needs the Bearer header, so fetch it with `blob` rather than putting it in an <img>. */
+    /** Needs the Bearer header, so fetch it as a blob rather than putting it in an <img>. */
     rawUrl: (roomId: string, path: string, download = false) =>
       filesBase(roomId) + '/raw?path=' + encodeURIComponent(path) + (download ? '&download=1' : ''),
-    /** The file's bytes, for a preview (blob URL) or a download. Files over 50 MB are refused with 413. */
     blob: async (roomId: string, path: string, download = false): Promise<Blob> => {
       const token = getToken();
       const r = await fetch(api.files.rawUrl(roomId, path, download), { headers: token ? { authorization: 'Bearer ' + token } : {} });
@@ -144,18 +122,11 @@ export const api = {
       return r.blob();
     },
     upload: (roomId: string, input: FileUploadInput) => req<FileChangeResult>('POST', filesBase(roomId) + '/upload', input),
-    /**
-     * Reads a picked or dropped File and uploads it into the folder `path` (25 MB cap; 409 if the name is taken).
-     * `parents` makes any missing folder in `path` first, as a folder upload needs.
-     */
     uploadFile: async (roomId: string, path: string, file: File, overwrite = false, parents = false, name = file.name) =>
       api.files.upload(roomId, { path, name, dataBase64: await fileToBase64(file), overwrite, ...(parents ? { parents } : {}) }),
-    /** `parents`: mkdir -p, so missing folders in `path` are made and a folder already called `name` is fine. */
     mkdir: (roomId: string, path: string, name: string, parents = false) =>
       req<FileChangeResult>('POST', filesBase(roomId) + '/folder', parents ? { path, name, parents } : { path, name }),
-    /** Rename or move: both paths relative to the room's folder. 409 when `to` exists. */
     rename: (roomId: string, from: string, to: string) => req<FileChangeResult>('PATCH', filesBase(roomId), { from, to }),
-    /** A folder with anything in it needs `recursive` (409 otherwise). */
     remove: (roomId: string, path: string, recursive = false) =>
       req<FileChangeResult>('DELETE', filesBase(roomId) + '?path=' + encodeURIComponent(path) + (recursive ? '&recursive=true' : '')),
   },
@@ -166,14 +137,11 @@ export const api = {
     lint: (slug: string) => req<ProjectLint>('GET', '/api/projects/' + encodeURIComponent(slug) + '/lint'),
     repos: (slug: string) => req<ProjectReposFile>('GET', '/api/projects/' + encodeURIComponent(slug) + '/repos'),
     setRepos: (slug: string, body: ReposPutBody) => req<ProjectReposFile>('PUT', '/api/projects/' + encodeURIComponent(slug) + '/repos', body),
-    /** Parsed from the project's current.md, with no AI turn (Toki UI B3). */
     overview: (slug: string) => req<ProjectOverview>('GET', '/api/projects/' + encodeURIComponent(slug) + '/overview'),
-    /** The project's map.json, checked against ProjectMapSchema (Toki UI B2). */
     map: (slug: string) => req<ProjectMapReply>('GET', '/api/projects/' + encodeURIComponent(slug) + '/map'),
   },
   auth: {
     status: () => req<{ passwordSet: boolean; signedIn: boolean }>('GET', '/api/auth/status'),
-    /** Sets the session cookie. 403 wrong password, 429 too many tries. Reconnect the socket after, so it carries it. */
     login: (password: string) => req<{ ok: boolean }>('POST', '/api/auth/login', { password }),
     sessions: () => req<{ sessions: UserSessionInfo[]; current: string | null; passwordSet: boolean }>('GET', '/api/auth/sessions'),
     setPassword: (password: string, currentPassword?: string) => req<{ ok: boolean }>('POST', '/api/auth/password', { password, currentPassword }),
@@ -184,13 +152,10 @@ export const api = {
   audit: (opts: { limit?: number; before?: number } = {}) =>
     req<{ entries: AuditEntry[] }>('GET', '/api/audit?limit=' + (opts.limit ?? 50) + (opts.before ? '&before=' + opts.before : '')),
   health: () => req<HealthResponse>('GET', '/api/health'),
-  // P1: with a botId, that bot's own computer (`computer` says whether this hub has per-bot computers at all).
   screen: (botId?: string) =>
     req<{ screen: boolean; cdp: boolean; url: string; computer?: ComputerStatus }>('GET', '/api/screen' + (botId ? '?botId=' + encodeURIComponent(botId) : '')),
-  // Spends the hub token on a single-use ticket so the token itself never reaches an iframe URL. With a botId
-  // the ticket opens that bot's screen only.
+  // Spends the hub token on a single-use ticket so the token never reaches an iframe URL.
   screenTicket: (botId?: string) => req<{ url: string }>('POST', '/api/screen/ticket', botId ? { botId } : undefined),
-  /** Opens a web link in a bot's server browser (that bot, else the chat's first bot with Browser). Answers whose screen. */
   screenOpen: (url: string, roomId?: string | null, botId?: string) =>
     req<{ botId: string | null }>('POST', '/api/screen/open', { url, ...(roomId ? { roomId } : {}), ...(botId ? { botId } : {}) }),
   computers: {
@@ -199,17 +164,12 @@ export const api = {
     keepAwake: (botId: string, on: boolean) => req<ComputerStatus>('PUT', '/api/computers/' + encodeURIComponent(botId) + '/keep-awake', { on }),
   },
   config: () => req<{ workspaceDir: string; version: string }>('GET', '/api/config'),
-  // Opens the shared workspace on whichever computer the hub runs on; `where` says which one it was. On a hub
-  // with per-bot computers it opens on `botId`'s computer (P1), or `error` says to open its Screen first.
   openWorkspace: (botId?: string | null) =>
     req<{ ok: boolean; where: 'explorer' | 'finder' | 'screen' | 'file-manager'; path: string; error?: string }>('POST', '/api/workspace/open', botId ? { botId } : {}),
-  // A picture, base64 in JSON. Reading one back is lib/media.ts, which wants a blob rather than JSON.
   media: {
     upload: (data: string) => req<{ ref: string }>('POST', '/api/media', { data }),
-    /** A picture for a chat message: the hub's larger cap (10 MB), same checks on the bytes. */
     uploadAttachment: (data: string) => req<{ ref: string }>('POST', '/api/media?for=attachment', { data }),
   },
-  // Files and videos on a chat message: raw bytes up (XHR, for progress), a download and the name back.
   attachments: {
     upload: (file: File, onProgress?: (fraction: number) => void, signal?: AbortSignal): Promise<StoredFileMeta> =>
       new Promise((resolve, reject) => {
@@ -234,7 +194,6 @@ export const api = {
         x.send(file);
       }),
     meta: (hash: string) => req<StoredFileMeta>('GET', '/api/files/' + hash + '/meta'),
-    /** The file's bytes (Bearer header, so not a plain link). */
     blob: async (hash: string): Promise<Blob> => {
       const token = getToken();
       const r = await fetch('/api/files/' + hash, { headers: token ? { authorization: 'Bearer ' + token } : {} });
@@ -243,21 +202,17 @@ export const api = {
       return r.blob();
     },
   },
-  /** The composer's `/` menu for one room. */
   commands: (roomId: string) => req<SlashCommandInfo[]>('GET', '/api/rooms/' + encodeURIComponent(roomId) + '/commands'),
   bots: {
     list: () => req<Bot[]>('GET', '/api/bots'),
     create: (b: BotInput) => req<Bot>('POST', '/api/bots', b),
     update: (id: string, b: Partial<BotInput>) => req<Bot>('PATCH', '/api/bots/' + id, b),
     remove: (id: string) => req<{ ok: true }>('DELETE', '/api/bots/' + id),
-    /** memory.md, its size and cap in bytes, and when auto-memory last wrote to it (null: never). */
     memory: (id: string) => req<{ text: string; bytes: number; limit: number; lastAutoSavedAt: number | null }>('GET', '/api/bots/' + id + '/memory'),
     setMemory: (id: string, text: string) => req<{ ok: true }>('PUT', '/api/bots/' + id + '/memory', { text }),
     skills: (id: string) => req<string[]>('GET', '/api/bots/' + id + '/skills'),
     setSkills: (id: string, skillIds: string[]) => req<{ ok: true }>('PUT', '/api/bots/' + id + '/skills', { skillIds }),
-    /** U10: the bot as a shareable file. Never holds secrets, paths or permissions. */
     export: (id: string, includeMemory: boolean) => req<BotExportResult>('GET', '/api/bots/' + id + '/export' + (includeMemory ? '?memory=1' : '')),
-    /** U10: always makes a new bot. `file` is the parsed JSON the user picked. */
     import: (file: unknown, includeMemory: boolean) => req<BotImportResult>('POST', '/api/bots/import' + (includeMemory ? '?memory=1' : ''), file),
     resetSession: (id: string, roomId: string) => req<{ ok: true }>('POST', '/api/bots/' + id + '/reset-session', { roomId }),
   },
@@ -270,13 +225,9 @@ export const api = {
     create: (r: RoomInput) => req<Room>('POST', '/api/rooms', r),
     update: (id: string, r: Partial<RoomInput>) => req<Room>('PATCH', '/api/rooms/' + id, r),
     remove: (id: string) => req<{ ok: true }>('DELETE', '/api/rooms/' + id),
-    /** The composer's pick for this chat; null goes back to each bot's own model. */
     setModel: (id: string, model: string | null) => req<Room>('PUT', '/api/rooms/' + id + '/model', { model }),
-    // `before` is a message seq (exclusive): the hub returns the page of messages just older than it.
     messages: (id: string, before?: number) => req<Message[]>('GET', '/api/rooms/' + id + '/messages?limit=' + MESSAGE_PAGE + (before ? '&before=' + before : '')),
-    /** Queue controls (02 Phase 2): each bot's waiting items in this room. A refusal throws ApiError with the hub's reason. */
     queue: (id: string) => req<LaneQueue[]>('GET', '/api/rooms/' + id + '/queue'),
-    /** P4-2: each member bot's context size in this room, by bot id; bots with nothing to show are left out. */
     context: (id: string) => req<Record<string, ContextUsage>>('GET', '/api/rooms/' + id + '/context'),
     queueCancel: (id: string, journalId: string) => req<Message>('POST', '/api/rooms/' + id + '/queue/cancel', { journalId }),
     queueEdit: (id: string, journalId: string, text: string) => req<Message>('POST', '/api/rooms/' + id + '/queue/edit', { journalId, text }),
@@ -312,14 +263,12 @@ export const api = {
     cancel: (runId: string) => req<WorkflowRunSummary>('POST', '/api/workflow-runs/' + runId + '/cancel'),
     retry: (runId: string) => req<WorkflowRunSummary>('POST', '/api/workflow-runs/' + runId + '/retry'),
     cards: () => req<WorkflowApprovalCard[]>('GET', '/api/workflow-cards'),
-    /** Person-only: the hub refuses a bot, the PC runner, a cta button and chat text. */
     decide: (runId: string, d: WorkflowDecision) => req<WorkflowRunSummary>('POST', '/api/workflow-runs/' + runId + '/decision', d),
   },
   usage: (q: { botId?: string; roomId?: string } = {}) => {
     const p = new URLSearchParams();
     if (q.botId) p.set('botId', q.botId);
     if (q.roomId) p.set('roomId', q.roomId);
-    // byModel / byCause arrive from P8 hubs and byProvider from v0.5; an older hub leaves them out.
     return req<{ totals: UsageTotals; rows: UsageRow[]; byModel?: UsageGroup[]; byCause?: UsageGroup[]; byProvider?: UsageGroup[] }>('GET', '/api/usage?' + p.toString());
   },
   previews: () => req<Record<string, BotPreview>>('GET', '/api/previews'),
@@ -333,7 +282,6 @@ export const api = {
     list: () => req<ProvidersResponse>('GET', '/api/providers'),
     check: (id: ProviderId) => req<ProviderCheck>('POST', '/api/providers/' + id + '/check'),
   },
-  /** M8 failover cards (spec 01 P3-1): open cards and bots running on their backup; the owner's answer. */
   failover: {
     get: () => req<FailoverState>('GET', '/api/failover'),
     decide: (id: string, decision: FailoverDecision['decision']) => req<FailoverCard>('POST', '/api/failover-cards/' + encodeURIComponent(id) + '/decision', { decision }),
@@ -342,7 +290,6 @@ export const api = {
     get: () => req<SecretsStatus>('GET', '/api/secrets'),
     update: (patch: Record<string, string>) => req<SecretsStatus>('PUT', '/api/secrets', patch),
   },
-  // Optional Toki account. The hub holds the session; the UI only ever sees AccountState.
   account: {
     get: () => req<AccountState>('GET', '/api/account'),
     magicLink: (email: string) => req<AccountActionResponse>('POST', '/api/account/magic-link', { email }),
@@ -351,7 +298,6 @@ export const api = {
     signOut: () => req<AccountActionResponse>('POST', '/api/account/sign-out', {}),
     oauth: (provider: 'google' | 'github') => req<{ url: string }>('POST', '/api/account/oauth', { provider }),
   },
-  // ---- P7: knowledge repo, voice, notes, skill import from git ----
   knowledge: {
     status: () => req<KnowledgeStatus>('GET', '/api/knowledge'),
     sync: () => req<KnowledgeStatus>('POST', '/api/knowledge/sync', {}),
@@ -364,12 +310,10 @@ export const api = {
   },
   notes: (botId: string) => req<{ name: string; bytes: number; mtime: number }[]>('GET', '/api/bots/' + botId + '/notes'),
   importSkillsFromGit: (url: string) => req<SkillGitImportResult>('POST', '/api/skills/import-git', { url }),
-  // P4: integrations. The hub keeps every credential; these answers never carry one.
   integrations: {
     get: () => req<IntegrationsState>('GET', '/api/integrations'),
     setApp: (p: IntegrationProvider, app: OAuthAppInput) => req<OAuthAppStatus>('PUT', '/api/integrations/apps/' + p, app),
     removeApp: (p: IntegrationProvider) => req<OAuthAppStatus>('DELETE', '/api/integrations/apps/' + p),
-    // Not under /api: the hub mints state + PKCE and answers the provider's authorize URL.
     startOAuth: (p: IntegrationProvider) => req<{ url: string; redirectUri: string }>('POST', '/oauth/start/' + p, {}),
     startDevice: (p: IntegrationProvider) => req<PendingConnect>('POST', '/api/integrations/device/' + p, {}),
     cancel: (p: IntegrationProvider) => req<{ ok: true }>('POST', '/api/integrations/cancel/' + p, {}),
@@ -378,7 +322,6 @@ export const api = {
     setGrants: (id: string, botIds: string[]) => req<IntegrationInfo>('PUT', '/api/integrations/' + id + '/grants', { botIds }),
     disconnect: (id: string) => req<{ ok: true }>('DELETE', '/api/integrations/' + id),
   },
-  // P5: event triggers.
   triggers: {
     get: () => req<TriggersState>('GET', '/api/triggers'),
     create: (t: TriggerInput) => req<Trigger>('POST', '/api/triggers', t),
@@ -387,30 +330,23 @@ export const api = {
     fires: (id: string) => req<TriggerFire[]>('GET', '/api/triggers/' + id + '/fires'),
     test: (id: string, body: TriggerTestInput = {}) => req<TriggerFire>('POST', '/api/triggers/' + id + '/test', body),
   },
-  // ---- P9: paired devices and opt-in Web Push ----
-  // The owner's PC as a job runner. Hub principal only; a paired phone and the runner itself get 403.
   pcRunner: {
     status: () => req<PcRunnerStatus>('GET', '/api/pc-runner'),
     jobs: (limit = 50) => req<PcJobView[]>('GET', '/api/pc-runner/jobs?limit=' + limit),
-    /** Owner starts a run (bridge P4). The click in a password-signed-in browser is the approval: 403 otherwise, 409 if the runner is off. */
     start: (body: PcJobRequest) => req<PcJobView>('POST', '/api/pc-runner/jobs', body),
     job: (id: string) => req<PcJobView>('GET', '/api/pc-runner/jobs/' + encodeURIComponent(id)),
-    /** Shown once and never stored here: the caller keeps it in component state only. Replaces the old token. */
     mintToken: () => req<{ token: string }>('POST', '/api/pc-runner/token', {}),
     turnOff: () => req<{ ok: true; cancelled: number }>('DELETE', '/api/pc-runner'),
     machines: () => req<MachineInfo[]>('GET', '/api/pc-runner/machines'),
     setMachinePolicy: (id: string, policy: MachinePolicy) => req<MachineInfo>('PUT', '/api/pc-runner/machines/' + encodeURIComponent(id), { policy }),
   },
-  // Claude Code sessions mirrored from the owner's PC (bridge P3). Hub principal only.
   pcSessions: {
     list: (p: PcSessionQuery = {}) => req<{ sessions: PcSessionSummary[] }>('GET', '/api/pc-sessions' + listQuery(p)),
     get: (id: string) => req<PcSessionDetail>('GET', '/api/pc-sessions/' + encodeURIComponent(id)),
     entries: (id: string, after = 0, limit = PC_ENTRY_PAGE) => req<{ entries: PcSeqEntry[]; more: boolean }>('GET', '/api/pc-sessions/' + encodeURIComponent(id) + '/entries?after=' + after + '&limit=' + limit),
     remove: (id: string) => req<{ ok: true }>('DELETE', '/api/pc-sessions/' + encodeURIComponent(id)),
-    /** Bridge P6: one turn on the VPS copy of a moved session. 409 while a turn runs; owner, signed-in browser only. */
     continue: (id: string, body: { prompt: string }) => req<{ ok: true }>('POST', '/api/pc-sessions/' + encodeURIComponent(id) + '/continue', body),
   },
-  // Saved logins for fill_credential. The secret is write-only: it is sent here and never comes back.
   credentials: {
     list: () => req<{ credentials: CredentialInfo[] }>('GET', '/api/credentials'),
     create: (c: Omit<CredentialCreate, 'username'> & { username?: string }) => req<CredentialInfo>('POST', '/api/credentials', c),
@@ -419,12 +355,10 @@ export const api = {
   },
   devices: {
     list:() => req<{ devices: DeviceInfo[]; current: string | null }>('GET', '/api/devices'),
-    // Hub token only. The answer carries a one-time code, never the hub token.
     pairing: () => req<PairingCode>('POST', '/api/devices/pairing', {}),
     rename: (id: string, name: string) => req<DeviceInfo>('PATCH', '/api/devices/' + encodeURIComponent(id), { name }),
     revoke: (id: string) => req<{ ok: true }>('DELETE', '/api/devices/' + encodeURIComponent(id)),
   },
-  // Settings › Notifications › Telegram. Owner only; the hub never sends the token back.
   telegram: {
     get: () => req<TelegramState>('GET', '/api/telegram'),
     setToken: (token: string) => req<TelegramState>('PUT', '/api/telegram/token', { token }),
@@ -440,7 +374,6 @@ export const api = {
     unsubscribe: (endpoint: string) => req<{ ok: boolean }>('POST', '/api/push/unsubscribe', { endpoint }),
     test: () => req<{ sent: number; failed: number }>('POST', '/api/push/test', {}),
   },
-  // ---- P2: take over / hand back / pause, approval rules ----
   control: {
     list: () => req<ControlStatus[]>('GET', '/api/control'),
     set: (botId: string, control: ComputerControl, o: { holder?: string; note?: string } = {}) =>
@@ -448,11 +381,9 @@ export const api = {
   },
   policies: {
     list: (botId?: string) => req<ApprovalPolicy[]>('GET', '/api/approval-policies' + (botId ? '?botId=' + encodeURIComponent(botId) : '')),
-    /** From an answered card; `pattern` narrows or widens what it covers. */
     fromApproval: (approvalId: string, pattern?: string) => req<ApprovalPolicy>('POST', '/api/approval-policies', { approvalId, ...(pattern ? { pattern } : {}) }),
     revoke: (id: string) => req<{ ok: true }>('DELETE', '/api/approval-policies/' + encodeURIComponent(id)),
   },
-  // ---- P6: teach by demonstration, skill versions, reflection ----
   teach: {
     status: (botId: string) => req<RecorderStatus>('GET', '/api/computers/' + encodeURIComponent(botId) + '/recorder'),
     start: (botId: string, title?: string) => req<RecorderStatus>('POST', '/api/computers/' + encodeURIComponent(botId) + '/recorder/start', title ? { title } : {}),
@@ -481,8 +412,6 @@ export const api = {
   },
 };
 
-// ---- P9 ----
-/** A paired device as the hub lists it (never its token or hash). */
 export interface DeviceInfo {
   id: string;
   name: string;
@@ -490,7 +419,6 @@ export interface DeviceInfo {
   lastSeenAt: number | null;
   revoked: boolean;
 }
-/** A fresh pairing code; `hosts` are the hub's POCKETROCKET_ALLOWED_HOSTS (where a phone can reach it). */
 export interface PairingCode {
   code: string;
   expiresAt: number;

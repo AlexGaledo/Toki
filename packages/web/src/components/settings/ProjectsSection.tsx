@@ -1,7 +1,3 @@
-/**
- * Settings › Projects. A project is a shared folder, and this list of who may work in it is the owner's alone: no bot
- * tool reaches it. Creating a project can also clone the development team template, with its own group chat.
- */
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, FolderGit2, Map as MapIcon, Plus, TriangleAlert } from 'lucide-react';
 import { useNewLayout } from '../../lib/newLayout';
@@ -20,7 +16,6 @@ export function ProjectsSection() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
-    // Into the store too: the sidebar lists projects, and the hub sends no event for a members change.
     api.projects.list().then((list) => { setProjects(list); useStore.setState({ projects: list }); }, (e: Error) => setError(e.message));
   }, []);
   useEffect(load, [load]);
@@ -75,7 +70,6 @@ function ProjectCard({ project, onChanged, onError }: { project: ProjectInfo; on
   const bots = useStore((s) => s.bots);
   const [lint, setLint] = useState<ProjectLint | null>(null);
   const [reposOpen, setReposOpen] = useState(false);
-  // New layout: a project with a chat gets "Map" and "Open project", which close Settings and open its map or chat.
   const fresh = useNewLayout();
   const roomId = project.roomId;
   const go = (map: boolean) => {

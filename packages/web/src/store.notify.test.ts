@@ -12,7 +12,6 @@ function memoryStorage(): Storage {
 let focused = false;
 let invoke: ReturnType<typeof vi.fn>;
 
-/** A fresh store, in a window that is (or is not) the desktop app. */
 async function boot(desktop = true) {
   vi.resetModules();
   invoke = vi.fn(async (cmd: string) => (cmd.endsWith('is_permission_granted') ? true : undefined));

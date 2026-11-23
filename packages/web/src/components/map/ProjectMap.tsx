@@ -1,11 +1,3 @@
-// The project map's canvas (docs/specs/toki-ui.md, W7), drawn by hand: HTML boxes and an SVG layer under them, in
-// one "world" that is panned and zoomed with a CSS transform. MapPage loads it with React.lazy, so it stays out of
-// the entry bundle like the workflow canvas.
-//   - Drag empty space to pan; the wheel or a pinch zooms; Fit and the zoom buttons do the same from the keyboard.
-//   - Every box is a button in reading order, so Tab reaches each one. Enter or a click focuses it: an accent ring, a
-//     faint static sphere behind it, and two bubbles, "Ask about it" and "Details". Escape clears the focus.
-//   - Nothing moves on its own: no keyframes, no animated edges, and the view only changes when the owner moves it.
-//   - Read-only (narrow windows): pan and pinch only, so the boxes are plain text.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Info, Maximize, MessageSquarePlus, Minus, Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger, Tooltip, cn } from '../ui';
@@ -14,23 +6,17 @@ import { NODE_H, NODE_W, edgePath, fitView, type MapLayout, type PlacedNode } fr
 
 export interface ProjectMapProps {
   layout: MapLayout;
-  /** "System map" or "Roadmap", for the canvas's accessible name. */
   title: string;
-  /** Ids of the boxes picked into the prompt bar. */
   picked: string[];
   onAsk: (node: PlacedNode) => void;
   readOnly: boolean;
-  /** Goes at the end of the toolbar (the Regenerate popover). */
   toolbarEnd?: ReactNode;
-  /** Space the prompt bar takes at the bottom of the stage, so Fit keeps the boxes clear of it. */
   bottomInset: number;
 }
 
 interface View { s: number; tx: number; ty: number }
 const MIN_S = 0.35;
 const MAX_S = 2;
-/** On a wide stage Fit never shrinks the boxes below this, so labels stay readable; a wider map is panned. A narrow
- * (read-only) stage fits the whole map, as an overview. */
 const FIT_MIN_S = 0.8;
 const clampS = (s: number) => Math.min(MAX_S, Math.max(MIN_S, s));
 
@@ -38,14 +24,12 @@ export default function ProjectMap({ layout, title, picked, onAsk, readOnly, too
   const stageRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
-  // Until the owner moves the view, it keeps fitting the map as the stage resizes (panels opening, the window).
   const moved = useRef(false);
   const viewRef = useRef<View | null>(null);
   viewRef.current = view;
 
   const byId = useMemo(() => new Map(layout.nodes.map((n) => [n.id, n])), [layout]);
   const focused = focus ? byId.get(focus) ?? null : null;
-  // A roadmap's current milestone carries the sphere while nothing else is focused.
   const sphereAt = focused ?? layout.nodes.find((n) => n.state === 'now') ?? null;
 
   const fit = useCallback(() => {
@@ -64,10 +48,8 @@ export default function ProjectMap({ layout, title, picked, onAsk, readOnly, too
     return () => ro.disconnect();
   }, [fit]);
 
-  // A focus that names a box the new map no longer has is dropped.
   useEffect(() => { if (focus && !byId.has(focus)) setFocus(null); }, [byId, focus]);
 
-  /** Zooms by `k` around a point of the stage (its centre by default). */
   const zoomBy = useCallback((k: number, px?: number, py?: number) => {
     const v = viewRef.current, el = stageRef.current;
     if (!v || !el) return;
@@ -77,7 +59,7 @@ export default function ProjectMap({ layout, title, picked, onAsk, readOnly, too
     setView({ s, tx: cx - ((cx - v.tx) / v.s) * s, ty: cy - ((cy - v.ty) / v.s) * s });
   }, []);
 
-  // The wheel zooms. React's onWheel is passive, so the listener is added by hand to be able to stop the page scroll.
+  // React's onWheel is passive, so the listener is added by hand to be able to stop the page scroll.
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
@@ -90,7 +72,6 @@ export default function ProjectMap({ layout, title, picked, onAsk, readOnly, too
     return () => el.removeEventListener('wheel', onWheel);
   }, [zoomBy]);
 
-  // Panning with one pointer on empty space, pinching with two.
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const onPointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button, a, input, [data-map-ui]')) return;
@@ -115,7 +96,6 @@ export default function ProjectMap({ layout, title, picked, onAsk, readOnly, too
   };
   const onPointerUp = (e: React.PointerEvent) => { pointers.current.delete(e.pointerId); };
 
-  /** Keyboard focus on a box that is off screen pans just enough to show it. */
   const reveal = (n: PlacedNode) => {
     const v = viewRef.current, el = stageRef.current;
     if (!v || !el) return;
@@ -142,7 +122,6 @@ export default function ProjectMap({ layout, title, picked, onAsk, readOnly, too
       onPointerCancel={onPointerUp}
       onKeyDown={(e) => { if (e.key === 'Escape' && focus) { e.stopPropagation(); setFocus(null); } }}
     >
-      {/* First in the DOM so Tab meets the tools before the boxes, as the eye does. */}
       <div data-map-ui role="toolbar" aria-label="Map tools" className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 @max-[640px]:left-auto @max-[640px]:right-3 @max-[640px]:translate-x-0 items-center gap-0.5 rounded-full bg-panel p-1 shadow-[var(--shadow)] ring-1 ring-line">
         <ToolButton label="Fit to view" onClick={fit}><Maximize size={14} aria-hidden /></ToolButton>
         <ToolButton label="Zoom out" onClick={() => zoomBy(1 / 1.2)} disabled={s <= MIN_S + 0.001}><Minus size={14} aria-hidden /></ToolButton>
@@ -234,7 +213,6 @@ const PORTS = [
   { top: 'calc(50% - 3px)', left: -3.5 }, { top: 'calc(50% - 3px)', right: -3.5 },
 ];
 
-/** One box: a lowercase mono label and a tech line, with four port dots that show on hover and focus. */
 function MapNode({ node: n, focused, picked, readOnly, onToggle, onFocusBox }: { node: PlacedNode; focused: boolean; picked: boolean; readOnly: boolean; onToggle: () => void; onFocusBox: () => void }) {
   const state = n.state === 'done' ? 'done' : n.state === 'now' ? 'now' : n.state === 'next' ? 'next' : '';
   const box = cn(
@@ -263,7 +241,6 @@ function MapNode({ node: n, focused, picked, readOnly, onToggle, onFocusBox }: {
   );
 }
 
-/** The focus sphere: a static wireframe (a circle, three meridians, an equator) in the accent at low strength. */
 function Sphere({ x, y }: { x: number; y: number }) {
   const R = 118;
   return (

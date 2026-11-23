@@ -1,6 +1,3 @@
-// "Generate map" (docs/specs/toki-ui.md, W8): a small popover that says which bot will be asked, which kind of map,
-// and what it costs, then sends one ordinary message to the project's room. Only bots that have the project-map
-// skill are offered, since only they know the file the app reads. Nothing is drawn until that bot writes map.json.
 import { useEffect, useId, useState, type ReactElement } from 'react';
 import type { Bot, Room } from '@pocketrocket/shared';
 import { useStore, botById } from '../../store';
@@ -11,7 +8,6 @@ import { Button, Popover, PopoverClose, PopoverContent, PopoverTrigger, Select, 
 
 const SKILL = 'project-map';
 
-/** The room's bots that can draw a map, coordinator first, paused ones left out. `null` while it is being looked up. */
 function useMapBots(room: Room, open: boolean): Bot[] | null {
   const bots = useStore((s) => s.bots);
   const { statusOf } = useBotStatus();
@@ -45,7 +41,6 @@ export function GenerateMap({ slug, room, current, trigger, tip }: { slug: strin
   const [kind, setKind] = useState<MapKind | null>(current);
   const ids = { bot: useId(), kind: useId(), note: useId() };
 
-  // The default kind: the map's own, else a system map when the project lists a repo, else a roadmap.
   useEffect(() => {
     if (!open || kind) return;
     let live = true;

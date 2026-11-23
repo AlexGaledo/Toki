@@ -13,7 +13,6 @@ function memoryStorage(seed: Record<string, string> = {}): Storage {
   };
 }
 
-/** A fresh copy of the module, so its remembered layout comes from the storage stubbed for this test. */
 async function load(seed: Record<string, string> = {}) {
   vi.resetModules();
   const ls = memoryStorage(seed);
@@ -43,7 +42,7 @@ describe('the hub setting', () => {
     const chose = await load({ 'pocketrocket.layout': 'classic' });
     expect(chose.layout.layoutToMigrate('auto')).toBe('classic');
     expect(chose.layout.layoutToMigrate(undefined)).toBe('classic');
-    expect(chose.layout.layoutToMigrate('toki')).toBeNull(); // the hub's own choice wins
+    expect(chose.layout.layoutToMigrate('toki')).toBeNull();
     expect((await load({ 'pocketrocket.layout': 'toki' })).layout.layoutToMigrate('auto')).toBeNull();
     expect((await load()).layout.layoutToMigrate('auto')).toBeNull();
   });
@@ -81,12 +80,12 @@ describe('the stored layout', () => {
     const { layout: { setLayout, getLayout, subscribeLayout } } = await load();
     const seen: string[] = [];
     const unsubscribe = subscribeLayout(() => seen.push(getLayout()));
-    setLayout('toki'); // no change
+    setLayout('toki');
     setLayout('classic');
-    setLayout('classic'); // no change
+    setLayout('classic');
     setLayout('toki');
     unsubscribe();
-    setLayout('classic'); // no longer listening
+    setLayout('classic');
     expect(seen).toEqual(['classic', 'toki']);
   });
 

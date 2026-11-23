@@ -1,5 +1,3 @@
-// The screen, and nothing else. Memory, Skills and Automations are on the Bot page; Usage has its own page.
-// lib/screenView.ts decides whose screen and what size. This draws it.
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { AlertTriangle, ExternalLink, Maximize2, Minimize2, MonitorPlay, RefreshCw, X } from 'lucide-react';
 import type { Bot, ComputerStatus } from '@pocketrocket/shared';
@@ -12,14 +10,11 @@ import { Avatar, Button, Tooltip, cn } from './ui';
 import { ControlBar, hasComputer, useControl } from './ComputerControl';
 import { RecordingBar, useRecorder } from './TeachControls';
 
-/** How long a hidden window keeps its viewer connected. */
 const HIDDEN_DROP_MS = 5 * 60_000;
 
 /**
- * noVNC's own side menu slides out over the screen on hover, and its banner says "unencrypted" about the last hop
- * on this machine. Both go in the embedded viewer, where the app has its own controls. Pop-out keeps them, since it
- * has no app around it (and it is where the clipboard and extra keys panels stay reachable). Same origin, as the hub
- * proxies noVNC and sends X-Frame-Options: SAMEORIGIN.
+ * noVNC's side menu slides out over the screen on hover, and its banner calls the last local hop "unencrypted".
+ * Both are hidden in the embedded viewer; the pop-out keeps them.
  */
 const VNC_EMBED_CSS = '#noVNC_control_bar_anchor,#noVNC_status,#noVNC_hint_anchor{display:none!important}';
 function hideVncChrome(e: SyntheticEvent<HTMLIFrameElement>) {
@@ -33,18 +28,12 @@ function hideVncChrome(e: SyntheticEvent<HTMLIFrameElement>) {
   } catch { /* not the viewer: nothing to hide */ }
 }
 
-/**
- * `parked`: Files is showing over a screen the user was watching, which stays mounted (hidden unless the bot is
- * using it) so the viewer keeps its connection. `beside`: Files is open, so a thumbnail moves clear of it, or out
- * of sight when Files covers the window.
- */
 export function RightPanel({ inline, parked = false, beside = null }: { inline: boolean; parked?: boolean; beside?: 'inline' | 'cover' | null }) {
   const botId = useStore(selectScreenBotId);
   const size = useStore(selectScreenSize);
   const use = useStore((s) => (botId ? computerUse(botId, s) : null));
   const bot = useStore((s) => botById(s.bots, botId));
   const closePanel = useStore((s) => s.closePanel);
-  // Closed for the rest of this bout of use: the thumbnail can sit on text the user is trying to read.
   const [dismissed, setDismissed] = useState(false);
   useEffect(() => { if (!use) setDismissed(false); }, [use]);
 
@@ -63,7 +52,6 @@ export function RightPanel({ inline, parked = false, beside = null }: { inline: 
 
 interface PaneProps { bot: Bot; size: ScreenSize; use: string | null; inline: boolean; dismissed: boolean; onDismiss: () => void; parked: boolean; beside: 'inline' | 'cover' | null }
 
-/** Whether this hub has per-bot computers. A hub-wide fact, so it is asked once per page load. */
 let perBotHub: boolean | null = null;
 
 function ScreenPane(props: PaneProps) {
@@ -78,7 +66,6 @@ function ScreenPane(props: PaneProps) {
     return () => { alive = false; };
   }, [bot.id]);
   if (perBot === null) return size === 'glance' ? null : <div className="px-3 py-2 text-hint text-muted">Checking…</div>;
-  // Keyed by scope, so one bot's ticket and viewer never carry over to the next bot's screen.
   return <Viewer key={perBot ? bot.id : 'shared'} perBot={perBot} {...props} />;
 }
 
@@ -100,7 +87,6 @@ function Viewer({ bot, size, use, inline, dismissed, onDismiss, perBot, parked, 
 
   const [info, setInfo] = useState<{ screen: boolean; cdp: boolean; computer?: ComputerStatus } | null>(null);
   const [waking, setWaking] = useState(false);
-  // A hidden window lets go of the viewer after a while, or a forgotten tab holds a computer's place for good.
   const [hiddenLong, setHiddenLong] = useState(false);
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined;
@@ -127,11 +113,9 @@ function Viewer({ bot, size, use, inline, dismissed, onDismiss, perBot, parked, 
       const s = await api.screen(scope);
       setInfo({ screen: s.screen, cdp: s.cdp, computer: s.computer });
     } catch {
-      // Hub unreachable: a shared screen reads as off, a per-bot one keeps its last state.
       if (!scope) setInfo({ screen: false, cdp: false });
     }
   }, [scope]);
-  // Poll faster while a start is in flight, so "starting" turns into the live screen promptly.
   useEffect(() => {
     void refresh();
     const id = setInterval(refresh, state === 'starting' ? 1500 : 10000);
@@ -139,10 +123,8 @@ function Viewer({ bot, size, use, inline, dismissed, onDismiss, perBot, parked, 
   }, [refresh, state]);
   const pushed = useStore((s) => s.computers[bot.id]);
   useEffect(() => { if (pushed) void refresh(); }, [pushed, refresh]);
-  // An iframe cannot send an Authorization header, so the hub token used to ride this URL. Instead each viewer load
-  // spends the token on a single-use ticket, which /screen/session trades for an httpOnly cookie scoped to /screen.
-  // The token never enters an iframe src or a popup URL. A new ticket when control changes, so the viewer switches
-  // between view-only and interactive. Size is not a dependency: changing size must not reload the viewer.
+  // An iframe cannot send an Authorization header, so each load spends the token on a single-use ticket that
+  // /screen/session trades for an httpOnly cookie. The token never enters an iframe src or popup URL.
   useEffect(() => {
     if (!viewerUp) { setSrc(''); return; }
     let alive = true;
@@ -162,7 +144,6 @@ function Viewer({ bot, size, use, inline, dismissed, onDismiss, perBot, parked, 
       void refresh();
     }
   }, [bot.id, refresh]);
-  // Looking at a screen starts it. A failed start stays down with its reason and a Retry; it is not retried here.
   const usable = perBot && hasComputer(bot);
   const watching = size !== 'glance';
   const asked = useRef(false);
@@ -175,7 +156,7 @@ function Viewer({ bot, size, use, inline, dismissed, onDismiss, perBot, parked, 
   }, [c?.state, usable, watching, failure, wake]);
   const popOut = async () => {
     // Ticket first, then open: the desktop app hands new windows to the default browser by URL, so a blank window
-    // that is pointed somewhere afterwards never gets anywhere. The click's user activation outlives the round-trip.
+    // pointed somewhere later never gets there. The click's user activation outlives the round-trip.
     try { window.open((await api.screenTicket(scope)).url, '_blank', 'width=1320,height=880'); } catch { /* hub unreachable */ }
   };
 
@@ -272,7 +253,6 @@ function Viewer({ bot, size, use, inline, dismissed, onDismiss, perBot, parked, 
         )}
         {glance && (
           <>
-            {/* Over the iframe, which would otherwise take the click. The viewer is not interactive at this size. */}
             <button type="button" className="absolute inset-0 flex items-end text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent" aria-label={'Watch ' + bot.name + "'s screen. " + (use ?? '')} onClick={() => openScreen(bot.id)}>
               <span className="flex w-full items-center gap-1.5 truncate bg-black/65 px-2 py-1 text-hint text-white">
                 <MonitorPlay size={12} aria-hidden className="shrink-0" /><span className="truncate">{use}</span>
@@ -283,7 +263,6 @@ function Viewer({ bot, size, use, inline, dismissed, onDismiss, perBot, parked, 
         )}
       </div>
 
-      {/* Hidden rather than unmounted: a note being typed lives in here. */}
       <div hidden={glance} className="flex shrink-0 flex-col gap-2 px-3 pb-3 pt-2 text-hint text-muted">
         {recording ? <RecordingBar bot={bot} recording={recording} /> : (
           <>

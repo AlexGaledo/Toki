@@ -1,16 +1,9 @@
-/**
- * One API key input (Settings › Claude, and the paste-a-token forms in Settings › Integrations). The hub
- * never sends a saved key back, only whether one is set, so the field is always empty: typing and pressing
- * Save replaces the key, Remove clears it. Pass `onSave` (and the copy) to store it somewhere other than
- * the provider secrets.
- */
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import type { SecretsStatus } from '@pocketrocket/shared';
 import { api } from '../../lib/api';
 import { Badge, Button, Field, Input, Label } from '../ui';
 import { InlineError } from './parts';
 
-/** Plain names for the keys we know, so the UI never shows an environment variable name. */
 const KNOWN_KEYS: Record<string, { label: string; description: string; placeholder: string }> = {
   ANTHROPIC_API_KEY: {
     label: 'Claude API key',
@@ -35,20 +28,14 @@ const KNOWN_KEYS: Record<string, { label: string; description: string; placehold
 };
 
 export function ApiKeyField({ keyName, isSet, onSaved, onSave, label, description, placeholder, saveLabel, removable = true }: {
-  /** The secret's name as the hub knows it, e.g. "ANTHROPIC_API_KEY". */
   keyName: string;
-  /** Whether a value is stored right now. */
   isSet: boolean;
-  /** Gets the hub's fresh "which keys are set" answer after a save or remove (default storage only). */
   onSaved?: (status: SecretsStatus['keys']) => void;
-  /** Store the value elsewhere (an empty string means remove). Throw to show the error under the field. */
   onSave?: (value: string) => Promise<void>;
   label?: string;
   description?: ReactNode;
   placeholder?: string;
-  /** Button text; "Save" by default. */
   saveLabel?: string;
-  /** Show "Remove" when a value is stored. */
   removable?: boolean;
 }) {
   const known = KNOWN_KEYS[keyName] ?? (label ? { label, description: '', placeholder: placeholder ?? 'Not set' } : undefined);

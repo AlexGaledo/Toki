@@ -6,10 +6,7 @@ import { resolveDark } from '../lib/theme';
 import { useLayout } from '../lib/layout';
 import { Menu, MenuContent, MenuItem, MenuSeparator, UserAvatar, cn } from './ui';
 
-/**
- * Bottom of the sidebar: who you are and whether the server is there, opening onto Automations, Usage, Settings, the shared
- * folder, the theme, the layout and the account. The account's email stays out of it, because this gets screen-shared.
- */
+/** The account's email stays out of it: this gets screen-shared. */
 export function ProfileMenu({ onNavigate }: { onNavigate: () => void }) {
   const name = useStore((s) => s.settings.userName);
   const avatar = useStore((s) => s.settings.userAvatar);
@@ -18,7 +15,6 @@ export function ProfileMenu({ onNavigate }: { onNavigate: () => void }) {
   const hubIssue = useStore((s) => s.hubIssue);
   const hasConnected = useStore((s) => s.hasConnected);
   const account = useStore((s) => s.account);
-  // P9: a paired phone may not open the workspace, change settings or reach account routes (403).
   const device = useStore((s) => s.device);
   const panelBotId = useStore((s) => s.panelBotId);
   const openPage = useStore((s) => s.openPage);
@@ -30,18 +26,11 @@ export function ProfileMenu({ onNavigate }: { onNavigate: () => void }) {
   const layout = useLayout();
   const signedIn = !device && account.enabled && account.signedIn;
   const canSignIn = !device && account.enabled && !account.signedIn;
-  // A link that was up and dropped, or went quiet, is "Reconnecting" until a retry has been refused (then "Offline").
   const server = connected ? 'Online' : hubIssue ? 'Offline' : hasConnected ? 'Reconnecting…' : 'Connecting…';
   const serverDot = connected ? 'bg-ok' : hubIssue ? 'bg-bad' : hasConnected ? 'bg-warn' : 'bg-dim';
 
-  /**
-   * The shared folder lives on whatever machine the hub runs on, so the hub is what opens it. On a server hub
-   * that is the virtual desktop, and the toast says so rather than leaving the user staring at their own
-   * unchanged screen waiting for a window that was never going to appear here.
-   */
   const openWorkspace = async () => {
     try {
-      // On a hub with per-bot computers the folder opens on the bot whose screen follows this chat (P1).
       const r = await api.openWorkspace(panelBotId);
       if (!r.ok) return toast(r.error ? "Couldn't open the shared folder: " + r.error : "Couldn't open the shared folder", true);
       const WHERE: Record<string, string> = {
@@ -63,8 +52,8 @@ export function ProfileMenu({ onNavigate }: { onNavigate: () => void }) {
     }
   };
 
-  // An item acts once the menu has fully closed. Opening a dialog while this modal menu is still up leaves
-  // the body with pointer-events: none after the dialog closes, and the whole app stops taking clicks.
+  // Acts once the menu has fully closed: opening a dialog while this Radix modal menu is up leaves the body with
+  // pointer-events: none after the dialog closes, and the app stops taking clicks.
   const pending = useRef<(() => void) | null>(null);
   const act = (fn: () => void) => () => { pending.current = fn; };
   const runPending = () => {
@@ -91,7 +80,6 @@ export function ProfileMenu({ onNavigate }: { onNavigate: () => void }) {
       </Menu.Trigger>
       <Menu.Portal>
         <MenuContent side="top" align="start" onCloseAutoFocus={runPending} className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[210px]">
-          {/* A paired phone sees the picture but cannot change it (PUT /api/settings is refused). */}
           {!device && <MenuItem onSelect={act(() => openDialog({ kind: 'profile' }))}><UserRound size={16} aria-hidden />Edit profile</MenuItem>}
           <MenuItem onSelect={act(() => { onNavigate(); openPage({ kind: 'automations' }); })}><CalendarClock size={16} aria-hidden />Automations</MenuItem>
           <MenuItem onSelect={act(() => { onNavigate(); openPage({ kind: 'usage' }); })}><BarChart3 size={16} aria-hidden />Usage</MenuItem>
@@ -102,7 +90,6 @@ export function ProfileMenu({ onNavigate }: { onNavigate: () => void }) {
               {dark ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}{dark ? 'Light theme' : 'Dark theme'}
             </MenuItem>
           )}
-          {/* Like the theme item: one click to the other layout. A paired phone keeps classic, so it has none. */}
           {!device && (
             <MenuItem onSelect={act(() => void updateSettings({ layout: layout === 'classic' ? 'toki' : 'classic' }))}>
               {layout === 'classic' ? <LayoutDashboard size={16} aria-hidden /> : <PanelLeft size={16} aria-hidden />}{layout === 'classic' ? 'New layout' : 'Classic layout'}

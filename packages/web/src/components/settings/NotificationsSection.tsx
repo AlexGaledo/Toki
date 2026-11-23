@@ -1,8 +1,3 @@
-/**
- * Settings › Notifications, on every client that is not a paired phone. The desktop card (U7) shows only inside the
- * desktop app and its two choices belong to this computer, not the hub, so they live in lib/persist.ts through
- * lib/notifyEvents.ts. A phone gets Web Push from Devices. Telegram pings go through the hub (TelegramCard).
- */
 import { useId, useState } from 'react';
 import { notificationText, notificationsEnabled, setNotificationText, setNotificationsEnabled } from '../../lib/notifyEvents';
 import { canNotify } from '../../lib/notify';

@@ -1,8 +1,3 @@
-/**
- * Settings › Bots › Approval rules (P2): the "always" answers the user kept as rules. Each one lets a bot run a
- * matching call without a card, also in routines at 3 a.m. Only the user creates them (from a card's "Make this
- * a rule?" offer) and only here can they be revoked; no bot can write one. Integration writes never become rules.
- */
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { ApprovalPolicy } from '@pocketrocket/shared';

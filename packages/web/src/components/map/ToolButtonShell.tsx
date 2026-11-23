@@ -1,5 +1,3 @@
-// The map toolbar's round icon button. Its own file so MapPage can put one in the toolbar without importing the
-// lazy canvas chunk. It forwards its ref and props, so a Popover or Tooltip trigger can wrap it.
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '../ui';
 

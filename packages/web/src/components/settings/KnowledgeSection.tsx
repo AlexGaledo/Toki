@@ -1,9 +1,3 @@
-/**
- * Settings › Knowledge (P7): one repo every bot reads and none can write. The source is a git URL (cloned
- * to data/knowledge and pulled on a timer) or an absolute folder on the hub's computer (linked there).
- * Saving goes through PUT /api/settings, which validates the source; "Sync now" is POST /api/knowledge/sync.
- * Live status arrives over WS (`knowledge.status`) and lands in the store.
- */
 import { useEffect, useState } from 'react';
 import { BookOpen, RefreshCw } from 'lucide-react';
 import { useStore } from '../../store';
@@ -28,7 +22,6 @@ export function KnowledgeSection() {
 
   const save = async () => {
     setSaving(true);
-    // The store shows the hub's reason (bad URL, missing folder) and rolls back when it is refused.
     const ok = await updateSettings({ knowledgeRepo: draft.trim() });
     setSaving(false);
     if (ok) toast(draft.trim() ? 'Knowledge repo saved; syncing' : 'Knowledge repo turned off');

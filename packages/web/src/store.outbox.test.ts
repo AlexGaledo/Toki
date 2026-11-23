@@ -4,7 +4,6 @@ import { WS_PING_MS } from '@pocketrocket/shared';
 
 type Send = Extract<ClientEvent, { type: 'message.send' }>;
 
-/** A WebSocket the test drives by hand. */
 class FakeSocket {
   static instances: FakeSocket[] = [];
   static OPEN = 1;
@@ -17,7 +16,6 @@ class FakeSocket {
   constructor(public url: string) { FakeSocket.instances.push(this); }
   send(s: string) { this.sent.push(JSON.parse(s) as ClientEvent); }
   close() { this.readyState = FakeSocket.CLOSED; }
-  // test side
   open() { this.readyState = FakeSocket.OPEN; this.onopen?.(); }
   fromHub(ev: ServerEvent) { this.onmessage?.({ data: JSON.stringify(ev) }); }
   drop() { this.readyState = FakeSocket.CLOSED; this.onclose?.(); }
@@ -31,7 +29,6 @@ function memoryStorage(): Storage {
   };
 }
 
-/** Loads fresh copies of the store and ws module, as a new page load would. */
 async function boot() {
   // Module loading waits on real timers, so the fake ones only run the test body.
   vi.useRealTimers();
@@ -45,7 +42,6 @@ async function boot() {
 const userMessage = (id: string, seq: number, text: string, clientMsgId?: string): Message =>
   ({ id, roomId: 'r1', seq, authorType: 'user', authorId: 'me', kind: 'text', text, payload: null, causeId: null, hop: 0, turnId: null, createdAt: 1, ...(clientMsgId ? { clientMsgId } : {}) });
 
-/** The hub: takes each message.send once per clientMsgId and echoes it, as RoomRouter.onUserMessage does. */
 function runHub(sock: FakeSocket, delivered: string[], seen: Map<string, Message>) {
   for (const ev of sock.sent.splice(0)) {
     if (ev.type !== 'message.send') continue;
@@ -82,7 +78,6 @@ describe('send journal', () => {
     useStore.setState({ activeRoomId: 'r1' });
     useStore.getState().sendMessage('first');
     useStore.getState().sendMessage('second');
-    // Shown at once, written to the journal, nothing sent anywhere.
     expect(useStore.getState().outbox.map((e) => [e.text, e.status])).toEqual([['first', 'sending'], ['second', 'sending']]);
     expect(JSON.parse(localStorage.getItem('pocketrocket.outbox.v1')!)).toHaveLength(2);
     expect(FakeSocket.instances).toHaveLength(0);
@@ -110,18 +105,17 @@ describe('send journal', () => {
     const delivered: string[] = [];
     const seen = new Map<string, Message>();
     useStore.getState().sendMessage('one');
-    // The hub took it, but the echo never made it back before the link died.
     const taken = a.sent.splice(0)[0] as Send;
     seen.set(taken.clientMsgId!, userMessage('m1', 1, 'one', taken.clientMsgId));
     delivered.push('one');
     a.drop();
-    useStore.getState().sendMessage('two'); // typed while offline
+    useStore.getState().sendMessage('two');
 
     vi.advanceTimersByTime(2000);
     const b = FakeSocket.instances[1];
     expect(b).toBeDefined();
     b.open();
-    expect(texts(b)).toEqual(['one', 'two']); // oldest first
+    expect(texts(b)).toEqual(['one', 'two']);
     runHub(b, delivered, seen);
     expect(delivered).toEqual(['one', 'two']);
     expect(useStore.getState().outbox).toEqual([]);
@@ -162,7 +156,7 @@ describe('send journal', () => {
     const id = useStore.getState().outbox[0].clientId;
     sock.fromHub({ type: 'error', message: 'Room not found', context: id });
     expect(useStore.getState().outbox[0].status).toBe('failed');
-    expect(useStore.getState().toasts).toEqual([]); // it speaks on the bubble, not in a toast
+    expect(useStore.getState().toasts).toEqual([]);
     useStore.getState().discardSend(id);
     expect(useStore.getState().outbox).toEqual([]);
   });
@@ -178,9 +172,9 @@ describe('flush and reconnect', () => {
     useStore.getState().sendMessage('one');
     expect(texts(sock)).toEqual(['one']);
     vi.advanceTimersByTime(SEND_ACK_MS - 1000);
-    useStore.getState().sendMessage('two'); // flushes the whole journal again
-    expect(texts(sock)).toEqual(['one', 'two']); // 'one' was not written a second time
-    vi.advanceTimersByTime(1000); // the original timer for 'one' still fires on schedule
+    useStore.getState().sendMessage('two');
+    expect(texts(sock)).toEqual(['one', 'two']);
+    vi.advanceTimersByTime(1000);
     expect(useStore.getState().outbox.map((e) => [e.text, e.status])).toEqual([['one', 'failed'], ['two', 'sent']]);
   });
 
@@ -192,7 +186,7 @@ describe('flush and reconnect', () => {
     a.open();
     useStore.getState().sendMessage('one');
     const first = a.sent.splice(0)[0] as Send;
-    a.drop(); // shorter than the ack wait, so the entry is still 'sent'
+    a.drop();
     expect(useStore.getState().outbox[0].status).toBe('sent');
     vi.advanceTimersByTime(2000);
     const b = FakeSocket.instances[1];
@@ -226,9 +220,8 @@ describe('liveness', () => {
 
     vi.advanceTimersByTime(STALE_AFTER_MS);
     expect(useStore.getState().connected).toBe(false);
-    expect(useStore.getState().hasConnected).toBe(true); // so the chip says Reconnecting, not Connecting
+    expect(useStore.getState().hasConnected).toBe(true);
     expect(useStore.getState().hubIssue).toBeNull();
-    // ...and the usual backoff brings up a new socket.
     vi.advanceTimersByTime(1500);
     expect(FakeSocket.instances).toHaveLength(2);
     FakeSocket.instances[1].open();
@@ -258,7 +251,6 @@ describe('send journal with attachments (U2a)', () => {
     expect(first.attachments).toEqual([ref('a'), ref('b')]);
     expect(JSON.parse(localStorage.getItem('pocketrocket.outbox.v1')!)[0].attachments).toEqual([ref('a'), ref('b')]);
 
-    // the hub refuses it (an unknown ref): the entry fails, Retry resends the same refs under the same id
     a.fromHub({ type: 'error', message: 'A picture is missing or not allowed. Attach it again.', context: first.clientMsgId });
     expect(useStore.getState().outbox[0].status).toBe('failed');
     useStore.getState().retrySend(first.clientMsgId!);

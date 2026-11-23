@@ -1,12 +1,3 @@
-// The canvas view of a workflow, drawn with React Flow. This file and everything it imports from @xyflow/react is the
-// app's first lazy chunk (WorkflowPage loads it with React.lazy), so none of it is in the entry bundle.
-//
-// It is a view over the same ordered steps the Steps list shows, drawn with the same StepCard:
-//   - steps are laid out in a line, left to right when wide and top to bottom when narrow, with no layout library;
-//   - steps are added with a "+" button on each edge (React Flow has no keyboard way to connect nodes, so there is no
-//     wire dragging): handles are hidden and nothing is draggable;
-//   - each step has Edit and an options menu, as in the list;
-//   - below 640px the canvas is read-only: pan and pinch, no "+" and no menus.
 import { useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import {
@@ -29,16 +20,13 @@ export interface CanvasProps {
   problems: Record<string, string[]>;
   ops: StepOps;
   readOnly: boolean;
-  /** Top to bottom instead of left to right. */
   vertical: boolean;
-  /** Add a step so it lands at `index` in the steps list. */
   onInsert: (index: number, kind: 'agent' | 'approval' | 'output') => void;
 }
 
 const NODE_W = 248;
 const NODE_H = 104;
 const GAP = 72;
-/** How many steps the first view fits, and the smallest zoom it may use to do so (text stays readable). */
 const FIT_STEPS = 3;
 const FIT_MIN_ZOOM = 0.7;
 
@@ -59,7 +47,6 @@ function StepNodeView({ data }: NodeProps<StepNodeT>) {
       <StepCard
         step={d.step} index={d.index} total={d.steps.length} ctx={d.ctx} result={d.result} selected={d.selected} problems={d.problems} compact
         actions={(
-          // Clicks here must not also select the node.
           <span className="nodrag nopan flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
             {!d.readOnly && (
               <>
@@ -75,7 +62,6 @@ function StepNodeView({ data }: NodeProps<StepNodeT>) {
   );
 }
 
-/** A line between two steps with a "+" at its middle that adds a step there. */
 function PlusEdgeView({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<PlusEdgeT>) {
   const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
   const index = data?.index ?? 1;
@@ -120,34 +106,28 @@ export default function WorkflowCanvas({ steps, ctx, results, selectedId, proble
     }));
     const edges: PlusEdgeT[] = steps.slice(1).map((step, i) => ({
       id: steps[i].id + '->' + step.id, source: steps[i].id, target: step.id, type: 'plus',
-      // The step the "+" adds lands after step i, which is position i + 1 (the trigger is 0).
       data: { index: i + 1, onInsert: (at, kind) => onInsert(at, kind), readOnly },
     }));
     return { nodes, edges };
   }, [steps, ctx, results, selectedId, problems, ops, readOnly, vertical, onInsert]);
 
-  // New layout: `pr-canvas` takes the shared canvas tokens (WorkflowCanvas.css), so this matches the project map.
   const shared = useNewPages();
   const height = vertical ? Math.min(Math.max(steps.length * (NODE_H + GAP), 320), 680) : 340;
   return (
     <div role="group" aria-label="Workflow canvas" className={'wf-canvas overflow-hidden rounded-lg ring-1 ring-line' + (shared ? ' pr-canvas' : '')} style={{ height }}>
       <ReactFlow<StepNodeT, PlusEdgeT>
-        // A new key refits the view when the number of steps or the direction changes, and not on every edit.
         key={(vertical ? 'v' : 'h') + steps.length}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        // Fit the first few steps, not all of them: eight steps fitted at once shrink to unreadable boxes. The rest are
-        // a pan away (the wheel pans), and the view starts at the trigger.
         fitViewOptions={{ padding: 0.15, maxZoom: 1, minZoom: FIT_MIN_ZOOM, nodes: nodes.slice(0, FIT_STEPS).map((n) => ({ id: n.id })) }}
         minZoom={0.3}
         nodesDraggable={false}
         nodesConnectable={false}
         edgesFocusable={false}
         elementsSelectable={!readOnly}
-        // The wheel pans (the page is not scrolled by a canvas), pinch zooms, and a double click does not zoom.
         zoomOnScroll={false}
         panOnScroll
         zoomOnDoubleClick={false}

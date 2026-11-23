@@ -8,11 +8,6 @@ import { displayFields } from '../lib/cardFields';
 import { useToki } from '../lib/useProject';
 import { ActionCard, ActionCardHeader, Badge, Button, Field, Input, Label, Select, Textarea } from './ui';
 
-/*
- * U4 form card and U5 buttons. Everything the bot wrote is drawn as plain text through React text nodes (no markdown,
- * no HTML) after being cleaned again here, because a stored row may predate a rule or come from a hand-edited database.
- */
-
 const STATUS_LABEL: Record<FormPayload['status'], string | null> = {
   pending: null, submitted: 'Sent', cancelled: 'Cancelled', timeout: 'No answer in time', expired: 'No longer waiting',
 };
@@ -33,7 +28,6 @@ export function FormCard({ m }: { m: Message }) {
   const [sent, setSent] = useState(false);
   const formSent = useStore((s) => s.formSent);
   const refused = useStore((s) => s.formErrors[m.id]);
-  // The hub refused what was sent: open the card again and show why, where the button was.
   useEffect(() => { if (refused) setSent(false); }, [refused]);
   const set = (id: string, v: FormAnswer) => { setValues((x) => ({ ...x, [id]: v })); setError(null); };
 
@@ -49,7 +43,6 @@ export function FormCard({ m }: { m: Message }) {
 
   const status = STATUS_LABEL[p.status];
   return (
-    // New layout: the needs edge while it waits on you, a quiet one once answered, like the overview's cards.
     <ActionCard tone={open ? 'warn' : 'quiet'} edge={toki ? (open ? 'needs' : 'done') : undefined} className="w-full max-w-[560px]">
       <ActionCardHeader meta={status && <Badge tone={p.status === 'submitted' ? 'ok' : 'muted'}>{status}</Badge>}>
         <span className="min-w-0 flex-1 font-medium">{bot ? bot.name : 'A bot'} {open ? 'asks' : 'asked'}: {title}</span>
@@ -97,10 +90,6 @@ export function FormCard({ m }: { m: Message }) {
   );
 }
 
-/**
- * Buttons a bot put under a message. A button either sends its text as an ordinary message from you, shown
- * beneath it before you click, or opens an http(s) link in a new tab with the host written next to it.
- */
 export function CtaButtons({ payload }: { payload: unknown }) {
   const buttons = useMemo(() => displayCta(payload), [payload]);
   const send = useStore((s) => s.sendMessage);
@@ -119,7 +108,6 @@ export function CtaButtons({ payload }: { payload: unknown }) {
             </a>
           ) : (
             <>
-              {/* The button says what it sends: a label that differs from the message is not shown instead of it. */}
               <Button className="touch-target h-auto max-w-full whitespace-normal break-words py-1.5 text-left" disabled={used !== null} onClick={() => { setUsed(i); send(b.say!); }}>
                 {b.say !== b.label ? b.say : b.label}
               </Button>

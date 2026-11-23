@@ -23,16 +23,12 @@ import { OVERVIEW_OPEN_MIN, PANEL_INLINE_MIN, SIDEBAR_INLINE_MIN, readPaneWidths
 import type { SectionId } from './components/dialogs/SettingsDialog';
 
 export type BotTab = 'memory' | 'skills' | 'automations' | 'computer';
-/** What the main pane shows over the chat. Null is the chat. */
 export type Page = { kind: 'bot'; botId: string; tab: BotTab } | { kind: 'workflow'; id: string } | { kind: 'automations' } | { kind: 'usage' } | { kind: 'inbox' } | { kind: 'tasks' } | { kind: 'pcsessions' }
-  /** New layout: a project's Map tab, over its chat (docs/specs/toki-ui.md). */
   | { kind: 'map'; slug: string }
-  /** New layout: a project's Tasks tab, its room's board under the project header. */
   | { kind: 'projectTasks'; slug: string };
 
 interface Streaming { botId: string; roomId: string; text: string }
 
-/** Providers list to fall back to when GET /api/providers 404s (hub not caught up yet) or errors. */
 const FALLBACK_PROVIDERS: ProvidersResponse = {
   active: 'claude',
   providers: [
@@ -50,25 +46,15 @@ const FALLBACK_PROVIDERS: ProvidersResponse = {
   ],
 };
 
-// turnId -> last time a 'receive' sound fired for that turn, so turn.end doesn't double it with 'done'.
 const recentReceive = new Map<string, number>();
-// roomId -> when loadOlder may try again after a failed page fetch.
 const olderRetryAt = new Map<string, number>();
-/** Approvals this page answered, so a WS `error` about one (context = approval id) lands on its card. */
 const decided = new Set<string>();
-/** Forms whose answer or cancel is in flight; a hub error naming one of them is routed to its card. */
 const formsSent = new Set<string>();
 
-/** True when a response body is a full AccountState rather than a bare `{ ok }`. */
 function isAccountState(v: unknown): v is AccountState {
   return typeof v === 'object' && v !== null && 'enabled' in v && 'signedIn' in v;
 }
 
-/**
- * Below this width the sidebar starts closed, and opening or closing it is not remembered. The saved choice
- * is a desktop preference: closing a drawer on a phone-sized window must not hide the sidebar the next time
- * the app opens full screen. Same width as App's drawer rule, from lib/panes.ts.
- */
 export const NARROW_SIDEBAR_QUERY = '(max-width: ' + (SIDEBAR_INLINE_MIN - 1) + 'px)';
 function matches(query: string): boolean {
   try {
@@ -78,14 +64,11 @@ function matches(query: string): boolean {
   }
 }
 
-/** New layout (docs/specs/toki-ui.md): per browser, and never on a paired phone. */
 const tokiLayout = (device: boolean) => getLayout() === 'toki' && !device;
 const OVERVIEW_RAIL_KEY = 'pocketrocket.overviewRail';
-/** In the new layout the right slot holds the overview wherever it fits beside the chat. */
 function overviewHome(vw: number): boolean {
   return tokiLayout(isDevice()) && vw >= PANEL_INLINE_MIN;
 }
-/** The rail choice once made; until then the overview starts open on a wide window and as the rail below that. */
 function readOverviewRail(vw: number): boolean {
   const v = getItem(OVERVIEW_RAIL_KEY);
   return v === '1' ? true : v === '0' ? false : vw < OVERVIEW_OPEN_MIN;
@@ -97,41 +80,30 @@ export interface Toast {
   id: number;
   text: string;
   bad?: boolean;
-  /** Makes the text a button that runs this (and dismisses the toast). */
   action?: { label: string; run: () => void };
-  /** Stays until dismissed or removed by `key`, instead of fading after a few seconds. Errors always stay. */
   sticky?: boolean;
-  /** The user has to act, nothing failed: warning color rather than the error red of `bad`. */
   warn?: boolean;
-  /** Lets code remove the toast later (e.g. once an approval is answered). */
   key?: string;
 }
 export type ToastOptions = Pick<Toast, 'action' | 'sticky' | 'warn' | 'key'>;
 
-/** Why the live connection is down, as far as lib/ws.ts could tell. */
 export type HubIssue =
   | { kind: 'unreachable'; detail?: string }
   | { kind: 'rateLimited'; retryInMs: number }
   | { kind: 'auth' }
   | { kind: 'refused' };
 
-/** Toast key for an approval card, so it can be found by room (on opening it) or by approval (once answered). */
-/** The `filesRev` entry for one folder of one room. A room id holds no ':', so the key is unambiguous. */
 export const filesRevKey = (roomId: string, folder: string) => roomId + ':' + folder;
 const approvalToastKey =(roomId: string, approvalId: string) => 'approval:' + roomId + ':' + approvalId;
 
-/** The parts of Settings that live outside React: the sound engine, the `dark` class and the layout copy. */
 function applyLocalSettings(s: Settings) {
   setSoundsEnabled(s.sounds);
   applyTheme(s.theme);
   applyFont(s.font);
-  // An older hub has no layout setting: keep what this browser holds instead of resetting it to the default.
   if (s.layout) setLayout(layoutFromSetting(s.layout));
 }
 
-/** How long a message written to the socket may go unechoed before it shows as not sent (B5). */
 export const SEND_ACK_MS = 15_000;
-/** clientId -> timer that turns an unechoed `sent` entry into `failed` (or back to `sending` if the link is down). */
 const ackTimers = new Map<string, ReturnType<typeof setTimeout>>();
 function clearAck(clientId: string) {
   const t = ackTimers.get(clientId);
@@ -141,202 +113,106 @@ function clearAck(clientId: string) {
 
 interface State {
   connected: boolean;
-  /** True once this page has had a connection, so a later loss reads as "Reconnecting" rather than a first "Connecting". */
   hasConnected: boolean;
-  /** The send journal (B5): messages written by the user that the hub has not echoed back yet, oldest first. */
   outbox: OutboxEntry[];
-  /** Resend what is waiting, in order, stopping at the first entry the socket will not take. */
   flushOutbox: () => void;
-  /** Failed entry: try again. */
   retrySend: (clientId: string) => void;
-  /** Drop an entry from the journal without sending it. */
   discardSend: (clientId: string) => void;
-  /** When the connection last went down (or the page loaded without one); null while connected. */
   disconnectedAt: number | null;
-  /** The diagnosed cause while disconnected; null until a probe has said anything. */
   hubIssue: HubIssue | null;
   bots: Bot[];
   rooms: Room[];
   botStates: Record<string, BotState>;
   activeRoomId: string | null;
   messages: Record<string, Message[]>;
-  /** Every card waiting for an answer: from `hello`, then kept current by approval events. */
   openApprovals: OpenApproval[];
-  /** The last `computer.state` per bot. */
   computers: Record<string, ComputerStatus>;
   loaded: Record<string, boolean>;
-  /** Per room: an older page is being fetched, or the transcript already reaches the room's first message. */
   history: Record<string, { loading: boolean; done: boolean }>;
   streaming: Record<string, Streaming>;
   unread: Record<string, number>;
-  /** Each bot's latest message, for the sidebar. */
   previews: Record<string, BotPreview>;
-  /** A search result being shown: the words to highlight in its chat, and the message to scroll to. */
   searchTarget: { roomId: string; seq: number; query: string } | null;
   usage: Record<string, UsageTotals>;
-  /** P3: bumped on WS `routines.changed`; the Routines tab refetches when it moves. */
   routinesRev: number;
-  /** P5: bumped on WS `triggers.changed` / `trigger.fired` / `integrations.changed`; the Triggers section refetches. */
   triggersRev: number;
   memory: Record<string, string>;
-  /** The user asked to watch the screen (lib/screenView.ts). Not remembered: a fresh start is always the chat. */
   panelOpen: boolean;
-  /** Left sidebar. Remembered per browser so a narrow screen stays narrow. */
   sidebarOpen: boolean;
-  /** The widths asked for, per browser. lib/panes.ts works out what fits. */
   paneW: PaneWidths;
-  /** The panel takes all the width the chat can spare; `paneW.panel` is what it goes back to. */
   panelExpanded: boolean;
-  /** Whose screen the user chose in a group chat. lib/screenView.ts says whose actually shows. */
   panelBotId: string | null;
-  /**
-   * What the right panel shows while open: the screen, the room's files (components/files), or, in the new layout,
-   * the overview (components/overview). There the overview is what the slot goes back to when the others close.
-   */
   panelKind: PanelKind;
-  /** New layout: the overview is folded to its icon rail. Remembered per browser once chosen. */
   overviewRail: boolean;
-  /** Per project slug: its parsed current.md; null when the hub refused or has no such endpoint. */
   overviews: Record<string, ProjectOverview | null>;
-  /** Each project's map.json as the hub read it, by slug; null when the hub could not be asked (older hub, device). */
   maps: Record<string, ProjectMapReply | null>;
-  /**
-   * The bot asked to draw a project's map from the Map tab, by slug. `sent` until that bot's turn in the project room
-   * ends, then `done`, so the canvas can say "No map was made" if that turn wrote no valid map.
-   */
   mapAsks: Record<string, MapAsk>;
-  /**
-   * Files was opened over a screen the user was watching. That viewer stays mounted, hidden, so its noVNC
-   * connection survives a look at the files; it is let go when the panel closes.
-   */
   screenParked: boolean;
-  /** Where Files should go next: a folder, and a file in it to preview. `seq` makes the same link work twice. */
   filesTarget: { roomId: string; path: string; file?: string; seq: number } | null;
-  /** Bumped per `filesRevKey(roomId, folder)` on `files.changed`, so an open folder refetches. */
   filesRev: Record<string, number>;
   page: Page | null;
   dialog: { kind: 'bot'; bot: Bot | null } | { kind: 'room'; room: Room | null } | { kind: 'podium' } | { kind: 'search' } | { kind: 'profile' } | { kind: 'settings'; section?: SectionId } | null;
   toasts: Toast[];
   settings: Settings;
   providers: ProvidersResponse | null;
-  /** Provider limits in force (spec 01 P0-5): from GET /api/providers, replaced whole by WS `provider.limit`. Expired entries stay until the next list; read through `useLimits`. */
   limits: ProviderLimitState[];
-  /**
-   * M8 failover (spec 01 P3-2): open limit cards and bots running on their backup. From GET /api/failover after each
-   * hello, replaced whole by WS `failover.changed`. Empty on a hub older than v0.5 (404).
-   */
   failover: FailoverState;
-  /** Optional sign-in. SIGNED_OUT (enabled: false) until GET /api/account answers, and if it never does. */
   account: AccountState;
-  /**
-   * True once the hub's first `hello` has arrived, and from then on. Until then `bots` and `rooms` are
-   * empty because nothing has loaded, not because there are none: gate every empty state on this.
-   */
   helloReceived: boolean;
-  /**
-   * P9: this page is a paired device, so the hub refuses settings, bot/room edits, integrations and approval
-   * rules (guard.ts DEVICE_ALLOW). Seeded from which token this browser holds, then set by the hub's `hello`.
-   * The one flag the UI reads to hide what a device cannot do.
-   */
   device: boolean;
-  /** This socket carries a password session (hello `signedIn`), so it may allow a sign-in-required card (run_on_pc). */
   signedIn: boolean;
-  /** The hub's refusal of an answer, by approval id ("Only a browser signed in…"), shown on that card. */
   approvalErrors: Record<string, string>;
-  /** Why the hub refused a form's answers (by form id); `at` makes a repeat refusal a new value. */
   formErrors: Record<string, { message: string; at: number }>;
-  /** Marks a form answer/cancel as sent, so a refusal reaches its card. Clears any earlier refusal. */
   formSent: (formId: string) => void;
   _playedConnectedSound: boolean;
-  // ---- P7 ----
-  /** Latest knowledge repo status from the `knowledge.status` event; null until one arrives. */
   knowledge: KnowledgeStatus | null;
-  /** Bumped per bot on `voice.updated`, so the Memory tab refetches voice.md and its proposals. */
   voiceRev: Record<string, number>;
-  // ---- P2 ----
-  /** Who drives each bot's computer, from GET /api/control and `computer.control`. Missing = the bot (agent). */
   control: Record<string, ControlStatus>;
-  /** Bumped on `policies.changed`, so the approval rule list refetches. */
   policiesRev: number;
-  // ---- P6 ----
-  /** Teach recordings per bot, from `recorder.state`. Missing = not recording (or not asked yet). */
   recorder: Record<string, RecorderStatus>;
-  /** Bumped on `skills.changed`, so the Skills tab and an open version list refetch. */
   skillsRev: number;
-  /** Bumped on `pc-runner.changed`, so Settings > PC runner refetches its status and jobs. */
   pcRunnerRev: number;
-  /** A mirrored session the PC sessions page should open (set by a job log link), consumed once. */
   pcSessionFocus: string | null;
-  /** Bumped per bot on `training.changed`, so its Training section refetches. */
   trainingRev: Record<string, number>;
-  /** Bumped per room on WS `task.changed`; an open Tasks board refetches when its room's number moves. */
   tasksRev: Record<string, number>;
-  // ---- queue controls (02 task 2.4) ----
-  /** Each bot's waiting items per room, keyed `botId:roomId` (see lib/queue). Only lanes with items or a pause. */
   queues: Queues;
-  /** GET the room's queue snapshot; runs with every (re)load of a room's messages. */
   loadQueue: (roomId: string) => Promise<void>;
-  /** P4-2: each bot's context size per room, keyed `botId:roomId` (lib/context). Only bots on providers that measure it. */
   contexts: Contexts;
-  /** GET the room's context sizes; runs with every (re)load of a room, and when a bot page opens. */
   loadContext: (roomId: string) => Promise<void>;
-  /** Each resolves to null when the hub took it, or the hub's reason in words when it refused. */
   queueCancel: (roomId: string, journalId: string) => Promise<string | null>;
   queueEdit: (roomId: string, journalId: string, text: string) => Promise<string | null>;
   queueSendNow: (roomId: string, botId: string) => Promise<string | null>;
   queuePause: (roomId: string, botId: string, paused: boolean) => Promise<string | null>;
-  // ---- U3 ----
-  /** The skill pool, for the Needs you inbox (skills waiting for review). Null until GET /api/skills answers, or if it refuses. */
   inboxSkills: Skill[] | null;
-  /**
-   * Projects (lib/projects.ts), for the project-first sidebar. Loaded after each hello and refetched when bots or
-   * rooms change (the hub has no `projects.changed` yet). Always `[]` on a paired phone, which the hub refuses.
-   */
   projects: ProjectInfo[];
   loadProjects: () => Promise<void>;
-  /** Fetches one project's overview (GET /api/projects/:slug/overview). */
   loadOverview: (slug: string) => Promise<void>;
   loadMap: (slug: string) => Promise<void>;
-  /** Sends `text` to the open chat (the project's room) as an ordinary message, and remembers who was asked. */
   askForMap: (slug: string, botId: string, text: string) => void;
-  /** New layout: shows the overview in the right slot; `rail: false` unfolds it. */
   openOverview: (opts?: { rail?: boolean }) => void;
   setOverviewRail: (rail: boolean) => void;
   loadInboxSkills: () => Promise<void>;
 
   setConnected: (v: boolean) => void;
   setHubIssue: (issue: HubIssue | null) => void;
-  /**
-   * Applies the patch at once, then saves it. If the save fails the touched keys go back to what they
-   * were and a toast says why. Resolves true when the hub accepted the change.
-   */
   updateSettings: (patch: SettingsPatch) => Promise<boolean>;
   fetchProviders: () => Promise<void>;
   fetchFailover: () => Promise<void>;
-  /** Takes an answered card off the list at once; the hub's `failover.changed` confirms it. */
   dropFailoverCard: (id: string) => void;
   fetchAccount: () => Promise<void>;
-  /** Takes the answer of an account POST: a full AccountState is used as is, anything else triggers a refetch. */
   applyAccountResponse: (res: AccountActionResponse) => void;
   applyEvent: (ev: ServerEvent) => void;
   setActiveRoom: (id: string | null) => void;
   openSearchHit: (roomId: string, seq: number, query: string) => void;
   loadMessages: (roomId: string) => Promise<void>;
-  /** Prepends the page just before the oldest loaded message. No-op while one is loading or none are left. */
   loadOlder: (roomId: string) => Promise<void>;
-  /**
-   * `attachments` are media refs already uploaded; a message may be pictures only. `mode` is what the message does
-   * if a target bot is busy (steering): left out, the hub's Settings > busyMessages decides.
-   */
   sendMessage: (text: string, attachments?: string[], mode?: SendMode) => void;
   decide: (approvalId: string, decision: 'allow' | 'always' | 'deny') => void;
   interrupt: (turnId: string) => void;
   openScreen: (botId?: string | null) => void;
-  /** Shows the active room's files in the right panel, optionally at a folder (and previewing a file in it). */
   openFiles: (at?: { path: string; file?: string }) => void;
   openPage: (page: Page) => void;
   closePage: () => void;
-  /** Opens the PC sessions page on one transcript, closing any dialog over it. */
   openPcSession: (id: string) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -346,14 +222,12 @@ interface State {
   closePanel: () => void;
   openDialog: (d: State['dialog']) => void;
   toast: (text: string, bad?: boolean, opts?: ToastOptions) => void;
-  /** Removes toasts by id, or every toast whose key starts with the given prefix. */
   dismissToast: (which: { id: number } | { keyPrefix: string }) => void;
   refresh: () => Promise<void>;
 }
 
 let toastSeq = 0;
 
-/** Runs a queue REST call: null when the hub took it, else its refusal (or the network error) in words. */
 async function queueCall(fn: () => Promise<unknown>): Promise<string | null> {
   try {
     await fn();
@@ -386,7 +260,6 @@ export const useStore = create<State>((set, get) => ({
   routinesRev: 0,
   triggersRev: 0,
   memory: {},
-  // A fresh start is the chat; in the new layout on a wide window, the chat with its project's overview.
   panelOpen: overviewHome(window.innerWidth),
   sidebarOpen: !matches(NARROW_SIDEBAR_QUERY) && getItem('pocketrocket.sidebar') !== '0',
   paneW: readPaneWidths(window.innerWidth),
@@ -452,7 +325,6 @@ export const useStore = create<State>((set, get) => ({
   queueSendNow: (roomId, botId) => queueCall(() => api.rooms.queueSendNow(roomId, botId)),
   queuePause: (roomId, botId, paused) => queueCall(async () => {
     const lanes = await api.rooms.queuePause(roomId, botId, paused);
-    // The hub also sends queue.changed; applying the answer now keeps the chip in step on a slow link.
     let queues = get().queues;
     for (const q of lanes) queues = applyLaneQueue(queues, q);
     set({ queues });
@@ -468,7 +340,6 @@ export const useStore = create<State>((set, get) => ({
       const o = await api.projects.overview(slug);
       set({ overviews: { ...get().overviews, [slug]: o } });
     } catch {
-      // An older hub (404) or a refused device: no plan, said quietly as "No plan yet".
       set({ overviews: { ...get().overviews, [slug]: null } });
     }
   },
@@ -502,8 +373,6 @@ export const useStore = create<State>((set, get) => ({
     const was = get().connected;
     if (connected) set({ connected, hasConnected: true, disconnectedAt: null, hubIssue: null });
     else if (was) set({ connected, disconnectedAt: Date.now() });
-    // Everything the user wrote while the link was down goes out now, before anything newer. A fresh link also
-    // resends what was written to the old one without an echo (once; the hub drops the repeat by clientMsgId).
     if (connected && !was) {
       for (const e of get().outbox) if (e.status === 'sent') { clearAck(e.clientId); patchOutbox(e.clientId, 'sending', 'sent'); }
     }
@@ -516,10 +385,8 @@ export const useStore = create<State>((set, get) => ({
 
   applyEvent: (ev) => {
     const s = get();
-    // Ahead of the hub (spec B1): once it sends `projects.changed`, take its list as is.
     const loose = ev as unknown as { type: string; projects?: unknown };
     if (loose.type === 'projects.changed') {
-      // The hub's event carries nothing (paired phones get every event); an older draft carried the list.
       if (Array.isArray(loose.projects) && !s.device) set({ projects: loose.projects as ProjectInfo[] });
       else void get().loadProjects();
       return;
@@ -528,13 +395,8 @@ export const useStore = create<State>((set, get) => ({
       case 'hello': {
         const settings = ev.settings ?? DEFAULT_SETTINGS;
         set({ bots: ev.bots, rooms: ev.rooms, botStates: ev.botStates, loaded: {}, settings, helloReceived: true, device: ev.principal ? ev.principal === 'device' : s.device, signedIn: !!ev.signedIn, approvalErrors: {}, formErrors: {}, openApprovals: ev.openApprovals ?? [], queues: {} });
-        // A paired phone keeps the classic layout, so it never keeps the overview the first paint guessed at.
         if (get().device && get().panelKind === 'overview') set({ panelOpen: false, panelKind: 'screen' });
-        // `queues: {}`: lanes may have changed while the link was down; each room's load fetches its snapshot again.
-        // A classic layout chosen on this browser before the choice moved to the hub: hand it to the hub once,
-        // before applying the hub's `auto` would undo it. Never from a paired phone, which keeps classic anyway.
         const migrate = get().device ? null : layoutToMigrate(settings.layout);
-        // If the hub refuses, the save's rollback would apply `auto`: keep this browser on its choice regardless.
         if (migrate) void get().updateSettings({ layout: migrate }).then((saved) => { if (!saved) setLayout(migrate); });
         else applyLocalSettings(settings);
         watchSystemTheme(() => get().settings.theme);
@@ -542,11 +404,8 @@ export const useStore = create<State>((set, get) => ({
         void get().fetchFailover();
         void get().fetchAccount();
         void get().loadProjects();
-        // Workflows and their approval cards may have changed while the link was down.
         void refreshWorkflows();
-        // Only decoration: a hub or a paired phone that refuses it just shows each bot's title instead.
         void api.previews().then((previews) => set({ previews })).catch(() => undefined);
-        // P2: control states that are not the default (agent); older hubs answer 404, which leaves it empty.
         void api.control.list().then((l) => set({ control: Object.fromEntries(l.map((c) => [c.botId, c])) })).catch(() => undefined);
         const active = s.activeRoomId && ev.rooms.some((r) => r.id === s.activeRoomId) ? s.activeRoomId : (ev.rooms[0]?.id ?? null);
         get().setActiveRoom(active);
@@ -575,7 +434,7 @@ export const useStore = create<State>((set, get) => ({
         return;
       case 'bots.changed':
         set({ bots: ev.bots });
-        void get().loadProjects(); // creating a project with a team says only this
+        void get().loadProjects();
         return;
       case 'rooms.changed': {
         set({ rooms: ev.rooms });
@@ -586,12 +445,10 @@ export const useStore = create<State>((set, get) => ({
       case 'message.new': {
         const m = ev.message;
         const list = s.messages[m.roomId] ?? [];
-        // The hub's copy of a message from the journal: the entry has done its job.
         if (m.clientMsgId) settleSends([m.clientMsgId]);
         if (list.some((x) => x.id === m.id)) return;
         const unread = { ...s.unread };
         if (m.roomId !== s.activeRoomId && m.authorType !== 'user' && (m.kind === 'text' || m.kind === 'approval' || m.kind === 'takeover')) unread[m.roomId] = (unread[m.roomId] ?? 0) + 1;
-        // a bot text message replaces its in-flight stream buffer for that turn
         const streaming = { ...s.streaming };
         if (m.turnId && (m.kind === 'text' || m.kind === 'tool') && streaming[m.turnId]) streaming[m.turnId] = { ...streaming[m.turnId], text: '' };
         set({ messages: { ...s.messages, [m.roomId]: [...list, m] }, unread, streaming });
@@ -600,7 +457,6 @@ export const useStore = create<State>((set, get) => ({
           if (m.turnId) recentReceive.set(m.turnId, Date.now());
           play('receive', { roomActive: m.roomId === s.activeRoomId });
         }
-        // P2: a bot asking for the user's hands is as urgent as an approval card.
         if (m.kind === 'takeover') {
           play('approvalRequest');
           void notifyEvent({ kind: 'takeover', roomId: m.roomId, botName: botById(s.bots, m.authorId)?.name ?? 'A bot', reason: m.text });
@@ -631,10 +487,8 @@ export const useStore = create<State>((set, get) => ({
         const streaming = { ...s.streaming };
         delete streaming[ev.turnId];
         set({ streaming, contexts: applyContext(s.contexts, ev.botId, ev.roomId, ev.context) });
-        // A bot may have just ticked a box in its project's current.md: refresh what the header and overview say.
         const project = projectOfRoom(s.projects, ev.roomId);
         if (project && project.slug in s.overviews) void get().loadOverview(project.slug);
-        // ...or written map.json (bot file writes send no files.changed, so a finished turn is the cue).
         if (project && project.slug in s.maps) void get().loadMap(project.slug);
         const ask = project && s.mapAsks[project.slug];
         if (project && ask && ask.phase === 'sent' && ask.botId === ev.botId && ask.roomId === ev.roomId) {
@@ -661,8 +515,6 @@ export const useStore = create<State>((set, get) => ({
         play('approvalRequest');
         void notifyEvent({ kind: 'approval', roomId: ev.roomId, botName: botById(s.bots, ev.botId)?.name ?? 'A bot' });
         if (ev.roomId === s.activeRoomId) return;
-        // Named and clickable, and it stays: a toast that fades after four seconds is easy to miss while a
-        // bot sits blocked in a room the user is not looking at.
         const bot = botById(s.bots, ev.botId);
         const room = s.rooms.find((r) => r.id === ev.roomId);
         const who = bot?.name ?? 'A bot';
@@ -676,7 +528,6 @@ export const useStore = create<State>((set, get) => ({
         return;
       }
       case 'approval.resolved':
-        // Answered somewhere (another window, a timeout): the reminder has nothing left to point at.
         set({
           toasts: get().toasts.filter((t) => !t.key?.startsWith('approval:') || !t.key.endsWith(':' + ev.approvalId)),
           openApprovals: s.openApprovals.filter((a) => a.approvalId !== ev.approvalId),
@@ -688,14 +539,11 @@ export const useStore = create<State>((set, get) => ({
       case 'usage.updated':
         set({ usage: { ...s.usage, [ev.botId + ':' + ev.roomId]: ev.totals } });
         return;
-      // P3
       case 'routines.changed':
       case 'routine.fired':
         set({ routinesRev: s.routinesRev + 1 });
         return;
       case 'error':
-        // A refused answer belongs on its card, next to the button that was refused, not in a passing toast.
-        // Same for a refused form answer: the card re-enables its buttons and shows the hub's reason.
         if (ev.context && formsSent.has(ev.context)) {
           formsSent.delete(ev.context);
           set({ formErrors: { ...s.formErrors, [ev.context]: { message: ev.message, at: Date.now() } } });
@@ -706,7 +554,6 @@ export const useStore = create<State>((set, get) => ({
           set({ approvalErrors: { ...s.approvalErrors, [ev.context]: ev.message } });
           return;
         }
-        // A refused send (a room that no longer exists) belongs on its own bubble, which then offers Retry.
         if (ev.context && s.outbox.some((e) => e.clientId === ev.context)) {
           patchOutbox(ev.context, 'failed');
           clearAck(ev.context);
@@ -714,20 +561,17 @@ export const useStore = create<State>((set, get) => ({
         }
         get().toast(ev.message, true);
         return;
-      // ---- P7 ----
       case 'knowledge.status':
         set({ knowledge: ev.status });
         return;
       case 'voice.updated':
         set({ voiceRev: { ...s.voiceRev, [ev.botId]: (s.voiceRev[ev.botId] ?? 0) + 1 } });
         return;
-      // ---- P5 ----
       case 'triggers.changed':
       case 'trigger.fired':
       case 'integrations.changed':
         set({ triggersRev: s.triggersRev + 1 });
         return;
-      // ---- P2 ----
       case 'computer.control': {
         const was = s.control[ev.status.botId]?.takeover?.messageId;
         const toasts = was && !ev.status.takeover ? s.toasts.filter((t) => t.key !== 'takeover:' + was) : s.toasts;
@@ -737,7 +581,6 @@ export const useStore = create<State>((set, get) => ({
       case 'policies.changed':
         set({ policiesRev: s.policiesRev + 1 });
         return;
-      // ---- P6 ----
       case 'recorder.state':
         set({ recorder: { ...s.recorder, [ev.status.botId]: ev.status } });
         return;
@@ -776,9 +619,7 @@ export const useStore = create<State>((set, get) => ({
     if (id) setItem('pocketrocket.activeRoom', id);
     const unread = { ...get().unread };
     if (id) delete unread[id];
-    // Moving to another chat leaves a page. The same chat again (a reconnect's hello) must not.
     set({ activeRoomId: id, unread, page: id === get().activeRoomId ? get().page : null, searchTarget: get().searchTarget?.roomId === id ? get().searchTarget : null });
-    // The room is on screen now, approval card included, so its reminders are done.
     if (id) get().dismissToast({ keyPrefix: 'approval:' + id + ':' });
     if (id && !get().loaded[id]) void get().loadMessages(id);
     const room = id ? get().rooms.find((r) => r.id === id) : null;
@@ -793,14 +634,12 @@ export const useStore = create<State>((set, get) => ({
       const ids = new Set(msgs.map((m) => m.id));
       const merged = [...msgs, ...existing.filter((m) => !ids.has(m.id))].sort((a, b) => a.seq - b.seq);
       settleSends(msgs.flatMap((m) => (m.clientMsgId ? [m.clientMsgId] : [])));
-      // A reload after reconnect keeps older pages already fetched, so only a short newest page proves there is nothing more.
       const done = msgs.length < MESSAGE_PAGE || !!get().history[roomId]?.done;
       set({
         messages: { ...get().messages, [roomId]: merged },
         loaded: { ...get().loaded, [roomId]: true },
         history: { ...get().history, [roomId]: { loading: false, done } },
       });
-      // After the transcript, so a hello's reload (reconnect) also brings the queue back in step.
       void get().loadQueue(roomId);
       void get().loadContext(roomId);
     } catch (e) {
@@ -823,7 +662,6 @@ export const useStore = create<State>((set, get) => ({
       setHistory({ loading: false, done: older.length < MESSAGE_PAGE });
     } catch (e) {
       setHistory({ loading: false, done: false });
-      // Every scroll event near the top asks again, so hold off a few seconds instead of retrying (and toasting) at once.
       olderRetryAt.set(roomId, Date.now() + 5000);
       get().toast("Couldn't load earlier messages: " + (e as Error).message, true);
     }
@@ -833,7 +671,6 @@ export const useStore = create<State>((set, get) => ({
     const roomId = get().activeRoomId;
     const pics = attachments?.length ? attachments : undefined;
     if (!roomId || (!text.trim() && !pics)) return;
-    // Journal first, then try the socket: a message is never only in memory.
     const entry: OutboxEntry = { clientId: newClientId(), roomId, text, status: 'sending', createdAt: Date.now(), ...(pics ? { attachments: pics } : {}), ...(mode ? { mode } : {}) };
     setOutbox([...get().outbox, entry]);
     play('send');
@@ -844,7 +681,6 @@ export const useStore = create<State>((set, get) => ({
       if (e.status !== 'sending') continue;
       if (!wsSend({ type: 'message.send', roomId: e.roomId, text: e.text, clientMsgId: e.clientId, ...(e.attachments ? { attachments: e.attachments } : {}), ...(e.mode ? { mode: e.mode } : {}) })) return;
       patchOutbox(e.clientId, 'sent');
-      // No echo: if the link is still up the hub is not taking it, otherwise it waits for the reconnect.
       clearAck(e.clientId);
       ackTimers.set(e.clientId, setTimeout(() => {
         ackTimers.delete(e.clientId);
@@ -877,7 +713,6 @@ export const useStore = create<State>((set, get) => ({
     set({
       panelOpen: true,
       panelKind: 'files',
-      // Expanded is a screen thing: files at 1200px wide would squeeze the chat for nothing.
       panelExpanded: s.panelKind === 'files' ? s.panelExpanded : false,
       screenParked: s.screenParked || (s.panelOpen && s.panelKind === 'screen'),
       filesTarget: at && roomId ? { roomId, path: at.path, file: at.file, seq: (s.filesTarget?.seq ?? 0) + 1 } : s.filesTarget,
@@ -885,8 +720,6 @@ export const useStore = create<State>((set, get) => ({
   },
   closePanel: () => {
     const s = get();
-    // New layout: closing the screen or files goes back to the overview rather than an empty slot. Where the panel
-    // covers the window instead (a phone), closing means back to the chat; the next open is the overview either way.
     if (tokiLayout(s.device)) {
       const back = s.panelOpen && s.panelKind !== 'overview' && window.innerWidth >= PANEL_INLINE_MIN;
       return set({ panelOpen: back, panelKind: 'overview', screenParked: false, panelExpanded: false });
@@ -913,13 +746,10 @@ export const useStore = create<State>((set, get) => ({
   togglePanelExpanded: () => set((s) => ({ panelExpanded: !s.panelExpanded })),
   openDialog: (dialog) => set({ dialog }),
   toast: (text, bad, opts) => {
-    // Errors now stay until dismissed, so the same one repeating (a retry loop, every send while offline) must not stack.
     if (bad && !opts?.key && get().toasts.some((t) => t.bad && t.text === text)) return;
-    // A keyed toast replaces its earlier copy rather than stacking a duplicate.
     const id = ++toastSeq;
     const rest = opts?.key ? get().toasts.filter((t) => t.key !== opts.key) : get().toasts;
     set({ toasts: [...rest, { id, text, bad, ...opts }] });
-    // An error has to survive being read, and may hold a reason the user needs: only the user clears it.
     if (!opts?.sticky && !bad) setTimeout(() => get().dismissToast({ id }), 4000);
   },
   dismissToast: (which) => {
@@ -937,7 +767,6 @@ export const useStore = create<State>((set, get) => ({
 
   updateSettings: async (patch) => {
     const prev = get().settings;
-    // Optimistic: the control flips immediately instead of waiting a round trip.
     set({ settings: { ...prev, ...patch } });
     applyLocalSettings(get().settings);
     try {
@@ -946,8 +775,6 @@ export const useStore = create<State>((set, get) => ({
       applyLocalSettings(saved);
       return true;
     } catch (e) {
-      // Roll back only the keys this call changed, and only if they still hold our optimistic value:
-      // a `settings.changed` from another window may have landed meanwhile and must not be undone.
       const current = get().settings;
       const undo = Object.fromEntries(
         (Object.keys(patch) as (keyof Settings)[])
@@ -965,7 +792,6 @@ export const useStore = create<State>((set, get) => ({
     try {
       set({ inboxSkills: await api.skills.list() });
     } catch {
-      // A paired phone may not read the pool (403) and an old hub may not have it: the inbox just has no skill rows.
       set({ inboxSkills: get().inboxSkills ?? [] });
     }
   },
@@ -994,8 +820,6 @@ export const useStore = create<State>((set, get) => ({
       const account = await api.account.get();
       set({ account: isAccountState(account) ? account : SIGNED_OUT });
     } catch {
-      // No account endpoint on this hub (older build, or the backend is not wired up yet) or it errored:
-      // behave exactly like a hub without accounts rather than showing a broken section.
       set({ account: SIGNED_OUT });
     }
   },
@@ -1009,15 +833,11 @@ export const useStore = create<State>((set, get) => ({
 export const selectActiveRoom = (s: State) => s.rooms.find((r) => r.id === s.activeRoomId) ?? null;
 export const botById = (bots: Bot[], id: string | null | undefined) => (id ? bots.find((b) => b.id === id) : undefined);
 
-// ---------- send journal helpers (B5) ----------
-
-/** Replaces the journal in state and on disk. */
 function setOutbox(outbox: OutboxEntry[]) {
   useStore.setState({ outbox });
   writeJournal(outbox);
 }
 
-/** Sets one entry's status; with `only`, leaves it alone unless it currently has that status. */
 function patchOutbox(clientId: string, status: OutboxEntry['status'], only?: OutboxEntry['status']) {
   const cur = useStore.getState().outbox;
   const at = cur.find((e) => e.clientId === clientId);
@@ -1025,7 +845,6 @@ function patchOutbox(clientId: string, status: OutboxEntry['status'], only?: Out
   setOutbox(cur.map((e) => (e.clientId === clientId ? { ...e, status } : e)));
 }
 
-/** The hub has these messages, so their journal entries are done. */
 function settleSends(clientIds: string[]) {
   const cur = useStore.getState().outbox;
   if (!cur.length) return;
@@ -1035,7 +854,6 @@ function settleSends(clientIds: string[]) {
   setOutbox(cur.filter((e) => !done.has(e.clientId)));
 }
 
-// Flipping the "New layout" switch: the overview comes into the right slot, or leaves it for the classic panel.
 subscribeLayout(() => {
   const s = useStore.getState();
   if (tokiLayout(s.device)) {

@@ -1,7 +1,6 @@
 /**
- * P9: Web Push on this browser. Opt-in only: nothing here runs until the user flips the switch in
- * Settings › Devices. The hub's pushes are content-free ({"kind":"approval"}); sw.js turns the kind into
- * fixed wording, so no bot output ever passes through Apple's or Google's push service.
+ * The hub's pushes are content-free; sw.js turns the kind into fixed wording, so no bot output passes through
+ * Apple's or Google's push service.
  */
 import { api } from './api';
 
@@ -19,7 +18,6 @@ export function pushSupport(): PushSupport {
   return 'ok';
 }
 
-/** The service worker (registered at startup in production; registered here in dev). */
 export async function swRegistration(): Promise<ServiceWorkerRegistration> {
   const existing = await navigator.serviceWorker.getRegistration('/');
   if (existing) return existing;
@@ -41,7 +39,6 @@ function keyBytes(b64url: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-/** Asks for permission, subscribes with the hub's VAPID key and registers the subscription with the hub. */
 export async function enablePush(): Promise<void> {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error(permission === 'denied' ? 'Notifications blocked in browser settings.' : 'Notifications were not allowed.');

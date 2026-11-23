@@ -1,5 +1,3 @@
-// The map as text (docs/specs/toki-ui.md, W7): the keyboard and screen-reader view, and the default on narrow
-// windows. Groups (or milestones in order), each box with its tech and what it links to.
 import { MessageSquarePlus } from 'lucide-react';
 import { cn } from '../ui';
 import type { MapLayout, PlacedNode } from '../../lib/mapLayout';

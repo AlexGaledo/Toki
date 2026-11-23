@@ -1,6 +1,3 @@
-// PC sessions: Claude Code sessions mirrored from the owner's PC, read-only. A list grouped by repo opens a
-// transcript. The list refreshes (debounced) and the open transcript appends when the hub sends
-// `pc_session_updated`. Nothing here sends anything back to Claude Code; the only write is deleting the mirror.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, CloudUpload, Play, Trash2, Upload } from 'lucide-react';
 import { useStore } from '../store';
@@ -24,13 +21,11 @@ import { MirrorEmptyState, SessionGroups, TranscriptEntries } from './PcSessionV
 export function PcSessionsPage() {
   const focus = useStore((s) => s.pcSessionFocus);
   const [openId, setOpenId] = useState<string | null>(focus);
-  // A job log link asks for a transcript; take it once.
   useEffect(() => {
     if (!focus) return;
     setOpenId(focus);
     useStore.setState({ pcSessionFocus: null });
   }, [focus]);
-  // Leaving a transcript returns to the list with its search and scroll intact, so the list stays mounted behind it.
   return (
     <>
       <div className={cn('flex min-h-0 flex-1 flex-col', openId && 'hidden')} inert={!!openId}><SessionList onOpen={setOpenId} /></div>
@@ -38,8 +33,6 @@ export function PcSessionsPage() {
     </>
   );
 }
-
-// ---- list ----
 
 const VIEW_KEY = 'pc-sessions.view';
 
@@ -52,7 +45,6 @@ function SessionList({ onOpen }: { onOpen: (id: string) => void }) {
   const [repos, setRepos] = useState<string[]>([]);
   const [before, setBefore] = useState<number | null>(null);
   const [moreBusy, setMoreBusy] = useState(false);
-  // Active (what Claude Code is doing now) or History (everything mirrored). Remembered in this browser.
   const [view, setViewState] = useState<'active' | 'history'>(() => (getItem(VIEW_KEY) === 'history' ? 'history' : 'active'));
   const setView = (v: 'active' | 'history') => { setViewState(v); setItem(VIEW_KEY, v); };
   const seq = useRef(0);
@@ -62,7 +54,6 @@ function SessionList({ onOpen }: { onOpen: (id: string) => void }) {
     return () => clearTimeout(t);
   }, [q]);
 
-  // `keep` merges into what is shown (a live refresh), otherwise the list starts over (a new search or filter).
   const load = useCallback((keep: boolean) => {
     const n = ++seq.current;
     api.pcSessions.list({ q: debouncedQ, repo }).then(({ sessions: page }) => {
@@ -76,15 +67,12 @@ function SessionList({ onOpen }: { onOpen: (id: string) => void }) {
 
   useEffect(() => { load(false); }, [load]);
 
-  // 'Live' means written to in the last few minutes, worked out by the hub when it answers; refetch now and then so a
-  // session that went quiet leaves Active even when nothing new arrives.
   useEffect(() => {
     if (view !== 'active') return;
     const t = setInterval(() => load(true), 60_000);
     return () => clearInterval(t);
   }, [load, view]);
 
-  // Entries arrive in bursts; one refetch per quiet second and a half is plenty for a list.
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | null = null;
     const off = onPcSessionUpdated(() => {
@@ -148,8 +136,6 @@ function SessionList({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
-// ---- transcript ----
-
 function SessionView({ id, onOpen, onBack }: { id: string; onOpen: (id: string) => void; onBack: () => void }) {
   const toast = useStore((s) => s.toast);
   const [detail, setDetail] = useState<PcSessionDetail | null>(null);
@@ -185,7 +171,6 @@ function SessionView({ id, onOpen, onBack }: { id: string; onOpen: (id: string) 
     fetchPage(0).catch((e: Error) => setError(e.message));
   }, [id, fetchPage]);
 
-  // New entries while the reader is at the bottom: append and keep following. Mid-transcript, only the header refreshes.
   const moreRef = useRef(false);
   moreRef.current = more;
   useEffect(() => onPcSessionUpdated((ev) => {
@@ -196,8 +181,6 @@ function SessionView({ id, onOpen, onBack }: { id: string; onOpen: (id: string) 
     fetchPage(lastSeq.current).catch(() => undefined).finally(() => { inFlight.current = false; });
   }), [id, fetchPage]);
 
-  // A move, pull or VPS turn changes state on the hub; the PC's job events and the 4 s poll below keep the header true
-  // even when no transcript entry arrives.
   const move = detail ? moveOf(detail) : null;
   const busyMove = !!move && (move.state === 'moving' || move.state === 'pulling' || move.turnRunning);
   useEffect(() => { if (rev) refresh(); }, [rev, refresh]);

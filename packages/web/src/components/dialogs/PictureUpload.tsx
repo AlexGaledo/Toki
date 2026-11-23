@@ -3,7 +3,6 @@ import { Upload } from 'lucide-react';
 import { IMAGE_TYPES, uploadImage } from '../../lib/media';
 import { Button } from '../ui';
 
-/** Picks one image, shrinks and uploads it, and hands back its reference. A refusal is said right here. */
 export function PictureUpload({ onUploaded, label = 'Upload picture' }: { onUploaded: (ref: string) => void; label?: string }) {
   const input = useRef<HTMLInputElement>(null);
   const errorId = useId();
@@ -20,7 +19,6 @@ export function PictureUpload({ onUploaded, label = 'Upload picture' }: { onUplo
       setError((e as Error).message);
     } finally {
       setBusy(false);
-      // The same file can be picked again after a refusal.
       if (input.current) input.current.value = '';
     }
   };

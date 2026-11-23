@@ -1,13 +1,7 @@
-/**
- * The Needs you page in the new layout (docs/specs/toki-ui.md, W9): the same rows, grouped by the project whose room
- * they wait in. Projects keep the hub's order; everything else (rooms with no project, skills, which have no room)
- * goes under "Other rooms", last. Rows keep their order inside each group.
- */
 import type { ProjectInfo } from './api';
 import { projectOfRoom } from './projects';
 
 export interface InboxGroup<T> {
-  /** Null for "Other rooms". */
   project: ProjectInfo | null;
   items: T[];
 }

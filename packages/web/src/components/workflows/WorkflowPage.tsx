@@ -1,6 +1,3 @@
-// One workflow: a page over the chat like the other fleet pages. PageHeader (name, Enabled, Run now), a Canvas | Steps
-// switch remembered per viewer, an inspector for the selected step (a 320px column at lg, a Dialog below), and the run
-// view. The Steps list is the accessible and phone view; both views edit the same draft and nothing is sent until Save.
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { Routine, Trigger, WorkflowNode } from '@pocketrocket/shared';
@@ -21,13 +18,9 @@ import { InspectorBody, InspectorColumn, confirmDeleteStep } from './Inspector';
 import { RunPanel, useRunView } from './RunPanel';
 import { WorkflowApprovalCardView } from './WorkflowCard';
 
-// ---------- the lazy canvas ----------
-
-/** True while the draft has changes, so a stale-chunk reload (which would drop them) is not attempted. */
 let hasUnsaved = false;
 const WorkflowCanvas = lazy(() => importChunk(() => import('./WorkflowCanvas'), () => !hasUnsaved));
 
-/** The canvas chunk failed to load (offline, or a stale build): say so and point at Steps, which needs no chunk. */
 class CanvasBoundary extends Component<{ children: ReactNode; onUseSteps: () => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -41,8 +34,6 @@ class CanvasBoundary extends Component<{ children: ReactNode; onUseSteps: () => 
     );
   }
 }
-
-// ---------- measuring ----------
 
 function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
   const ref = useRef<T>(null);
@@ -88,7 +79,6 @@ export function WorkflowPage({ id }: { id: string }) {
   }, [rev]);
   const ctx: StepContext = useMemo(() => ({ bots, routines, triggers }), [bots, routines, triggers]);
 
-  // The draft: what you are editing. It follows the saved workflow until you change something.
   const fromWf = useCallback((): Draft | null => (wf ? { name: wf.name, roomId: wf.roomId, budgetUsd: wf.budgetUsd, steps: stepsOf(wf.graph).steps } : null), [wf]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const saved = useMemo(() => fromWf(), [fromWf]);
@@ -111,7 +101,6 @@ export function WorkflowPage({ id }: { id: string }) {
 
   const canManage = !device;
   const narrow = pageW < 640;
-  // Below a 640px container Steps is the default and the canvas is read-only; the saved choice applies when there is room.
   const shown: View = pick ?? (narrow ? 'steps' : (readView() ?? 'canvas'));
   const choose = (v: View) => { setPick(v); setItem(VIEW_KEY, v); };
   const canvasReadOnly = narrow || !canManage;

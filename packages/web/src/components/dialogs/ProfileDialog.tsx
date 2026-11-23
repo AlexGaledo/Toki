@@ -3,10 +3,8 @@ import { useStore } from '../../store';
 import { Button, Dialog, Field, Input, Label, UserAvatar } from '../ui';
 import { PictureUpload } from './PictureUpload';
 
-/** settings.userName is capped at 40 characters by the hub's schema. */
 const NAME_MAX = 40;
 
-/** Your name and picture. Bots address you by this name, and it shows on your messages. */
 export function ProfileDialog({ onClose }: { onClose: () => void }) {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -16,7 +14,6 @@ export function ProfileDialog({ onClose }: { onClose: () => void }) {
 
   const save = async () => {
     setBusy(true);
-    // updateSettings says what went wrong itself; the dialog stays open so nothing typed is lost.
     if (await updateSettings({ userName: name.trim(), userAvatar: avatar })) onClose();
     setBusy(false);
   };

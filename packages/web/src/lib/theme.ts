@@ -17,20 +17,17 @@ export function resolveDark(mode: ThemeMode): boolean {
   return systemPrefersDark();
 }
 
-/** Applies the theme to <html> and mirrors it to localStorage so first paint (before settings load) can use it. */
 export function applyTheme(mode: ThemeMode) {
   document.documentElement.classList.toggle('dark', resolveDark(mode));
   setItem('pocketrocket.theme', mode);
 }
 
-/** Sets the app font, and mirrors it to localStorage so first paint uses it too. */
 export function applyFont(font: Settings['font']) {
   document.documentElement.dataset.font = font;
   setItem('pocketrocket.font', font);
 }
 
 let mediaListenerAttached = false;
-/** Keeps the DOM in sync when the OS theme flips while settings.theme === 'system'. */
 export function watchSystemTheme(getMode: () => ThemeMode) {
   if (mediaListenerAttached) return;
   mediaListenerAttached = true;

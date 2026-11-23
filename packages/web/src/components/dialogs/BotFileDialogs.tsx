@@ -1,6 +1,3 @@
-// U10: bot files. "Export" saves one bot as a .json file; "Import" reads one and makes a NEW bot from it, after
-// showing what is in it. The file never carries secrets, logins, approval rules, tool permissions or paths, and an
-// imported skill waits for approval on the Skills tab before any bot can use it.
 import { useRef, useState } from 'react';
 import { Download, FileUp, Upload } from 'lucide-react';
 import { BotExportSchema, MAX_BOT_EXPORT_BYTES, type Bot, type BotExport, type BotImportResult } from '@pocketrocket/shared';
@@ -8,7 +5,6 @@ import { useStore } from '../../store';
 import { api } from '../../lib/api';
 import { Banner, Button, Dialog, Switch } from '../ui';
 
-/** Hands `text` to the browser as a download. */
 function saveFile(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const a = document.createElement('a');
@@ -20,7 +16,6 @@ function saveFile(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** The two export controls shown in a bot's settings. */
 export function ExportBotControls({ bot }: { bot: Bot }) {
   const toast = useStore((s) => s.toast);
   const [memory, setMemory] = useState(false);
@@ -60,7 +55,6 @@ export function ExportBotControls({ bot }: { bot: Bot }) {
   );
 }
 
-/** Pick a file, look at what is in it, then create the bot. */
 export function ImportBotDialog({ onClose }: { onClose: () => void }) {
   const toast = useStore((s) => s.toast);
   const setActiveRoom = useStore((s) => s.setActiveRoom);

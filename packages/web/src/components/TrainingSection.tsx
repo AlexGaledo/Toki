@@ -1,8 +1,3 @@
-/**
- * Bot page, Memory tab, below the writing style: the per-bot training opt-in, its proposals, and Approve / Reject /
- * Undo. Nothing here changes the bot without one of those buttons. A paired phone can read it but not act. BotPage keys
- * this by bot, so a state, a busy flag or a click can never carry over from one bot's page to another's.
- */
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Check, Undo2, X } from 'lucide-react';
 import { TRAINING_PASS_BUDGET_USD, TRAINING_WEEKLY_CAP_USD, type TrainingDecision, type TrainingProposal, type TrainingState } from '@pocketrocket/shared';
@@ -33,7 +28,7 @@ export function TrainingSection({ botId }: { botId: string }) {
 
   const latest = useRef(0);
   const load = useCallback(() => {
-    const asked = ++latest.current; // an older answer never replaces a newer one
+    const asked = ++latest.current;
     api.training.get(botId).then((s) => { if (asked === latest.current) setState(s); }).catch(() => { if (asked === latest.current) setState(null); });
   }, [botId]);
   useEffect(load, [load, rev]);
@@ -43,7 +38,6 @@ export function TrainingSection({ botId }: { botId: string }) {
   const approved = state.proposals.filter((p) => p.status === 'approved');
   const blocked = state.proposals.filter((p) => p.status === 'blocked');
 
-  /** The hub's answer says what to do next, so a refusal stays beside the buttons. `training.changed` refreshes the rest. */
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     setRefused('');

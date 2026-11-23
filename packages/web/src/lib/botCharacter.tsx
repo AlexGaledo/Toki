@@ -1,7 +1,6 @@
 import type { BotCharacterKey } from '@pocketrocket/shared';
 import { fnv1a } from './botIcon';
 
-/** A soft outline with `lobes` bumps, drawn from a circle whose radius wobbles. `depth` is how far each bump reaches. */
 function lobed(lobes: number, depth: number, spin = 0): string {
   const points = Array.from({ length: 120 }, (_, i) => {
     const t = (i / 120) * Math.PI * 2;
@@ -14,7 +13,6 @@ function lobed(lobes: number, depth: number, spin = 0): string {
 const DROP = 'M50 5C66 27 90 45 90 65C90 84 72 95 50 95C28 95 10 84 10 65C10 45 34 27 50 5Z';
 const CLOUD = 'M30 82C14 82 5 71 5 59C5 47 14 38 26 38C30 24 42 16 55 18C68 20 77 30 78 41C88 43 95 52 95 63C95 74 85 82 74 82Z';
 
-/** Fills stay the same in both themes: each is a character's colour, and the dark eyes read on all of them. */
 const CHARACTERS: Record<BotCharacterKey, { label: string; path: string; fill: string; eyeY?: number; tilt?: number }> = {
   'blob-ember': { label: 'Ember', path: DROP, fill: '#f0445a', eyeY: 58, tilt: 22 },
   'blob-bloom': { label: 'Bloom', path: lobed(6, 7), fill: '#a78bfa' },
@@ -46,13 +44,11 @@ function Face({ path, fill, eyeY = 46, tilt = 8, size }: { path: string; fill: s
   );
 }
 
-/** The creature a bot wears when no icon was picked. The same bot always gets the same one, whatever it is renamed to. */
 export function AutoCharacter({ id, size }: { id: string; size: number }) {
   const h = fnv1a(id);
   return <Face {...AUTO_SHAPES[h % AUTO_SHAPES.length]} fill={AUTO_FILLS[(h >>> 12) % AUTO_FILLS.length]} size={size} />;
 }
 
-/** A little creature for a bot: a coloured shape with two eyes. Decorative: the caller names the bot. */
 export function BotCharacter({ character, size }: { character: BotCharacterKey; size: number }) {
   const { path, fill, eyeY, tilt } = CHARACTERS[character];
   return <Face path={path} fill={fill} eyeY={eyeY} tilt={tilt} size={size} />;

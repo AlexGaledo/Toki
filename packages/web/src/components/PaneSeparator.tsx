@@ -11,19 +11,12 @@ const windowWidth = () => window.innerWidth;
 const STEP = 16;
 const STEP_LARGE = 64;
 
-/**
- * The WAI-ARIA window splitter. It stays mounted while its pane is collapsed, so Enter can bring the pane back.
- * During a drag it only sets CSS variables: no store write and no React render, so the chat does not re-render
- * and the screen's iframe is left alone, with no new ticket and no reconnect. The store is written on release.
- */
 export function PaneSeparator({ pane, label, controls }: { pane: 'sidebar' | 'panel'; label: string; controls: string }) {
   const open = useStore((s) => (pane === 'sidebar' ? s.sidebarOpen : s.panelOpen));
   const setPaneW = useStore((s) => s.setPaneW);
   const setPaneOpen = useStore((s) => s.setPaneOpen);
-  // Subscribed so the values below stay right as the other pane or the window changes size.
   useStore((s) => s.paneW);
   useStore((s) => s.panelExpanded);
-  // The right slot keeps one width for the screen and files, another for the overview.
   const target = useStore((s) => separatorPane(pane, s));
   const setOverviewRail = useStore((s) => s.setOverviewRail);
   useStore((s) => (pane === 'sidebar' ? s.panelOpen : s.sidebarOpen));
@@ -50,20 +43,18 @@ export function PaneSeparator({ pane, label, controls }: { pane: 'sidebar' | 'pa
     showWidth(w);
     return w;
   };
-  /** Takes off everything the drag put on the page. */
   const endDrag = () => {
     drag.current = null;
     delete document.body.dataset.paneDrag;
     ref.current?.removeAttribute('data-dragging');
   };
-  // Shrinking the window to drawer width mid-drag unmounts this; the iframe guard must not outlive it.
   useEffect(() => () => { if (drag.current) delete document.body.dataset.paneDrag; }, []);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || !open) return;
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
-    el.focus({ preventScroll: true }); // So Escape can cancel the drag.
+    el.focus({ preventScroll: true });
     el.setAttribute('data-dragging', '');
     document.body.dataset.paneDrag = '';
     const w0 = paneLayout(window.innerWidth, useStore.getState())[pane];
@@ -76,20 +67,16 @@ export function PaneSeparator({ pane, label, controls }: { pane: 'sidebar' | 'pa
     d.moved ||= e.clientX !== d.x0;
     paint(d.raw);
   };
-  // Also runs on lostpointercapture, which follows every release; by then the drag is over and this does nothing.
   const onRelease = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d || e.pointerId !== d.id) return;
     endDrag();
     if (!d.moved) return;
-    // Collapsing keeps the width the drag started from, so reopening restores it. The overview folds to its rail
-    // instead, since the new layout never leaves that slot empty.
     if (d.raw < PANES[target].min - COLLAPSE_PAST) {
       if (target === 'overview') setOverviewRail(true);
       else setPaneOpen(pane, false);
     } else setPaneW(target, paint(d.raw));
   };
-  /** The store was never written, so going back only means repainting what it holds. */
   const onCancel = () => {
     const d = drag.current;
     if (!d) return;

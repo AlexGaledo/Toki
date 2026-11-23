@@ -1,9 +1,3 @@
-/**
- * Settings › Account: the name bots call you (works with or without an account) and the optional
- * Toki account. Which account view shows comes straight from `store.account`:
- * not available on this setup → one quiet line; signed out or waiting for a code → <AccountSignIn>;
- * signed in → who you are, your plan and "Sign out".
- */
 import { useEffect, useMemo, useState } from 'react';
 import type { AccountUser, Plan } from '@pocketrocket/shared';
 import { useStore } from '../../store';
@@ -12,7 +6,6 @@ import { Badge, Button, Field, Input, Label, Select } from '../ui';
 import { AccountSignIn } from '../AccountSignIn';
 import { Card, Group, InlineError, SectionHeader } from './parts';
 
-/** settings.userName is capped at 40 characters by the hub's schema. */
 const MAX_NAME_LENGTH = 40;
 
 const PLAN_LABEL: Record<Plan, string> = { free: 'Free', pro: 'Pro' };
@@ -53,12 +46,10 @@ export function AccountSection() {
   );
 }
 
-/** Saves on blur or Enter, the way a native preferences window does; an empty name snaps back. */
 function NameField() {
   const userName = useStore((s) => s.settings.userName);
   const updateSettings = useStore((s) => s.updateSettings);
   const [name, setName] = useState(userName);
-  // Follow changes made elsewhere (another window, onboarding) while this field isn't being edited.
   useEffect(() => setName(userName), [userName]);
 
   const save = () => {
@@ -119,10 +110,6 @@ function SignedIn({ user }: { user: AccountUser }) {
   );
 }
 
-/**
- * P3: settings.timezone. Routines are scheduled on this clock and the Routines tab shows times in it. The hub
- * starts it at its own system zone, which on a VPS is usually UTC, so offer this device's zone in one click.
- */
 function TimezoneField() {
   const timezone = useStore((s) => s.settings.timezone);
   const updateSettings = useStore((s) => s.updateSettings);

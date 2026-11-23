@@ -1,7 +1,3 @@
-/**
- * Plain words for tool calls, so raw identifiers such as `request_takeover` stay out of the sidebar and the
- * chat's tool chips. Each entry is [finished, in progress]. The expanded chip detail still shows the real name.
- */
 type Phrase = readonly [done: string, now: string];
 
 const BROWSER: Record<string, Phrase> = {
@@ -72,7 +68,6 @@ const BUILTIN: Record<string, Phrase> = {
   Skill: ['Used a skill', 'Using a skill'],
 };
 
-/** An unmapped name, minus its `mcp__server__` prefix and underscores: "gmail_search" reads "Gmail search". */
 function humanize(name: string): string {
   const words = (name.split('__').pop() ?? name).replace(/_/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -96,7 +91,6 @@ export function toolPhrase(name: string, tense: 'done' | 'now' = 'done'): string
   return chosen ? chosen[tense === 'done' ? 0 : 1] : humanize(name);
 }
 
-/** The in-progress word of each phrase as a plain verb, for "Wants to …". Listed rather than derived: English drops and doubles letters. */
 const BASE: Record<string, string> = {
   Opening: 'open', Going: 'go', Reading: 'read', Taking: 'take', Clicking: 'click', Hovering: 'hover', Typing: 'type',
   Filling: 'fill', Choosing: 'choose', Pressing: 'press', Waiting: 'wait', Switching: 'switch', Scrolling: 'scroll',
@@ -105,15 +99,10 @@ const BASE: Record<string, string> = {
   Searching: 'search', Writing: 'write', Editing: 'edit', Running: 'run', Finding: 'find', Fetching: 'fetch', Loading: 'load',
 };
 
-/** File tools whose in-progress phrase has no object ("Editing"); asking for one names it. */
 const ASK_BUILTIN: Record<string, string> = {
   Read: 'read a file', Write: 'write a file', Edit: 'edit a file', MultiEdit: 'edit a file', NotebookEdit: 'edit a notebook',
 };
 
-/**
- * What a bot asks to do, lower case, to follow "Wants to": Bash reads "run a command", an unmapped tool
- * "use gmail search".
- */
 export function toolAsk(name: string): string {
   if (ASK_BUILTIN[name]) return ASK_BUILTIN[name];
   const now = toolPhrase(name, 'now');

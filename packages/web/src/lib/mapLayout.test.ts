@@ -25,7 +25,6 @@ describe('layoutMap', () => {
     const x = (id: string) => l.nodes.find((n) => n.id === id)!.x;
     expect([x('web'), x('hub'), x('db'), x('tun')]).toEqual([...new Set([x('web'), x('hub'), x('db'), x('tun')])].sort((a, b) => a - b));
     const core = l.nodes.filter((n) => n.group === 'core');
-    // hub has 4 links, ws 1: hub takes the centre slot of the column.
     expect(core[0].id).toBe('hub');
     expect(Math.abs(core[0].y - l.groups[1].y)).toBeLessThan(Math.abs(core[1].y - l.groups[1].y) + 200);
   });

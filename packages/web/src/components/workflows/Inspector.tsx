@@ -1,5 +1,3 @@
-// The editor for the selected step: a 320px column beside the list at lg and up, a Dialog below (see WorkflowPage).
-// It edits the draft only; nothing is sent until Save.
 import { X } from 'lucide-react';
 import type { Room, WorkflowNode } from '@pocketrocket/shared';
 import { Button, Field, Input, Label, Select, Textarea, confirmAction } from '../ui';
@@ -127,7 +125,6 @@ export function InspectorBody({ steps, index, room, ctx, problems, ops, readOnly
   );
 }
 
-/** The column at lg and up. */
 export function InspectorColumn({ onClose, ...p }: InspectorProps & { onClose: () => void }) {
   const step = p.steps[p.index];
   return (
@@ -141,7 +138,6 @@ export function InspectorColumn({ onClose, ...p }: InspectorProps & { onClose: (
   );
 }
 
-/** The confirm both views use before a step goes. */
 export function confirmDeleteStep(name: string): Promise<boolean> {
   return confirmAction({ title: 'Delete ' + name + '?', body: 'The steps around it join up. Save to keep the change.', confirmLabel: 'Delete', danger: true });
 }

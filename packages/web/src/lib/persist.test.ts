@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getItem, getJson, removeItem, resetPersistMemory, setItem, setJson, versionedKey } from './persist';
 
-/** A Storage that works. */
 function memoryStorage(): Storage {
   const m = new Map<string, string>();
   return {
@@ -13,7 +12,6 @@ function memoryStorage(): Storage {
     setItem: (k, v) => void m.set(k, String(v)),
   };
 }
-/** A Storage that throws on every call, like a blocked or full one. */
 function brokenStorage(): Storage {
   const boom = () => { throw new DOMException('blocked', 'SecurityError'); };
   return { get length() { return boom(); }, clear: boom, getItem: boom, key: boom, removeItem: boom, setItem: boom };
@@ -27,7 +25,7 @@ describe('persist with working storage', () => {
     const ls = memoryStorage();
     vi.stubGlobal('localStorage', ls);
     expect(setItem('pocketrocket.sidebar', '0')).toBe(true);
-    expect(ls.getItem('pocketrocket.sidebar')).toBe('0'); // existing key names and values are untouched
+    expect(ls.getItem('pocketrocket.sidebar')).toBe('0');
     expect(getItem('pocketrocket.sidebar')).toBe('0');
     setJson('pocketrocket.collapsedSections', ['a', 'b']);
     expect(ls.getItem('pocketrocket.collapsedSections')).toBe('["a","b"]');
