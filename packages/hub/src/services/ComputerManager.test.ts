@@ -10,7 +10,6 @@ import {
   AlwaysOnRefused, ComputerManager, MAX_SLOT, SLOT_BASE, duBytes, slotPorts, unitName, type ComputerManagerOptions, type Systemctl,
 } from './ComputerManager.js';
 
-/** In-memory systemd: records every call and tracks which units are active. */
 class FakeSystemctl implements Systemctl {
   active = new Set<string>();
   calls: string[] = [];
@@ -78,7 +77,6 @@ describe('slots', () => {
       }
       expect(p.vncPort >= 6000 && p.vncPort <= 6063).toBe(false);
       expect(p.novncPort >= 6000 && p.novncPort <= 6063).toBe(false);
-      // The upstream sketch (:100+n, 9300+n, 5910+n, 6100+n) stays free for a stock install.
       expect(disp >= 100 && disp < 200).toBe(false);
       expect(p.cdpPort >= 9300 && p.cdpPort < 9400).toBe(false);
     }
@@ -137,7 +135,6 @@ describe('ComputerManager', () => {
     expect(sys.calls).toEqual(['start ' + unitName(1, 'a')]);
     expect(seen).toEqual(['starting', 'live']);
     expect(cm.status('a').state).toBe('live');
-    // Already live: no second start.
     await cm.ensureRunning('a');
     expect(sys.calls.filter((c) => c.startsWith('start'))).toHaveLength(1);
   });
@@ -176,7 +173,6 @@ describe('ComputerManager', () => {
     expect(r.ok).toBe(true);
     expect(sys.calls.map((c) => c.split(' ')[0])).toEqual(['stop', 'start']);
     expect(cm.status('a').state).toBe('live');
-    // A healthy one is left alone.
     sys.calls.length = 0;
     expect((await cm.ensureRunning('a')).ok).toBe(true);
     expect(sys.calls).toEqual([]);
@@ -221,7 +217,7 @@ describe('ComputerManager', () => {
     advance(1000);
     await cm.ensureRunning('b');
     advance(1000);
-    cm.touch('a'); // a used more recently than b
+    cm.touch('a');
     await cm.ensureRunning('c');
     expect(cm.status('b').state).toBe('asleep');
     expect(cm.status('a').state).toBe('live');
@@ -269,7 +265,7 @@ describe('ComputerManager', () => {
     await cm.ensureRunning('a');
     await cm.ensureRunning('b');
     sys.active.delete(unitName(2, 'b'));
-    repo.setState('c', 'live'); // no row: no-op
+    repo.setState('c', 'live');
     await cm.reconcile();
     expect(cm.status('a').state).toBe('live');
     expect(cm.status('b').state).toBe('asleep');
@@ -295,7 +291,7 @@ describe('ComputerManager', () => {
     fs.mkdirSync(path.join(data, 'desktop-home', '.config'), { recursive: true });
     const bots = [bot('late', ['Browser'], 20), bot('nobrowser', ['Read'], 1), bot('early', ['Browser', 'Desktop'], 10)];
 
-    expect(await cm.migrateLegacy(bots, async () => true)).toBeNull(); // shared screen still running
+    expect(await cm.migrateLegacy(bots, async () => true)).toBeNull();
     expect(fs.existsSync(path.join(data, 'browser-profile'))).toBe(true);
 
     expect(await cm.migrateLegacy(bots, async () => false)).toBe('early');
@@ -433,7 +429,6 @@ describe('warm start', () => {
       await cm.wakeFocused(id);
       advance(1500);
     }
-    // Everything that started counts as used, so nothing it started is cold yet: at most the three old ones go.
     expect(sys.calls.filter((c) => c.startsWith('stop')).length).toBeLessThanOrEqual(3);
     expect(sys.active.size).toBe(3);
   });
@@ -458,7 +453,6 @@ describe('warm start', () => {
 
 describe('Always on', () => {
   const bots = (...ids: string[]) => ids.map((id) => bot(id));
-  /** A second manager over the same database, as after a restart, on a machine whose units all died. */
   const reboot = (s: ReturnType<typeof setup>, opts: ComputerManagerOptions = {}) => {
     s.sys.active.clear();
     return new ComputerManager(s.repo, {
@@ -481,7 +475,7 @@ describe('Always on', () => {
     expect(() => cm.setKeepAwake('c', true)).toThrow(AlwaysOnRefused);
     expect(() => cm.setKeepAwake('c', true)).toThrow(/Only 2 can be Always on/);
     expect(cm.status('c').keepAwake).toBe(false);
-    cm.setKeepAwake('a', true); // already on: not a new one
+    cm.setKeepAwake('a', true);
     cm.setKeepAwake('a', false);
     expect(cm.setKeepAwake('c', true).keepAwake).toBe(true);
   });

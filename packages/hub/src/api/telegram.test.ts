@@ -70,7 +70,6 @@ describe('/api/telegram', () => {
       expect(deviceMayAccess(m, p), m + ' ' + p).toBe(false);
       expect(runnerMayAccess(m, p), m + ' ' + p).toBe(false);
     }
-    // Nothing the phone tried changed anything.
     expect((await req('GET', '/api/telegram')).json.configured).toBe(false);
   });
 
@@ -78,7 +77,6 @@ describe('/api/telegram', () => {
     const s0 = (await req('GET', '/api/telegram')).json as TelegramState;
     expect(s0).toEqual({ configured: false, botUsername: null, linked: false, linkedName: null, notify: false, pendingCode: null, error: null });
 
-    // A bad token is a 400 in Telegram's words; nothing is saved.
     f.on('POST', 'https://api.telegram.org/bot999999999:' + 'Z'.repeat(35) + '/getMe', () => ({ status: 401, json: { ok: false, error_code: 401, description: 'Unauthorized' } }));
     const bad = await req('PUT', '/api/telegram/token', { body: { token: '999999999:' + 'Z'.repeat(35) } });
     expect(bad.status).toBe(400);
@@ -86,7 +84,6 @@ describe('/api/telegram', () => {
     expect(bad.text).not.toContain('ZZZZZZZZ');
     expect((await req('PUT', '/api/telegram/token', { body: {} })).status).toBe(400);
 
-    // Notify and link need earlier steps.
     expect((await req('POST', '/api/telegram/link', { body: {} })).status).toBe(400);
     expect((await req('PUT', '/api/telegram/notify', { body: { notify: true } })).status).toBe(400);
     expect((await req('POST', '/api/telegram/test', { body: {} })).status).toBe(400);
@@ -101,7 +98,6 @@ describe('/api/telegram', () => {
     expect(link.json.pendingCode).toMatchObject({ code: CODE, deepLink: 'https://t.me/rocket_notify_bot?start=' + CODE });
     expect(typeof link.json.pendingCode.expiresAt).toBe('number');
 
-    // The owner presses Start in Telegram; the short poll picks it up.
     updates = [update(1, '/start ' + CODE)];
     await hub.telegram.pollOnce(0);
     const s1 = (await req('GET', '/api/telegram')).json as TelegramState;

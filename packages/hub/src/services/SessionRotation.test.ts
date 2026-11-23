@@ -30,7 +30,6 @@ describe('rotationReason', () => {
 describe('contextUsage (P4-2 meter)', () => {
   it('reports size, window and rotation point, and nothing before a measured call', () => {
     expect(contextUsage(state({ contextTokens: 84_000, contextWindow: 1_000_000 }), 120_000)).toEqual({ contextTokens: 84_000, window: 1_000_000, rotateAt: 120_000 });
-    // No reported window: Claude's standard one.
     expect(contextUsage(state({ contextTokens: 84_000 }), 120_000)).toEqual({ contextTokens: 84_000, window: 200_000, rotateAt: 120_000 });
     expect(contextUsage(state({ contextTokens: 84_000 }), 0)?.rotateAt).toBeNull();
     expect(contextUsage(state({}), 120_000)).toBeUndefined();
@@ -43,7 +42,6 @@ describe('contextUsage (P4-2 meter)', () => {
     const room = repos.createRoom({ kind: 'dm', name: 'A', memberIds: [bot.id], coordinatorBotId: null });
     repos.saveSessionState(bot.id, room.id, { contextTokens: 5_000, contextWindow: 400_000 });
     expect(repos.getSessionState(bot.id, room.id)).toMatchObject({ contextTokens: 5_000, contextWindow: 400_000 });
-    // A fresh session resets the size, not the window.
     repos.saveSessionState(bot.id, room.id, { contextTokens: 0 });
     expect(repos.getSessionState(bot.id, room.id).contextWindow).toBe(400_000);
   });
@@ -67,7 +65,7 @@ describe('the seed', () => {
     expect(seed).toContain('status: green');
     expect(seed).toMatch(/msg 6[\s\S]*msg 7[\s\S]*msg 8/);
     expect(seed).not.toContain('msg 5');
-    expect(seed).not.toContain('msg 9'); // unseen: it arrives in the turn's own input
+    expect(seed).not.toContain('msg 9');
     expect(seed).not.toContain('a system note');
   });
 

@@ -5,9 +5,7 @@ import { events } from '../events.js';
 import { settings } from './SettingsStore.js';
 import { parseOwnerRef } from '../rooms/ownerRef.js';
 
-/** Minutes a handoff may go unanswered before the coordinator is nudged. `POCKETROCKET_HANDOFF_NUDGE_MIN`, default 10. */
 export const HANDOFF_NUDGE_MS = (Number(process.env.POCKETROCKET_HANDOFF_NUDGE_MIN) || 10) * 60_000;
-/** How many hub restarts one lane item is resumed across. A turn that takes the hub down is not retried forever. */
 export const MAX_RESUMES = 1;
 
 export const RESUME_NOTE =
@@ -29,22 +27,11 @@ export interface FollowUpDeps {
   repos: Repos;
   router: RoomRouter;
   nudgeAfterMs?: number;
-  /** How often stalled handoffs are checked. */
   sweepMs?: number;
-  /** Clock, for tests. */
   now?: () => number;
-  /** P2: owner refs (`routine:<runId>`...) a parked approval or takeover still holds open; their runs are not closed at startup. */
   heldRuns?: () => string[];
 }
 
-/**
- * Proactive follow-up (P3 3.4):
- * - **Resume**: lane items still in `lane_journal` at startup were queued or running when the previous hub
- *   process died. They are re-queued once, with a note telling the bot it was cut off.
- * - **Nudge**: a `handoff` that the target bot has not answered after `nudgeAfterMs`, while it is idle in that
- *   room, gets one follow-up turn for the room's coordinator (or the bot that handed off). The nudge is a hop
- *   on the same thread, so the hop and cost caps bound it, and each handoff is nudged at most once.
- */
 export class FollowUp {
   private watches = new Map<string, Watch>();
   private off: (() => void) | null = null;
@@ -73,13 +60,9 @@ export class FollowUp {
     this.timer = null;
   }
 
-  // ---------- resume after restart ----------
-  /** Re-queues what the previous process left in flight. Returns how many lane items were resumed. */
   resumeInterrupted(): number {
     const { repos, router } = this.deps;
     const rows = repos.journalTakeAll();
-    // A routine run left `running` with no journaled turn will never finish: close it. (A workflow run is
-    // WorkflowRunner's: it restarts the runs that have no journal row left after this.)
     const routineRuns = (refs: (string | null)[]) => refs.map(parseOwnerRef).flatMap((p) => (p?.kind === 'routine' ? [p.runId] : []));
     const journaledRuns = new Set([...routineRuns(rows.map((r) => r.ownerRef)), ...routineRuns(this.deps.heldRuns?.() ?? [])]);
     for (const run of repos.runningRuns()) if (!journaledRuns.has(run.id)) repos.finishRun(run.id, 'error', null);
@@ -102,7 +85,6 @@ export class FollowUp {
         noted.add(bot.id + ':' + room.id);
         router.systemNote(room, 'The server restarted while @' + bot.handle + ' was working; resuming.', row.causeId, row.hop);
       }
-      // The turn's `onDone` is rebuilt from the owner ref (RoomRouter.ownerDone): a routine run or a workflow step.
       router.resume(bot, room, {
         causeId: row.causeId, hop: row.hop, triggerSeq: row.triggerSeq, attempts: row.attempts + 1,
         ...(row.ownerRef ? { ownerRef: row.ownerRef } : {}),
@@ -114,23 +96,18 @@ export class FollowUp {
     return resumed;
   }
 
-  // ---------- stalled handoffs ----------
-  /** Starts watching a handoff message (called for every `message.new` of kind handoff). */
   watch(m: Message) {
     const p = m.payload as HandoffPayload | null;
-    // `workRoomId`: the target works in its own chat and is watched there; it never answers in this one.
     if (!p?.toBotId || !m.causeId || p.workRoomId) return;
     this.watches.set(m.id, {
       messageId: m.id, roomId: m.roomId, seq: m.seq, fromBotId: p.fromBotId, toBotId: p.toBotId,
       causeId: m.causeId, hop: m.hop, dueAt: this.now() + this.nudgeAfterMs,
     });
   }
-  /** Handoffs still being watched (tests). */
   get watching(): number {
     return this.watches.size;
   }
 
-  /** Nudges every due, unanswered handoff once. Returns the handles nudged. */
   sweep(now = this.now()): string[] {
     const { repos, router } = this.deps;
     const nudged: string[] = [];
@@ -142,7 +119,6 @@ export class FollowUp {
         this.watches.delete(w.messageId);
         continue;
       }
-      // Still working on it, or queued behind other work: not stalled. Look again on the next sweep.
       if (router.isBusy(target.id, room.id)) continue;
       this.watches.delete(w.messageId);
       const replied = repos

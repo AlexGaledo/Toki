@@ -120,7 +120,6 @@ describe('PATCH /api/rooms/:id', () => {
     expect(made.json.coordinatorBotId).toBe(lead.id);
     const room = group([a.id, b.id], a.id);
     expect([a.id, b.id]).toContain((await req('PATCH', '/api/rooms/' + room.id, { coordinatorBotId: null })).json.coordinatorBotId);
-    // The coordinator leaving makes the hub pick again, and it prefers the lead.
     const other = group([a.id, b.id], a.id);
     const swapped = await req('PATCH', '/api/rooms/' + other.id, { memberIds: [b.id, lead.id] });
     expect(swapped.json.coordinatorBotId).toBe(lead.id);
@@ -155,7 +154,6 @@ describe('PATCH /api/rooms/:id', () => {
   });
 });
 
-/** Runs until interrupted, then reports what a stopped turn reports. */
 class HoldingProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Holding';
@@ -207,7 +205,6 @@ describe('removing a bot with a turn running', () => {
 
     expect(provider.started).toHaveLength(1);
     expect(journal()).toEqual([]);
-    // The room still works for whoever is left.
     router.onUserMessage(room.id, 'next');
     await until(() => provider.started.length === 2);
     router.botLeftRoom(bob.id, room.id);
@@ -219,7 +216,6 @@ describe('removing a bot with a turn running', () => {
     const [ann, bob] = [mk('ann'), mk('bob')];
     const room = repos.createRoom({ kind: 'group', name: 'g', memberIds: [ann.id, bob.id], coordinatorBotId: null });
     repos.updateRoom(room.id, { memberIds: [bob.id] });
-    // The request was built while she was still a member.
     const res = await runner.runTurn({ bot: ann, room, members: [ann, bob], hop: 0, causeId: 'c', injected: 'x', causeBudgetUsd: 5 } as never);
     expect(provider.started).toEqual([]);
     expect(res.ok).toBe(false);

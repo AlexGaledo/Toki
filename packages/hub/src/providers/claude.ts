@@ -22,16 +22,9 @@ import { logError } from './redact.js';
 import { outsideMcpNeedsCard } from '../services/outsideMcp.js';
 import type { AgentProvider, HubTool, LimitReport, ProviderInit, SteerInput, SteerResult, TurnContext, TurnImage, TurnLimit, TurnOutcome, TurnSink } from './types.js';
 
-// Only these may be pre-approved via allowedTools. A bare allowedTools entry auto-approves the tool
-// EVERYWHERE and bypasses canUseTool, so file/shell tools must never appear there: reads inside
-// cwd/additionalDirectories are already free, edits inside are covered by acceptEdits, and anything
-// outside (plus every Bash call) then falls through to the PermissionBroker.
+// A bare allowedTools entry bypasses canUseTool everywhere, so file and shell tools must never be listed here.
 const AUTO_OK = new Set(['WebSearch', 'WebFetch']);
-// 'Task' is the subagent tool (the CLI now calls it 'Agent' and keeps 'Task' as an alias; both are passed). Off
-// unless the bot has it: a subagent explores in its own context and hands back a short report, which keeps file
-// dumps out of the bot's resumed session.
 const ALL_BUILTINS = ['Read','Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'Bash', 'WebSearch', 'WebFetch', 'NotebookEdit', 'Task'];
-/** The CLI's own names for a bot-facing built-in. */
 const sdkNames = (t: string) => (t === 'Task' ? ['Task', 'Agent'] : [t]);
 /**
  * Playwright MCP tools a bot never gets. Each can read what a page holds outside the snapshot, including a
@@ -40,16 +33,9 @@ const sdkNames = (t: string) => (t === 'Task' ? ['Task', 'Agent'] : [t]);
  * disallowedTools wins over the `mcp__browser__*` entry in allowedTools, in bypass mode too.
  */
 export const BLOCKED_BROWSER_TOOLS = ['browser_evaluate', 'browser_run_code_unsafe', 'browser_network_request'].map((t) => 'mcp__browser__' + t);
-/** Anchored, so browser_network_request does not also catch browser_network_requests (a URL list only). */
 export const BLOCKED_BROWSER_MATCHER = '^(?:' + BLOCKED_BROWSER_TOOLS.join('|') + ')$';
 export const BLOCKED_BROWSER_REASON = 'This browser tool is turned off for bots: it can read what a page holds, including saved passwords. Use browser_snapshot to read the page.';
 
-/**
- * The SDK's `maxBudgetUsd` flag for one run. The SDK checks it against the session's cumulative cost, which on a
- * resumed session includes every earlier turn, so the stored cumulative is added to make it a per-run cap. A resumed
- * session whose cumulative is unknown (from before the hub tracked it) gets no flag rather than one that trips at once;
- * the hub's own checks between runs still hold. undefined = no flag (no budget, or POCKETROCKET_NO_SPEND_CAPS).
- */
 export function sdkBudgetUsd(maxBudgetUsd: number, resumed: boolean, sessionCostUsd: number | null | undefined): number | undefined {
   if (!Number.isFinite(maxBudgetUsd)) return undefined;
   if (!resumed) return maxBudgetUsd;
@@ -57,27 +43,19 @@ export function sdkBudgetUsd(maxBudgetUsd: number, resumed: boolean, sessionCost
   return sessionCostUsd + maxBudgetUsd;
 }
 
-/**
- * This run's own cost out of the SDK's cumulative `total_cost_usd`. A cumulative below the baseline means the CLI
- * started a new session after all, so all of it is this run's. An unknown baseline on a resumed (legacy) session
- * counts as 0 rather than billing the session's whole history to one turn.
- */
 export function runCostUsd(cumulative: number, resumed: boolean, sessionCostUsd: number | null | undefined): number {
   if (!resumed) return cumulative;
   if (sessionCostUsd == null) return 0;
   return cumulative >= sessionCostUsd ? cumulative - sessionCostUsd : cumulative;
 }
 
-/** Input tokens a model call was sent: uncached + cache read + cache write. */
 export function callInputTokens(u: { input_tokens?: number | null; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null } | undefined): number {
   return (u?.input_tokens ?? 0) + (u?.cache_read_input_tokens ?? 0) + (u?.cache_creation_input_tokens ?? 0);
 }
 
-/** The env the Claude Code child runs with: the allowlist plus the hub's own output caps (the allowlist is not widened). */
 export function claudeChildEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return childEnv('claude', {
     CLAUDE_AGENT_SDK_CLIENT_APP: 'pocketrocket/' + VERSION,
-    // One huge command output or MCP result would otherwise sit in the resumed session and be re-read every step.
     BASH_MAX_OUTPUT_LENGTH: String(BASH_MAX_OUTPUT_CHARS),
     MAX_MCP_OUTPUT_TOKENS: String(MAX_MCP_OUTPUT_TOKENS),
   }, source);
@@ -100,11 +78,6 @@ export const CLAUDE_INFO: ProviderStaticInfo = {
   maturity: 'verified',
 };
 
-/**
- * P0-4: the SDK's `fallbackModel` for a bot's model, used by the CLI when that model is overloaded or unavailable (the
- * primary is retried each turn). Always the next cheaper Claude model: Fable falls back to Opus, Opus to Sonnet.
- * Sonnet, Haiku and anything unknown get none, so a fallback never moves a bot up or across.
- */
 export function fallbackModelFor(model: string): string | undefined {
   const id = (family: string) => MODELS.find((m) => m.id.includes(family))?.id;
   if (/fable/i.test(model)) return id('opus');
@@ -112,21 +85,11 @@ export function fallbackModelFor(model: string): string | undefined {
   return undefined;
 }
 
-/**
- * The fallback model, when it is the one that answered (for the usage row). The SDK has no message for an overload
- * fallback, so this reads the top-level assistant `message.model`, which the API gives as a full id
- * ("claude-sonnet-5-20261001"). Anything else (the model asked for, its dated id, an id the hub does not recognise)
- * is undefined, so the row keeps the hub's own id and usage-by-model stays grouped.
- */
 export function ranModel(asked: string, fallback: string | undefined, seen: string | undefined): string | undefined {
   if (!seen || !fallback || seen.startsWith(asked)) return undefined;
   return seen.startsWith(fallback) ? fallback : undefined;
 }
 
-/**
- * P4-2: the context window of the model that answered, from the SDK result's `modelUsage` (keyed by model id). The
- * entry for `seen` when there is one, else the largest (side calls such as Haiku run on a smaller window).
- */
 export function contextWindowOf(modelUsage: unknown, seen: string | undefined): number | undefined {
   if (!modelUsage || typeof modelUsage !== 'object') return undefined;
   const windowOf = (v: unknown) => {
@@ -140,16 +103,11 @@ export function contextWindowOf(modelUsage: unknown, seen: string | undefined): 
   return all.length ? Math.max(...all) : undefined;
 }
 
-/** `resetsAt` from the SDK is unix seconds (the API's reset header); a value already in ms is kept. */
 export function resetMs(v: unknown): number | undefined {
   if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return undefined;
   return v < 1e12 ? Math.round(v * 1000) : v;
 }
 
-/**
- * P0-1: a `rate_limit_event` as a LimitReport. A rejected window that extra usage still pays for does not stop the
- * request, so it is reported as a warning rather than a limit.
- */
 export function limitReport(info: SDKRateLimitInfo): LimitReport {
   const overagePays = info.status === 'rejected' && info.rateLimitType !== 'overage' &&
     (info.overageStatus === 'allowed' || info.overageStatus === 'allowed_warning');
@@ -162,11 +120,7 @@ export function limitReport(info: SDKRateLimitInfo): LimitReport {
   };
 }
 
-/**
- * Assistant `error` values that mean the provider, not the bot, stopped the run. The CLI sends these as a synthetic
- * assistant message whose text is its own error wording ("You've hit your limit · resets 2pm"): it is never posted as
- * the bot's reply nor read for @mentions.
- */
+/** Provider errors: never posted as the bot's reply nor read for @mentions. */
 const LIMIT_ERRORS: Partial<Record<SDKAssistantMessageError, ProviderLimitKind>> = {
   rate_limit: 'usage',
   overloaded: 'overloaded',
@@ -174,7 +128,6 @@ const LIMIT_ERRORS: Partial<Record<SDKAssistantMessageError, ProviderLimitKind>>
   oauth_org_not_allowed: 'auth',
 };
 
-/** What an `api_retry` the run ended after says about the provider, when the run failed. */
 export function retryLimitKind(r: { error_status: number | null; error: SDKAssistantMessageError }): ProviderLimitKind | undefined {
   if (r.error === 'rate_limit' || r.error_status === 429) return 'usage';
   if (r.error === 'overloaded' || r.error_status === 529) return 'overloaded';
@@ -182,7 +135,6 @@ export function retryLimitKind(r: { error_status: number | null; error: SDKAssis
   return undefined;
 }
 
-/** The turn error for a run that ended on a limit. Worded so turnFailure files it as external either way. */
 export function limitError(limit: TurnLimit): string {
   if (limit.kind === 'usage') return 'usage limit reached' + (limit.window ? ' (' + limit.window + ')' : '');
   if (limit.kind === 'overloaded') return 'overloaded';
@@ -190,32 +142,24 @@ export function limitError(limit: TurnLimit): string {
   return 'network: Claude could not be reached';
 }
 
-/** The turn error for a run the token brake stopped. Says "budget", so turnFailure files it as external. */
 export function tokenBrakeError(read: number, cap: number): string {
   return 'token_budget: stopped after reading ' + read.toLocaleString('en-US') + ' cached tokens this turn (cap ' +
     cap.toLocaleString('en-US') + ") to save your plan's usage";
 }
 
-/** Wrap provider-agnostic hub tools as an in-process SDK MCP server named `pocketrocket`. */
 function toolServer(tools: HubTool[]) {
   const wrapped = tools.map((t) =>
     tool(
       t.name,
       t.description,
       t.inputSchema.shape,
-      // The SDK validates against the shape and hands back parsed args.
       async (args: unknown) => (await t.handler((args ?? {}) as Record<string, unknown>)) as never,
       t.readOnly ? { annotations: { readOnlyHint: true } } : undefined,
     ),
   );
-  // alwaysLoad: keep these schemas in the prompt so bots don't spend a ToolSearch roundtrip every turn.
   return createSdkMcpServer({ name: 'pocketrocket', version: VERSION, alwaysLoad: true, tools: wrapped });
 }
 
-/**
- * How long `claude --version` gets. The native binary can take several seconds on a cold start or while
- * antivirus scans it; at the old 2s a perfectly good install was reported as missing.
- */
 const VERSION_TIMEOUT_MS = 10_000;
 
 /**
@@ -231,13 +175,11 @@ const INSTALL_HINT =
 export interface ClaudeAuthStatus {
   loggedIn: boolean;
   email?: string;
-  /** Raw plan id: "max", "pro", "team", "enterprise". */
   subscriptionType?: string;
   authMethod?: string;
   orgName?: string;
 }
 
-/** Parses `claude auth status` output; undefined when it is not the JSON shape this expects. */
 export function parseAuthStatus(stdout: string): ClaudeAuthStatus | undefined {
   try {
     const parsed = JSON.parse(stdout) as Record<string, unknown>;
@@ -255,30 +197,22 @@ export function parseAuthStatus(stdout: string): ClaudeAuthStatus | undefined {
   }
 }
 
-/** "max" -> "Max". Known plans get their product spelling; anything newer is just capitalized. */
 export function planLabel(subscriptionType: string | undefined): string | undefined {
   if (!subscriptionType) return undefined;
   const known: Record<string, string> = { max: 'Max', pro: 'Pro', team: 'Team', enterprise: 'Enterprise', free: 'Free' };
   return known[subscriptionType.toLowerCase()] ?? subscriptionType.charAt(0).toUpperCase() + subscriptionType.slice(1);
 }
 
-/** `claude auth status` as JSON, or undefined when the CLI is too old, times out, or prints something else. */
 function authStatus(): Promise<ClaudeAuthStatus | undefined> {
   return new Promise((resolve) => {
     const child = execFile(CLAUDE_EXE, ['auth', 'status'], { timeout: 5000, windowsHide: true }, (_err, stdout) => {
-      // A signed-out CLI may exit non-zero and still print the JSON, so the error alone decides nothing.
       resolve(parseAuthStatus(String(stdout)));
     });
     child.on('error', () => resolve(undefined));
   });
 }
 
-/**
- * The user turn's content. With pictures it is the text followed by one base64 image block each (the input text already
- * names their paths, see agent/attachments.ts); without, the plain string, byte-for-byte as before.
- */
 export function userContent(input: string, images: readonly TurnImage[]) {
-  // A picture without `data` was too big to inline (see materializeImages); the input text still names its path.
   const inline = images.filter((i) => i.data);
   if (!inline.length) return input;
   return [
@@ -287,19 +221,9 @@ export function userContent(input: string, images: readonly TurnImage[]) {
   ];
 }
 
-/**
- * The init capability steering relies on: `interrupt()` answers with a receipt naming the uuid-stamped messages that
- * would still run, so Stop can stop them too. Without it a steer queues instead (spike 1.0: CLI 2.1.326 has it).
- */
 export const STEER_CAPABILITY = 'interrupt_receipt_v1';
-/**
- * After Stop with a steer still queued in the CLI: how long to wait for the interrupted turn's result (it carries the
- * run's cost) before closing anyway. The CLI starts the queued steer about a second after that result (spike 1.0),
- * and the query is closed as soon as that result is read, so the steer never gets to run.
- */
 export const STOP_RESULT_WAIT_MS = 5_000;
 
-/** A run's input: the opening message, then whatever `push` adds, until `close`. */
 export function inputChannel() {
   const queue: SDKUserMessage[] = [];
   let wake: (() => void) | undefined;
@@ -331,31 +255,22 @@ type SdkUuid = NonNullable<SDKUserMessage['uuid']>;
 const userMessage = (text: string, images: readonly TurnImage[], uuid: string): SDKUserMessage =>
   ({ type: 'user', message: { role: 'user', content: userContent(text, images) }, parent_tool_use_id: null, uuid: uuid as SdkUuid });
 
-/** One turn as `steer` and `interrupt` see it, across the outdated-CLI replay. */
 interface LiveTurn {
-  /** Every steer this turn was given, by uuid (live pushes and `carriedSteers`). */
   known: Map<string, SteerInput>;
-  /** Uuids a result or reply named: in the session's transcript. */
   consumed: Set<string>;
-  /** Set while a run reads: pushes a live steer. */
   push?: (s: SteerInput) => void;
-  /** Stops the current run (interrupt, receipt, close). */
   stop?: () => void;
-  /** This run's init came in, and whether it advertised `STEER_CAPABILITY`. */
   initSeen: boolean;
   steerable: boolean;
-  /** The current run decided to end: no more pushes. */
   ending: boolean;
 }
 
 export class ClaudeProvider implements AgentProvider {
   readonly id = 'claude' as const;
-  /** M8 (P4-1): every run reports the last call's input size, so sessions rotate on size. */
   readonly reportsContextTokens = true;
   readonly label = 'Claude';
   readonly info = CLAUDE_INFO;
   private live = new Map<string, LiveTurn>();
-  /** Last `system/init` message seen; feeds check() and GET /api/health. */
   lastInit: ProviderInit = {};
 
   async models(): Promise<ModelInfo[]> {
@@ -380,15 +295,12 @@ export class ClaudeProvider implements AgentProvider {
     });
     const { version } = answer;
     if (!version) {
-      // The file is there, so this is not an install problem: say it did not respond and let the user retry.
       const error = answer.timedOut
         ? 'claude --version did not answer within ' + VERSION_TIMEOUT_MS / 1000 + 's'
         : 'claude --version failed to run';
       return { ok: false, auth: 'unknown', exePath, unresponsive: true, error, hint };
     }
     if (process.env.ANTHROPIC_API_KEY) return { ok: true, version, auth: 'apiKey', exePath, hint };
-    // `claude auth status` prints JSON ({ loggedIn, email, subscriptionType, ... }); without it a CLI that was
-    // installed but never signed in looked ready and every turn then failed.
     const status = await authStatus();
     if (status?.loggedIn === false) {
       return { ok: false, version, auth: 'none', exePath, error: 'Claude Code is installed but not signed in.', hint };
@@ -414,14 +326,12 @@ export class ClaudeProvider implements AgentProvider {
     return true;
   }
 
-  /** Steering needs the interrupt receipt. Known from the last init, so false until the first turn. */
   canSteer(): boolean {
     return !!this.lastInit.capabilities?.includes(STEER_CAPABILITY);
   }
 
   steer(turnId: string, input: SteerInput): SteerResult {
     const live = this.live.get(turnId);
-    // No run reading yet (start-up, the replay's CLI update) or already ending: the caller queues it.
     if (!live?.push || live.ending || !live.initSeen) return { status: 'queued', reason: 'between-runs' };
     if (!live.steerable) return { status: 'queued', reason: 'provider' };
     live.known.set(input.uuid, input);
@@ -440,9 +350,6 @@ export class ClaudeProvider implements AgentProvider {
     };
     try {
       const first = await this.runOnce(ctx, sink, live, ctx.carriedSteers ?? []);
-      // A model newer than the installed CLI fails on the first request, before any tool runs. Update the CLI
-      // and replay the turn once instead of sending the user to a terminal. Only replayed when no tool was
-      // called, so nothing runs twice.
       if (!first.outdatedCli || first.usedTools || ctx.signal.aborted) return done(first.outcome);
       sink.onState('working');
       const update = await updateClaudeCli();
@@ -456,8 +363,6 @@ export class ClaudeProvider implements AgentProvider {
       }
       if (ctx.signal.aborted) return done(first.outcome);
       sink.onState('thinking');
-      // The failed run never reached the model, so every steer this turn was given goes into the replay's opening
-      // message, whatever the failed run's result named.
       const carry = [...live.known.values()];
       for (const s of carry) live.consumed.delete(s.uuid);
       return done((await this.runOnce(ctx, sink, live, carry)).outcome);
@@ -477,15 +382,11 @@ export class ClaudeProvider implements AgentProvider {
 
     const allowed = ctx.allowedBuiltins.filter((t) => AUTO_OK.has(t));
     const disallowed = ALL_BUILTINS.filter((t) => !ctx.allowedBuiltins.includes(t)).flatMap(sdkNames);
-    // "Browser" = Playwright MCP attached over CDP to the Chromium on the bot's own computer (its logged-in
-    // profile). With no computer there is no endpoint, and it never falls back to a shared screen.
     const browserOn = ctx.allowedBuiltins.includes('Browser') && !!ctx.cdpUrl && fs.existsSync(PLAYWRIGHT_MCP_CLI);
     const mcpServers: NonNullable<Options['mcpServers']> = { pocketrocket: toolServer(ctx.tools) };
     if (browserOn) {
       mcpServers.browser = {
         type: 'stdio', command: process.execPath,
-        // Snapshots hold what fields on the page contain, so they stay in the bot's own home (removed with the
-        // bot, left out of backups) instead of the workspace every bot shares.
         args: [
           PLAYWRIGHT_MCP_CLI, '--cdp-endpoint', ctx.cdpUrl!, '--caps', 'vision',
           '--output-dir', path.join(ctx.botHome, 'playwright-output'), '--output-max-size', String(64 * 1024 * 1024),
@@ -493,22 +394,17 @@ export class ClaudeProvider implements AgentProvider {
       };
     }
 
-    // Owner-configured outside servers (data/mcp-servers.json). Left out of allowedTools on purpose, so
-    // outside bypass mode each call reaches canUseTool and the approval broker. The ones whose `approve` asks
-    // for a card get it from outsideGuard below, in every mode.
+    // Left out of allowedTools so outside bypass each call reaches canUseTool and the broker.
     for (const s of ctx.outsideMcp ?? []) {
       mcpServers[s.name] = s.kind === 'stdio'
         ? { type: 'stdio', command: s.command, args: s.args, env: s.env }
         : { type: 'http', url: s.url, ...(s.token ? { headers: { Authorization: 'Bearer ' + s.token } } : {}) };
     }
 
-    // The opening message carries steers an earlier run never consumed, so they are consumed with it. Its uuid is how
-    // results say they answered it; live steers are pushed after it, each under its own uuid.
     const channel = inputChannel();
     const openerUuid = randomUUID();
     const openerText = [ctx.input, ...carry.map((s) => s.text)].join('\n\n');
     channel.push(userMessage(openerText, [...(ctx.images ?? []), ...carry.flatMap((s) => s.images ?? [])], openerUuid));
-    /** Live steers pushed into this run; the run reads on until a result names each of them. */
     const runSteers = new Set<string>();
     const consume = (uuids: readonly string[] | undefined) => {
       for (const u of uuids ?? []) {
@@ -531,7 +427,7 @@ export class ClaudeProvider implements AgentProvider {
       return d === 'allow' ? { behavior: 'allow' } : { behavior: 'deny', message: denyMessage('declined', { alt: 'choose another approach or say so in the room' }) };
     };
 
-    // P7: writes into the read-only knowledge repo ask (or, under bypass, are denied) before acceptEdits sees them.
+    // Writes into the read-only knowledge repo ask (or, under bypass, are denied) before acceptEdits sees them.
     const knowledgeDir = ctx.knowledgeDir ?? null;
     const readOnlyDirs = [...(knowledgeDir ? [knowledgeDir] : []), ...(ctx.readOnlyDirs ?? [])];
     const knowledgeGuard = readOnlyDirs.length
@@ -548,9 +444,7 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
-    // P2: the control interlock. While the user has control of this bot's computer (or it is paused) Browser and
-    // desktop calls are denied. It runs in bypass mode too: `mcp__browser__*` is pre-approved in allowedTools,
-    // so canUseTool never sees it, and bypass skips canUseTool entirely; a PreToolUse deny holds in both.
+    // A PreToolUse deny holds in bypass mode too, where canUseTool is skipped.
     const controlGuard = ctx.controlGuard
       ? [{
           matcher: 'mcp__browser__.*|mcp__pocketrocket__desktop_.*',
@@ -565,12 +459,10 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
-    // Outside servers with `approve` set: the owner's card on each call that needs one, under bypass too (bypass
-    // skips canUseTool, never a hook). An allowed card answers 'allow', so canUseTool does not ask a second time.
+    // Under bypass too: bypass skips canUseTool, never a hook.
     const gatedOutside = (ctx.outsideMcp ?? []).filter((s) => s.approve !== 'none');
     const outsideGuard = gatedOutside.length
       ? [{
-          // Server names are [a-z0-9_-] with no `__` (outsideMcp.ts), so they need no escaping here.
           matcher: 'mcp__(' + gatedOutside.map((s) => s.name).join('|') + ')__.*',
           hooks: [
             async (hookInput: unknown) => {
@@ -590,11 +482,9 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
-    // No bot writes the owner's routing rules, or touches the hub's key files. Bypass skips canUseTool, and
-    // these hold in every mode.
+    // These hold in every mode: no bot writes the routing rules or touches the hub's key files.
     const guards = [
       {
-        // The write tools and Bash for routing.md, plus the read tools for the key files.
         matcher: [...new Set([...READ_ONLY_GUARD_TOOLS, 'Read', 'Glob', 'Grep'])].join('|'),
         hooks: [
           async (hookInput: unknown) => {
@@ -607,7 +497,7 @@ export class ClaudeProvider implements AgentProvider {
           },
         ],
       },
-      // Second line behind disallowedTools for BLOCKED_BROWSER_TOOLS: a hook deny holds in bypass mode too.
+      // Second line behind disallowedTools: a hook deny holds in bypass mode too.
       ...(browserOn
         ? [{
             matcher: BLOCKED_BROWSER_MATCHER,
@@ -673,7 +563,6 @@ export class ClaudeProvider implements AgentProvider {
         : []),
     ];
 
-    // Bridge P1: after a file tool wrote, the hub records who changed the file (FileRevisions). It never blocks.
     const afterWrite = ctx.fileWritten
       ? {
           PostToolUse: [{
@@ -696,8 +585,6 @@ export class ClaudeProvider implements AgentProvider {
     const fallbackModel = fallbackModelFor(ctx.model);
     const options: Options = {
       pathToClaudeCodeExecutable: CLAUDE_EXE,
-      // Bridge P7: with settings.sandbox on, the CLI (and the Bash, file tools and Browser MCP it runs) starts inside bubblewrap.
-      // Off: spawned as before. On but unusable: this throws and the turn fails closed.
       spawnClaudeCodeProcess: (o) => {
         const sb = sandboxCommand(o, {
           cwd: o.cwd ?? ctx.workspaceDir,
@@ -709,8 +596,6 @@ export class ClaudeProvider implements AgentProvider {
         return spawn(sb?.command ?? o.command, sb?.args ?? o.args, { cwd: sb ? undefined : o.cwd, env: sb?.env ?? o.env, signal: o.signal, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }) as never;
       },
       cwd: ctx.workspaceDir,
-      // P1: the bot's own computer disk is a working root. P7: the knowledge repo is readable like the bot's
-      // home; writes there are stopped by the hook below.
       additionalDirectories: [
         ctx.botHome,
         ...(ctx.computerFilesDir ? [ctx.computerFilesDir] : []),
@@ -719,36 +604,26 @@ export class ClaudeProvider implements AgentProvider {
       ],
       resume: ctx.resumeToken ?? undefined,
       model: ctx.model,
-      // P0-4: an overloaded or unavailable Opus/Fable carries on one model down; never up, and none below Opus.
       fallbackModel,
       systemPrompt: { type: 'preset', preset: 'claude_code', append: ctx.systemPrompt },
       settingSources: [],
-      // Flag settings load even with settingSources: [] (user settings do not), so this is what stops the CLI's
-      // 30-day sweep from deleting the session files bots resume from.
-      // bashOutputMaxChars is what caps Bash output inline on current CLIs (BASH_MAX_OUTPUT_LENGTH in env covers older ones).
       settings: { cleanupPeriodDays: SESSION_RETENTION_DAYS, bashOutputMaxChars: BASH_MAX_OUTPUT_CHARS },
       plugins: pluginDir ? [{ type: 'local', path: pluginDir }] : undefined,
       skills: pluginDir ? 'all' : [],
-      // Approvals bypassed: the SDK skips canUseTool entirely (and the out-of-workspace hook below is left
-      // out, since an "ask" there would only route into a broker that allows everything).
       ...(ctx.bypassPermissions
         ? { permissionMode: 'bypassPermissions' as const, allowDangerouslySkipPermissions: true }
         : { permissionMode: 'acceptEdits' as const }),
-      // Availability: only the bot's built-ins (+ Skill when a plugin is attached) exist in context.
-      // Keeps Task/cron/plan-mode etc. out of the prompt and trims the cached system prompt.
       tools: [...ctx.allowedBuiltins.filter((t) => ALL_BUILTINS.includes(t)).flatMap(sdkNames), ...(pluginDir ? ['Skill'] : [])],
       allowedTools: [...allowed, 'mcp__pocketrocket__*', ...(browserOn ? ['mcp__browser__*'] : [])],
       disallowedTools: [...disallowed, ...(browserOn ? BLOCKED_BROWSER_TOOLS : [])],
       mcpServers,
       strictMcpConfig: true,
       canUseTool: (name, toolInput, o) => decide(name, toolInput, o),
-      // Read/Glob/Grep never prompt in Claude Code, so canUseTool would never see them. This hook
-      // escalates out-of-workspace paths to "ask", which routes them into canUseTool -> PermissionBroker.
+      // Read/Glob/Grep never prompt, so this escalates out-of-workspace paths to "ask".
       hooks: ctx.bypassPermissions ? { PreToolUse: guards, ...afterWrite } : {
         ...afterWrite,
         PreToolUse: [
           ...guards,
-          // acceptEdits approves rm and mv inside the roots before canUseTool, so this is what raises their card.
           {
             matcher: 'Bash',
             hooks: [
@@ -765,8 +640,6 @@ export class ClaudeProvider implements AgentProvider {
             hooks: [
               async (hookInput) => {
                 const i = hookInput as PreToolUseHookInput;
-                // NotebookEdit writes, so only the read tools see the read-only knowledge root (P7). The bot's
-                // own computer disk (P1) is writable like its home.
                 const roots = [
                   ctx.workspaceDir,
                   ctx.botHome,
@@ -792,11 +665,8 @@ export class ClaudeProvider implements AgentProvider {
       },
       includePartialMessages: true,
       maxTurns: ctx.maxTurns,
-      // No budget (POCKETROCKET_NO_SPEND_CAPS) is Infinity here, which the CLI flag cannot carry: leave it out.
-      // The SDK compares the flag with the session's cumulative cost, so it is offset by what is already spent.
       maxBudgetUsd: sdkBudgetUsd(ctx.maxBudgetUsd, resumed, ctx.sessionCostUsd),
-      // Allowlisted env only (audit 2026-09-09, B7): the child never sees POCKETROCKET_TOKEN or another
-      // provider's API key, so `env`/`node -e "process.env"` inside a prompt injection yields nothing useful.
+      // Allowlisted env only: the child never sees POCKETROCKET_TOKEN or another provider's API key.
       env: claudeChildEnv(),
       stderr: (d) => { if (process.env.POCKETROCKET_DEBUG) process.stderr.write('[claude ' + bot.handle + '] ' + d); },
     };
@@ -811,14 +681,10 @@ export class ClaudeProvider implements AgentProvider {
     let usedTools = false;
     let gotResult = false;
     let sessionCostUsd: number | undefined;
-    // Per top-level model call (the SDK repeats one call's usage on each of its content blocks, so keyed by id):
-    // the running cache-read sum feeds the token brake, the last call's input size is the context size.
     const calls = new Map<string, { input: number; cacheRead: number; cacheWrite: number; output: number }>();
     let contextTokens: number | undefined;
     let braked = false;
     const runningCacheRead = () => [...calls.values()].reduce((n, c) => n + c.cacheRead, 0);
-    // P0-1: provider limits. A rejected window or an assistant limit error ends the run as a limit unless a real answer
-    // came after it (the CLI's own fallback or retry got through). The last retry explains a run that failed without one.
     let rejected: LimitReport | undefined;
     let apiError: TurnLimit | undefined;
     let lastRetry: SDKAPIRetryMessage | undefined;
@@ -835,9 +701,6 @@ export class ClaudeProvider implements AgentProvider {
       channel.close();
       q.close();
     };
-    // Stop and the token brake: interrupt, read the receipt, then close. A uuid-stamped steer still queued in the CLI
-    // "WILL run" after a plain interrupt (sdk.d.ts, SDKControlInterruptResponse), so the query is closed before it
-    // can. The interrupted result is waited for (briefly) only because it carries the run's cost.
     const stop = () => {
       if (stopping) return;
       stopping = true;
@@ -895,12 +758,10 @@ export class ClaudeProvider implements AgentProvider {
           consume(m.user_message_uuids);
           const limitKind = m.error ? LIMIT_ERRORS[m.error] : undefined;
           if (limitKind) {
-            // The CLI's error wording, not the bot's reply: held back, and the turn ends on the structured limit.
             apiError = { kind: limitKind, ...(limitKind === 'usage' && rejected ? { resetsAt: rejected.resetsAt, window: rejected.window } : {}) };
             continue;
           }
           if (!m.error) {
-            // A real answer after a limit signal: the CLI recovered (fallback model, retry), so the run is not limited.
             rejected = undefined;
             apiError = undefined;
             lastRetry = undefined;
@@ -920,7 +781,6 @@ export class ClaudeProvider implements AgentProvider {
           }
           for (const block of m.message.content) {
             if (block.type === 'text' && block.text.trim()) {
-              // Held back rather than shown: runTurn updates the CLI and replays, or reports it as the turn error.
               if (isOutdatedCliError(block.text)) outdatedCli = block.text.trim();
               else sink.onText(block.text);
             } else if (block.type === 'tool_use') {
@@ -947,15 +807,11 @@ export class ClaudeProvider implements AgentProvider {
         }
         if (m.type === 'result') {
           gotResult = true;
-          // The run's first result is always the opening message's turn, whatever the CLI lists.
           consume([openerUuid]);
           const listed = (m as { user_message_uuids?: string[] }).user_message_uuids;
           consume(listed);
-          // total_cost_usd is the session's running total across resumes (and this run's results), not this run's.
           sessionCostUsd = m.total_cost_usd ?? 0;
           costUsd = runCostUsd(sessionCostUsd, resumed, ctx.sessionCostUsd);
-          // ok/error come from the last result. Tokens and time are per result, so a steer the CLI answered in a
-          // turn of its own adds to them.
           ok = m.subtype === 'success';
           error = ok ? undefined : m.subtype + ((m as { errors?: string[] }).errors?.length ? ': ' + (m as { errors?: string[] }).errors!.join('; ') : '');
           const resultText = (m as { result?: string }).result;
@@ -970,9 +826,6 @@ export class ClaudeProvider implements AgentProvider {
           };
           modelUsage = (m as { modelUsage?: unknown }).modelUsage;
           durationMs += m.duration_ms ?? 0;
-          // Read on only while a pushed steer is still unanswered and the CLI says which messages it answered. Stop,
-          // an error result (max turns, budget) or a CLI that lists nothing ends the run here: the steers no result
-          // named return as pending, and the query is closed below so the CLI does not run them on its own.
           if (stopping || !ok || !listed || outdatedCli || !outstanding().length) {
             live.ending = true;
             break;
@@ -981,7 +834,6 @@ export class ClaudeProvider implements AgentProvider {
         }
       }
     } catch (e) {
-      // Closing the query (Stop) can end the read with an error; that is not the turn's.
       if (!closed) {
         error = error ?? String((e as Error).message ?? e);
         if (!outdatedCli && isOutdatedCliError(error)) outdatedCli = error;
@@ -992,16 +844,13 @@ export class ClaudeProvider implements AgentProvider {
       live.stop = undefined;
       if (closeTimer) clearTimeout(closeTimer);
       ctx.signal.removeEventListener('abort', onAbort);
-      // A steer the CLI holds that no result named would otherwise run as a turn of its own.
       if (stopping || outstanding().length) closeQuery();
       else channel.close();
     }
-    // The CLI reports this API error as a "successful" result, so the turn is marked failed here.
     if (outdatedCli) {
       ok = false;
       error = outdatedCli;
     }
-    // Interrupted before a result: what the model calls themselves reported is all there is to count.
     if (!gotResult && calls.size) {
       const sum = (k: 'input' | 'cacheRead' | 'cacheWrite' | 'output') => [...calls.values()].reduce((n, c) => n + c[k], 0);
       usage = { inputTokens: sum('input'), outputTokens: sum('output'), cacheReadTokens: sum('cacheRead'), cacheWriteTokens: sum('cacheWrite') };
@@ -1010,8 +859,6 @@ export class ClaudeProvider implements AgentProvider {
       ok = false;
       error = tokenBrakeError(runningCacheRead(), ctx.cacheReadBudget!);
     }
-    // P0-1: a limit ends the run as failed, even when the CLI called it a success (on a subscription it reports the
-    // limit as a successful result carrying its limit text). A user Stop is not a limit.
     let limit: TurnLimit | undefined;
     if (!stopping && !ctx.signal.aborted && !outdatedCli) {
       if (apiError?.kind === 'usage' || (!apiError && rejected)) {

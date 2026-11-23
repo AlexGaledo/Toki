@@ -20,7 +20,6 @@ const SITE = 'https://github.com';
 
 interface FakePage { url: string; origin: string; visible: boolean; hasPassword?: boolean }
 
-/** A browser as the CDP client sees it. `written` is what the page ended up holding; `log` is every command sent. */
 function fakeBrowser(pages: FakePage[], onWrite?: () => void) {
   const written: string[] = [];
   const log: string[] = [];
@@ -231,7 +230,6 @@ describe('askCredentialFill (the card)', () => {
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({ toolName: 'fill_credential', signInRequired: true, once: true });
     expect(JSON.stringify(cards)).not.toContain(SECRET);
-    // "Always" counted as one allow: no rule was stored, so the next call asks again.
     expect(s.broker.matchPolicy(s.ctx.bot.id, 'fill_credential', '*')).toBeNull();
   });
 

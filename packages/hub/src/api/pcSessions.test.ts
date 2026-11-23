@@ -79,11 +79,9 @@ describe('principals', () => {
       expect((await request(m, p, { token: null })).status).toBe(401);
     }
     const id = await mk();
-    // the hub token (owner) cannot use the runner routes
     expect((await asOwner('GET', '/api/pc-sessions/sync')).status).toBe(403);
     expect((await asOwner('PUT', '/api/pc-sessions/' + id, meta())).status).toBe(403);
     expect((await asOwner('POST', '/api/pc-sessions/' + id + '/entries', { from: 0, to: 1, entries: [] })).status).toBe(403);
-    // the runner cannot read or delete
     for (const [m, p] of [['GET', '/api/pc-sessions'], ['GET', '/api/pc-sessions/' + id], ['GET', '/api/pc-sessions/' + id + '/entries'], ['DELETE', '/api/pc-sessions/' + id]] as const) {
       expect((await asRunner(m, p)).status).toBe(403);
     }
@@ -159,7 +157,7 @@ describe('runner routes', () => {
         ent({ kind: 'tool_use', tool: 'Bash', text: 't'.repeat(900) }),
         ent({ kind: 'tool_result', tool: 'Bash', text: 'r'.repeat(5000), isError: true }),
         ent({ kind: 'summary', text: 's'.repeat(3000) }),
-        ent({ kind: 'assistant', text: 'a'.repeat(7990) + ' …[cut 123 chars]' }), // already cut by the runner: kept as is
+        ent({ kind: 'assistant', text: 'a'.repeat(7990) + ' …[cut 123 chars]' }),
       ],
     });
     const es = (await asOwner('GET', '/api/pc-sessions/' + id + '/entries')).json.entries;
@@ -174,7 +172,6 @@ describe('runner routes', () => {
   it('drops entries past 5 MB of text per session and flags the session truncated', async () => {
     const id = await mk();
     let last: any;
-    // 8000 chars per entry, 40 per batch (~320 KB per request); 5 MB holds 655 of them
     for (let b = 0; b < 18; b++) {
       last = await asRunner('POST', '/api/pc-sessions/' + id + '/entries', {
         from: b, to: b + 1, entries: Array.from({ length: 40 }, () => ent({ text: 'z'.repeat(8000) })),
@@ -211,7 +208,7 @@ describe('owner routes', () => {
     expect(ids(await asOwner('GET', '/api/pc-sessions?q=' + enc('beta-repo')))).toEqual([b]);
     expect(ids(await asOwner('GET', '/api/pc-sessions?q=' + enc('x\\gamma')))).toEqual([c]);
     expect(ids(await asOwner('GET', '/api/pc-sessions?q=' + enc('100%_')))).toEqual([c]);
-    expect(ids(await asOwner('GET', '/api/pc-sessions?q=' + enc('%')))).toEqual([c]); // a literal %, not a wildcard
+    expect(ids(await asOwner('GET', '/api/pc-sessions?q=' + enc('%')))).toEqual([c]);
     expect(ids(await asOwner('GET', '/api/pc-sessions?q=work&before=' + (clock - 2000)))).toEqual([a]);
     expect(ids(await asOwner('GET', '/api/pc-sessions?q=work&limit=1'))).toEqual([b]);
   });
@@ -316,7 +313,7 @@ describe('redaction and visibility (spec 6.4 layer 1, section 9 P3)', () => {
       }
       const e = (await asOwner('GET', '/api/pc-sessions/' + id + '/entries')).json.entries;
       expect(e[0].text).toContain('[redacted]');
-      expect(e[1].text).toContain(CANARY); // ordinary text is kept
+      expect(e[1].text).toContain(CANARY);
       expect((await asOwner('GET', '/api/pc-sessions/' + id)).json.title).not.toContain('AbCdEf');
     } finally {
       removeSecret(KNOWN);
@@ -326,7 +323,6 @@ describe('redaction and visibility (spec 6.4 layer 1, section 9 P3)', () => {
   it('no bot-facing path reads mirrored text: history index, search_history, recall_memory, read_room, the cc API', async () => {
     const id = await mk({ title: 'Title ' + CANARY });
     await asRunner('POST', '/api/pc-sessions/' + id + '/entries', { from: 0, to: 1, entries: [ent({ text: 'the word ' + CANARY + ' appears here' })] });
-    // the owner can read it
     expect(JSON.stringify((await asOwner('GET', '/api/pc-sessions/' + id + '/entries')).json)).toContain(CANARY);
 
     const bot = hub.repos.createBot({ name: 'Vis', handle: 'vis-bot', title: '', description: '', avatar: '', model: 'claude-sonnet-5', allowedTools: ['Read'], maxBudgetUsd: 1 });
@@ -343,24 +339,20 @@ describe('redaction and visibility (spec 6.4 layer 1, section 9 P3)', () => {
       return out.content.map((c) => ('text' in c ? c.text : '')).join('');
     };
     try {
-      // the FTS index behind search_history, and the tools themselves
       expect(searchHistory(hub.repos.db, { query: CANARY, roomIds: hub.repos.listRooms().map((r) => r.id), limit: 20 })).toEqual([]);
       expect(await call('search_history', { query: CANARY })).toMatch(/^No messages match/);
       expect(await call('recall_memory', { query: CANARY })).not.toContain('appears here');
       expect(await call('read_room', { room: room.id })).not.toContain(CANARY);
       expect(await call('list_rooms', {})).not.toContain(CANARY);
       expect(JSON.stringify(hub.repos.listMessages(room.id, { limit: 200 }))).not.toContain(CANARY);
-      // no table other than the two mirror tables holds the canary
       const tables = hub.repos.db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").map((t) => t.name);
       expect(tables).toEqual(expect.arrayContaining(['pc_sessions', 'pc_session_entries']));
       for (const t of tables.filter((x) => !x.startsWith('pc_session'))) {
         for (const r of hub.repos.db.all('SELECT * FROM "' + t + '"')) expect(JSON.stringify(r)).not.toContain(CANARY);
       }
-      // the cc API (the runner's MCP route into rooms) cannot reach it
       expect(JSON.stringify((await request('GET', '/api/cc/rooms', { token: runnerToken })).json)).not.toContain(CANARY);
       expect(JSON.stringify((await request('GET', '/api/cc/rooms/' + room.id + '/messages', { token: runnerToken })).json)).not.toContain(CANARY);
       expect((await request('GET', '/api/cc/pc-sessions', { token: runnerToken })).status).not.toBe(200);
-      // and the runner token cannot read the mirror back
       expect((await asRunner('GET', '/api/pc-sessions/' + id + '/entries')).status).toBe(403);
     } finally {
       fs.rmSync(botHome(bot.id), { recursive: true, force: true });

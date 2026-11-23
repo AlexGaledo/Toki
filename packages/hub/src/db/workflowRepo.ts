@@ -4,27 +4,19 @@ import type {
 } from '@pocketrocket/shared';
 import type { Db, Row } from './db.js';
 
-/** What a workflow's trigger node points at (the `trigger_kind` column and its two id columns). */
 export type WorkflowTriggerKind = 'routine' | 'trigger' | 'manual';
 
-/** A run as the hub keeps it: the public {@link WorkflowRun} plus what only the engine needs. */
 export interface WorkflowRunRow extends WorkflowRun {
-  /** The chat the run's thread lives in (fixed when it starts). */
   roomId: string;
-  /** The system note that starts the run and the thread every step and hand-off shares; null until it is posted. */
   causeId: string | null;
-  /** The graph and budget the run started with: editing the workflow never changes a run in flight. */
   graph: WorkflowGraph;
   budgetUsd: number;
-  /** While an approval step waits: when its card expires (the card is denied then). */
   expiresAt: number | null;
 }
 
-/** Rows behind workflows and their runs (migrations 291-292). Validation (`linearOrder`) is the caller's. */
 export class WorkflowRepo {
   constructor(private db: Db, private now: () => number = Date.now) {}
 
-  // ---------------------------------------------------------------- workflows
   private toWorkflow(r: Row): Workflow {
     const id = r.id as string;
     return {
@@ -61,14 +53,12 @@ export class WorkflowRepo {
     );
     return this.get(id);
   }
-  /** Removes the workflow and its run history. */
   delete(id: string) {
     this.db.tx(() => {
       this.db.run('DELETE FROM workflow_runs WHERE workflow_id=?', id);
       this.db.run('DELETE FROM workflows WHERE id=?', id);
     });
   }
-  /** Workflows whose trigger step is this routine (enabled or not: a routine with a workflow never runs a plain prompt). */
   forRoutine(routineId: string): Workflow[] {
     return this.db.all('SELECT * FROM workflows WHERE routine_id=? ORDER BY created_at, rowid', routineId).map((r) => this.toWorkflow(r));
   }
@@ -76,7 +66,6 @@ export class WorkflowRepo {
     return this.db.all('SELECT * FROM workflows WHERE trigger_id=? ORDER BY created_at, rowid', triggerId).map((r) => this.toWorkflow(r));
   }
 
-  // ---------------------------------------------------------------- runs
   private toRun(r: Row): WorkflowRunRow {
     return {
       id: r.id as string, workflowId: r.workflow_id as string, status: r.status as WorkflowRunStatus,
@@ -99,7 +88,6 @@ export class WorkflowRepo {
     const r = this.db.get('SELECT * FROM workflow_runs WHERE id=?', id);
     return r ? this.toRun(r) : undefined;
   }
-  /** Writes the changed fields of a run. `endedAt` is set by the caller when the run ends. */
   updateRun(id: string, p: Partial<Pick<WorkflowRunRow, 'causeId' | 'nodeId' | 'status' | 'steps' | 'costUsd' | 'error' | 'expiresAt' | 'endedAt'>>): WorkflowRunRow | undefined {
     const cur = this.getRun(id);
     if (!cur) return undefined;
@@ -110,11 +98,9 @@ export class WorkflowRepo {
     );
     return this.getRun(id);
   }
-  /** A retry after an over-budget stop re-reads the workflow's budget. */
   setRunBudget(id: string, budgetUsd: number) {
     this.db.run('UPDATE workflow_runs SET budget_usd=? WHERE id=?', budgetUsd, id);
   }
-  /** Newest first. */
   listRuns(workflowId: string, limit = 20): WorkflowRunSummary[] {
     return this.db.all('SELECT * FROM workflow_runs WHERE workflow_id=? ORDER BY started_at DESC, rowid DESC LIMIT ?', workflowId, limit).map((r) => summary(this.toRun(r)));
   }
@@ -122,11 +108,9 @@ export class WorkflowRepo {
     const r = this.db.get('SELECT * FROM workflow_runs WHERE workflow_id=? ORDER BY started_at DESC, rowid DESC LIMIT 1', workflowId);
     return r ? summary(this.toRun(r)) : null;
   }
-  /** Runs in these states, oldest first (startup recovery, the approval-card list, the "one run at a time" check). */
   runsWith(...statuses: WorkflowRunStatus[]): WorkflowRunRow[] {
     return this.db.all(`SELECT * FROM workflow_runs WHERE status IN (${statuses.map(() => '?').join(',')}) ORDER BY started_at, rowid`, ...statuses).map((r) => this.toRun(r));
   }
-  /** A run of this workflow that is running or waiting, if any. */
   activeRun(workflowId: string): WorkflowRunRow | undefined {
     const r = this.db.get("SELECT * FROM workflow_runs WHERE workflow_id=? AND status IN ('running','waiting') ORDER BY started_at DESC LIMIT 1", workflowId);
     return r ? this.toRun(r) : undefined;

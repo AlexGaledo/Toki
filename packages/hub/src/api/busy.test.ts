@@ -17,17 +17,11 @@ import { events } from '../events.js';
 import { createHub, type Hub } from '../hub.js';
 import { deviceMayAccess, runnerMayAccess } from './guard.js';
 
-/**
- * 04-A3: GET /api/busy counts only work a restart would lose (running turns, live cards); the maintenance hold
- * and stop let the desktop updater drain the hub and stop it cleanly.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 400 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
 };
 
-/** Every turn asks for one risky push and waits for the answer. */
 class AskingProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Asking';
@@ -80,7 +74,6 @@ describe('busy counts (runner + broker)', () => {
 
   it('a parked card is not live and its turn has ended', async () => {
     const s = wired();
-    // A routine's (strict) card parks after parkAfterMs when nobody answers.
     s.router.fireRoutine(s.room, s.bot, 'push', null);
     await until(() => s.broker.parked().length === 1);
     await until(() => s.runner.activeTurnCount() === 0);
@@ -162,7 +155,6 @@ describe('GET /api/busy and the maintenance routes', () => {
     await until(() => hub.busy().pendingLanes === 1);
     expect(hub.busy()).toMatchObject({ blocking: 0, running: 0, pendingLanes: 1 });
     expect((await api<BusyInfo>('GET', '/api/busy')).body).toMatchObject({ blocking: 0, pendingLanes: 1, heldUntil: held.heldUntil });
-    // Left held on purpose: releasing would start a real turn. stop() below freezes the router.
   });
 
   it('stop answers first, then shuts the hub down and exits 0', async () => {
@@ -172,7 +164,6 @@ describe('GET /api/busy and the maintenance routes', () => {
     await until(() => exit.mock.calls.length === 1);
     expect(shutdown).toHaveBeenCalledTimes(1);
     expect(exit).toHaveBeenCalledWith(0);
-    // A signal arriving during or after the stop joins it instead of shutting down twice.
     await hub.stop('SIGTERM');
     expect(shutdown).toHaveBeenCalledTimes(1);
     expect(exit).toHaveBeenCalledTimes(1);

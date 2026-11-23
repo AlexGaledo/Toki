@@ -2,28 +2,16 @@ import { pathToFileURL } from 'node:url';
 import type { Repos } from '../db/repos.js';
 import type { ComputerManager } from './ComputerManager.js';
 
-/** Why the server browser could not open something. `status` is the HTTP status the route answers with. */
 export class ScreenOpenError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-/** Only real web pages: no javascript:, data:, chrome:, file: (files come in as a checked path, not a URL). */
 export function webUrlOrNull(raw: string): string | null {
   let u: URL;
   try { u = new URL(raw.trim()); } catch { return null; }
   return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null;
 }
 
-/**
- * Opens a page in the server's virtual browser, in a new tab, so the person sees it in the Screen window. Used
- * when a link in chat is opened "in the server browser": a web link, or a file in the room's folder (as file://,
- * which works because every screen's Chromium runs as the hub's own user).
- *
- * Which browser: with per-bot computers, the given bot's computer if it has a browser, otherwise the first bot
- * in the room that has one, otherwise any bot with one (an awake one first); it is woken if asleep. Without
- * per-bot computers, the one shared screen.
- * Answers the bot whose computer it used (null for the shared screen), for the Screen window to open on.
- */
 export function createScreenOpener(deps: {
   repos: Repos;
   computers: ComputerManager;
@@ -38,8 +26,6 @@ export function createScreenOpener(deps: {
     if (botId && usesComputer(botId) && (!room || room.memberIds.includes(botId))) return botId;
     const here = room?.memberIds.find((id) => usesComputer(id));
     if (here) return here;
-    // Nobody in this chat has a browser (a files-only bot, say): any bot that has one, one already awake first,
-    // so a link still opens without starting another computer.
     const others = repos.listBots().map((b) => b.id).filter((id) => usesComputer(id));
     return others.find((id) => computers.status(id).state === 'live') ?? others[0] ?? null;
   }

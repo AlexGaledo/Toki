@@ -15,11 +15,6 @@ import {
   appendNotes, buildConsolidatePrompt, buildTranscript, cleanNotes, mergedMemory, parseMerged, parseNotes, runPass, splitKept, type PassOutcome,
 } from './AutoMemory.js';
 
-/**
- * Auto-memory: a cheap background pass that appends lasting facts to memory.md every N turns. Covers the reply
- * parsing and note hygiene, the per-(bot, room) trigger, and that the SDK call is pinned to the cheap options.
- */
-
 const usage0 = { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, modelUsage: null, durationMs: 1 };
 const reply = (text: string, costUsd = 0.004): PassOutcome => ({ ok: true, text, usage: { ...usage0, costUsd, inputTokens: 900, outputTokens: 40 } });
 
@@ -72,7 +67,6 @@ describe('appendNotes', () => {
   });
 });
 
-// ---------- trigger ----------
 const made: string[] = [];
 afterEach(() => {
   for (const id of made.splice(0)) fs.rmSync(botHome(id), { recursive: true, force: true });
@@ -114,9 +108,8 @@ describe('AutoMemory trigger', () => {
     const turn = () => { say('hello'); return auto.afterTurn(bot.id, room.id, { ok: true }); };
     turn(); turn(); await turn();
     expect(calls).toBe(1);
-    // The pass ran on Claude, and its usage row says so.
     expect(repos.usageBy('provider').map((g) => g.key)).toEqual(['claude']);
-    ready = false; // e.g. ProviderHealth holds Claude at its 5-hour limit
+    ready = false;
     expect([turn(), turn(), turn()].every((p) => p === undefined)).toBe(true);
     expect(calls).toBe(1);
   });
@@ -134,7 +127,6 @@ describe('AutoMemory trigger', () => {
     expect(s.repos.getAutoMemory(s.bot.id, s.room.id)).toMatchObject({ turnsSince: 0, retryAt: 0 });
     expect(s.repos.getAutoMemory(s.bot.id, s.room.id).lastSeq).toBe(6);
 
-    // The next pass only sees what came after, and a repeat of an existing note saves nothing and posts nothing.
     s.turn(); s.turn(); await s.turn();
     expect(s.prompts).toHaveLength(2);
     expect(s.prompts[1]).not.toContain('#1 ');
@@ -148,7 +140,6 @@ describe('AutoMemory trigger', () => {
     s.turn(); s.turn(); await s.turn();
     expect(s.prompts[0]).toContain('<transcript>\n#1 [');
     expect(s.prompts[0]).toContain('<current_memory>\n- Alex prefers short answers');
-    // The existing note is not saved twice.
     expect(s.memory.read(s.bot.id).match(/Alex prefers short answers/g)).toHaveLength(1);
   });
 
@@ -193,8 +184,8 @@ describe('AutoMemory trigger', () => {
     expect(calls).toBe(1);
     expect(s.memory.read(s.bot.id)).toBe('');
     expect(s.repos.getAutoMemory(s.bot.id, s.room.id)).toMatchObject({ turnsSince: 4, lastSeq: 0, retryAt: 6 });
-    expect(s.turn()).toBeUndefined(); // turn 5: still backing off
-    await s.turn(); // turn 6: retries
+    expect(s.turn()).toBeUndefined();
+    await s.turn();
     expect(calls).toBe(2);
   });
 
@@ -263,7 +254,6 @@ describe('runPass', () => {
   });
 });
 
-// ---------- consolidation ----------
 describe('memory merge helpers', () => {
   it('splitKept takes keep blocks out verbatim, including an unclosed one', () => {
     const mem = 'a\n' + KEEP_OPEN + '\nOwner: never deploy on Fridays.\n' + KEEP_CLOSE + '\nb\n' + KEEP_OPEN + '\ntail';
@@ -298,7 +288,6 @@ describe('memory merge helpers', () => {
 });
 
 describe('AutoMemory merge', () => {
-  /** A memory.md just past the merge threshold, made of auto-saved style bullets. */
   const fullMemory = (keep = '') => {
     let m = keep;
     for (let i = 0; Buffer.byteLength(m, 'utf8') <= MAX_MEMORY_BYTES * CONSOLIDATE_AT + 10; i++) m += '- fact number ' + i + ' about the launch plan and who owns it\n';
@@ -337,7 +326,6 @@ describe('AutoMemory merge', () => {
     expect(s.calls[1].system).toBe(CONSOLIDATE_PROMPT);
     expect(s.calls[1].prompt).toContain('- fact number 0 about the launch plan');
     expect(s.memory.read(s.bot.id)).toBe('## Launch\n- Plan facts, merged.\n');
-    // The backup is the file as it was right before the merge (with this pass's note appended).
     const bak = fs.readFileSync(s.memory.backupFile(s.bot.id), 'utf8');
     expect(bak.startsWith(before.slice(0, 200))).toBe(true);
     expect(bak).toContain('Alex prefers short answers');

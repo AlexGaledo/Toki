@@ -9,11 +9,6 @@ import { createHub, type Hub } from '../hub.js';
 import { events } from '../events.js';
 import type { TurnRequest, TurnResult } from '../agent/BotRunner.js';
 
-/**
- * M8 (P3-1): the failover card's REST surface. Person-only like the workflow approval card: the hub token and a paired
- * phone answer it; the PC runner token, no token, a WS `approval.decide`, a bot message and chat text do not.
- */
-
 const TOKEN = 'failover-test-token';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-failover-rest-'));
 let hub: Hub;
@@ -28,7 +23,6 @@ beforeAll(async () => {
     dmFilesDir: (id) => path.join(tmp, 'bots', id, 'files'),
     pcRunner: { file: path.join(tmp, 'pc-runner.json'), pollMs: 5, waitMs: 60_000 },
   });
-  // The bot's own provider hits its limit; a turn on the backup answers.
   hub.runner.runTurn = async (req: TurnRequest): Promise<TurnResult> => {
     turns.push(req);
     if (req.providerOverride) return { ok: true, turnId: 't' + turns.length, finalText: '', costUsd: 0.01, provider: req.providerOverride.provider };

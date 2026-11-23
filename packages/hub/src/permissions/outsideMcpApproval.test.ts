@@ -7,10 +7,6 @@ import { PermissionBroker } from './PermissionBroker.js';
 import { events } from '../events.js';
 import { addSecret, clearSecrets } from '../providers/redact.js';
 
-/**
- * Calls to an owner-configured outside MCP server with `approve` set raise a card on every call: under bypass,
- * past an "allow" rule, and after an "always" answer. Read-only mode refuses them outright.
- */
 const signal = () => new AbortController().signal;
 
 function setup(opts: { bypass?: boolean; readOnly?: boolean } = {}) {
@@ -42,7 +38,6 @@ describe('askOutsideMcp', () => {
     expect(a.cards).toHaveLength(1);
     expect(a.cards[0].toolName).toBe('mcp__runpod__create_pod');
     expect(a.cards[0].toolInput).toEqual({ server: 'runpod', tool: 'create_pod', input: '{"gpu":"A100","count":2}' });
-    // The card offers no "for this session".
     expect(a.cards[0].once).toBe(true);
   });
 

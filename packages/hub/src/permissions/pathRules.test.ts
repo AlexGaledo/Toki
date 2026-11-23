@@ -12,9 +12,7 @@ describe('pathsFromInput', () => {
     expect(pathsFromInput('Bash', { command: 'ls' })).toEqual([]);
   });
 
-  // ---- audit 2026-09-09, B13 ----
   it('extracts the directory prefix embedded in a Glob/Grep glob', () => {
-    // The audit's exact payload: the escape rode in `glob`, which was never looked at.
     expect(pathsFromInput('Grep', { pattern: 'BEGIN.*PRIVATE KEY', glob: '../../../**/*' })).toEqual(['../../..']);
     expect(pathsFromInput('Glob', { pattern: '../../secrets/**/*.json' })).toEqual(['../../secrets']);
     expect(pathsFromInput('Glob', { pattern: 'C:/Users/**' })).toEqual(['C:/Users']);
@@ -22,7 +20,6 @@ describe('pathsFromInput', () => {
   });
 
   it('leaves an ordinary Grep regex alone but catches one shaped like an escaping path', () => {
-    // `pattern` is a regex for Grep: flagging every regex containing a dot would be noise.
     expect(pathsFromInput('Grep', { pattern: 'foo.*bar' })).toEqual(['.']);
     expect(pathsFromInput('Grep', { pattern: 'a..b' })).toEqual(['.']);
     expect(pathsFromInput('Grep', { pattern: '../../etc/passwd' })).toEqual(['../../etc/passwd']);

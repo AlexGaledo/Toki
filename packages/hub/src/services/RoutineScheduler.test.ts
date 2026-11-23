@@ -9,8 +9,6 @@ import { RoomRouter } from '../rooms/RoomRouter.js';
 import { events } from '../events.js';
 import type { BotRunner, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 
-/** P3 3.1: routines run in `settings.timezone` (not the hub's local time) and can be one-shots. */
-
 function setup(zone = 'Asia/Manila') {
   const repos = new Repos(new Db(':memory:'));
   const router = new RoomRouter(repos, new UsageTracker(repos));
@@ -32,7 +30,7 @@ afterEach(() => {
 describe('routine time zones', () => {
   it('fires a daily 09:00 Manila routine at 09:00 Manila on a UTC hub', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
-    vi.setSystemTime(new Date('2026-11-01T00:00:00Z')); // 08:00 in Manila
+    vi.setSystemTime(new Date('2026-11-01T00:00:00Z'));
     const s = setup('Asia/Manila');
     const r = s.routine({ cron: '0 9 * * *' });
     s.scheduler.start();

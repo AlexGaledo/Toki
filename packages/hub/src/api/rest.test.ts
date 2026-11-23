@@ -34,7 +34,6 @@ describe('settings / secrets / providers REST', () => {
     const named = (await api<Settings>('PUT', '/api/settings', { userName: 'Alex' })).body;
     expect(named.userName).toBe('Alex');
 
-    // zod 4 keeps `.default()` inside `.partial()`; a one-key patch must not reset the others.
     const after = (await api<Settings>('PUT', '/api/settings', { sounds: false })).body;
     expect(after).toMatchObject({ userName: 'Alex', sounds: false, provider: 'claude' });
     expect((await api<Settings>('GET', '/api/settings')).body.userName).toBe('Alex');
@@ -65,7 +64,6 @@ describe('settings / secrets / providers REST', () => {
     expect(off).toMatchObject({ autoMemory: false, autoMemoryEvery: 25, name: 'Memo' });
     expect((await api('PATCH', '/api/bots/' + bot.id, { autoMemoryEvery: 2 })).status).toBe(400);
     expect((await api('PATCH', '/api/bots/' + bot.id, { autoMemoryEvery: 101 })).status).toBe(400);
-    // An edit that leaves the fields out (the bot dialog) keeps them.
     expect((await api<Bot>('PATCH', '/api/bots/' + bot.id, { title: 'x' })).body).toMatchObject({ autoMemory: false, autoMemoryEvery: 25 });
   });
 
@@ -87,8 +85,6 @@ describe('settings / secrets / providers REST', () => {
     expect((await api<Settings>('GET', '/api/settings')).body.approvals).toBe('ask');
     const health = (await api<HealthInfo>('GET', '/api/health')).body;
     expect(health).toMatchObject({ approvals: 'ask', approvalsLocked: false });
-    // Health answers without the token, so it must not carry who is signed in, on which plan, or where
-    // their CLI lives — a path under the home directory is the machine's user name spelled out.
     expect(health).not.toHaveProperty('accountEmail');
     expect(health).not.toHaveProperty('subscriptionType');
     expect(health).not.toHaveProperty('claudeExe');
@@ -108,8 +104,6 @@ describe('settings / secrets / providers REST', () => {
     const res = (await api<ProvidersResponse>('GET', '/api/providers')).body;
     expect(res.active).toBe('claude');
     expect(res.providers.map((p) => p.id)).toEqual(ENABLED_PROVIDERS);
-    // Every provider reports a real check now (P2A/P2B/P2C landed), so assert the shape rather than a
-    // value that depends on which CLIs happen to be installed on the machine running the tests.
     for (const p of res.providers) {
       expect(typeof p.check.ok).toBe('boolean');
       expect(p.check.hint).toBeTruthy();

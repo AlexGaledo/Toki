@@ -12,11 +12,9 @@ export type CspMode = 'enforce' | 'report-only' | 'off';
 
 export function cspModeFrom(raw: string | undefined): CspMode {
   const v = (raw ?? '').trim().toLowerCase();
-  // Report-only until the production build has been run in a browser with no violations; then flip this default.
   return v === 'enforce' || v === 'off' ? v : 'report-only';
 }
 
-/** No `unsafe-inline`/`unsafe-eval` in script-src: the theme snippet lives in /theme-init.js. */
 export const WEB_CSP = [
   "default-src 'self'",
   "script-src 'self'",
@@ -34,7 +32,7 @@ export const WEB_CSP = [
   "frame-ancestors 'none'",
 ].join('; ');
 
-/** Headers for a static web response. Existing hardening on the response is never replaced by the caller. */
+/** Existing hardening on the response is never replaced by the caller. */
 export function webSecurityHeaders(mode: CspMode): Record<string, string> {
   const h: Record<string, string> = {
     'x-content-type-options': 'nosniff',

@@ -22,19 +22,6 @@ import { compactLine, lastContextTokens } from './SessionCompact.js';
 import { sandboxMode } from '../providers/sandbox.js';
 import type { OffloadTurnOutcome, OffloadTurnRequest } from '../agent/BotRunner.js';
 
-/**
- * A PC session that moved to the VPS (bridge P6). The state machine, per session:
- *
- *   (none | local) --startMove--> moving --move job done--> on-vps --startPull--> pulling --pull job done--> local
- *                      |                                      ^                      |
- *                      +-- move job failed / refused: row dropped                      +-- pull job failed / refused: back to on-vps
- *
- * While it is moving, on-vps or pulling the session is LOCKED: no resume or sync job for it, no second move, and the
- * mirror drops the PC's appends. The VPS turns run one at a time through the Claude provider (agent/BotRunner
- * runOffloadTurn) in a git worktree of the project's VPS copy, on the wip branch the bundle was imported to; the hub commits
- * whatever a turn changed to that branch and nothing else, and never pushes.
- */
-
 export class SessionMoveError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -44,15 +31,11 @@ export type MoveState = 'moving' | 'on-vps' | 'pulling' | 'local';
 export interface MoveRepo {
   project: string;
   repo: string;
-  /** The repo's folder under the project (repos.json `vps`). */
   vps: string;
   remote: string;
   protected: string[];
-  /** wip/<machine>/<sid8> */
   branch: string;
-  /** The snapshot commit the PC reported (what the move started from). */
   base?: string;
-  /** The PC's toplevel for this repo, when it said. */
   toplevel?: string;
   imported?: boolean;
 }
@@ -91,14 +74,10 @@ export interface SessionMovesDeps {
   pcRunner: PcRunner;
   pcSessions: PcSessions;
   projects: ProjectService;
-  /** Where uploads and downloads wait (DATA_DIR/pc-moves). */
   dir: string;
-  /** Runs one VPS turn (BotRunner.runOffloadTurn). */
   runTurn: (req: OffloadTurnRequest) => Promise<OffloadTurnOutcome>;
-  /** The Claude CLI's config folder on this machine. Tests hand in a temp one. */
   configDir?: () => string;
   model?: () => string;
-  /** How often a running turn's new lines are fed to the mirror. */
   feedEveryMs?: number;
 }
 
@@ -113,14 +92,11 @@ export class SessionMoves {
 
   private cfg() { return (this.d.configDir ?? claudeConfigDir)(); }
 
-  // ---------- state ----------
-
   get(sessionId: string): MoveRow | null {
     const r = this.d.db.get('SELECT * FROM pc_session_moves WHERE session_id = ?', sessionId);
     return r ? toRow(r) : null;
   }
 
-  /** moving, on-vps or pulling: the PC must not resume or sync it, and the mirror drops the PC's appends. */
   locked(sessionId: string): boolean {
     const s = this.get(sessionId)?.state;
     return s === 'moving' || s === 'on-vps' || s === 'pulling';
@@ -130,7 +106,6 @@ export class SessionMoves {
     return this.running.has(sessionId);
   }
 
-  /** What the app sees on a session summary. Never a path: the worktree is its own name. */
   summary(sessionId: string): PcSessionMove | null {
     const m = this.get(sessionId);
     if (!m) return null;
@@ -158,12 +133,6 @@ export class SessionMoves {
     this.d.pcSessions.touch(sessionId);
   }
 
-  // ---------- rooms ----------
-
-  /**
-   * The rooms a session's VPS turns may run in: the linked project's own room, then any group chat that holds every one of
-   * the project's member bots. The first is the default.
-   */
   roomCandidates(links: readonly { project: string }[]): Room[] {
     const out: Room[] = [];
     const seen = new Set<string>();
@@ -178,7 +147,6 @@ export class SessionMoves {
     return out;
   }
 
-  /** The member whose tools and permissions the turns use: @persona when it is in the room, else the first member that exists. */
   private botFor(room: Room): Bot | null {
     const persona = settings.get().personaBotId;
     const ids = [...(persona && room.memberIds.includes(persona) ? [persona] : []), ...room.memberIds];
@@ -189,12 +157,6 @@ export class SessionMoves {
     return null;
   }
 
-  // ---------- move ----------
-
-  /**
-   * Checks a move request and returns what the job carries. 400 for a session with no linked repo, a client repo, a repo whose
-   * sync is not bundle, or a room the project is not linked to; 409 when the session is already moved or has a job open.
-   */
   planMove(session: PcSessionDetail, roomId?: string): { info: PcMoveJobInfo; room: Room; repos: MoveRepo[] } {
     if (session.parentId) throw new SessionMoveError(400, 'That is a subagent transcript; move its parent session.');
     const cur = this.get(session.id);
@@ -215,7 +177,6 @@ export class SessionMoves {
     if (roomId && !room) throw new SessionMoveError(400, 'That room is not one of the project\'s rooms: use the project\'s own room, or a group chat with all of its bots.');
     if (!room) throw new SessionMoveError(400, 'The project has no room, so the VPS turns would have no tools or permissions to run under. Make a room for it first.');
     if (!this.botFor(room)) throw new SessionMoveError(400, 'The room has no bot in it to run the turns.');
-    // The worktree path has to be one the CLI can find the session under.
     const first = repos[0];
     try {
       sessionFilePath(this.worktreePath(first, wip), session.id, this.cfg());
@@ -225,7 +186,6 @@ export class SessionMoves {
     return { info: { room: room.id, title: session.title, repos: repos.map((r) => this.d.projects.syncTarget(session, r.project, r.repo)) as PcMoveJobInfo['repos'] }, room, repos };
   }
 
-  /** Creates the move job (queued: the caller has the owner's approval) and the 'moving' row. */
   startMove(session: PcSessionDetail, o: { roomId?: string; botId?: string | null; fromRoomId?: string | null }): PcJob {
     const plan = this.planMove(session, o.roomId);
     const job = this.d.pcRunner.create({
@@ -255,7 +215,6 @@ export class SessionMoves {
     return path.join(this.d.dir, jobId + '.jsonl');
   }
 
-  /** A bundle for one repo of a move was imported to its wip branch. */
   recordImport(sessionId: string, repoName: string, branch: string, commit: string): void {
     const m = this.get(sessionId);
     if (!m || m.state !== 'moving') throw new SessionMoveError(409, 'That session is not being moved.');
@@ -266,11 +225,6 @@ export class SessionMoves {
     this.save(m);
   }
 
-  /**
-   * The runner reported the move: every bundle and the session file are here. Builds the worktrees, rewrites the session's
-   * paths, files it where the VPS CLI looks, feeds the mirror what it was missing, and marks the session on-vps. Throws
-   * (SessionMoveError) with the reason when something is off; the caller then fails the job.
-   */
   async finalizeMove(job: PcJob, result: PcMoveResult): Promise<void> {
     const m = job.sessionId ? this.get(job.sessionId) : null;
     if (!m || m.state !== 'moving' || m.moveJobId !== job.id) throw new SessionMoveError(409, 'That session is not being moved by this job.');
@@ -300,7 +254,6 @@ export class SessionMoves {
       }
       const vpsCwd = created[0].wt;
       const target = sessionFilePath(vpsCwd, m.sessionId, this.cfg());
-      // Lines the mirror had not read yet (it lags the file a little): feed them before the file is rewritten.
       await this.feedFrom(m.sessionId, upload, this.mirrorOffset(m.sessionId), null, new Map());
       const tmp = target + '.pocketrocket-tmp';
       const done = await rewriteSessionFile(upload, tmp, pcRoot, vpsCwd);
@@ -322,10 +275,7 @@ export class SessionMoves {
     if (room) this.post(room.id, 'Session "' + (session.title ?? m.sessionId) + '" moved to the VPS (' + m.repos.map((r) => r.project + '/' + r.repo).join(', ') + '). Continue it from the app; pull it back when you want it on your PC again.');
   }
 
-  /**
-   * A refusal message when `file` is not the .jsonl of session `sessionId`, else null: the head of the file has to carry at
-   * least one `sessionId` field and every one it carries has to be this session's.
-   */
+  /** The file must carry this session's id and no other. */
   verifySessionFile(file: string, sessionId: string): string | null {
     const fd = fs.openSync(file, 'r');
     let head: string;
@@ -337,7 +287,7 @@ export class SessionMoves {
       fs.closeSync(fd);
     }
     const lines = head.split('\n');
-    lines.pop(); // the last may be cut
+    lines.pop();
     let seen = 0;
     for (const l of lines) {
       if (!l.includes('"sessionId"')) continue;
@@ -361,9 +311,6 @@ export class SessionMoves {
     return this.d.pcSessions.syncState()[sessionId]?.offset ?? 0;
   }
 
-  // ---------- job end ----------
-
-  /** PcRunner calls this once for every move or pull job that reached a terminal status. */
   onJobFinished(job: PcJob): void {
     if ((job.mode !== 'move' && job.mode !== 'pull') || !job.sessionId) return;
     try {
@@ -381,7 +328,6 @@ export class SessionMoves {
     }
   }
 
-  /** At start: a move or pull whose job is gone or over (the hub was down) goes back to where it was. */
   reconcile(): void {
     for (const r of this.d.db.all('SELECT * FROM pc_session_moves WHERE state IN (?, ?)', 'moving', 'pulling')) {
       const m = toRow(r);
@@ -393,18 +339,10 @@ export class SessionMoves {
     }
   }
 
-  // ---------- turns on the VPS ----------
-
-  /**
-   * One VPS turn. Validates now (409 while a turn runs or when the session is not on the VPS, 409 past 120k tokens of context)
-   * and runs in the background: `done` settles when the turn, the mirror feed and the commit are over.
-   */
   continueSession(sessionId: string, prompt: string): { done: Promise<void> } {
     const m = this.get(sessionId);
     if (!m || m.state !== 'on-vps' || !m.vpsCwd) throw new SessionMoveError(409, 'That session is not on the VPS.');
     if (this.running.has(sessionId)) throw new SessionMoveError(409, 'A turn is already running on that session. One at a time.');
-    // The sandbox gives each bot a private Claude config dir, so a VPS turn would append to a copy of the transcript the
-    // hub never reads (and never pulls back). Until VPS turns mount the shared transcript, refuse rather than lose turns.
     if (sandboxMode() === 'on') throw new SessionMoveError(409, 'VPS turns are not available while the bot sandbox is on yet. Turn it off in Settings > Security, or pull the session back.');
     const file = sessionFilePath(m.vpsCwd, sessionId, this.cfg());
     if (!fs.existsSync(file)) throw new SessionMoveError(409, 'The session file is missing on the VPS. Pull it back to your PC.');
@@ -447,7 +385,6 @@ export class SessionMoves {
     return { done: run };
   }
 
-  /** The turn's end: wait for it. Tests and shutdown use it. */
   async idle(sessionId: string): Promise<void> {
     await this.running.get(sessionId);
   }
@@ -465,7 +402,6 @@ export class SessionMoves {
     }
   }
 
-  /** Feeds the lines the VPS CLI appended since the last feed to the mirror, as machine 'vps'. */
   async feed(sessionId: string): Promise<number> {
     const m = this.get(sessionId);
     if (!m || !m.vpsCwd) return 0;
@@ -494,7 +430,6 @@ export class SessionMoves {
     }
   }
 
-  /** Reads complete lines of `file` from byte `from`, maps and stores them. Returns the offset after the last complete line. */
   private async feedFrom(sessionId: string, file: string, from: number, machine: string | null, names: Map<string, string>): Promise<{ stored: number; next: number }> {
     const size = fs.statSync(file).size;
     if (from >= size) return { stored: 0, next: from };
@@ -533,8 +468,6 @@ export class SessionMoves {
     return { stored: r?.stored ?? 0, next };
   }
 
-  // ---------- git on the VPS copy ----------
-
   private async git(cwd: string, args: string[]): Promise<string> {
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-move-'));
     try { return await hardenedGit(cwd, args, scratch); } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
@@ -552,10 +485,6 @@ export class SessionMoves {
     try { await this.git(repoDir, ['worktree', 'prune']); } catch { /* nothing to prune */ }
   }
 
-  /**
-   * Commits whatever the worktree changed to the wip branch (identity "Toki offload <bot>"), and only if the
-   * worktree is still on that branch. Returns a note for the room, or ''. Never pushes.
-   */
   async commitWork(m: MoveRow, message: string): Promise<string> {
     const notes: string[] = [];
     const room = m.roomId ? this.d.repos.getRoom(m.roomId) : undefined;
@@ -580,16 +509,12 @@ export class SessionMoves {
     return notes.join(' ');
   }
 
-  // ---------- pull ----------
-
-  /** Creates the pull job (queued: the caller has the owner's approval) and marks the session 'pulling'. */
   async startPull(sessionId: string, o: { botId?: string | null; fromRoomId?: string | null } = {}): Promise<PcJob> {
     const m = this.get(sessionId);
     if (!m) throw new SessionMoveError(404, 'That session never moved.');
     if (m.state !== 'on-vps') throw new SessionMoveError(409, m.state === 'local' ? 'That session is already back on your PC.' : 'That session is ' + m.state + ', not on the VPS.');
     if (this.running.has(sessionId)) throw new SessionMoveError(409, 'A turn is running on that session. Wait for it to finish.');
     if (this.openJobFor(sessionId)) throw new SessionMoveError(409, 'That session already has a job waiting or running on the PC.');
-    // Whatever the VPS left uncommitted travels as a commit on the wip branch.
     try { await this.commitWork(m, 'VPS work before pull-back'); } catch (e) { throw new SessionMoveError(500, 'Could not commit the VPS work: ' + redact((e as Error).message)); }
     await this.feed(sessionId).catch(() => 0);
     const pull: PcPullJobInfo = {
@@ -613,7 +538,6 @@ export class SessionMoves {
     return m;
   }
 
-  /** The session file with the VPS worktree swapped back for the PC's folder: the exact inverse of the move rewrite. Written to a temp file the caller streams and removes. */
   async pullSessionFile(job: PcJob): Promise<{ file: string; bytes: number; sha256: string }> {
     const m = this.pullRow(job);
     const src = sessionFilePath(m.vpsCwd!, m.sessionId, this.cfg());
@@ -623,7 +547,6 @@ export class SessionMoves {
     return { file: dest, bytes: r.bytes, sha256: r.sha256 };
   }
 
-  /** A git bundle of one repo's wip branch, to stream to the runner and remove. */
   async pullBundle(job: PcJob, repoName: string): Promise<string> {
     const m = this.pullRow(job);
     const r = m.repos.find((x) => x.repo === repoName);
@@ -636,7 +559,6 @@ export class SessionMoves {
     return file;
   }
 
-  /** The PC took the session and the branches home: the worktrees and the VPS copy of the file go, the session is local again. */
   async finalizePull(job: PcJob, result: PcPullResult): Promise<void> {
     const m = this.pullRow(job);
     const want = new Set(m.repos.map((r) => r.repo));
@@ -646,7 +568,6 @@ export class SessionMoves {
     for (const r of m.repos) await this.removeWorktree(vpsDir(this.d.projects.dirOf(r.project), r.vps), this.worktreePath(r, r.branch));
     fs.rmSync(file, { force: true });
     this.toolNames.delete(m.sessionId);
-    // The PC's mirror carries on from the end of the file it now has.
     this.d.pcSessions.setOffset(m.sessionId, result.sessionBytes);
     m.state = 'local';
     m.pulledAt = Date.now();

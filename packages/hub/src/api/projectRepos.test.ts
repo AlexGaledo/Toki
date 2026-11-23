@@ -16,12 +16,6 @@ import { deviceMayAccess, runnerMayAccess } from './guard.js';
 import type { ToolOutput } from '../providers/types.js';
 import { setSandboxProbeForTests } from '../providers/sandbox.js';
 
-/**
- * Bridge P5 (hub half): the owner's repos.json endpoints, sessions mapped to repos, bots on a repo-linked project chat,
- * sync jobs (owner endpoint, run_on_pc mode sync, jobs/next payload, result) and the bundle upload with its hardened import.
- * Git runs against temp repos and a temp project folder only.
- */
-
 vi.setConfig({ testTimeout: 60_000 });
 
 const TOKEN = 'project-repos-test-hub-token';
@@ -127,7 +121,6 @@ async function putRepos(slug: string, repos: unknown[], opts: { token?: string |
   return request('PUT', '/api/projects/' + slug + '/repos', { body: { repos }, ...opts });
 }
 
-// ---------------------------------------------------------------------------------------------------
 describe('GET and PUT /api/projects/:slug/repos', () => {
   it('lets the owner save and read the list, with defaults, an atomic file and an audit line', async () => {
     const { project } = hub.projects.create({ name: 'Api Proj' });
@@ -192,7 +185,6 @@ describe('GET and PUT /api/projects/:slug/repos', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('sessions mapped to project repos', () => {
   it('computes links at read: remote match across ssh/https and case, a name fallback with no remote, nothing else', async () => {
     const { project } = hub.projects.create({ name: 'Links Proj' });
@@ -213,14 +205,12 @@ describe('sessions mapped to project repos', () => {
     expect(mine(L + '3')).toEqual([]);
     expect(links(L + '4')).toEqual([]);
     expect((await request('GET', '/api/pc-sessions/' + L + '1')).json.links.filter((l: any) => l.project === project.slug)).toHaveLength(1);
-    // Computed at read: removing the repo removes the link.
     await putRepos(project.slug, []);
     expect(hub.pcSessions.get(L + '1')!.links.filter((l) => l.project === project.slug)).toEqual([]);
     expect(hub.pcSessions.get(L + '1')!.links.filter((l) => l.project === other.slug)).toEqual([{ project: other.slug, repo: 'appcopy' }]);
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('a bot on a repo-linked project chat', () => {
   let slug: string;
   let foreignSlug: string;
@@ -306,12 +296,10 @@ describe('a bot on a repo-linked project chat', () => {
     const names = (b: Bot, r: Room) => createHubTools(ctxFor(b, r).ctx).map((t) => t.name);
     expect(names(outsider, roomWith)).not.toContain('list_pc_sessions');
     expect(names(outsider, roomWith)).not.toContain('list_repos');
-    // In the project room but not a member of the project.
     const guest = mkBot('Guest');
     hub.repos.updateRoom?.(room.id, { memberIds: [...room.memberIds, guest.id] } as never);
     const fresh = hub.repos.getRoom(room.id)!;
     expect(names(guest, fresh)).not.toContain('list_pc_sessions');
-    // A project with no repos.
     const bare = hub.projects.create({ name: 'Bare ' + n, memberIds: [outsider.id] });
     const bareRoom = hub.repos.createRoom({ kind: 'group', name: 'bare room ' + n, memberIds: [outsider.id], coordinatorBotId: null }) as Room;
     hub.projects.setRoom(bare.project.slug, bareRoom.id);
@@ -329,7 +317,6 @@ describe('a bot on a repo-linked project chat', () => {
     const before = hub.pcRunner.list(200).length;
     const run = async (input: Record<string, unknown>) => (await t.handler(input)) as ToolOutput;
 
-    // Another bot's access is not this bot's: unrelated, foreign-project and unknown sessions get no card and no job.
     for (const input of [
       { mode: 'resume', session_id: SID_OTHER, prompt: 'p' },
       { mode: 'resume', session_id: SID_FOREIGN, prompt: 'p' },
@@ -348,11 +335,9 @@ describe('a bot on a repo-linked project chat', () => {
     }
     expect(cards).toEqual([]);
     expect(hub.pcRunner.list(200).length).toBe(before);
-    // The reasons for a client repo and for sync none say so.
     expect(textOf(await run({ mode: 'sync', session_id: 'c1c1c1c1-0000-0000-0000-000000000000', repo: 'client-site' }))).toMatch(/client repo/);
     expect(textOf(await run({ mode: 'sync', session_id: '0f0f0f0f-0000-0000-0000-000000000000', repo: 'off' }))).toMatch(/sync set to none/);
 
-    // Its own repos' sessions raise the sign-in-only card (declined here, so the job is cancelled).
     const resume = await run({ mode: 'resume', session_id: SID_APP, prompt: 'carry on' });
     expect(resume.isError).toBe(true);
     expect(textOf(resume)).toMatch(/declined in test/);
@@ -390,7 +375,6 @@ describe('a bot on a repo-linked project chat', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('the owner starts a sync (POST /api/pc-runner/jobs)', () => {
   let slug: string;
   async function setup(extra: Record<string, unknown>[] = []) {
@@ -457,7 +441,6 @@ describe('the owner starts a sync (POST /api/pc-runner/jobs)', () => {
     await bad({ mode: 'sync', project: slug, repo: 'app' }, /sessionId/);
     await bad({ mode: 'new', folder: 'site' }, /prompt/);
     expect(syncJobs()).toEqual(had);
-    // A sync takes no prompt; the other modes still do and still work.
     expect((await start(cookie, { mode: 'new', folder: 'site', prompt: 'hi' })).status).toBe(200);
   });
 
@@ -472,7 +455,6 @@ describe('the owner starts a sync (POST /api/pc-runner/jobs)', () => {
       const ok = await start(cookie, body);
       expect(ok.status).toBe(200);
       expect(ok.json.sync).toMatchObject({ repo: 'client-site', mode: 'wip-branch' });
-      // On, but bubblewrap stopped working: turns fail closed, so the client repo is refused again.
       setSandboxProbeForTests(() => ({ ok: false, reason: 'bubblewrap cannot make a sandbox here.' }));
       const bad = await start(cookie, body);
       expect(bad.status).toBe(400);
@@ -522,7 +504,6 @@ describe('the owner starts a sync (POST /api/pc-runner/jobs)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------------
 describe('uploading a bundle', () => {
   let slug: string;
   let src: string;
@@ -530,7 +511,6 @@ describe('uploading a bundle', () => {
   let cookie: string;
   const vpsOf = () => path.join(hub.projects.dirOf(slug), 'repos', 'lib');
 
-  /** A tiny source repo on the "PC" with a commit on main, as a bundle of one ref. */
   function makeBundle(files: Record<string, string> = { 'a.txt': 'hello\n' }, ref = 'HEAD') {
     src = fs.mkdtempSync(path.join(tmp, 'src-'));
     git(src, 'init', '-q', '-b', 'main');
@@ -578,7 +558,6 @@ describe('uploading a bundle', () => {
 
   it('imports a real bundle on wip/<machine>/<session> and touches no other branch', async () => {
     await setup();
-    // A VPS copy that already exists, with its own main.
     fs.mkdirSync(vpsOf(), { recursive: true });
     git(vpsOf(), 'init', '-q', '-b', 'main');
     fs.writeFileSync(path.join(vpsOf(), 'own.txt'), 'mine\n');
@@ -598,14 +577,12 @@ describe('uploading a bundle', () => {
     expect(after.filter((x) => !x.startsWith('refs/heads/wip/'))).toEqual(before);
     expect(after.find((x) => x.startsWith('refs/heads/wip/pc/bbbbbbbb='))).toBe('refs/heads/wip/pc/bbbbbbbb=' + b.commit);
     expect(git(vpsOf(), 'show', 'wip/pc/bbbbbbbb:src/b.ts')).toBe('export {}');
-    // The VPS copy's own checkout is untouched.
     expect(git(vpsOf(), 'symbolic-ref', 'HEAD')).toBe('refs/heads/main');
     expect(fs.readFileSync(path.join(vpsOf(), 'own.txt'), 'utf8')).toBe('mine\n');
     expect(fs.existsSync(path.join(vpsOf(), 'a.txt'))).toBe(false);
     expect(leftovers()).toEqual([]);
     expect(fs.existsSync(path.join(vpsOf(), '.incoming'))).toBe(false);
 
-    // The result then closes the job and the owner's view shows what the hub imported.
     const res = await request('POST', '/api/pc-runner/jobs/' + id + '/result', {
       token: runner, body: { ok: true, output: 'uploaded', sync: { mode: 'bundle', commit: b.commit, bundleBytes: b.buf.length, scan: { blocked: false, findings: [] } } },
     });
@@ -614,7 +591,6 @@ describe('uploading a bundle', () => {
       status: 'done', sync: { mode: 'bundle' }, syncResult: { commit: b.commit, bundleBytes: b.buf.length }, hubImport: { branch: 'wip/pc/bbbbbbbb', vps: 'repos/lib', bytes: b.buf.length },
     });
     expect(listAudit(hub.repos.db, { limit: 30 }).some((a) => a.action === 'pc-runner.bundle.imported' && a.target === id)).toBe(true);
-    // Once only.
     const again = await upload(id, b.buf);
     expect(again.status).toBe(409);
   });
@@ -646,7 +622,6 @@ describe('uploading a bundle', () => {
     expect(branches()).toEqual([]);
     expect(leftovers()).toEqual([]);
     expect(hub.pcRunner.get(id)?.syncImport).toBeNull();
-    // The right bundle still goes in afterwards.
     expect((await upload(id, b.buf)).status).toBe(200);
   });
 
@@ -674,15 +649,12 @@ describe('uploading a bundle', () => {
     await setup();
     const b = makeBundle();
     expect((await upload('nosuchjob', b.buf)).status).toBe(404);
-    // A wip-branch sync takes no bundle.
     const wipJob = await newJob(SID_APP, 'app');
     expect((await upload(wipJob, b.buf)).status).toBe(409);
     await request('POST', '/api/pc-runner/jobs/' + wipJob + '/result', { token: runner, body: { ok: false, output: 'x' } });
-    // A bundle job that is not claimed any more.
     const id = await newJob();
     await request('POST', '/api/pc-runner/jobs/' + id + '/result', { token: runner, body: { ok: false, output: 'gave up' } });
     expect((await upload(id, b.buf)).status).toBe(409);
-    // Other principals: the hub token, a signed-in browser, a phone, no token.
     const live = await newJob();
     expect((await upload(live, b.buf, { token: TOKEN })).status).toBe(403);
     expect((await upload(live, b.buf, { token: null, cookie })).status).toBe(403);
@@ -693,7 +665,6 @@ describe('uploading a bundle', () => {
     expect(runnerMayAccess('POST', '/api/pc-runner/jobs/abc/bundle')).toBe(true);
     expect(branches()).toEqual([]);
     expect(hub.pcRunner.get(live)?.syncImport).toBeNull();
-    // A pull job's download is the runner's too (bridge P6), but only that GET: nothing else on the bundle route.
     expect(runnerMayAccess('PUT', '/api/pc-runner/jobs/abc/bundle')).toBe(false);
     expect(runnerMayAccess('GET', '/api/pc-runner/jobs/abc/bundle')).toBe(true);
     expect((await upload(live, b.buf)).status).toBe(200);
@@ -727,7 +698,6 @@ describe('uploading a bundle', () => {
 
   it('never runs a hook or any program the VPS copy\'s own git config names', async () => {
     await setup();
-    // A VPS copy someone planted programs in: a hook in .git/hooks, a core.hooksPath to another hooks folder, a core.fsmonitor.
     fs.mkdirSync(vpsOf(), { recursive: true });
     git(vpsOf(), 'init', '-q', '-b', 'main');
     const marker = path.join(tmp, 'HOOK-RAN-' + n++);
@@ -747,7 +717,6 @@ describe('uploading a bundle', () => {
     fs.chmodSync(fsmon, 0o755);
     fs.appendFileSync(path.join(vpsOf(), '.git', 'config'), '[core]\n\thooksPath = ' + evilDir.replaceAll('\\', '/') + '\n\tfsmonitor = ' + fsmon.replaceAll('\\', '/') + '\n');
 
-    // Control: with the planted config in effect a plain ref update really does run the hook, so the check below means something.
     git(vpsOf(), 'commit', '-q', '--allow-empty', '-m', 'seed');
     expect(fs.existsSync(marker), 'the planted hook should run under plain git').toBe(true);
     fs.rmSync(marker);

@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
-// Capture the options the Claude provider hands the SDK, and end the turn at once.
 const sdk = vi.hoisted(() => ({ options: [] as Record<string, unknown>[] }));
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@anthropic-ai/claude-agent-sdk')>()),
@@ -26,11 +25,6 @@ import { bashWritesReadOnly, classifyBash } from './bashRules.js';
 import { PermissionBroker } from './PermissionBroker.js';
 import { readOnlyWriteDecision } from './readOnlyRoots.js';
 
-/**
- * P7 acceptance: "All bots cite it; none can write it." The knowledge folder is a read-only root: every read
- * path passes silently, every write path (file tools, shell, the Claude SDK's acceptEdits) asks or is denied.
- */
-
 const kdir = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-kro-'));
 fs.writeFileSync(path.join(kdir, 'handbook.md'), '# Handbook\n');
 fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
@@ -46,7 +40,6 @@ function broker(bypass = false) {
   return { b, ctx };
 }
 
-/** Decide, answering any approval card with `deny`; reports whether a card was raised and its reason. */
 async function decide(toolName: string, input: Record<string, unknown>, bypass = false) {
   const { b, ctx } = broker(bypass);
   let card: string | null = null;
@@ -92,7 +85,6 @@ describe('PermissionBroker with a read-only knowledge root', () => {
   });
 });
 
-// ---- hardening pass: the P7 gap, shell writes under bypass ----
 describe('shell writes into the knowledge repo under bypass', () => {
   const writes = [
     'echo hacked > ' + kfile, 'cat a.txt >> ' + kfile, 'cp a.txt ' + kdir, 'mv a.txt ' + kdir, 'rm ' + kfile,
@@ -173,7 +165,6 @@ describe('Claude SDK wiring', () => {
       hooks?: { PreToolUse: { matcher: string; hooks: ((i: unknown) => Promise<{ hookSpecificOutput?: { permissionDecision: string } }>)[] }[] };
     };
   }
-  // The last one: the routing.md guard, always present, comes first.
   const writeHook = (o: Awaited<ReturnType<typeof runTurn>>) => o.hooks!.PreToolUse.filter((h) => h.matcher.includes('Write')).at(-1)!.hooks[0];
 
   it('adds the knowledge folder to additionalDirectories and escalates writes there to a card', async () => {
@@ -201,7 +192,6 @@ describe('Claude SDK wiring', () => {
   it('adds nothing when no knowledge repo is synced', async () => {
     const o = await runTurn(false, null);
     expect(o.additionalDirectories).toHaveLength(1);
-    // Only the guard for the owner's routing.md, which is there on every turn.
     expect(o.hooks!.PreToolUse.filter((h) => h.matcher.includes('Write'))).toHaveLength(1);
     expect(await writeHook(o)({ tool_name: 'Write', tool_input: { file_path: path.join(WORKSPACE_DIR, 'x.md') } })).toEqual({});
   });

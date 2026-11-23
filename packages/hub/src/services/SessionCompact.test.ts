@@ -48,7 +48,6 @@ describe('compactLine', () => {
     expect(e[0].text).not.toContain('ghp_abcdefghijklmnopqrstuv');
   });
 
-  // The hub's copy must not drift from the runner's mapping: same lines in, same entries out.
   it.skipIf(!fs.existsSync(MIRROR))('gives the same entries as scripts/pc-runner/mirror.mjs mapLine for the same lines', async () => {
     const { mapLine } = (await import(pathToFileURL(MIRROR).href)) as { mapLine: (o: unknown, ctx?: unknown) => unknown[] };
     const a = new Map<string, string>();

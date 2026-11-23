@@ -33,13 +33,11 @@ export class ClickUpClient extends ApiClient {
     return { username: r.data.user.username, email: r.data.user.email };
   }
 
-  /** Workspaces ("teams" in API v2). */
   async workspaces(): Promise<Array<{ id: string; name: string }>> {
     const r = await this.call<{ teams: Array<{ id: string; name: string }> }>(API + '/team');
     return r.data.teams.map((t) => ({ id: t.id, name: t.name }));
   }
 
-  /** Every list in a workspace (folderless and inside folders), so a bot can find where to create a task. */
   async lists(workspaceId?: string): Promise<Array<{ id: string; name: string; space: string; folder: string | null }>> {
     const team = workspaceId ? id(workspaceId, 'workspace') : (await this.workspaces())[0]?.id;
     if (!team) return [];
@@ -59,7 +57,6 @@ export class ClickUpClient extends ApiClient {
     return r.data.tasks.map((t) => toTask(t));
   }
 
-  /** Tasks across a workspace, filtered by name (ClickUp v2 has no full-text search; this matches on name). */
   async searchTasks(o: { query?: string; workspaceId?: string; includeClosed?: boolean; limit?: number } = {}): Promise<CuTask[]> {
     const team = o.workspaceId ? id(o.workspaceId, 'workspace') : (await this.workspaces())[0]?.id;
     if (!team) return [];
@@ -92,10 +89,6 @@ export class ClickUpClient extends ApiClient {
     return { id: String(r.data.id) };
   }
 
-  /**
-   * Poll API (P5): tasks updated after `cursor` (milliseconds since epoch, as a string), newest cursor back.
-   * Rate limit is 100 requests/min on Free/Business plans; poll no faster than once a minute per workspace.
-   */
   async pollTasks(o: { workspaceId: string; cursor?: string | null }): Promise<PollResult<CuTask>> {
     const since = o.cursor ? Number(o.cursor) : Date.now() - 60_000;
     const r = await this.call<{ tasks: RawTask[] }>(API + '/team/' + id(o.workspaceId, 'workspace') + '/task', {

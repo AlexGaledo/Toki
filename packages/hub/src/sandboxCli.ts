@@ -1,11 +1,3 @@
-/**
- * Bridge P7: prints the bubblewrap argv the hub would use for a bot's turn, NUL-separated, so `deploy/sandbox-check.sh`
- * can run the real mounts (not a copy of them) and prove a bot cannot read another project or the hub's secrets.
- *
- *   tsx src/sandboxCli.ts print-argv --bot <botId> [--project <slug>] [--room <roomId>]
- *
- * It reads no database and starts no hub. Run it as the hub's Linux user. Exit 2 on bad input.
- */
 import path from 'node:path';
 import { CLAUDE_EXE, DATA_DIR, KNOWLEDGE_DIR, PROJECTS_DIR, ROOMS_DIR, WORKSPACE_DIR, botHome, computerFilesDir } from './config.js';
 import { prepareSandbox } from './providers/sandbox.js';

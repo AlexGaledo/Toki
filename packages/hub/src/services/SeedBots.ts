@@ -5,11 +5,6 @@ import { DATA_DIR, ROOT_DIR, WORKSPACE_DIR } from '../config.js';
 import type { Repos } from '../db/repos.js';
 import type { MemoryService } from './MemoryService.js';
 
-/**
- * The bots a server install starts with. Each is created once: its marker stays after creation, so a bot the
- * user deletes does not come back. Only an install that has its source on disk gets them; a desktop install
- * has no source for Support to read.
- */
 export const SUPPORT_HANDLE = 'pocketrocket-support';
 export const DATA_ENGINEER_HANDLE = 'data-engineer';
 
@@ -30,11 +25,9 @@ interface BotDefinition {
   title: string;
   description: string;
   tools: string[];
-  /** Created once, in the bot's DM. Cron is read in the owner's time zone. */
   routine?: { name: string; cron: string; prompt: string };
 }
 
-/** Read-only apart from the index files: a routine turn is strict, so anything that raises a card parks it. */
 function nightlyCheckPrompt(workspace: string): string {
   return `Nightly workspace check for ${workspace}. This run is READ-ONLY except for INDEX.md and files in .index/, which you change with the Write tool. Do not move, rename or remove anything, even if it seems obvious. Do not use commands that could raise an approval card: use Glob, Grep, Read, ls, find (no -exec or -delete, and quote globs), du, stat, wc, diff, sort. If something is blocked, skip it and note it.
 
@@ -130,7 +123,6 @@ export interface SeedOptions {
   workspace?: string;
 }
 
-/** Creates any default bot not created before, each with a DM. Returns the ones it made. */
 export function seedDefaultBots(repos: Repos, memory: Pick<MemoryService, 'ensureHome' | 'writeIdentity'>, opts: SeedOptions = {}): Bot[] {
   const root = opts.root ?? ROOT_DIR;
   if (!fs.existsSync(path.join(root, 'packages', 'hub', 'src'))) return [];
@@ -159,11 +151,6 @@ export function seedDefaultBots(repos: Repos, memory: Pick<MemoryService, 'ensur
   return made;
 }
 
-/**
- * Its own marker, because the bot's is already there on a server seeded before the routine existed. Written even
- * when nothing is created, so a routine, bot or DM the owner deleted stays deleted. A user's own bot on the same
- * handle is left alone: `usersBot` catches it on first seed, the name catches it after that.
- */
 function seedRoutine(repos: Repos, d: BotDefinition, marker: string, usersBot: boolean) {
   if (fs.existsSync(marker)) return;
   fs.writeFileSync(marker, '');

@@ -7,7 +7,6 @@ export const SESSION_COOKIE = 'pr_session';
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const MIN_PASSWORD = 10;
 const MAX_PASSWORD = 200;
-/** How often `last_seen_at` is rewritten. Every request would be a database write. */
 const TOUCH_MS = 60_000;
 const SCRYPT = { N: 32768, r: 8, p: 1, keylen: 32, maxmem: 64 * 1024 * 1024 };
 
@@ -68,7 +67,6 @@ export class AuthService {
     );
   }
 
-  /** Recovery for a forgotten password: forget it and sign every browser out. True when there was one. */
   clearPassword(userId: string): boolean {
     const r = this.db.run('DELETE FROM user_credentials WHERE user_id=?', userId);
     this.revokeAll(userId);
@@ -94,7 +92,6 @@ export class AuthService {
     return { token, id };
   }
 
-  /** The live session behind a cookie value, or null. */
   authenticate(token: string | null): { sessionId: string; userId: string } | null {
     if (!token) return null;
     const row = this.db.get(
@@ -120,7 +117,6 @@ export class AuthService {
       }));
   }
 
-  /** False when there was no such live session for this user. */
   revoke(userId: string, id: string): boolean {
     const r = this.db.run('UPDATE user_sessions SET revoked_at=? WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at > ?', this.now(), id, userId, this.now());
     if (!Number(r.changes)) return false;
@@ -128,7 +124,6 @@ export class AuthService {
     return true;
   }
 
-  /** Signs out everywhere except `except`, when given. Returns how many sessions ended. */
   revokeAll(userId: string, except: string | null = null): number {
     const live = this.db.all('SELECT id FROM user_sessions WHERE user_id=? AND revoked_at IS NULL AND expires_at > ?', userId, this.now()).map((r) => r.id as string);
     let n = 0;
@@ -136,7 +131,6 @@ export class AuthService {
     return n;
   }
 
-  /** Ends sessions past their expiry, so a websocket or Screen opened before then closes too. */
   expireDue(): void {
     const t = this.now();
     const due = this.db.all('SELECT id FROM user_sessions WHERE revoked_at IS NULL AND expires_at <= ?', t).map((r) => r.id as string);
@@ -146,7 +140,6 @@ export class AuthService {
     }
   }
 
-  /** So the hub can hang up a revoked session's open websocket. */
   onRevoke(fn: (sessionId: string) => void): () => void {
     this.revokeListeners.add(fn);
     return () => this.revokeListeners.delete(fn);

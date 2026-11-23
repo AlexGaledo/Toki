@@ -11,37 +11,24 @@ import type {
 } from '@agentclientprotocol/sdk';
 import type { TurnContext } from '../types.js';
 
-/**
- * ACP `session/request_permission` → the PermissionBroker (spec 01 §4.4, §4.8, P2-1b).
- *
- * The broker classifies by Claude tool names, so each ACP request is translated first: `ToolKind` plus `locations`
- * become the path tools (Read/Grep/Edit/Write, one ask per location, so `pathRules.isInside` with its realpath check
- * decides each path), `execute` with a command becomes `Bash` (so `classifyBash` decides), `fetch` with a URL becomes
- * `WebFetch`. Anything the hub cannot read for certain (no locations, no command, an unknown kind) becomes a card.
- */
-
 export type AcpPermCtx = Pick<
   TurnContext,
   'permission' | 'bypassPermissions' | 'strictApprovals' | 'workspaceDir' | 'projectGuard' | 'shipGuard' | 'fileGuard' | 'ruleGuard'
 >;
 
-/** One broker question an ACP request turns into. */
 export interface BrokerAsk {
   tool: string;
   input: Record<string, unknown>;
 }
 
 const PATH_KIND_TOOL: Partial<Record<string, string>> = { read: 'Read', search: 'Grep', edit: 'Edit', delete: 'Write', move: 'Write' };
-/** Kinds whose paths the broker should check as reads (a read-only root counts as inside). */
 const READ_KINDS = new Set(['read', 'search']);
-/** The hub's own MCP server as an agent may name its tools: `pocketrocket__send_message`, `mcp__pocketrocket__…`, `pocketrocket/…`. */
 const HUB_TOOL = /^(?:mcp__)?pocketrocket(?:__|[./:])([a-z0-9_]+)$/i;
 
 function str(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v : null;
 }
 
-/** The shell command a request carries: `rawInput.command` (string or argv array) or `rawInput.cmd`. */
 export function commandOf(raw: unknown): string | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
@@ -50,7 +37,6 @@ export function commandOf(raw: unknown): string | null {
   return str(c);
 }
 
-/** A tool name for a request the broker cannot classify, specific enough that "allow for this session" covers only it. */
 function cardTool(tc: ToolCallUpdate): string {
   const what = (tc.name ?? tc.title ?? 'tool').replace(/\s+/g, ' ').trim().slice(0, 80);
   return 'acp:' + (tc.kind ?? 'other') + ':' + what;
@@ -68,7 +54,7 @@ function card(tc: ToolCallUpdate): BrokerAsk[] {
   }];
 }
 
-/** The broker questions for one ACP permission request. Never empty: what cannot be classified is one card. */
+/** Never empty: what cannot be classified is one card. */
 export function brokerAsks(tc: ToolCallUpdate, cwd: string): BrokerAsk[] {
   const kind = tc.kind ?? 'other';
   const pathTool = PATH_KIND_TOOL[kind];
@@ -81,7 +67,6 @@ export function brokerAsks(tc: ToolCallUpdate, cwd: string): BrokerAsk[] {
   if (kind === 'execute') {
     const cmd = commandOf(tc.rawInput);
     if (!cmd) return card(tc);
-    // A working folder of its own is part of what the command touches: classify it as `cd <dir> && <cmd>`.
     const dir = str((tc.rawInput as Record<string, unknown>).cwd);
     return [{ tool: 'Bash', input: { command: dir ? 'cd ' + JSON.stringify(dir) + ' && ' + cmd : cmd } }];
   }
@@ -90,14 +75,12 @@ export function brokerAsks(tc: ToolCallUpdate, cwd: string): BrokerAsk[] {
     return url ? [{ tool: 'WebFetch', input: { url } }] : card(tc);
   }
   if (kind === 'other') {
-    // The hub's own tools are gated inside their handlers; the broker lets them through by their hub name.
     const hub = HUB_TOOL.exec(tc.name ?? '') ?? HUB_TOOL.exec(tc.title ?? '');
     if (hub) return [{ tool: 'mcp__pocketrocket__' + hub[1], input: (tc.rawInput as Record<string, unknown>) ?? {} }];
   }
   return card(tc);
 }
 
-/** Why a guard that holds even with approvals bypassed refuses this request, or null. */
 function guardRefusal(asks: BrokerAsk[], ctx: AcpPermCtx): string | null {
   for (const a of asks) {
     const ruled = a.tool === 'Bash' || a.tool === 'Edit' || a.tool === 'Write' ? ctx.ruleGuard?.(a.tool, a.input) : null;
@@ -122,11 +105,7 @@ function pick(options: PermissionOption[], kinds: PermissionOptionKind[]): Reque
   return { outcome: { outcome: 'cancelled' } };
 }
 
-/**
- * Allow picks `allow_once`. `allow_always` only when the agent offers nothing else and the turn is not strict: an
- * "always" would stop the agent asking, and the broker keeps its own session rules anyway. Deny picks `reject_once`,
- * then `reject_always`. With no matching option the request is cancelled, which agents treat as a refusal.
- */
+/** `allow_always` only when nothing else is offered and the turn is not strict. */
 export function allowResponse(options: PermissionOption[], strict: boolean): RequestPermissionResponse {
   return pick(options, strict ? ['allow_once'] : ['allow_once', 'allow_always']);
 }
@@ -134,15 +113,10 @@ export function denyResponse(options: PermissionOption[]): RequestPermissionResp
   return pick(options, ['reject_once', 'reject_always']);
 }
 
-/** ACP tool kinds that change files, or leave the session's mode. Refused on a read-only (strict) turn. */
+/** Refused on a read-only (strict) turn. */
 export const WRITE_KINDS: ReadonlySet<string> = new Set(['edit', 'delete', 'move', 'switch_mode']);
 
-/**
- * Answers one `session/request_permission`. Bypass answers `allow_once` without asking, except on strict turns
- * (BotRunner never sets `bypassPermissions` on those). The project, shipping and shared-file guards hold under bypass
- * too, as they do on Claude. `readOnly` (a strict turn on an agent that does not ask before its own writes) refuses
- * every write kind without asking anyone.
- */
+/** Bypass never applies on strict turns; the project, shipping and shared-file guards hold under bypass too. */
 export async function decideAcpPermission(
   req: RequestPermissionRequest,
   ctx: AcpPermCtx,
@@ -163,13 +137,9 @@ export async function decideAcpPermission(
   return allowResponse(req.options, strict);
 }
 
-// ---------------------------------------------------------------- strict mode
-
-/** Modes that skip asking. Never chosen on a strict turn. */
+/** Never chosen on a strict turn. */
 const PERMISSIVE = /bypass|yolo|danger|full.?access|accept.?edits|auto.?(?:approve|accept|edit)|allow.?all|(?<!un)trust(?:ed)?\b|skip/i;
-/** Modes that ask before writes and shell. */
 const ASKS = /\bask|always.?ask|manual|untrusted|on.?request|strict|confirm|default|normal|review/i;
-/** Modes that cannot write at all: the fallback when nothing asks (spec 01 §4.7 item 7). */
 const READ_ONLY = /read.?only|\bplan\b|view.?only/i;
 
 interface ModeLike {
@@ -182,11 +152,6 @@ function label(m: ModeLike): string {
   return m.id + ' ' + m.name + ' ' + (m.description ?? '');
 }
 
-/**
- * The most restrictive mode that still asks, from what the agent offers, or null to keep its current one. Prefers a
- * mode that asks before writes and shell; with none, a read-only one; with neither, nothing (the turn then relies on
- * the agent's permission requests). An agent whose ask mode lets writes through unasked (agy) uses `readOnlyModeChange`.
- */
 export function strictModeId(modes: ModeLike[], currentId: string | null): string | null {
   const current = modes.find((m) => m.id === currentId);
   if (current && ASKS.test(label(current)) && !PERMISSIVE.test(label(current))) return null;
@@ -197,7 +162,6 @@ export function strictModeId(modes: ModeLike[], currentId: string | null): strin
   return null;
 }
 
-/** What to switch to for a strict turn: a session mode, or a `mode` config option's value. Null = leave it. */
 export function strictModeChange(
   modes: SessionModeState | null | undefined,
   configOptions: SessionConfigOption[] | null | undefined,
@@ -238,11 +202,7 @@ export function readOnlyModeChange(
   return null;
 }
 
-/**
- * Why an update breaks a read-only turn, or null. The agent announces each tool call (`tool_call`) before it runs,
- * so a write kind seen here stops the turn even when the agent never asks; and the agent may not leave the read-only
- * mode on its own (`current_mode_update`, or a `mode` config option changing).
- */
+/** A write kind or a mode change breaks a read-only turn, even when the agent never asks. */
 export function readOnlyViolation(u: SessionUpdate, readOnlyId: string): string | null {
   if ((u.sessionUpdate === 'tool_call' || u.sessionUpdate === 'tool_call_update') && u.kind && WRITE_KINDS.has(u.kind)) {
     return 'tried to ' + (u.kind === 'switch_mode' ? 'leave read-only mode' : 'change files') + ' (' + (u.title ?? u.kind) + ')';

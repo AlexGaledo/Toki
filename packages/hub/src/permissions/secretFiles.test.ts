@@ -4,10 +4,6 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ENV_FILE_MESSAGE, HUB_KEYS_MESSAGE, secretFileAccess } from './secretFiles.js';
 
-/**
- * The hub's key files and projects' .env files are refused to a bot's own tools, in every approvals mode.
- * A temp DATA_DIR stands in for the real one.
- */
 function setup() {
   const data = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'secretfiles-')));
   const ws = path.join(data, 'workspace');
@@ -31,7 +27,6 @@ describe('secretFileAccess: file tools', () => {
       expect(check('Read', { file_path: path.join(data, f) })).toBe(HUB_KEYS_MESSAGE);
     }
     expect(check('Write', { file_path: path.join(data, 'mcp-servers.json'), content: '{}' })).toBe(HUB_KEYS_MESSAGE);
-    // A bot must not re-tier a key to steer where its job runs.
     expect(check('Write', { file_path: path.join(data, 'key-registry.json'), content: '{}' })).toBe(HUB_KEYS_MESSAGE);
     expect(check('Bash', { command: 'echo {} > ../key-registry.json' })).toBe(HUB_KEYS_MESSAGE);
     expect(check('Edit', { file_path: path.join(data, 'secrets.json'), old_string: 'a', new_string: 'b' })).toBe(HUB_KEYS_MESSAGE);
@@ -44,7 +39,6 @@ describe('secretFileAccess: file tools', () => {
       expect([f, check('Read', { file_path: path.join(data, f) })]).toEqual([f, HUB_KEYS_MESSAGE]);
     }
     expect(check('Write', { file_path: path.join(data, 'pocketrocket.db'), content: 'x' })).toBe(HUB_KEYS_MESSAGE);
-    // The shell: a sqlite3 session that could forge a signed-in browser, a python one-liner, a glob.
     expect(check('Bash', { command: "sqlite3 ../pocketrocket.db \"INSERT INTO user_sessions VALUES ('x')\"" })).toBe(HUB_KEYS_MESSAGE);
     expect(check('Bash', { command: "python3 -c \"import sqlite3; sqlite3.connect('../pocketrocket.db')\"" })).toBe(HUB_KEYS_MESSAGE);
     expect(check('Bash', { command: 'cp ../*.db /tmp/' })).toBe(HUB_KEYS_MESSAGE);
@@ -66,7 +60,7 @@ describe('secretFileAccess: file tools', () => {
   it('leaves ordinary files alone, including one named like a key file elsewhere', () => {
     const { ws, app, check } = setup();
     expect(check('Read', { file_path: path.join(ws, 'notes.md') })).toBeNull();
-    expect(check('Read', { file_path: 'secrets.json' })).toBeNull(); // workspace/secrets.json is the bot's own
+    expect(check('Read', { file_path: 'secrets.json' })).toBeNull();
     expect(check('Write', { file_path: path.join(app, 'src', 'index.ts'), content: '' })).toBeNull();
   });
 
@@ -188,7 +182,6 @@ describe('secretFileAccess: Bash', () => {
 
   it('known gap: a name assembled at run time still passes', () => {
     const { check } = setup();
-    // Documented in secretFiles.ts: neither the path checks nor the backstop see "hub-token" here.
     expect(check('Bash', { command: 'h=hub; cat ../$h-token' })).toBeNull();
   });
 

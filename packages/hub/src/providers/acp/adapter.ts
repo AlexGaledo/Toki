@@ -21,35 +21,23 @@ import { hubMcpServer, startAcp, withTimeout, type AcpProcess } from './client.j
 import { AcpEventMapper } from './events.js';
 import { decideAcpPermission, readOnlyModeChange, readOnlyViolation, strictModeChange } from './permissions.js';
 
-/** Cold start of a closed CLI (first run after boot, an antivirus scan): the same 12 s Claude gets. */
 export const ACP_START_TIMEOUT_MS = 12_000;
-/** Creating or resuming a session can sign in or load history first. */
 const SESSION_TIMEOUT_MS = 60_000;
-/** After `session/cancel`, how long the agent gets to answer the prompt with `cancelled` before it is killed. */
 const CANCEL_GRACE_MS = 5_000;
 
-/** Told to the agent on a read-only strict turn, after the prompt, so it reports instead of trying to write. */
 export const READ_ONLY_NOTE =
   'This run is unattended and read-only: you cannot create, change, move or delete files, and trying ends the run. ' +
   'Read what you need and report what should change instead.';
 
-/** Everything that makes one ACP agent different from another. `providers/gemini.ts` is the first. */
 export interface AcpPreset {
   info: ProviderStaticInfo & { id: ProviderId };
-  /** The env allowlist entry the child runs under (`providers/env.ts`). */
   envKind: ProviderKind;
   models: ModelInfo[];
-  /** Install / sign-in hint, shown when the CLI is missing or signed out. */
   hint: string;
-  /** What the CLI is called in error text ("agy"). */
   cliName: string;
-  /** Absolute path to the CLI, or null when it is not installed. */
   findExe(): Promise<string | null>;
-  /** Arguments that start the agent in ACP mode (`['acp']`). */
   args: string[];
-  /** Extra child env: the API key, when one is set. Allowlisted again by `childEnv`. */
   env(): NodeJS.ProcessEnv;
-  /** The provider's limit matcher over an error, a notice or `splitWarnings` lines; null when it is not a limit. */
   limitOf(text: string): TurnLimit | null;
   /**
    * Takes status lines the agent streams as answer text out of a chunk (agy writes its limit as `⚠ …` text and ends the
@@ -64,13 +52,10 @@ export interface AcpPreset {
   strictReadOnly?: boolean;
 }
 
-/** What `initialize` told us, for `check()`. */
 export type AcpProbe = { ok: true; init: InitializeResponse; exe: string } | { ok: false; error: string; exe: string | null; timedOut?: boolean };
 
 export interface AcpProviderOptions {
-  /** Absolute path to the agent (or a `.mjs` script). Tests point it at the fake agent. */
   exe?: string;
-  /** Extra child env (the fake agent's knobs); the allowlist drops anything not named here. */
   env?: NodeJS.ProcessEnv;
 }
 
@@ -79,30 +64,21 @@ function messageOf(e: unknown): string {
   return String((e as Error)?.message ?? e);
 }
 
-/** ACP `auth_required` (-32000). */
 function isAuthError(e: unknown): boolean {
   return e instanceof RequestError && e.code === -32000;
 }
 
-/** The first prompt of a fresh session carries the system prompt; a resumed one has it already. */
 export function buildAcpPrompt(ctx: Pick<TurnContext, 'systemPrompt' | 'input' | 'bot'>, resumed: boolean): string {
   if (!resumed) return ctx.systemPrompt + '\n\n---\n\n' + ctx.input;
   return 'You are @' + ctx.bot.handle + '; room rules unchanged; reply NO_REPLY if nothing to add.\n\n' + ctx.input;
 }
 
-/**
- * Generic ACP provider (spec 01 §5 Option A, P2-1a). Spawns the agent once per turn, `initialize`s it, opens or
- * resumes a session with the hub's MCP tools, sends one prompt and streams `session/update` into the TurnSink.
- * `interrupt` sends `session/cancel` and kills the process if it does not stop. Nothing is downloaded or installed.
- */
 export class AcpProvider implements AgentProvider {
   readonly id: ProviderId;
   readonly label: string;
   readonly info: ProviderStaticInfo;
-  /** M8 (P4-1): `usage_update.used` becomes `contextTokens`, so a session rotates on size as on Claude (0 until the agent reports). */
   readonly reportsContextTokens = true;
   private active = new Map<string, { cancel: () => void }>();
-  /** Model fallbacks already noted (bot, wanted, used), so a bot whose model this sign-in lacks is told once, not every turn. */
   private notedFallbacks = new Set<string>();
 
   constructor(private preset: AcpPreset, private opts: AcpProviderOptions = {}) {
@@ -130,8 +106,6 @@ export class AcpProvider implements AgentProvider {
     return withTimeout(
       p.conn.agent.request(methods.agent.initialize, {
         protocolVersion: PROTOCOL_VERSION,
-        // No fs/terminal: the agent keeps its own tools and asks through session/request_permission (P2-5 may change it).
-        // `session.compaction` (M8, P4-1): an agent may only report a compaction to a client that asks for it; it becomes a quiet note.
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false, session: { compaction: {} } },
         clientInfo: { name: 'pocketrocket', version: VERSION },
       }),
@@ -140,7 +114,6 @@ export class AcpProvider implements AgentProvider {
     );
   }
 
-  /** Starts the agent, sends `initialize`, stops it. Used by `check()`; never throws. */
   async probe(): Promise<AcpProbe> {
     const exe = await this.exe();
     if (!exe) return { ok: false, error: this.preset.cliName + ' was not found', exe: null };
@@ -204,12 +177,9 @@ export class AcpProvider implements AgentProvider {
     let cancelled = false;
     let killTimer: NodeJS.Timeout | undefined;
     let budgetHit = false;
-    // A strict turn on an agent that writes without asking runs read-only (spec 01 §4.7 item 7). `readOnlyId` is the
-    // mode it runs in once switched; from then on a write-kind tool call or a mode change stops the turn.
     const readOnly = !!ctx.strictApprovals && !!this.preset.strictReadOnly;
     let readOnlyId: string | null = null;
     let violation: string | null = null;
-    // Set once the prompt is out: from then on the agent may spend, so a run it worked on is a usage row however it ends.
     let prompted = false;
     let answeredModel: string | undefined;
     const spent = (): Partial<TurnOutcome> =>
@@ -224,7 +194,6 @@ export class AcpProvider implements AgentProvider {
             if (violation) cancel();
           }
           mapper.push(n.update);
-          // The agent's own dollar figure, when it gives one, is the only cost an ACP run reports.
           if (!budgetHit && ctx.maxBudgetUsd > 0 && ownCost() > ctx.maxBudgetUsd) {
             budgetHit = true;
             cancel();
@@ -282,7 +251,6 @@ export class AcpProvider implements AgentProvider {
           }
         } catch (e) {
           if (isAuthError(e)) throw e;
-          // Worded for BotRunner's stale-session retry: it forgets the token and reruns the input, seeded, fresh.
           return outcome('No conversation found with session ID ' + ctx.resumeToken + ' (' + cli + ': ' + redact(messageOf(e)).slice(0, 200) + ')');
         } finally {
           mapper.muted = false;
@@ -300,13 +268,10 @@ export class AcpProvider implements AgentProvider {
       }
       sink.onSession(sessionId);
       if (cancelled) {
-        // Stopped while the session was opening: nothing was asked yet.
         return outcome('interrupted');
       }
 
       if (readOnly) {
-        // Not "a mode that asks": this agent's ask mode lets its own writes through without a request, so no
-        // permission answer can stop them. Its read-only mode is the only control; without one the turn does not run.
         const ro = readOnlyModeChange(modes, configOptions);
         const refused = (why: string) => outcome(cli + ' ' + why + ', so this unattended run was not started: ' + cli + ' does not ask before it writes files.');
         if (!ro) return refused('offers no read-only mode');
@@ -319,7 +284,6 @@ export class AcpProvider implements AgentProvider {
         }
         readOnlyId = ro.kind === 'mode' ? ro.modeId : ro.value;
       } else if (ctx.strictApprovals) {
-        // A strict turn starts in the most restrictive mode that still asks (spec 01 §4.4, §4.7 item 7).
         const change = strictModeChange(modes, configOptions);
         if (change?.kind === 'mode') await p.conn.agent.request(methods.agent.session.setMode, { sessionId, modeId: change.modeId });
         else if (change?.kind === 'config') await p.conn.agent.request(methods.agent.session.setConfigOption, { sessionId, configId: change.configId, value: change.value });
@@ -329,8 +293,6 @@ export class AcpProvider implements AgentProvider {
       // so they are read from the session, and a model the agent still refuses (-32602 "Unknown model ID") falls back
       // the same way instead of failing the turn.
       const modelOpt = (configOptions ?? []).find((o) => o.type === 'select' && (o.category === 'model' || o.id === 'model'));
-      // The model the agent runs on, for the usage row: the bot's when applied, else the agent's own current one.
-      // A model id the provider renamed (a bot saved before the live list) asks for its replacement.
       const wanted = currentModelId(ctx.model);
       if (modelOpt && modelOpt.type === 'select') {
         answeredModel = modelOpt.currentValue;
@@ -372,15 +334,11 @@ export class AcpProvider implements AgentProvider {
       if (budgetHit) return outcome('budget exceeded: $' + costUsd.toFixed(4) + ' over the $' + String(ctx.maxBudgetUsd) + ' cap', extra);
       if (res.stopReason === 'cancelled' || cancelled) return outcome('interrupted', extra);
       if (res.stopReason === 'end_turn') {
-        // agy's limit is warning text in the answer (live G11), taken out by the mapper; other agents send a notice.
         const warned = mapper.warnings.length ? this.preset.limitOf(mapper.warnings.join('\n')) : null;
         if (!mapper.answered) {
-          // Nothing but warnings or a notice, then a normal end_turn: limited, not done. BotRunner writes the note.
           const limit = warned ?? this.limitFromNotices(mapper.notices);
           return limit ? outcome(limitError(limit), { ...extra, limit }) : outcome(undefined, extra);
         }
-        // A real answer plus a warning: the answer stands, the limit is still recorded (ProviderHealth). With a reset
-        // time it is the quota itself; agy's retry lines alone mean it got through, so only a warning.
         if (warned) sink.onLimit?.({ status: warned.resetsAt ? 'rejected' : 'allowed_warning', kind: warned.kind, ...(warned.resetsAt ? { resetsAt: warned.resetsAt } : {}) });
         return outcome(undefined, extra);
       }
@@ -390,7 +348,6 @@ export class AcpProvider implements AgentProvider {
       return outcome(cli + ' stopped: ' + String(res.stopReason), extra);
     } catch (e) {
       mapper.flush();
-      // A run the agent already worked on (text or a tool call: a hand-off, say) is a usage row however it ended.
       if (violation) return outcome(cli + ' was stopped: it ' + violation + ' during an unattended read-only run', spent());
       if (cancelled) return outcome('interrupted', spent());
       let msg = messageOf(e);
@@ -411,13 +368,11 @@ export class AcpProvider implements AgentProvider {
       clearTimeout(killTimer);
       ctx.signal.removeEventListener('abort', cancel);
       this.active.delete(ctx.turnId);
-      // One agent process per turn: it goes when the turn ends, and the turn waits (briefly) until it has.
       p.stop();
       await Promise.race([p.exited, sleep(3000)]);
     }
   }
 
-  /** One quiet note per bot and fallback: the bot's model is not available on this sign-in, so the agent's own one ran. */
   private noteFallback(ctx: TurnContext, sink: TurnSink, wanted: string, used: string) {
     const key = ctx.bot.id + '|' + wanted + '|' + used;
     if (this.notedFallbacks.has(key)) return;

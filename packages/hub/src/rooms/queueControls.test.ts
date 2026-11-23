@@ -9,11 +9,6 @@ import { installSettings } from '../services/SettingsStore.js';
 import type { BotRunner, LaneSteerResult, SteerRequest, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { QueueError, RoomRouter } from './RoomRouter.js';
 
-/**
- * Queue controls (02 Phase 2): read a bot's queue (2.1a), cancel, edit and send now (2.1b), pause (2.2) and the
- * "stopped by you" note (2.3). A fake runner holds each turn open until the test finishes it.
- */
-
 interface Running {
   turnId: string;
   req: TurnRequest;
@@ -94,7 +89,6 @@ afterEach(() => {
   installSettings(null as never);
 });
 
-/** Ada busy with a first message, then `texts` queued behind it (Ctrl+Enter). */
 async function busyWithQueue(s: ReturnType<typeof setup>, ...texts: string[]) {
   s.router.onUserMessage(s.room.id, 'build the page');
   await until(() => s.reqs.length === 1);
@@ -115,7 +109,6 @@ describe('reading the queue (2.1a)', () => {
     ]);
     expect(q.items.every((i) => i.editable && i.cancellable && !i.editRefusal)).toBe(true);
     expect(s.router.queueSnapshot(s.room.id)).toEqual([q]);
-    // Pushed when each was queued (the last push already carries the reason), and when the next turn took them in.
     expect(pushed.at(-1)!.items.map((i) => i.reason)).toEqual(['shortcut', 'shortcut']);
     s.lane()!.finish();
     await until(() => s.reqs.length === 2);
@@ -126,7 +119,6 @@ describe('reading the queue (2.1a)', () => {
     const s = setup({ group: true });
     s.router.onUserMessage(s.room.id, '@bo start');
     await until(() => s.reqs.length === 1);
-    // Ada (coordinator) hands work to Bo while Bo is busy.
     s.router.dispatchFromBot({ bot: s.ada, room: s.room, hop: 0, causeId: 'c' } as TurnRequest, [s.bo]);
     const [item] = s.queue(s.bo).items;
     expect(item).toMatchObject({ kind: 'handoff', messageId: null, editable: false, cancellable: false });
@@ -155,7 +147,6 @@ describe('cancel (2.1b)', () => {
     expect(updates).toEqual([{ payload: null, cancelledAt: after.cancelledAt }]);
     expect(s.queue().items.map((i) => i.messageId)).toEqual([keep.id]);
     expect(statuses(s.repos)).toEqual(['queued', 'cancelled', 'queued']);
-    // Cancelling again: it is gone.
     expect(refusal(() => s.router.cancelQueued(journalId)).status).toBe(404);
 
     s.lane()!.finish();
@@ -163,7 +154,6 @@ describe('cancel (2.1b)', () => {
     expect(s.reqs[1].injected).toContain('KEEP-ME');
     expect(s.reqs[1].injected).not.toContain('CANCEL-ME');
 
-    // Restart mid-turn: the cancelled row is not work, and the message stays hidden.
     s.router.freeze();
     s.lane()!.finish({ ok: false, error: 'aborted' });
     await tick();
@@ -185,7 +175,6 @@ describe('cancel (2.1b)', () => {
     expect(afterAda.cancelledAt).toBeUndefined();
     expect((afterAda.payload as DeliveryPayload).queued).toEqual({ [s.bo.id]: { reason: 'shortcut' } });
 
-    // Ada's next turn (woken by something else) does not see it; Bo's does.
     s.lane(s.ada)!.finish();
     s.router.onUserMessage(s.room.id, '@ada next thing', undefined, undefined, 'queue');
     s.lane(s.bo)!.finish();
@@ -201,7 +190,6 @@ describe('cancel (2.1b)', () => {
     const results: TurnResult[] = [];
     s.router.onUserMessage(s.room.id, 'build the page');
     await until(() => s.reqs.length === 1);
-    // A resumed item (restart) carrying its message id and an onDone.
     s.router.resume(s.ada, s.room, { causeId: 'c', hop: 0, triggerSeq: 1, attempts: 1, messageId: s.repos.listMessages(s.room.id)[0].id, onDone: (r) => results.push(r) });
     s.router.cancelQueued(s.queue().items[0].journalId);
     expect(results).toEqual([expect.objectContaining({ ok: false, error: 'cancelled' })]);
@@ -234,7 +222,6 @@ describe('edit (2.1b)', () => {
     const [m] = await busyWithQueue(s, 'OLD-TEXT');
     const edited = s.router.editQueued(s.queue().items[0].journalId, 'NEW-TEXT');
 
-    // Restart before the queued item ran: the running turn is cut off, both items come back from the journal.
     s.router.freeze();
     s.lane()!.finish({ ok: false, error: 'aborted' });
     await tick();
@@ -257,7 +244,6 @@ describe('edit (2.1b)', () => {
     const s = setup({ group: true });
     s.router.onUserMessage(s.room.id, '@ada warm up');
     await until(() => s.reqs.length === 1);
-    // Queued for busy Ada; idle Bo starts a turn on it right away.
     s.router.onUserMessage(s.room.id, '@ada @bo SHARED', undefined, undefined, 'queue');
     await until(() => s.reqs.length === 2);
     const item = s.queue(s.ada).items[0];
@@ -266,7 +252,6 @@ describe('edit (2.1b)', () => {
     s.lane(s.bo)!.finish();
     await tick();
     expect(s.queue(s.ada).items[0].editRefusal).toBe('A bot has already read it.');
-    // Cancelling Ada's copy is still allowed, but the message itself is not marked cancelled: Bo read it.
     expect(s.router.cancelQueued(item.journalId).cancelledAt).toBeUndefined();
   });
 
@@ -274,7 +259,6 @@ describe('edit (2.1b)', () => {
     const s = setup({ group: true });
     s.router.onUserMessage(s.room.id, '@ada @bo warm up');
     await until(() => s.reqs.length === 2);
-    // Bo's lane is between turns of its own (no run to join), so Bo queues while Ada takes it in.
     s.lane(s.bo)!.finish();
     s.router.setQueuePaused(s.room.id, s.bo.id, true);
     await tick();
@@ -341,7 +325,6 @@ describe('send now (2.1b) and the stop note (2.3)', () => {
     s.router.onUserMessage(s.room.id, 'HELD');
     await tick();
     expect(s.reqs).toHaveLength(0);
-    // Nothing running: no stop, the queue just starts.
     expect(s.router.sendNow(s.room.id, s.ada.id)).toEqual({ interrupted: false });
     await until(() => s.reqs.length === 1);
     expect(s.repos.lanePaused(s.ada.id, s.room.id)).toBe(false);

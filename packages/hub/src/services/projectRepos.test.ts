@@ -6,8 +6,6 @@ import { ProjectReposFileSchema, normaliseRemote, wipBranchName } from '@pocketr
 import { reposFileWriteDenied } from '../permissions/projectGuard.js';
 import { BundleError, vpsDir } from './BundleImport.js';
 
-/** Bridge P5: the repos.json schema, the remote normaliser and the bot write guard. */
-
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-repos-schema-'));
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
@@ -64,9 +62,7 @@ describe('repos.json schema', () => {
   });
 });
 
-/** The same table lives in the runner's own test: keep them identical. */
 export const NORMALISE_CASES: [input: string, expected: string | null][] = [
-  // ssh and https agree
   ['git@github.com:org/app.git', 'https://github.com/org/app'],
   ['https://github.com/org/app.git', 'https://github.com/org/app'],
   ['https://github.com/org/app', 'https://github.com/org/app'],
@@ -75,23 +71,17 @@ export const NORMALISE_CASES: [input: string, expected: string | null][] = [
   ['ssh://git@github.com:22/org/app.git', 'https://github.com/org/app'],
   ['git://github.com/org/app.git', 'https://github.com/org/app'],
   ['http://github.com/org/app', 'https://github.com/org/app'],
-  // host case, path case kept
   ['git@GitHub.COM:Org/App.git', 'https://github.com/Org/App'],
   ['HTTPS://GITHUB.COM/Org/App.GIT', 'https://github.com/Org/App'],
-  // credentials dropped
   ['https://user:ghp_token@github.com/org/app.git', 'https://github.com/org/app'],
   ['https://token@github.com/org/app', 'https://github.com/org/app'],
   ['ssh://user:pw@host.example/org/app', 'https://host.example/org/app'],
-  // ports: https keeps a non-default one, ssh drops its own
   ['https://git.example.com:8443/org/app.git', 'https://git.example.com:8443/org/app'],
   ['https://git.example.com:443/org/app.git', 'https://git.example.com/org/app'],
   ['ssh://git@git.example.com:2222/org/app.git', 'https://git.example.com/org/app'],
-  // nested groups, query and fragment
   ['git@gitlab.com:group/sub/app.git', 'https://gitlab.com/group/sub/app'],
   ['https://gitlab.com/group/sub/app.git?x=1#y', 'https://gitlab.com/group/sub/app'],
-  // whitespace around is trimmed
   ['  git@github.com:org/app.git  ', 'https://github.com/org/app'],
-  // not remotes
   ['', null],
   ['   ', null],
   ['/home/me/app', null],
@@ -120,7 +110,6 @@ describe('normaliseRemote', () => {
 });
 
 
-/** Copied from the runner's REMOTE_TABLE (scripts/pc-runner/lib.test.mjs, PR #148): both copies must agree. */
 const RUNNER_TABLE: [unknown, string | null][] = [
   ['git@github.com:org/repo.git', 'https://github.com/org/repo'],
   ['git@GitHub.com:org/repo', 'https://github.com/org/repo'],
@@ -154,7 +143,6 @@ describe('wipBranchName', () => {
   it('is wip/<machine>/<first 8 of the session>, safe for a ref', () => {
     expect(wipBranchName('pc', '0a1b2c3d-1111-2222-3333-444455556666')).toBe('wip/pc/0a1b2c3d');
     expect(wipBranchName('My PC!', 'ABCDEF12-3456')).toBe('wip/my-pc/abcdef12');
-    // Must match the PC runner's sanitizeMachine: '_' and other symbols become '-', no trailing '-'.
     expect(wipBranchName('Alex_PC', 'abcdef12-2222')).toBe('wip/alex-pc/abcdef12');
     expect(wipBranchName('a'.repeat(29) + '_b', 'abcdef12')).toBe('wip/' + 'a'.repeat(29) + '/abcdef12');
     expect(wipBranchName('../..', 'x')).toMatch(/^wip\/[a-z0-9_-]+\/[a-z0-9]+$/);
@@ -192,7 +180,7 @@ describe('the VPS folder', () => {
     try {
       fs.symlinkSync(outside, path.join(project, 'repos', 'link'), 'junction');
     } catch {
-      return; // no permission to make a link here
+      return;
     }
     expect(() => vpsDir(project, 'repos/link/app')).toThrow(/outside the project/);
   });

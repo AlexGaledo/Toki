@@ -7,10 +7,7 @@ import { label, type IntegrationClients, type IntegrationService } from '../serv
 import { IntegrationError } from './http.js';
 import { denyMessage } from '../permissions/messages.js';
 
-/**
- * Raises the approval card for an integration write. BotRunner wires it to
- * `PermissionBroker.askIntegrationWrite`, which asks on every call, also under bypass.
- */
+/** Asks on every call, also under bypass. */
 export type ConfirmWrite = (a: { tool: string; reason: string; input: Record<string, unknown> }) => Promise<{ allowed: boolean; message: string }>;
 
 const LIMIT = (max: number) => z.number().int().min(1).max(max).optional().describe('How many to return (max ' + max + ')');
@@ -71,7 +68,6 @@ export function createIntegrationTools(svc: IntegrationService, botId: string, c
   }
   const short = (s: string, n = 120) => (s.length > n ? s.slice(0, n) + '…' : s);
 
-  // ---------- GitHub ----------
   read('github', 'github_search_issues', 'Search GitHub issues and pull requests with GitHub search syntax, e.g. "is:open is:pr review-requested:@me" or "repo:owner/name label:bug".',
     { query: z.string().min(1), limit: LIMIT(50) }, (a, c) => c.searchIssues(a.query, a.limit));
   read('github', 'github_list_issues', 'List issues and/or pull requests in one repository.',
@@ -94,7 +90,6 @@ export function createIntegrationTools(svc: IntegrationService, botId: string, c
     { repo: z.string().describe('owner/name'), number: z.number().int().min(1), body: z.string().min(1).max(60_000) },
     (a) => 'comment on ' + a.repo + '#' + a.number + ': "' + short(a.body) + '"', (a, c) => c.comment(a.repo, a.number, a.body));
 
-  // ---------- Google ----------
   read('google', 'gmail_search', 'Search Gmail with Gmail search syntax ("from:x is:unread newer_than:2d"). Returns headers and a snippet; use gmail_read for the body.',
     { query: z.string().min(1), limit: LIMIT(25) }, (a, c) => c.gmailSearch(a.query, a.limit));
   read('google', 'gmail_read', 'Read one Gmail message (headers and text body) by id.', { id: z.string().min(1) }, (a, c) => c.gmailRead(a.id));
@@ -120,7 +115,6 @@ export function createIntegrationTools(svc: IntegrationService, botId: string, c
   read('google', 'drive_search', 'Search Google Drive files by name and content.', { query: z.string().min(1), limit: LIMIT(50) }, (a, c) => c.driveSearch(a.query, a.limit));
   read('google', 'drive_read', 'Read a Google Drive file as text (Docs as text, Sheets as CSV).', { id: z.string().min(1) }, (a, c) => c.driveRead(a.id));
 
-  // ---------- Slack ----------
   read('slack', 'slack_list_channels', 'List Slack channels the connected bot can see.', { limit: LIMIT(1000) }, (a, c) => c.listChannels({ limit: a.limit }));
   read('slack', 'slack_read_history', 'Read recent messages in a Slack channel (the Slack app must be a member).',
     { channel: z.string().describe('#name or channel id'), limit: LIMIT(200), oldest: z.string().optional().describe('Only messages after this Slack ts') },
@@ -129,7 +123,6 @@ export function createIntegrationTools(svc: IntegrationService, botId: string, c
     { channel: z.string().describe('#name or channel id'), text: z.string().min(1).max(40_000), thread_ts: z.string().optional().describe('Reply in this thread') },
     (a) => 'post in ' + a.channel + ': "' + short(a.text) + '"', (a, c) => c.postMessage(a.channel, a.text, a.thread_ts));
 
-  // ---------- ClickUp ----------
   read('clickup', 'clickup_list_lists', 'List every ClickUp list in a workspace (space / folder / list), to find a list id.',
     { workspace_id: z.string().optional().describe('Default: the first workspace') }, (a, c) => c.lists(a.workspace_id));
   read('clickup', 'clickup_list_tasks', 'List tasks in one ClickUp list.',
@@ -148,7 +141,6 @@ export function createIntegrationTools(svc: IntegrationService, botId: string, c
   write('clickup', 'clickup_comment', 'Comment on a ClickUp task.', { task_id: z.string(), text: z.string().min(1).max(20_000) },
     (a) => 'comment on task ' + a.task_id + ': "' + short(a.text) + '"', (a, c) => c.comment(a.task_id, a.text));
 
-  // ---------- Microsoft Teams ----------
   read('teams', 'teams_list_chats', "List the user's Teams chats, most recent first, with the last message.", { limit: LIMIT(50) }, (a, c) => c.listChats(a.limit));
   read('teams', 'teams_read_chat', 'Read recent messages in one Teams chat.', { chat_id: z.string(), limit: LIMIT(50) }, (a, c) => c.readChat(a.chat_id, a.limit));
   write('teams', 'teams_send_chat', 'Send a message to a Teams chat as the user.', { chat_id: z.string(), text: z.string().min(1).max(28_000) },

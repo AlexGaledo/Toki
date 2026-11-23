@@ -7,12 +7,9 @@
 const LABEL = '[^\\]\\n\\r]{0,100}';
 /** `#12 [anyone]` anywhere: the full prefix only the hub writes. */
 const FULL_PREFIX = new RegExp('#\\d+[ \\t]+\\[(' + LABEL + ')\\]', 'g');
-/** `[anyone]:` opening a line. */
 const LINE_PREFIX = new RegExp('^[ \\t]*\\[(' + LABEL + ')\\][ \\t]*:', 'gm');
-/** `[anyone (owner)]` anywhere, with or without the colon. */
 const OWNER_TAG = new RegExp('\\[(' + LABEL + '\\(owner\\)[ \\t]*)\\]', 'gi');
 
-/** Rewrites anything in `text` that reads like a transcript tag, keeping the words: `[Shiroo (owner)]:` to `(quoted) Shiroo (owner):`. */
 export function quoteTags(text: string): string {
   return text
     .replace(FULL_PREFIX, '(quoted) $1')

@@ -25,16 +25,9 @@ export const BASIC_USER = 'opencode';
 export interface ServerConfigInput {
   mcpUrl: string;
   mcpToken: string;
-  /** Approvals bypassed: every permission `allow`, so OpenCode never emits a `permission.asked`. */
   bypass?: boolean;
 }
 
-/**
- * The inline config the serve child runs with. Permissions are deliberately mostly `ask`: every ask is
- * routed to the hub's PermissionBroker, which silently allows anything inside the workspace / bot home and
- * only raises an approval card for the rest. Reads and searches stay `allow` (cheap, and OpenCode's own
- * `external_directory` gate still catches anything outside the project).
- */
 export function buildConfigContent(input: ServerConfigInput): string {
   return JSON.stringify({
     $schema: 'https://opencode.ai/config.json',
@@ -63,7 +56,6 @@ export function buildConfigContent(input: ServerConfigInput): string {
       external_directory: input.bypass ? 'allow' : 'ask',
       doom_loop: input.bypass ? 'allow' : 'ask',
     },
-    // No AGENTS.md / user instruction files: the bot's identity comes from PromptBuilder alone.
     instructions: [],
     share: 'disabled',
     autoshare: false,
@@ -125,14 +117,12 @@ export class OpenCodeServer {
   private child: ChildProcess | null = null;
   private stopEvents: (() => void) | null = null;
   private password = '';
-  /** sessionID -> event handler installed by a running turn. */
   private listeners = new Map<string, (ev: OcEvent) => void>();
   private stderr: string[] = [];
 
   get running() {
     return !!this.started;
   }
-  /** The live SDK client, or null when the server is not up. */
   get client(): OpencodeClient | null {
     return this.started?.client ?? null;
   }
@@ -140,11 +130,6 @@ export class OpenCodeServer {
     return 'Basic ' + Buffer.from(BASIC_USER + ':' + this.password).toString('base64');
   }
 
-  /**
-   * Idempotent; concurrent callers share one boot. `hubMcpUrl` is `TurnContext.mcp.url`, `bypass` its
-   * `bypassPermissions`. The permission config is baked in at spawn, so a later change to the approvals
-   * setting only reaches OpenCode after a hub restart (fine while OpenCode is disabled for v1).
-   */
   async ensure(hubMcpUrl: string, bypass = false): Promise<StartedServer> {
     if (this.started) return this.started;
     if (!this.starting) {
@@ -162,12 +147,10 @@ export class OpenCodeServer {
     const port = await freePort();
     const exe = resolveOpencodeExe();
     this.password = randomBytes(18).toString('base64url');
-    // Allowlisted env only (audit 2026-09-09, B7): OPENCODE_*, the three vendor keys OpenCode itself reads,
-    // and nothing else — in particular never POCKETROCKET_TOKEN.
+    // Allowlisted env only: OPENCODE_*, the three vendor keys OpenCode reads, never POCKETROCKET_TOKEN.
     const env = childEnv('opencode', {
       OPENCODE_SERVER_PASSWORD: this.password,
       OPENCODE_CONFIG_CONTENT: buildConfigContent({ mcpUrl: bridgeUrl, mcpToken: bridge.token, bypass }),
-      // Never let the child inherit a stale inline config path from the user's shell.
       OPENCODE_CONFIG: undefined,
     });
     // The inline config carries `Authorization: Bearer <bridge token>`; keep both out of any stderr tail.
@@ -205,7 +188,6 @@ export class OpenCodeServer {
     return started;
   }
 
-  /** Polls `GET /path` (cheap, auth'd) until the server answers or the child dies. */
   private async waitReady(baseUrl: string, child: ChildProcess, timeoutMs = 45_000) {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -223,7 +205,6 @@ export class OpenCodeServer {
     }
   }
 
-  /** One SSE subscription for the whole server, demultiplexed by `properties.sessionID`. */
   private subscribe(client: OpencodeClient) {
     let stopped = false;
     this.stopEvents = () => {
@@ -262,8 +243,6 @@ export class OpenCodeServer {
     const started = this.started;
     this.started = null;
     this.starting = null;
-    // Kill the serve child first: it is the thing holding the bridge's MCP connection open, so
-    // draining the bridge before it is gone is the slow order (and used to deadlock outright).
     const child = this.child;
     this.child = null;
     if (child) await killTree(child);

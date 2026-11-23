@@ -9,8 +9,6 @@ import { SkillService } from '../services/SkillService.js';
 import { addSecret, clearSecrets } from '../providers/redact.js';
 import { createHubTools, type ToolCtx } from './botTools.js';
 
-/** P7 hub tools: handoff to a bot from the fleet directory (7.3), and search_notes / write_note (7.2). */
-
 const homes: string[] = [];
 afterEach(() => {
   for (const id of homes.splice(0)) fs.rmSync(botHome(id), { recursive: true, force: true });
@@ -77,7 +75,6 @@ describe('handoff to a bot outside the room (7.3)', () => {
     const out = await s.tool('handoff').handler({ to_bot: '@analyst', task: 'Build the Q3 dashboard' });
     expect(out.isError).toBeFalsy();
     expect(asked).toEqual([{ to_bot: 'analyst', task: 'Build the Q3 dashboard' }]);
-    // A DM never gains a member, and adding one is not what the card asked about.
     expect(s.repos.getRoom(s.room.id)!.memberIds).toEqual([s.chief.id]);
     expect(s.gates).toEqual([]);
     expect(workRoom).toMatchObject({ kind: 'dm', memberIds: [s.analyst.id] });
@@ -161,7 +158,6 @@ describe('memory and notes refuse secrets', () => {
     expect((await s.tool('write_note').handler({ title: 'Keys', text: 'xoxb-1234567890-abcdefghij' })).isError).toBe(true);
     expect((await s.tool('write_note').handler({ title: KEY, text: 'harmless' })).isError).toBe(true);
     expect(s.ctx.memory.listNotes(s.chief.id)).toEqual([]);
-    // Talking about keys without one is fine.
     expect((await s.tool('write_note').handler({ title: 'Keys', text: 'The API key lives in Settings > Secrets.' })).isError).toBeFalsy();
   });
 });

@@ -43,7 +43,6 @@ describe('WorkflowRepo', () => {
     expect(repo.forRoutine('rt1').map((w) => w.id)).toEqual([byRoutine.id]);
     expect(repo.forTrigger('tg1').map((w) => w.id)).toEqual([byTrigger.id]);
     expect(repo.forRoutine('tg1')).toEqual([]);
-    // Changing the trigger step moves it.
     repo.update(manual.id, { graph: graph({ routineId: 'rt1', manual: false }) });
     expect(repo.forRoutine('rt1').map((w) => w.id)).toEqual([byRoutine.id, manual.id]);
   });
@@ -62,7 +61,6 @@ describe('WorkflowRepo', () => {
     expect(done).toMatchObject({ status: 'success', costUsd: 0.4, endedAt: 6000, causeId: 'm1' });
     expect(repo.activeRun(w.id)).toBeUndefined();
 
-    // Editing the workflow does not change a run that already started.
     repo.update(w.id, { graph: graph({ triggerId: 'tg9', manual: false }) });
     expect(repo.getRun(r1.id)!.graph).toEqual(w.graph);
 

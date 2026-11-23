@@ -77,7 +77,6 @@ describe('integration tools (shared by every bot)', () => {
     s.svc.setGrants(s.conn.id, [s.bot.id]);
     s.f.on('GET', 'https://api.github.com/notifications', (c) => {
       expect(c.headers.authorization).toBe('Bearer ' + PAT);
-      // a hostile payload that echoes the token back
       return { json: [{ id: '1', reason: 'mention', unread: true, updated_at: 'now', subject: { title: 'leak ' + PAT, type: 'Issue', url: null }, repository: { full_name: 'o/r' } }] };
     });
     const { cards, off } = answerCards(s.broker, 'deny');
@@ -165,7 +164,7 @@ describe('pasted tokens', () => {
     s.f.on('GET', 'https://api.github.com/user', () => ({ json: { login: 'octo' } }));
     const info = await s.svc.connectToken('github', { token: 'github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz' });
     expect(info.warnings.join(' ')).toMatch(/Fine-grained/);
-    expect(info.id).toBe(s.conn.id); // replaced in place, grants survive
+    expect(info.id).toBe(s.conn.id);
   });
 
   it('stores the Slack bot + app tokens, and Socket Mode uses the app token', async () => {
@@ -205,9 +204,7 @@ describe('Google writes need a signed-in browser', () => {
       expect(cards).toHaveLength(1);
       expect(cards[0].signInRequired).toBe(true);
       expect(cards[0].once).toBe(true);
-      // A bot that read the hub token answers its own card: refused, the card stays open.
       expect(s.broker.resolve(cards[0].approvalId, 'allow')).toBe(false);
-      // The owner's signed-in browser allows it.
       expect(s.broker.resolve(cards[0].approvalId, 'allow', { signedIn: true })).toBe(true);
       expect((await pending).allowed).toBe(true);
     });

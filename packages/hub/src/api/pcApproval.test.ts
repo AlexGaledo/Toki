@@ -14,13 +14,6 @@ import { events } from '../events.js';
 import { listAudit } from '../services/AuditLog.js';
 import type { ToolOutput } from '../providers/types.js';
 
-/**
- * A job on the owner's PC may only be allowed from a browser signed in with the owner password, never with the
- * hub token alone (a bot that read the token could answer its own card), and run_on_pc only takes needs the
- * key registry puts on the PC.
- */
-
-// Password hashing is slow on purpose.
 vi.setConfig({ testTimeout: 60_000 });
 
 const TOKEN = 'pc-approval-test-hub-token';
@@ -62,7 +55,6 @@ function request(method: string, p: string, opts: { body?: unknown; token?: stri
   });
 }
 
-/** A browser session cookie from the owner password; sets the password (hub token, first time only) when none is set. */
 async function sessionCookie(): Promise<string> {
   if (!(await request('GET', '/api/auth/status', { token: null })).json.passwordSet) {
     expect((await request('POST', '/api/auth/password', { body: { password: PASSWORD } })).status).toBe(200);
@@ -77,7 +69,6 @@ function openWs(headers: Record<string, string>): Promise<{ ws: WebSocket; messa
     const ws = new WebSocket('ws://127.0.0.1:' + port + '/ws', { headers: { host: '127.0.0.1:' + port, ...headers } });
     const messages: any[] = [];
     ws.on('message', (m) => messages.push(JSON.parse(String(m))));
-    // The hello arrives right after open; wait for it so the test can read it.
     ws.on('open', () => setTimeout(() => resolve({ ws, messages }), 50));
     ws.on('error', reject);
   });
@@ -92,7 +83,6 @@ function botAndRoom(): { bot: Bot; room: Room } {
   return { bot, room };
 }
 
-/** Raises a card through the hub's own broker (the one the socket answers) and returns its id and pending answer. */
 async function card(tool: string, input: Record<string, unknown>) {
   const { bot, room } = botAndRoom();
   let release!: (p: { approvalId: string; signInRequired?: boolean }) => void;
@@ -138,7 +128,6 @@ describe('who may approve a job on the PC', () => {
 
   it('signing out takes effect on an open socket at once', async () => {
     const cookie = await sessionCookie();
-    // Hub token plus a live session cookie: the cookie is what counts.
     const { ws, messages } = await openWs({ cookie, authorization: 'Bearer ' + TOKEN });
     expect(hello(messages)?.signedIn).toBe(true);
     const current = (await request('GET', '/api/auth/sessions', { token: null, cookie })).json.current as string;
@@ -220,7 +209,6 @@ describe('key routing tools', () => {
       expect(textOf(out)).toMatch(/The PC does not hold/);
     }
     expect(cards).toEqual([]);
-    // A need the PC holds reaches the card, and the card shows it.
     const out = (await t.handler({ folder: 'site', prompt: 'p', needs: ['store-p8', 'firecrawl'] })) as ToolOutput;
     expect(out.isError).toBe(true);
     expect(cards).toEqual([expect.objectContaining({ tool: 'run_on_pc', input: { folder: 'site', prompt: 'p', needs: ['store-p8', 'firecrawl'] } })]);

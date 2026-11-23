@@ -14,12 +14,6 @@ import type { BotRunner, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { RoomRouter } from './RoomRouter.js';
 import { parseOwnerRef, routineRef, workflowRef, type OwnerHandler, type ParsedOwnerRef } from './ownerRef.js';
 
-/**
- * Workflows 3.2a: the lane foundations. An owner ref (`routine:<runId>`, `workflow:<runId>:<nodeId>`) replaces the bare
- * routine run id in the lane journal and on parked approvals, and the turn's `onDone` is rebuilt from it after a restart
- * and a park. A solo item never shares a turn. `causeBudget` caps every hop of a workflow run. Routines behave as before.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 300 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -46,7 +40,6 @@ function world() {
   return { repos, bot, room };
 }
 
-/** Records what the router tells a workflow owner. */
 function fakeOwner() {
   const log: string[] = [];
   const results: TurnResult[] = [];
@@ -58,7 +51,6 @@ function fakeOwner() {
 }
 const workflowKey = (ref: ParsedOwnerRef) => (ref.kind === 'workflow' ? ref.runId + '/' + ref.nodeId : ref.runId);
 
-/** A workflow run's cause: the system note every step and hand-off of the run shares. */
 function runCause(repos: Repos, roomId: string, payload: WorkflowPayload) {
   const msg = repos.insertMessage({ roomId, authorType: 'system', authorId: null, kind: 'system', text: 'Workflow started', payload, causeId: null, hop: 0, turnId: null });
   repos.db.run('UPDATE messages SET cause_id=? WHERE id=?', msg.id, msg.id);
@@ -110,7 +102,7 @@ describe('owner refs', () => {
     const p2 = routerOn(w.repos, hang);
     expect(new FollowUp({ repos: w.repos, router: p2.router }).resumeInterrupted()).toBe(1);
     await until(() => p2.reqs.length === 1);
-    expect(w.repos.listRuns('routine-1')[0].status).toBe('running'); // resumed once: the run stays open
+    expect(w.repos.listRuns('routine-1')[0].status).toBe('running');
     p2.router.freeze();
 
     const p3 = routerOn(w.repos);
@@ -147,7 +139,6 @@ describe('workflow owner refs survive a restart and a park', () => {
     expect(w.repos.journalHasOwner('workflow:run1:')).toBe(true);
     expect(w.repos.journalHasOwner('workflow:run2:')).toBe(false);
 
-    // The next process: the closure is gone, the ref is not.
     const p2 = routerOn(w.repos);
     const owner2 = fakeOwner();
     p2.router.registerOwner('workflow', owner2.handler);
@@ -157,7 +148,7 @@ describe('workflow owner refs survive a restart and a park', () => {
     expect(p2.reqs[0]).toMatchObject({ ownerRef: ref, causeKind: 'workflow', strictApprovals: true });
     expect(owner.log).toEqual([]);
     await tick();
-    expect(w.repos.journalHasOwner('workflow:')).toBe(false); // settled: nothing left to resume
+    expect(w.repos.journalHasOwner('workflow:')).toBe(false);
   });
 
   it('a step cut off by a second restart is not resumed again: its owner hears it is gone', async () => {
@@ -186,7 +177,7 @@ describe('workflow owner refs survive a restart and a park', () => {
     router.resume(w.bot, w.room, { causeId: cause.id, hop: 0, triggerSeq: cause.seq, attempts: 0, ownerRef: ref });
     await until(() => reqs.length === 1);
     await tick();
-    expect(owner.log).toEqual([]); // parked: the step is not finished
+    expect(owner.log).toEqual([]);
     expect(router.resumeParked(w.bot.id, w.room.id, { causeId: cause.id, hop: 0, ownerRef: ref, note: '(Approval granted)' })).toBe(true);
     await until(() => owner.log.length === 1);
     expect(owner.log).toEqual(['done run1/n2']);
@@ -218,7 +209,7 @@ describe('solo items', () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => { release = r; });
     const { router, reqs } = routerOn(w.repos, async (req) => {
-      if (reqs.length === 1) await gate; // the first turn holds the lane
+      if (reqs.length === 1) await gate;
       return { ok: true, turnId: 't' + reqs.length, finalText: '', costUsd: 0 };
     });
     const owner = fakeOwner();
@@ -233,14 +224,12 @@ describe('solo items', () => {
     await until(() => reqs.length === 4);
     await until(() => owner.log.length === 1);
     expect(first.seq).toBeLessThan(a.seq);
-    // turn 2 = chat A alone, turn 3 = the workflow step alone, turn 4 = chat B alone
     expect(reqs[1].injected).toContain('triggered you: #' + a.seq + '.');
     expect(reqs[1].ownerRef).toBeUndefined();
     expect(reqs[2].ownerRef).toBe(workflowRef('run1', 'n2'));
     expect(reqs[2].injected).toContain('triggered on #' + cause.seq + '.');
     expect(reqs[3].ownerRef).toBeUndefined();
-    expect(reqs[3].injected).toContain('triggered on #' + b.seq + '.'); // chat B was already shown to the earlier turn
-    // The step's reply is the step's alone: onDone fired once, for its own turn.
+    expect(reqs[3].injected).toContain('triggered on #' + b.seq + '.');
     expect(owner.log).toEqual(['done run1/n2']);
   });
 
@@ -275,7 +264,6 @@ describe('causeBudget: a workflow run budget covers every hop on its thread', ()
     expect(reqs[0].causeBudgetUsd).toBeCloseTo(0.4);
     expect(asked).toContain('run1');
 
-    // A hand-off on the same thread hits the same budget (the run is out of money).
     left = 0;
     router.resume(w.bot, w.room, { causeId: cause.id, hop: 2, triggerSeq: cause.seq, attempts: 0 });
     await tick();
@@ -289,7 +277,7 @@ describe('causeBudget: a workflow run budget covers every hop on its thread', ()
     const { router, reqs } = routerOn(w.repos);
     const cause = runCause(w.repos, w.room.id, { workflowId: 'wf', runId: 'gone', name: 'Weekly' });
     router.resume(w.bot, w.room, { causeId: cause.id, hop: 0, triggerSeq: cause.seq, attempts: 0 });
-    await until(() => reqs.length === 1); // no hook registered: only the cause cap applies
+    await until(() => reqs.length === 1);
     router.workflowBudget = () => undefined;
     router.resume(w.bot, w.room, { causeId: cause.id, hop: 0, triggerSeq: cause.seq, attempts: 0 });
     await tick();
@@ -311,7 +299,7 @@ describe('cause kinds and the manual flag', () => {
     expect(reqs.map((r) => r.causeKind)).toEqual(['workflow', 'routine']);
     router.resume(w.bot, w.room, { causeId: wf.id, hop: 2, triggerSeq: wf.seq, attempts: 1 });
     await until(() => reqs.length === 3);
-    expect(reqs[2].causeKind).toBe('bot'); // a hand-off inside a workflow step is still a bot turn
+    expect(reqs[2].causeKind).toBe('bot');
   });
 
   it('"Run now" marks the routine and its cause; a scheduled firing does not', async () => {
@@ -327,7 +315,6 @@ describe('cause kinds and the manual flag', () => {
     expect(causes.filter((c) => c.manual)).toHaveLength(1);
     expect(causes.find((c) => c.manual)!.payload).toMatchObject({ manual: true });
     expect(causes.find((c) => !c.manual)!.payload).not.toHaveProperty('manual');
-    // A person's own message and an unknown cause are not "manual runs".
     expect(router.isManualCause('nope')).toBe(false);
     scheduler.stop();
   });

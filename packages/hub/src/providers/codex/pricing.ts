@@ -12,11 +12,8 @@
  * Edit the table when OpenAI changes its prices.
  */
 export interface CodexRate {
-  /** USD per 1M uncached input tokens. */
   input: number;
-  /** USD per 1M cached input tokens. */
   cachedInput: number;
-  /** USD per 1M output tokens (reasoning tokens are a subset of output tokens, not an extra line). */
   output: number;
 }
 
@@ -27,10 +24,8 @@ export const CODEX_RATES: Record<string, CodexRate> = {
   'gpt-5.6-luna': { input: 0.2, cachedInput: 0.02, output: 1.2 },
 };
 
-/** Fallback for a model the user typed by hand: the balanced one, so an unknown id is never free. */
 export const DEFAULT_CODEX_MODEL = 'gpt-5.6-terra';
 
-/** Exact id first, then longest known id that the model starts with (covers dated snapshots). */
 export function rateFor(model: string): CodexRate {
   const id = (model || '').trim();
   if (CODEX_RATES[id]) return CODEX_RATES[id];
@@ -41,19 +36,15 @@ export function rateFor(model: string): CodexRate {
 }
 
 export interface CodexTokens {
-  /** `usage.input_tokens` — the OpenAI total, cached tokens INCLUDED. */
   inputTokens: number;
-  /** `usage.cached_input_tokens` — the subset of the above that was a cache read. */
   cachedInputTokens: number;
   outputTokens: number;
 }
 
-/** Approximate USD for one turn. Never negative, even if a CLI reports cached > input. */
 export function estimateCostUsd(model: string, t: CodexTokens): number {
   const r = rateFor(model);
   const cached = Math.max(0, t.cachedInputTokens);
   const fresh = Math.max(0, t.inputTokens - cached);
   const usd = (fresh * r.input + cached * r.cachedInput + Math.max(0, t.outputTokens) * r.output) / 1_000_000;
-  // 6 decimals: enough for sub-cent turns, keeps float noise out of the DB.
   return Math.round(usd * 1e6) / 1e6;
 }

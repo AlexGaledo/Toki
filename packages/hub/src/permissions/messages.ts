@@ -9,25 +9,16 @@
  * Only wording lives here. Which calls are refused, and when, stays with the callers.
  */
 export type DenyKind =
-  /** A person (or an approval rule they set) said no. */
   | 'declined'
-  /** The card went unanswered. */
   | 'timeout'
-  /** Refused by a standing rule, not a person answering a card. */
   | 'not_allowed'
-  /** Cannot be done here: nothing could ask, or the target is not reachable. */
   | 'unavailable'
-  /** The feature is switched off. */
   | 'off'
-  /** The global read-only approvals setting. */
   | 'readonly';
 
 export interface DenyOpts {
-  /** What was refused, as a noun phrase: "this change", "this outside tool call". Default "this action". */
   subject?: string;
-  /** What the bot does instead, a lowercase sentence fragment: "say so in the room". */
   alt?: string;
-  /** Extra outcome detail, a lowercase fragment: "nothing was sent", "the change was not made". */
   note?: string;
 }
 
@@ -55,12 +46,10 @@ function outcome(kind: DenyKind, subject: string, note: string | undefined): str
   }
 }
 
-/** The refusal text for a bot: outcome, "Do not retry it", and what to do instead. */
 export function denyMessage(kind: DenyKind, opts: DenyOpts = {}): string {
   const subject = opts.subject ?? 'this action';
   const alt = stop(opts.alt ?? DEFAULT_ALT);
   return outcome(kind, subject, opts.note) + ' ' + NO_RETRY + '; ' + alt + '.';
 }
 
-/** Every kind, for tests that must cover them all. */
 export const DENY_KINDS: readonly DenyKind[] = ['declined', 'timeout', 'not_allowed', 'unavailable', 'off', 'readonly'];

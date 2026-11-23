@@ -24,7 +24,7 @@ describe('PcSessions', () => {
     expect(s.get('old')).toBeNull();
     expect(s.get('old:sub')).toBeNull();
     expect(s.get('fresh')).not.toBeNull();
-    now = 200 * DAY; // 101 days later
+    now = 200 * DAY;
     expect(s.prune().removed).toBe(1);
   });
 
@@ -35,7 +35,6 @@ describe('PcSessions', () => {
       s.upsert(id, meta({ lastAt }));
       s.appendEntries(id, 0, 10, [entry({ text: 'x'.repeat(1000), at: lastAt })]);
     }
-    // 3000 bytes > 2500: b (oldest lastAt) goes, then 2000 <= 2500 stops.
     expect(s.prune().removed).toBe(1);
     expect(s.get('b')).toBeNull();
     expect(s.get('a')).not.toBeNull();
@@ -64,11 +63,10 @@ describe('PcSessions', () => {
       expect(seen.filter((e) => e.id === 's2')).toHaveLength(1);
       vi.advanceTimersByTime(PC_EVENT_COALESCE_MS);
       const s1 = seen.filter((e) => e.id === 's1');
-      expect(s1).toHaveLength(2); // the trailing one, carrying the newest lastAt
+      expect(s1).toHaveLength(2);
       expect(s1[1].lastAt).toBe(5004);
       vi.advanceTimersByTime(PC_EVENT_COALESCE_MS * 3);
       expect(seen.filter((e) => e.id === 's1')).toHaveLength(2);
-      // after the window a new batch goes out at once
       s.appendEntries('s1', off1, off1 + 10, [entry()]);
       expect(seen.filter((e) => e.id === 's1')).toHaveLength(3);
     } finally {
@@ -98,6 +96,6 @@ describe('PcSessions tombstones', () => {
     expect(s.prune().removed).toBe(1);
     expect(s.refused('old', 2)).toBe(true);
     expect(s.refused('old', now + 1)).toBe(false);
-    expect(s.refused('old', 2)).toBe(false); // the tombstone is gone once it came back
+    expect(s.refused('old', 2)).toBe(false);
   });
 });

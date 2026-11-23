@@ -2,21 +2,15 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { normaliseRemote } from '@pocketrocket/shared';
 
-/** Bots with this skill attached get the check below, so the owner turns it on per bot by attaching the skill. */
 export const SHIP_GUARD_SKILL = 'safe-shipping';
 
 const ALWAYS_PROTECTED = new Set(['main', 'master']);
-/** Flags of `git push` that take a separate value, which must not be read as the remote or a branch. */
 const PUSH_VALUE_FLAGS = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
-/** Commands that run another command, which hides a push from the parsing below. */
 const WRAPPERS = new Set(['bash', 'sh', 'zsh', 'eval', 'xargs', 'env', 'sudo', 'nohup', 'time']);
 
 export interface GitInfo {
-  /** The checked out branch, or null when it cannot be told, as on a detached HEAD or outside a repo. */
   currentBranch: (dir: string) => string | null;
-  /** The remote's default branch, when the repo knows it. */
   defaultBranch: (dir: string) => string | null;
-  /** The URL of a named remote (`origin`) in the repo at `dir`, for the per-repo protected branches. */
   remoteUrl?: (dir: string, remote: string) => string | null;
 }
 
@@ -36,14 +30,6 @@ const realGit: GitInfo = {
 const clean = (t: string) => t.replace(/^['"(]+|['")]+$/g, '');
 const REFUSED = 'Pushing to the default branch is blocked for this bot. Push a branch and open a pull request for the owner to review.';
 
-/**
- * Stops a bot pushing to the default branch or merging a pull request. Written rules alone failed this: told to
- * "get it shipped", bots pushed to main in every test run. It reads the command text, so it stops ordinary use, not a
- * bot set on getting around it, and only Claude turns run it.
- *
- * `extraProtected` is the project's own list (repos.json, bridge P5): given the remote URL a push goes to, the branches the
- * owner marked protected for the repo with that remote (compared through normaliseRemote, so ssh and https forms agree).
- */
 export function defaultBranchPushDenied(command: string, cwd: string, info: GitInfo = realGit, extraProtected?: (remote: string) => readonly string[]): string | null {
   let dir = cwd;
   for (const segment of command.split(/&&|\|\||[;|\n]/)) {
@@ -56,7 +42,6 @@ export function defaultBranchPushDenied(command: string, cwd: string, info: GitI
     if (WRAPPERS.has(tokens[0]) && /\bgit\b.*\bpush\b/.test(segment)) return 'Run git push as a plain command, not inside ' + tokens[0] + ', so it can be checked.';
     if (tokens[0] !== 'git') continue;
 
-    // Options before the subcommand.
     let i = 1;
     let at = dir;
     while (i < tokens.length && tokens[i].startsWith('-')) {
@@ -79,7 +64,6 @@ export function defaultBranchPushDenied(command: string, cwd: string, info: GitI
     const remoteDefault = info.defaultBranch(at);
     if (remoteDefault) protectedNames.add(remoteDefault);
     if (extraProtected) {
-      // Where this push goes: a URL given on the command line, else the named remote (origin by default) of the repo.
       const named = positional[0];
       const url = named && normaliseRemote(named) ? named : info.remoteUrl?.(at, named ?? 'origin') ?? null;
       for (const b of url ? extraProtected(url) : []) protectedNames.add(b);

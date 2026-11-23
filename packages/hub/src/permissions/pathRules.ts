@@ -50,7 +50,6 @@ function normalizeInput(p: string): string | null {
   return s;
 }
 
-/** The nearest ancestor of `abs` that actually exists, plus the not-yet-created remainder below it. */
 function nearestExisting(abs: string): { dir: string; rest: string } | null {
   const parts: string[] = [];
   let cur = abs;
@@ -65,16 +64,8 @@ function nearestExisting(abs: string): { dir: string; rest: string } | null {
 }
 
 /**
- * True when `target` resolves inside (or equal to) one of `roots` — by BOTH its lexical form and its
- * realpath (audit 2026-09-09, B5).
- *
- * The old version ORed the two candidates and treated a missing realpath as "no opinion", so a junction or
- * symlink planted inside the workspace let a bot read and write anywhere: the lexical path was inside, and
- * that was enough. Now:
- * - the lexically resolved path must be inside, and
- * - if the entry exists, its realpath must be inside too (a dangling symlink fails realpath and is rejected);
- * - if it does not exist yet, the nearest existing ancestor is realpath'd and the would-be path rebuilt on
- *   top of it, so `<ws>/junction-to-C-drive/new.txt` is caught before the file is created.
+ * True when `target` resolves inside (or equal to) one of `roots` by BOTH its lexical form and its realpath, so a
+ * junction or symlink planted in the workspace cannot reach outside it.
  */
 export function isInside(target: string, roots: string[], cwd?: string): boolean {
   const t = normalizeInput(target);
@@ -109,33 +100,19 @@ export function isInside(target: string, roots: string[], cwd?: string): boolean
 
 const WILDCARD = /[*?[\]{}]/;
 
-/**
- * The literal directory prefix of a glob: everything before the first wildcard, trimmed back to a directory.
- * `../../../` + a wildcard tail -> `../../..`; `src/` + a wildcard tail -> `src`; a bare `*.ts` -> null.
- */
 export function globPrefix(pattern: string): string | null {
   const m = WILDCARD.exec(pattern);
   const head = m ? pattern.slice(0, m.index) : pattern;
   if (!head) return null;
-  // A trailing separator means the head already names a directory; otherwise drop the partial basename.
   const dir = /[\\/]$/.test(head) ? head.replace(/[\\/]+$/, '') : m ? path.dirname(head) : head;
   if (!dir || dir === '.') return null;
   return dir;
 }
 
-/** A Grep `pattern` is a regex, not a path — only treat it as one when it clearly reaches out of the tree. */
 function looksLikeEscapingPath(s: string): boolean {
   return /(^|[\\/])\.\.([\\/]|$)/.test(s) || /^[\\/~]/.test(s) || /^[A-Za-z]:[\\/]/.test(s);
 }
 
-/**
- * Extract path-like fields from a tool input.
- *
- * `Glob`/`Grep` also carry their scope inside the pattern (audit 2026-09-09, B13): before this,
- * a Grep whose `glob` was `../../../` plus a wildcard tail was checked as "no path at all" and ran
- * with no approval card. The literal directory prefix of `glob` (and of `Glob`'s own `pattern`, which is a
- * path glob rather than a regex) is now extracted and checked like any other path.
- */
 export function pathsFromInput(toolName: string, input: Record<string, unknown>): string[] {
   const keys = ['file_path', 'path', 'notebook_path', 'directory', 'cwd'];
   const out: string[] = [];
@@ -154,7 +131,6 @@ export function pathsFromInput(toolName: string, input: Record<string, unknown>)
       const p = globPrefix(pat);
       if (p) out.push(p);
     }
-    // No explicit scope at all: the tool searches the cwd, which the caller resolves to the workspace.
     if (!out.length) out.push('.');
   }
   return out;

@@ -48,8 +48,6 @@ describe('RoomRouter cause cost cap', () => {
           spend(usage, req, CAUSE_COST_CAP_USD + 1);
           return { ok: true, turnId: 'ta', finalText: 'done', costUsd: CAUSE_COST_CAP_USD + 1 };
         }
-        // bob hands back to @ann while a's first turn is still running, so the hop passes the check at dispatch
-        // time and queues in a's lane behind the turn that is about to blow the cap.
         return { ok: true, turnId: 'tb', finalText: '@ann over to you', costUsd: 0 };
       },
     } as unknown as BotRunner;
@@ -83,7 +81,6 @@ describe('RoomRouter backlog cap', () => {
     const lines = Array.from({ length: 100 }, (_, i) => 'line ' + i);
     expect(capBacklog(lines, 60, 1e6)).toEqual({ lines: lines.slice(40), dropped: 40 });
     const big = Array.from({ length: 10 }, (_, i) => String(i).repeat(999));
-    // 1000 bytes per line with its newline: 3 fit in 3000.
     expect(capBacklog(big, 60, 3000)).toEqual({ lines: big.slice(7), dropped: 7 });
     expect(capBacklog(['a', 'b'])).toEqual({ lines: ['a', 'b'], dropped: 0 });
   });
@@ -140,7 +137,6 @@ describe('RoomRouter backlog cap', () => {
 });
 
 describe('RoomRouter per-turn context (kept out of the cached system prompt)', () => {
-  /** A runner that records each request and, like BotRunner, saves the session it ran on. */
   function recorder(s: ReturnType<typeof setup>, opts: { sessionId?: (n: number) => string; reply?: (req: TurnRequest) => string } = {}) {
     const reqs: TurnRequest[] = [];
     s.router.runner = {
@@ -190,7 +186,6 @@ describe('RoomRouter per-turn context (kept out of the cached system prompt)', (
     const s = setup();
     const a = s.bot('ann');
     const room = s.repos.createRoom({ kind: 'dm', name: 'a', memberIds: [a.id], coordinatorBotId: null });
-    // Turn 2 rotates to a new session without the roster in it; turn 3 must show it again.
     const reqs = recorder(s, { sessionId: (n) => (n >= 2 ? 'sess-2' : 'sess-1') });
     s.router.onUserMessage(room.id, 'one');
     await until(() => reqs.length === 1);
@@ -212,7 +207,7 @@ describe('RoomRouter per-turn context (kept out of the cached system prompt)', (
       runTurn: async (req: TurnRequest): Promise<TurnResult> => {
         reqs.push(req);
         if (req.bot.id === a.id && req.hop === 0) {
-          s.router.dispatchFromBot(req, [b]); // the handoff tool
+          s.router.dispatchFromBot(req, [b]);
           return { ok: true, turnId: 'ta', finalText: 'Handed this to @bob.', costUsd: 0 };
         }
         return { ok: true, turnId: 'tb', finalText: '', costUsd: 0 };
@@ -252,7 +247,6 @@ describe('RoomRouter cut-off turns', () => {
       },
     } as unknown as BotRunner;
     router.onUserMessage(room.id, '@dev build it');
-    // first turn + CUTOFF_RETRIES fresh ones, then the coordinator is woken once
     await until(() => reqs.some((r) => r.bot.id === lead.id));
     const devTurns = reqs.filter((r) => r.bot.id === dev.id);
     expect(devTurns).toHaveLength(3);
@@ -281,7 +275,6 @@ describe('RoomRouter cut-off turns', () => {
     } as unknown as BotRunner;
     router.onUserMessage(room.id, 'build the page');
     await until(() => reqs.length === 2);
-    // No freshSession: BotRunner resumes unless the context itself is too large or unmeasured (rotationReason).
     expect(reqs[1].freshSession).toBeUndefined();
     expect(reqs[1].injected).toContain('ran out of steps');
     expect(reqs[1].injected).not.toContain('fresh session');

@@ -23,7 +23,6 @@ function setup() {
   return { svc, f };
 }
 
-/** A GitHub token endpoint that, like the real one, only honours a code_verifier matching the challenge. */
 function githubWithPkce(f: ReturnType<typeof fakeFetch>, challenge: () => string) {
   f.on('POST', 'https://github.com/login/oauth/access_token', (c) => {
     const form = new URLSearchParams(c.body);
@@ -75,7 +74,6 @@ describe('browser OAuth (state + PKCE + loopback)', () => {
     const conn = svc.repo.byProvider('github')!;
     expect(conn).toMatchObject({ method: 'oauth', accountLabel: 'octo', status: 'connected' });
     expect(svc.vault.get('conn:' + conn.id)?.accessToken).toBe('gho_accesstoken0123456789abcdef');
-    // the token never lands in the rows the UI reads
     expect(JSON.stringify(svc.state())).not.toContain('gho_accesstoken');
     expect(svc.hasPendingBrowser()).toBe(false);
   });
@@ -98,7 +96,6 @@ describe('browser OAuth (state + PKCE + loopback)', () => {
     expect(f.calls).toHaveLength(0);
     githubWithPkce(f, () => pkceChallenge('irrelevant'));
     await svc.completeBrowser('github', new URLSearchParams({ code: 'bad', state }));
-    // replaying the same state again is refused without a token call
     const before = f.calls.length;
     expect(await svc.completeBrowser('github', new URLSearchParams({ code: 'good-code', state }))).toMatchObject({ ok: false, unsolicited: true });
     expect(f.calls.length).toBe(before);

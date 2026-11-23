@@ -24,7 +24,6 @@ afterAll(async () => {
   await hub.shutdown();
 });
 
-/** Minimal Streamable-HTTP MCP client: one JSON-RPC request per POST (the endpoint is stateless). */
 async function rpc(method: string, params: unknown, bearer = token) {
   const res = await fetch(base + '/mcp', {
     method: 'POST',
@@ -36,7 +35,6 @@ async function rpc(method: string, params: unknown, bearer = token) {
     body: JSON.stringify({ jsonrpc: '2.0', id: Math.floor(Math.random() * 1e6), method, params }),
   });
   const text = await res.text();
-  // enableJsonResponse gives plain JSON; fall back to parsing an SSE frame just in case.
   const payload = res.headers.get('content-type')?.includes('text/event-stream')
     ? JSON.parse(text.split('\n').find((l) => l.startsWith('data:'))!.slice(5))
     : text ? JSON.parse(text) : null;

@@ -6,12 +6,6 @@ import { UsageTracker } from '../services/UsageTracker.js';
 import type { BotRunner, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { RoomRouter } from './RoomRouter.js';
 
-/**
- * Hardening pass (P5 known limit): a trigger turn resumed after a restart or a parked approval, and any later
- * item on the trigger's thread, is capped by what is left of the trigger's daily budget, not only by the
- * thread cost cap. The budget is looked up from the cause message's TriggerPayload.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -42,11 +36,9 @@ function setup(left: number | undefined) {
 describe('trigger budget on resumed turns', () => {
   it('caps a turn resumed after a parked approval at the trigger budget left', async () => {
     const h = setup(0.4);
-    // The fresh fire carries its own budget (TriggerService passes budget - spent).
     const msg = h.router.fireTrigger(h.room, h.bot, { name: 'Issues', prompt: 'p', event: h.event, payload: h.payload, budgetUsd: 1 });
     await until(() => h.seen.length === 1);
     expect(h.seen[0].causeBudgetUsd).toBeCloseTo(0.4);
-    // The resumed turn has no budget of its own; it used to get the full thread cap.
     expect(h.router.resumeParked(h.bot.id, h.room.id, { causeId: msg.id, hop: 0, ownerRef: null, note: 'Approval granted.' })).toBe(true);
     await until(() => h.seen.length === 2);
     expect(h.seen[1].causeBudgetUsd).toBeCloseTo(0.4);

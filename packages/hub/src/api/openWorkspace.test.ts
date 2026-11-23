@@ -3,16 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { openWorkspace, workspaceTarget } from './openWorkspace.js';
 import { SCREEN_DISPLAY, WORKSPACE_DIR } from '../config.js';
 
-/**
- * The workspace only exists on the machine the hub runs on. For a local hub that is the user's own PC, so
- * Explorer/Finder is right; for a server hub there is no local desktop at all and the only place a VPS
- * folder can be shown is the virtual display the Screen tab already streams. `where` is what lets the UI
- * say which of those happened instead of promising a window that will never appear.
- */
-
 interface Spawned { cmd: string; args: string[]; env: NodeJS.ProcessEnv }
 
-/** A spawn stand-in that records the call and then emits `event` on the next tick. */
 function fakeSpawn(calls: Spawned[], event: 'spawn' | 'error', error?: string) {
   return ((cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv }) => {
     calls.push({ cmd, args, env: opts.env ?? {} });
@@ -48,7 +40,6 @@ describe('openWorkspace', () => {
     const r = await run('linux', true, calls);
     expect(r.where).toBe('screen');
     expect(calls[0].cmd).toBe('thunar');
-    // Without DISPLAY the window would go nowhere; without HOME Thunar would not keep its settings.
     expect(calls[0].env.DISPLAY).toBeTruthy();
     expect(calls[0].env.HOME).toBeTruthy();
   });
@@ -87,8 +78,6 @@ describe('openWorkspace', () => {
   });
 });
 
-// P1: on a hub with per-bot computers the shared screen (:99) is stopped, so the folder must open on a bot's
-// own running computer, and otherwise the user is told what to do instead of a window going nowhere.
 describe('openWorkspace with per-bot computers', () => {
   const ep = { display: ':201', xauthority: '/data/computers/b1/home/.Xauthority', home: '/data/computers/b1/home' };
   const fleet = (state: string, has = true) => ({

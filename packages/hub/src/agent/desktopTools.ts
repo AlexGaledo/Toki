@@ -1,5 +1,3 @@
-// Computer-use tools for a virtual desktop: screenshot via scrot, input via xdotool. Each bot drives its own
-// computer's display (services/ComputerManager.ts); without per-bot computers, the one shared screen.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
@@ -16,24 +14,15 @@ import type { ComputerManager } from '../services/ComputerManager.js';
 
 const run = promisify(execFile);
 
-/** Which desktop the tools act on. Built per turn from the bot's `ComputerEndpoint`. */
 export interface DesktopTarget {
-  /** X display, e.g. ":201". */
   display: string;
-  /** MIT cookie for that display; unset inherits the hub's XAUTHORITY (the shared screen). */
   xauthority?: string;
-  /** HOME for launched apps, so their settings persist with that desktop. */
   home: string;
-  /** Extra folders desktop_launch may open files from (the bot's own computer disk), besides the workspace. */
   fileRoots?: string[];
-  /**
-   * P2 control interlock: returns why the tools must not act right now (the user has control, or the bot is
-   * paused), or null. Every desktop tool, screenshot included, refuses without touching the display.
-   */
+  /** Every desktop tool, screenshot included, refuses without touching the display. */
   guard?: () => string | null | Promise<string | null>;
 }
 
-/** The shared screen every bot used before per-bot computers, and still uses with them off. */
 export function sharedDesktop(): DesktopTarget {
   return { display: SCREEN_DISPLAY, home: DESKTOP_HOME };
 }
@@ -68,7 +57,7 @@ async function takeScreenshot(env: NodeJS.ProcessEnv): Promise<ToolOutput> {
 }
 
 export function desktopTools(target: DesktopTarget = sharedDesktop()): HubTool[] {
-  // Per target, never the hub's own DISPLAY: bot A's clicks must only ever land on bot A's screen.
+  // Never the hub's own DISPLAY: bot A's clicks must only land on bot A's screen.
   const env: NodeJS.ProcessEnv = { ...process.env, DISPLAY: target.display, ...(target.xauthority ? { XAUTHORITY: target.xauthority } : {}) };
   const roots = [WORKSPACE_DIR, ...(target.fileRoots ?? [])];
   const screenshot = () => takeScreenshot(env);
@@ -147,20 +136,15 @@ export function desktopTools(target: DesktopTarget = sharedDesktop()): HubTool[]
     'Start a desktop GUI application by command, e.g. "thunar", "mousepad notes.txt", "ristretto shot.png". File arguments must be inside the shared workspace' + (target.fileRoots?.length ? ' or your computer\'s own disk' : '') + '. Returns a screenshot after it opens.',
     { command: z.string().min(1).describe('Program and arguments') },
     async (a) => {
-      // No terminals and no shells (audit 2026-09-09, B14): xfce4-terminal used to be launchable and
-      // desktop_type/desktop_key then drove it, which is arbitrary command execution that never touches
-      // bashRules or an approval card. GUI viewers and editors only.
+      // No terminals or shells: typing into one would run commands past bashRules and the approval cards.
       const allowed = /^(thunar|mousepad|ristretto|xfce4-appfinder|xdg-open)(\s|$)/;
       if (!allowed.test(a.command.trim())) return err('Only these desktop apps can be launched: thunar, mousepad, ristretto, xfce4-appfinder, xdg-open <file>. Terminals and shells are not launchable; use Bash for commands.');
       const [cmd, ...args] = a.command.trim().split(/\s+/);
-      // Every argument is a file the app will open: keep them inside the workspace (or the bot's own disk).
       const outside = args.filter((x) => !x.startsWith('-') && !isInside(x, roots, WORKSPACE_DIR));
       if (outside.length) return err('Only files inside the workspace can be opened: ' + outside.join(', '));
       try {
         const { spawn } = await import('node:child_process');
-        // Launch in the shared workspace (= desktop folder) with the desktop's HOME so app config persists.
         const child = spawn(cmd, args, { env: { ...env, HOME: target.home }, cwd: WORKSPACE_DIR, detached: true, stdio: 'ignore' });
-        // A missing binary surfaces as an async 'error' event; without a listener it would crash the hub.
         const spawnError = new Promise<string | null>((resolve) => {
           child.once('error', (e) => resolve(e.message));
           child.once('spawn', () => resolve(null));
@@ -188,18 +172,12 @@ export function desktopTools(target: DesktopTarget = sharedDesktop()): HubTool[]
   }));
 }
 
-/** Told to a turn that tries the browser while another turn is on the same computer. */
 export const SHARED_BROWSER_NOTE =
   'Another of your chats is using this browser right now. Call browser_tabs with action "new" first and work only in the tab it opens, or you will both drive the same page.';
 
-/** Told to a turn that tries to reach a tab by number while another turn is on the same computer. */
 export const SHARED_TAB_NOTE =
   'Another of your chats is using this browser, and tab numbers shift as chats close tabs. Close your own tab with browser_tabs action "close" and no index, once you have opened one with action "new". Selecting a tab by number is refused while the browser is shared.';
 
-/**
- * Look at the screen of a bot in this room, without driving it and without starting anything, so one bot can do the
- * browser work while others follow along with no computer of their own.
- */
 export function viewScreenTool(computers: ComputerManager, members: Bot[], selfId: string): HubTool {
   return hubTool(
     'view_screen',
@@ -216,7 +194,5 @@ export function viewScreenTool(computers: ComputerManager, members: Bot[], selfI
   );
 }
 
-// The names live in the shared tool registry (packages/shared/src/tools.ts).
 export { DESKTOP_TOOL_NAMES };
-// keep `text` referenced for future non-screenshot returns
 void text;

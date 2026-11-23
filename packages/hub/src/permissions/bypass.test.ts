@@ -16,11 +16,6 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner } from '../agent/BotRunner.js';
 import { createHubTools } from '../agent/botTools.js';
 
-/**
- * Approvals bypassed: no approval card is ever raised — not for a tool call, not for a `request_approval`,
- * and (since the user asked for bots to have full control) not for a fleet or room change either.
- */
-
 function setup(bypass: boolean) {
   const repos = new Repos(new Db(':memory:'));
   const bot = repos.createBot({ name: 'Codey', handle: 'codey', title: '', description: 'x', avatar: '🤖', model: 'm', allowedTools: ['Bash'], maxBudgetUsd: 2 });
@@ -86,7 +81,6 @@ describe('bypass permissions', () => {
     const full = buildCodexArgs({ ...base, readOnly: false, fullAccess: true });
     expect(full[full.indexOf('--sandbox') + 1]).toBe('danger-full-access');
     expect(full.some((a) => a.startsWith('sandbox_workspace_write'))).toBe(false);
-    // A bot without Bash stays read-only even under bypass.
     const ro = buildCodexArgs({ ...base, readOnly: true, fullAccess: true });
     expect(ro[ro.indexOf('--sandbox') + 1]).toBe('read-only');
 
@@ -95,7 +89,6 @@ describe('bypass permissions', () => {
   });
 });
 
-/** Records what every turn was handed, so a test can see the approvals mode each one started under. */
 class RecordingProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Recording';
@@ -111,7 +104,6 @@ class RecordingProvider implements AgentProvider {
   }
 }
 
-/** A hub in miniature: the real SettingsStore feeding the real broker the way hub.ts wires them. */
 function hubSetup(approvalsEnv: 'ask' | 'bypass' | null = null) {
   const repos = new Repos(new Db(':memory:'));
   const store = new SettingsStore({ repos, approvalsEnv });
@@ -167,7 +159,6 @@ describe('approvals setting', () => {
     expect(h.broker.bypassed).toBe(false);
     await h.run();
     expect(h.provider.seen[2].bypassPermissions).toBe(false);
-    // Persisted, so a restart keeps whatever the human chose.
     expect(new SettingsStore({ repos: h.repos, approvalsEnv: null }).get().approvals).toBe('ask');
   });
 
@@ -179,13 +170,11 @@ describe('approvals setting', () => {
     expect(on.broker.bypassed).toBe(true);
     await on.run();
     expect(on.provider.seen[0].bypassPermissions).toBe(true);
-    // Locked: Settings cannot flip it, and the refusal carries a 409 for rest.ts.
     const refused = (() => {
       try { on.store.patch({ approvals: 'bypass' }); return null; } catch (e) { return e; }
     })();
     expect(refused).toBeInstanceOf(SettingsRejected);
     expect((refused as SettingsRejected).status).toBe(409);
-    // Everything else still saves, and re-sending the stored value is not a change.
     expect(on.store.patch({ userName: 'Alex', approvals: 'ask' }).userName).toBe('Alex');
 
     const off = hubSetup('ask');
@@ -205,7 +194,6 @@ describe('approvals setting', () => {
       requestApproval: async () => ({ allowed: false, message: '' }),
     });
     expect(tools.map((t) => t.name).filter((n) => /setting|bypass|permission|provider/i.test(n))).toEqual([]);
-    // botTools / PromptBuilder import this ambient accessor, never the store itself.
     expect(Object.keys(ambientSettings)).toEqual(['get']);
   });
 });

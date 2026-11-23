@@ -17,7 +17,6 @@ afterEach(() => {
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
-/** The bots/sessions tables as the earliest hub created them (no provider, no auto-memory columns). */
 const PRE_AUTOMEMORY_SQL = `
 CREATE TABLE bots (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, handle TEXT UNIQUE NOT NULL, title TEXT DEFAULT '',
@@ -44,7 +43,7 @@ describe('Db migrations', () => {
   it('upgrades a v0.2 database (no schema_version table) and keeps its data', () => {
     const file = tmpFile();
     const old = new DatabaseSync(file);
-    old.exec(SCHEMA_SQL); // v0.2.0 shipped exactly this schema, without a version table
+    old.exec(SCHEMA_SQL);
     old.prepare("INSERT INTO bots (id, name, handle, model, created_at, auto_memory) VALUES ('b1', 'Ada', 'ada', 'opus', 1, 0)").run();
     old.close();
 
@@ -52,7 +51,6 @@ describe('Db migrations', () => {
     expect(db.schemaVersions()).toEqual(MIGRATIONS.map((m) => m.version));
     expect(db.get<{ name: string; auto_memory: number }>("SELECT name, auto_memory FROM bots WHERE id = 'b1'")).toEqual({ name: 'Ada', auto_memory: 0 });
     db.raw.close();
-    // Reopening runs nothing again.
     const again = new Db(file);
     expect(again.all('SELECT * FROM schema_version')).toHaveLength(MIGRATIONS.length);
     again.raw.close();

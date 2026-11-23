@@ -23,8 +23,6 @@ afterAll(() => {
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
-// ---------- a fake `grok` process: records argv/env, replays a fixture on stdout ----------
-
 interface FakeRun {
   exe: string;
   args: string[];
@@ -101,8 +99,6 @@ function turnCtx(over: Partial<TurnContext> = {}): TurnContext {
 
 const provider = (deps: ConstructorParameters<typeof GrokProvider>[0]) =>
   new GrokProvider({ home: path.join(tmp, 'grok-home'), exe: 'grok-fake', secrets: { get: () => null }, ...deps });
-
-// ---------- pure parsers ----------
 
 describe('grok streaming-json parser', () => {
   it('splits NDJSON across arbitrary chunk boundaries and ignores junk', () => {
@@ -187,7 +183,6 @@ describe('grok CLI wiring', () => {
     expect(toml).toContain('Bearer ${POCKETROCKET_MCP_TOKEN}');
   });
 
-  // ---- audit 2026-09-09, B19 ----
   it('keeps the system prompt and memory off the command line', () => {
     const home = path.join(tmp, 'rules-home');
     fs.mkdirSync(home, { recursive: true });
@@ -196,7 +191,6 @@ describe('grok CLI wiring', () => {
 
     expect(fs.readFileSync(file, 'utf8')).toBe(prompt);
     expect(file).toBe(path.join(home, 'rules', 'turn-abc.md'));
-    // The value that lands in argv names the file; it never carries the prompt or the memory.
     expect(rules).toContain(file);
     expect(rules).not.toContain('hunter2');
     expect(rules).not.toContain('You are Nova');
@@ -218,7 +212,6 @@ describe('grok CLI wiring', () => {
     expect(path.basename(file)).toBe('evil.md');
   });
 
-  // ---- audit 2026-09-09, B18 ----
   it('mirrors auth.json 0600 into the private home and deletes it on shutdown', () => {
     const userHome = path.join(tmp, 'user-grok');
     fs.mkdirSync(userHome, { recursive: true });
@@ -229,14 +222,11 @@ describe('grok CLI wiring', () => {
       const home = ensureGrokHome(path.join(tmp, 'mirror-home'));
       const mirror = path.join(home, 'auth.json');
       expect(fs.existsSync(mirror)).toBe(true);
-      // It lives under the hub's private grok home, never next to the workspace.
       expect(path.dirname(mirror)).toBe(home);
       if (process.platform !== 'win32') expect((fs.statSync(mirror).mode & 0o777).toString(8)).toBe('600');
       removeAuthMirror(home);
       expect(fs.existsSync(mirror)).toBe(false);
-      // The user's own credentials are untouched.
       expect(fs.existsSync(path.join(userHome, 'auth.json'))).toBe(true);
-      // Never deletes the user's file when the two paths coincide.
       removeAuthMirror(userHome);
       expect(fs.existsSync(path.join(userHome, 'auth.json'))).toBe(true);
     } finally {
@@ -251,8 +241,6 @@ describe('grok CLI wiring', () => {
     expect(parseModelsOutput('Available models:\n  * grok-4.6 (default)\n').authenticated).toBe(true);
   });
 });
-
-// ---------- check() / models() ----------
 
 describe('grok check()', () => {
   const probeOk = async (_e: string, args: string[]): Promise<Probe> =>
@@ -305,8 +293,6 @@ describe('grok check()', () => {
   });
 });
 
-// ---------- runTurn() ----------
-
 describe('grok runTurn()', () => {
   it('streams a text turn into the sink and reports the CLI-stamped cost', async () => {
     const cli = fakeCli(fixture('text-turn.jsonl'), { chunkSize: 7 });
@@ -318,7 +304,6 @@ describe('grok runTurn()', () => {
     expect(rec.deltas.join('')).toBe("Here's a summary");
     expect(rec.texts).toEqual(["Here's a summary"]);
     expect(rec.sessions).toEqual(['3f2a1c88-0000-4000-8000-000000000001']);
-    // total_cost_usd from the `end` event wins over the local estimate.
     expect(outcome.costUsd).toBe(0.0018886);
     expect(outcome.usage).toMatchObject({ inputTokens: 812, outputTokens: 45, costUsd: 0.0018886 });
   });
@@ -335,15 +320,12 @@ describe('grok runTurn()', () => {
     expect(run.args[run.args.indexOf('--cwd') + 1]).toBe(ctx.workspaceDir);
     expect(run.args[run.args.indexOf('-m') + 1]).toBe('grok-build-0.1');
     expect(run.args[run.args.indexOf('--resume') + 1]).toBe('prev-session');
-    // The system prompt is NOT on the command line any more (audit 2026-09-09, B19): --rules carries a
-    // pointer at a 0600 file inside the private grok home, and the file is deleted when the turn ends.
     const rules = run.args[run.args.indexOf('--rules') + 1];
     expect(rules).not.toContain(ctx.systemPrompt);
     expect(rules).toContain(path.join(tmp, 'grok-home', 'rules'));
     expect(fs.existsSync(path.join(tmp, 'grok-home', 'rules', ctx.turnId + '.md'))).toBe(false);
     const denied = run.args.filter((a, i) => run.args[i - 1] === '--deny');
     expect(denied).toEqual(['Bash', 'Edit', 'WebFetch', 'WebSearch', 'Write']);
-    // The bearer token rides the environment so concurrent turns never race on config.toml.
     expect(run.env.POCKETROCKET_MCP_URL).toBe(ctx.mcp.url);
     expect(run.env.POCKETROCKET_MCP_TOKEN).toBe(ctx.mcp.token);
     expect(run.env.GROK_HOME).toBe(path.join(tmp, 'grok-home'));
@@ -364,10 +346,8 @@ describe('grok runTurn()', () => {
       { id: 'call_1', output: '{"lines":42}', isError: false },
       { id: 'call_2', output: 'denied by the user', isError: true },
     ]);
-    // Text is flushed before each tool chip, so the chips land between the assistant blocks.
     expect(rec.texts).toEqual(['Let me read the file.', 'Done.']);
     expect(rec.states).toContain('working');
-    // No total_cost_usd on `end` (OAuth traffic): the adapter estimates from grok-4.6 rates.
     expect(outcome.usage).toMatchObject({ inputTokens: 1000, outputTokens: 50, cacheReadTokens: 4000, cacheWriteTokens: 50 });
     expect(outcome.costUsd).toBeCloseTo(
       estimateCostUsd('grok-4.6', { inputTokens: 1000, outputTokens: 50, cacheReadTokens: 4000, cacheWriteTokens: 50 }),

@@ -2,9 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { TURN_FAILURE_BEHAVIOUR } from '@pocketrocket/shared';
 import { limitText, resetTime, turnFailureNote } from './turnFailure.js';
 
-/** M5 (spec 01 P0-3): the failure note for a turn that ended on a provider limit. */
-
-// 2026-11-19 10:00 UTC
 const NOW = Date.UTC(2026, 10, 19, 10, 0);
 const at = (d: number, h: number, m = 0) => Date.UTC(2026, 10, d, h, m);
 

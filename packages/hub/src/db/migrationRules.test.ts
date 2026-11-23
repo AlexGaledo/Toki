@@ -10,20 +10,16 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_TS = path.join(here, 'migrations.ts');
 const SUPABASE_DIR = path.resolve(here, '../../../../supabase/migrations');
 
-/** The block a version belongs to: P0 is 1–9, every later block is ten wide and starts at a multiple of ten. */
 function blockOf(version: number): [number, number] {
   return version < 10 ? [1, 9] : [Math.floor(version / 10) * 10, Math.floor(version / 10) * 10 + 9];
 }
 
-/** SQL that destroys or renames data, which an additive-only migration never runs. */
 const DESTRUCTIVE = /\bDROP\s+(TABLE|COLUMN)\b|\bRENAME\b/i;
 
-/** Source with line and block comments removed, so prose like "never drop or rename" is not SQL. */
 function code(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');
 }
 
-/** Each `registerMigrations([lo, hi], [...])` call in the source with the versions it lists, in source order. */
 function registeredBlocks(src: string): { lo: number; hi: number; versions: number[] }[] {
   const parts = code(src).split(/registerMigrations\(\s*\[/).slice(1);
   return parts.map((p) => {
@@ -32,7 +28,6 @@ function registeredBlocks(src: string): { lo: number; hi: number; versions: numb
   });
 }
 
-/** Every rule violation in the registered blocks, as a message that says what to do. */
 function blockProblems(blocks: { lo: number; hi: number; versions: number[] }[]): string[] {
   const out: string[] = [];
   const seenBlocks = new Set<string>();
@@ -53,7 +48,6 @@ function blockProblems(blocks: { lo: number; hi: number; versions: number[] }[])
   return out;
 }
 
-/** Runs every migration on a fresh database and returns each SQL string it executed or prepared. */
 function executedSql(migrations: readonly Migration[]): { version: number; sql: string }[] {
   const seen: { version: number; sql: string }[] = [];
   const spied = migrations.map((m) => ({

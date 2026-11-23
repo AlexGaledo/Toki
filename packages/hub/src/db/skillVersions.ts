@@ -3,13 +3,6 @@ import type { SkillReflectionConfig, SkillVersion, SkillVersionOrigin, SkillVers
 import { REFLECTION_DAILY_CAP, REFLECTION_EVERY } from '@pocketrocket/shared';
 import type { Db, Row } from './db.js';
 
-/**
- * P6 storage for skill versions and the reflection opt-in.
- *
- * A candidate version is a row of `skills` with `parent_id` = the pool skill it revises. Its `name` is
- * `<skill>@v<n>`: unique like every skill name, and never a valid pool name (`@` fails SKILL_NAME_RE), so it can
- * neither collide with nor be materialized as a real skill. `review_status` is pending / approved / rejected.
- */
 export class SkillVersionsRepo {
   constructor(private db: Db, private now: () => number = Date.now) {}
 
@@ -27,7 +20,6 @@ export class SkillVersionsRepo {
     };
   }
 
-  /** Newest first. */
   list(skillId: string): SkillVersion[] {
     return this.db.all('SELECT * FROM skills WHERE parent_id=? ORDER BY version DESC', skillId).map((r) => this.toVersion(r));
   }
@@ -38,7 +30,6 @@ export class SkillVersionsRepo {
   pendingCount(skillId: string): number {
     return this.db.get<{ n: number }>("SELECT COUNT(*) n FROM skills WHERE parent_id=? AND review_status='pending'", skillId)?.n ?? 0;
   }
-  /** The next version number: one past the live version and every candidate. */
   nextVersion(skillId: string): number {
     const r = this.db.get<{ v: number | null }>('SELECT MAX(version) v FROM skills WHERE id=? OR parent_id=?', skillId, skillId);
     return (r?.v ?? 1) + 1;
@@ -54,7 +45,6 @@ export class SkillVersionsRepo {
   decide(id: string, status: 'approved' | 'rejected') {
     this.db.run('UPDATE skills SET review_status=?, decided_at=? WHERE id=?', status, this.now(), id);
   }
-  /** The live skill now runs `version` (after an approval). */
   setLive(skillId: string, version: number, description: string) {
     this.db.run("UPDATE skills SET version=?, description=?, review_status='approved' WHERE id=?", version, description, skillId);
   }
@@ -62,7 +52,6 @@ export class SkillVersionsRepo {
     this.db.run('DELETE FROM skills WHERE parent_id=?', skillId);
   }
 
-  // ---- reflection opt-in (6.3) ----
   reflection(botId: string): SkillReflectionConfig {
     const r = this.db.get('SELECT * FROM skill_reflection WHERE bot_id=?', botId);
     return {
@@ -81,7 +70,6 @@ export class SkillVersionsRepo {
     );
     return this.reflection(botId);
   }
-  /** Counts one more run of a skill by a bot; returns the new count. */
   bumpRuns(botId: string, skillId: string): number {
     this.db.run(
       'INSERT INTO skill_reflection_runs (bot_id,skill_id,runs_since) VALUES (?,?,1) ' +
@@ -93,7 +81,6 @@ export class SkillVersionsRepo {
   resetRuns(botId: string, skillId: string) {
     this.db.run('UPDATE skill_reflection_runs SET runs_since=0 WHERE bot_id=? AND skill_id=?', botId, skillId);
   }
-  /** What this bot's reflection passes spent since `since` (epoch ms). */
   reflectionSpend(botId: string, since: number): number {
     return this.db.get<{ c: number }>("SELECT COALESCE(SUM(cost_usd),0) c FROM usage WHERE bot_id=? AND cause_kind='reflection' AND created_at>=?", botId, since)?.c ?? 0;
   }

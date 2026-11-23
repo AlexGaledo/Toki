@@ -9,7 +9,6 @@ import { Repos } from './repos.js';
 const dirs: string[] = [];
 afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); });
 
-/** A database as the last build left it: bots, rooms, members and messages, and no `rooms.avatar`. */
 function oldDatabase() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-roomav-'));
   dirs.push(dir);

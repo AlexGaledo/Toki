@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { cronToPreset, describeCron, presetToCron, zonedParts, type ScheduleParts } from '@pocketrocket/shared';
 import { RoutineScheduler } from './RoutineScheduler.js';
 
-/** P3 3.3: the Routines tab's preset picker writes cron, and reads it back, so nobody needs to know cron. */
-
 const base: ScheduleParts = { preset: 'daily', time: '09:00', date: '2026-11-02', weekday: 1, monthDay: 1, month: 1, cron: '' };
 
 describe('schedule presets', () => {

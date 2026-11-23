@@ -18,8 +18,6 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import { RoomFiles, fileRootOf } from '../rooms/roomFiles.js';
 import { BotRunner } from './BotRunner.js';
 
-/** Bridge P2 (spec 6.2): the folder's state goes at the top of a turn's input, once per change, never in the system prompt. */
-
 class RecordingProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Recording';
@@ -67,7 +65,6 @@ function setup() {
     fs.writeFileSync(path.join(root.dir, rel), text);
     revisions.record(root, rel, human);
   };
-  /** A turn that resumes the session, as the second and later turns of a conversation do. */
   const resumeable = () => {
     repos.saveSession(bot.id, room.id, { sdkSessionId: 'sess-1', provider: 'claude' });
     repos.saveSessionState(bot.id, room.id, { contextTokens: 5_000, contextAt: Date.now(), costTotal: 1 });
@@ -139,7 +136,6 @@ describe('state header at the start of a turn', () => {
     s.write('current.md', '## Now\nstep one\n');
     s.resumeable();
     await s.run();
-    // No session to resume (a new conversation, or one rotated away): the bot has not seen it.
     s.repos.saveSession(s.bot.id, s.room.id, { sdkSessionId: null, provider: 'claude' });
     const fresh = await s.run();
     expect(fresh.input).toContain('step one');

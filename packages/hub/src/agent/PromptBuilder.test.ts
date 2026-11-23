@@ -22,7 +22,6 @@ describe('buildSystemPrompt', () => {
     expect(p).toContain('- a-skill: First\n- b-skill: Second');
     expect(p).toMatch(/Custom tools: [^\n]*, read_skill\./);
     expect(buildSystemPrompt({ ...base, toolPrefix: '', skillIndex: skillIndex.map((x) => ({ ...x })) })).toBe(p);
-    // Claude (no index) and a bot with no skills get neither.
     for (const q of [buildSystemPrompt({ ...base }), buildSystemPrompt({ ...base, toolPrefix: '', skillIndex: [] })]) {
       expect(q).not.toContain('## Skills');
     }
@@ -83,7 +82,6 @@ describe('buildSystemPrompt: per-bot computers (P1)', () => {
   it('warns at 80% of the disk quota', () => {
     const p = buildSystemPrompt({ ...base, computer: { ...computer, diskBytes: 8.5 * 1024 ** 3 } });
     expect(p).toContain('Disk warning: your computer is over 80% of its 10.0 GB quota');
-    // No live usage figure, so the prompt does not change (and lose its cache) as the disk fills.
     expect(buildSystemPrompt({ ...base, computer: { ...computer, diskBytes: 9.1 * 1024 ** 3 } })).toBe(p);
   });
 

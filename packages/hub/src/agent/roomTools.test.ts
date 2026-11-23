@@ -7,19 +7,11 @@ import { SkillService } from '../services/SkillService.js';
 import { createHubTools, type ToolCtx } from './botTools.js';
 import type { ToolOutput } from '../providers/types.js';
 
-/**
- * A bot used to be trapped in the room its turn was running in: add_to_room and remove_from_room only
- * touched ctx.room, there was no delete_room at all, and nothing could even list a room the bot was not a
- * member of. So a bot that created a group chat could never manage or disband it again — which is exactly
- * what Smoke reported. Every room tool now takes an optional `room` and defaults to the current one.
- */
-
 function setup() {
   const repos = new Repos(new Db(':memory:'));
   const scout = repos.createBot({ name: 'Scout', handle: 'scout', title: '', description: '', avatar: '🔎', model: 'm', allowedTools: ['Read'], maxBudgetUsd: 2 });
   const lead = repos.createBot({ name: 'Lead', handle: 'leadeng', title: '', description: '', avatar: '🧭', model: 'm', allowedTools: ['Read'], maxBudgetUsd: 2 });
   const qa = repos.createBot({ name: 'QA', handle: 'qa', title: '', description: '', avatar: '🧪', model: 'm', allowedTools: ['Read'], maxBudgetUsd: 2 });
-  // The turn runs in Scout's DM; the team room is one Scout is not a member of.
   const dm = repos.createRoom({ kind: 'dm', name: 'DM', memberIds: [scout.id], coordinatorBotId: null });
   const team = repos.createRoom({ kind: 'group', name: 'build-team', memberIds: [lead.id, qa.id], coordinatorBotId: lead.id });
   const dispatched: Array<{ handles: string[]; roomId: string | undefined }> = [];
@@ -65,7 +57,6 @@ describe('room tools reach rooms the bot is not in', () => {
     expect(out).toContain('build-team');
     expect(s.repos.listMessages(s.team.id, { limit: 10 }).some((m) => m.text === '@qa please retest')).toBe(true);
     expect(s.dispatched).toEqual([{ handles: ['qa'], roomId: s.team.id }]);
-    // Nothing landed in the room the turn is actually running in.
     expect(s.repos.listMessages(s.dm.id, { limit: 10 })).toHaveLength(0);
   });
 
@@ -75,7 +66,6 @@ describe('room tools reach rooms the bot is not in', () => {
     expect(s.repos.getRoom(s.team.id)!.memberIds).toContain(s.scout.id);
     await call(s, 'remove_from_room', { bot: '@qa', room: 'build-team' });
     expect(s.repos.getRoom(s.team.id)!.memberIds).not.toContain(s.qa.id);
-    // The current room's member list is untouched by edits to another room.
     expect(s.repos.getRoom(s.dm.id)!.memberIds).toEqual([s.scout.id]);
   });
 

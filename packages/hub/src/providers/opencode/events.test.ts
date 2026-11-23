@@ -5,8 +5,6 @@ import { describe, expect, it } from 'vitest';
 import { MCP_TOOL_PREFIX, TurnTracker, chipName, permissionToTool, type OcEvent } from './events.js';
 import type { TurnSink } from '../types.js';
 
-// Both fixtures are raw `GET /event` captures from a live `opencode serve` 1.17.6 (free OpenCode Zen model),
-// one line per SSE event, heartbeats stripped.
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'test-fixtures', 'opencode');
 
 function load(name: string): OcEvent[] {
@@ -75,7 +73,6 @@ function harness(sessionID: string, decision: 'allow' | 'deny' = 'allow', maxBud
   return { rec, tracker, asks, replies, pending, overBudget };
 }
 
-/** Feed a whole capture; permission handling is async, so let the microtask queue drain between events. */
 async function play(tracker: TurnTracker, events: OcEvent[], sessionID: string) {
   for (const ev of events) {
     const sid = (ev.properties as { sessionID?: string } | undefined)?.sessionID;
@@ -144,7 +141,6 @@ describe('permission ask -> hub tool', () => {
       () => ({ filePath: 'C:\\ws\\data\\workspace\\probe1.txt' }),
     );
     expect(m).toMatchObject({ name: 'Read', input: { file_path: 'C:\\ws\\data\\workspace\\probe1.txt' } });
-    // With no tool input either, the project-relative pattern is still better than nothing.
     expect(
       permissionToTool({ id: 'p', sessionID: 's', permission: 'read', patterns: ['a\\b.txt'], metadata: {} }, () => 'read').input.file_path,
     ).toBe('a\\b.txt');
@@ -170,7 +166,6 @@ describe('TurnTracker over a captured MCP + external_directory run', () => {
     await play(h.tracker, load('events-mcp-external.jsonl'), SESSION);
     await h.tracker.finished;
 
-    // Reasoning deltas never reach the room; only the assistant's visible text part does.
     expect(h.rec.deltas).toEqual(['done']);
     expect(h.rec.texts).toEqual(['done']);
 
@@ -181,12 +176,10 @@ describe('TurnTracker over a captured MCP + external_directory run', () => {
       { id: 'call-85ab9ed3-f924-46d2-b963-dd345651f7bb', output: 'pong {"note":"hi"}', isError: false },
     ]);
 
-    // The out-of-project write raised exactly one ask, mapped onto the Write tool, and was rejected.
     expect(h.asks).toHaveLength(1);
     expect(h.asks[0]).toMatchObject({ name: 'Write', input: { file_path: 'C:\\Users\\dev\\projects\\pocketrocket\\pr-test.txt' } });
     expect(h.replies).toEqual([{ id: 'per_081576943001sXj3pt4sY2XhoP', response: 'reject' }]);
 
-    // The MCP call was flagged for the bridge while it was in flight, then cleared.
     expect(h.pending).toEqual([
       { tool: 'pocketrocket_ping_probe', pending: true },
       { tool: 'pocketrocket_ping_probe', pending: true },
@@ -218,7 +211,6 @@ describe('TurnTracker over a captured edit + bash run', () => {
     const h = harness(SESSION, 'allow');
     const events = load('events-edit-bash.jsonl');
     await play(h.tracker, events, SESSION);
-    // The capture was cut before the session went idle; feed the terminator the server sends.
     h.tracker.handle({ type: 'session.idle', properties: { sessionID: SESSION } });
     await h.tracker.finished;
 
@@ -230,7 +222,6 @@ describe('TurnTracker over a captured edit + bash run', () => {
     expect(h.rec.tools.map((t) => t.name)).toEqual(['Write', 'Bash']);
     expect(h.rec.results.map((r) => r.output.trim())).toEqual(['Wrote file successfully.', 'hello']);
     expect(h.rec.results.every((r) => !r.isError)).toBe(true);
-    // The user's own prompt arrives as a text part on the user message; it must not be echoed back.
     expect(h.rec.texts).toEqual([]);
   });
 });
@@ -255,7 +246,6 @@ describe('duplicate asks for one action', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(h.asks).toHaveLength(1);
-    // Both permission requests still get answered, with the one decision the user gave.
     expect(h.replies).toEqual([
       { id: 'per_1', response: 'once' },
       { id: 'per_2', response: 'once' },

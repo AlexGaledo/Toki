@@ -1,23 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import type { TriggerEvent } from '@pocketrocket/shared';
 
-/**
- * P5: how outside event text reaches a bot. Everything an event carries (titles, bodies, sender names, even the
- * field values) was written by a third party, so it is shown as data, never as instructions:
- *
- * - The full event sits in one block fenced by markers that carry a random nonce, so text inside the event
- *   cannot close the block early (it cannot guess the nonce) and fence-like sequences in it are defused.
- * - `{{event.*}}` placeholders in the user's prompt template are filled with a quoted, single-line, clipped
- *   copy of the value, so a long body cannot smuggle paragraphs of instructions into the trusted part. The
- *   full text is always in the fenced block.
- * - The turn is strict (approvals on, even under bypass): the cause message is a system message, so
- *   `RoomRouter.requiresApprovals` is true for it and every hop it causes.
- */
-
+/** Event text is written by third parties: shown as data in a nonce-fenced block, never as instructions. */
 const MAX_TEXT = 8_000;
 const MAX_FIELD = 300;
 
-/** Defuse anything that looks like our fence, and control characters that could hide text. */
 function defuse(s: string): string {
   return s
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f‪-‮⁦-⁩]/g, '')
@@ -30,7 +17,6 @@ function oneLine(s: string, max = MAX_FIELD): string {
   return t.length > max ? t.slice(0, max) + '…' : t;
 }
 
-/** `{{event.title}}`, `{{event.fields.repo}}` or the shorthand `{{event.repo}}`. Unknown names render as ''. */
 export function fieldValue(ev: TriggerEvent, path: string): string {
   const p = path.replace(/^event\./, '');
   if (p.startsWith('fields.')) return ev.fields[p.slice(7)] ?? '';
@@ -38,7 +24,6 @@ export function fieldValue(ev: TriggerEvent, path: string): string {
   return direct[p] ?? ev.fields[p] ?? '';
 }
 
-/** The user's template with each placeholder replaced by a quoted, single-line copy of the value. */
 export function renderTemplate(template: string, ev: TriggerEvent): string {
   return template.replace(/\{\{\s*(event(?:\.[A-Za-z0-9_]+){1,2})\s*\}\}/g, (_, path: string) => {
     const v = oneLine(fieldValue(ev, path));
@@ -46,7 +31,6 @@ export function renderTemplate(template: string, ev: TriggerEvent): string {
   });
 }
 
-/** The fenced block with the whole event. `nonce` is random per fire unless a test pins it. */
 export function wrapUntrusted(ev: TriggerEvent, nonce = randomBytes(6).toString('hex')): string {
   const open = '<<<UNTRUSTED EVENT ' + nonce + '>>>';
   const close = '<<<END UNTRUSTED EVENT ' + nonce + '>>>';
@@ -74,16 +58,10 @@ export function wrapUntrusted(ev: TriggerEvent, nonce = randomBytes(6).toString(
   ].join('\n');
 }
 
-/** The whole trigger message: header, the user's (trusted) instructions, then the fenced event. */
 export function triggerText(name: string, template: string, ev: TriggerEvent, nonce?: string): string {
   return '[Trigger "' + oneLine(name, 60) + '"] ' + renderTemplate(template, ev) + ' Reply NO_REPLY if nothing needs doing.\n\n' + wrapUntrusted(ev, nonce);
 }
 
-/**
- * A workflow step's input from an earlier step: that text came out of a model (or, for the first step, out of the
- * trigger, which may be an outside event), so it reaches the next step as fenced data like a trigger event does. The
- * fence carries a random nonce and fence-like sequences inside are defused, so the text cannot close the block early.
- */
 export function wrapPrevious(text: string, nonce = randomBytes(6).toString('hex')): string {
   const open = '<<<PREVIOUS STEP OUTPUT ' + nonce + '>>>';
   const close = '<<<END PREVIOUS STEP OUTPUT ' + nonce + '>>>';

@@ -9,21 +9,16 @@ import { SIGNED_OUT, type AccountState, type AccountUser } from '@pocketrocket/s
 import { ACCOUNT_EMAIL, ACCOUNT_PATH, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, restrictFile } from '../config.js';
 import { events } from '../events.js';
 
-/** Fixed, so account.json reads the same whatever the project URL is. */
 const STORAGE_KEY = 'pocketrocket-auth';
-/** Our entries next to supabase-js's in account.json: the last known user (for an offline start) and a sign-in in flight. */
 const USER_KEY = 'pocketrocket-user';
 const FLOW_KEY = 'pocketrocket-flow';
 /** A link older than this is not worth waiting for (Supabase's default OTP expiry is one hour). */
 const FLOW_TTL_MS = 60 * 60 * 1000;
-/** How long a failed OAuth-settings probe is left alone before GET /api/account retries it. */
 const FLAGS_RETRY_MS = 60 * 1000;
 
 export type OAuthProvider = 'google' | 'github';
-/** The slice of the Supabase client the service touches; tests hand in a fake. */
 export type AccountClient = Pick<SupabaseClient, 'auth' | 'from'>;
 
-/** An account operation refused; rest.ts answers with `status`. */
 export class AccountError extends Error {
   constructor(message: string, readonly status: 400 | 409 | 429 | 503 = 400) {
     super(message);
@@ -37,15 +32,11 @@ const CachedUser = z.object({
 });
 const Profile = z.object({
   display_name: z.string().nullish(),
-  // A plan this build does not know yet reads as free rather than breaking the account.
   plan: z.enum(['free', 'pro']).catch('free'),
 });
 const AuthSettings = z.object({ external: z.record(z.string(), z.unknown()).optional() });
 
-/**
- * supabase-js auth storage in one JSON file: the session (refresh token included), PKCE verifiers, and our two
- * keys. Rewritten and re-restricted to the owner on every change, like secrets.json, and removed once empty.
- */
+/** Re-restricted to the owner on every change, like secrets.json. */
 export class FileStorage implements SupportedStorage {
   constructor(readonly file: string) {}
 
@@ -89,11 +80,8 @@ export interface AccountOptions {
   url?: string;
   key?: string;
   file?: string;
-  /** A ready client instead of `createClient` (tests). */
   client?: AccountClient;
-  /** fetch for the auth-settings probe and for a client built here. */
   fetch?: typeof fetch;
-  /** Offer email link/code sign-in (default: ACCOUNT_EMAIL). */
   email?: boolean;
 }
 
@@ -140,7 +128,6 @@ export class AccountService {
   }
 
   state(): AccountState {
-    // A hub that started offline never learnt the OAuth switches; try again now and then.
     if (this.client && !this.flags.ok && Date.now() - this.flags.at > FLAGS_RETRY_MS) void this.loadOAuthFlags();
     return this.snapshot();
   }
@@ -149,12 +136,10 @@ export class AccountService {
     return { ...this.current, oauth: { ...this.current.oauth }, user: this.current.user && { ...this.current.user } };
   }
 
-  /** True while a magic link or OAuth round trip started here is still worth accepting at /auth/callback. */
   pending(): boolean {
     return this.flow() !== null;
   }
 
-  /** Restore the saved session and read the project's OAuth switches. Never throws. */
   async start(): Promise<void> {
     const client = this.client;
     if (!client) return;
@@ -195,7 +180,6 @@ export class AccountService {
     this.startFlow(addr);
   }
 
-  /** The 6-digit code from the same email: works when the link was opened on another device. */
   async verifyCode(email: string, token: string): Promise<AccountState> {
     const client = this.need();
     const addr = parseEmail(email);
@@ -210,7 +194,6 @@ export class AccountService {
     return this.state();
   }
 
-  /** The link callback: only this hub holds the PKCE verifier the code is exchangeable with. */
   async exchangeCode(code: string): Promise<AccountState> {
     const client = this.need();
     if (!this.pending()) throw new AccountError('No sign-in is waiting on this Toki', 409);
@@ -221,7 +204,6 @@ export class AccountService {
     return this.state();
   }
 
-  /** Provider sign-in URL for the UI to open; the provider sends the browser back to /auth/callback. */
   async oauthUrl(provider: OAuthProvider, redirectTo: string): Promise<string> {
     const client = this.need();
     if (!this.current.oauth[provider]) throw new AccountError(provider + ' sign-in is not enabled for Toki accounts');
@@ -239,7 +221,6 @@ export class AccountService {
     return this.state();
   }
 
-  /** Local scope: this hub only, never the user's other devices. The file goes even when Supabase is unreachable. */
   async signOut(): Promise<AccountState> {
     if (this.client) {
       try {
@@ -254,8 +235,6 @@ export class AccountService {
     return this.state();
   }
 
-  // ---- internals
-
   private need(): AccountClient {
     if (!this.client) throw new AccountError('Accounts are not configured on this server', 409);
     return this.client;
@@ -269,7 +248,6 @@ export class AccountService {
   }
 
   private onAuthChange(event: AuthChangeEvent, session: Session | null) {
-    // start() does the restore itself: it can tell "offline" from "signed out", which INITIAL_SESSION cannot.
     if (event === 'INITIAL_SESSION') return;
     if (event === 'SIGNED_OUT') return this.signedOut();
     if (!session) return;
@@ -293,7 +271,6 @@ export class AccountService {
     this.set({ signedIn: false, user: null, pendingEmail: this.flow()?.email ?? null });
   }
 
-  /** `profiles` row → plan and display name; a missing row is a free account. One load per user at a time. */
   private loadProfile(id: string): Promise<void> {
     if (this.profileLoad?.id === id) return this.profileLoad.p;
     const p = (async () => {
@@ -316,7 +293,6 @@ export class AccountService {
     return p;
   }
 
-  /** Which OAuth providers the project has switched on, from its public auth settings. Both off on any failure. */
   private async loadOAuthFlags(): Promise<void> {
     this.flags.at = Date.now();
     try {
@@ -369,7 +345,6 @@ function parseJson<T>(schema: z.ZodType<T>, raw: string | null): T | null {
   }
 }
 
-/** A Supabase auth error as something the Account UI can show as is. */
 function refused(error: AuthError): AccountError {
   if (isAuthRetryableFetchError(error)) return new AccountError('Could not reach Toki accounts; check your connection and try again', 503);
   if (isAuthPKCECodeVerifierMissingError(error)) {

@@ -8,12 +8,6 @@ import type { Bot, Room, WorkflowGraph, WorkflowNode } from '@pocketrocket/share
 import { createHub, type Hub } from '../hub.js';
 import type { TurnRequest, TurnResult } from '../agent/BotRunner.js';
 
-/**
- * Workflows 3.3 / 3.4: the REST surface. Statuses (400 / 404 / 409 / 403), the person-only approval card (no bot, no
- * runner token, no WS `approval.decide`, no chat text answers it), phones may see and answer but not build, and the
- * file output node writes only inside the room's files folder.
- */
-
 const TOKEN = 'workflows-test-token';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-wf-rest-'));
 const roomsDir = path.join(tmp, 'rooms');
@@ -125,7 +119,7 @@ describe('workflows REST', () => {
     expect(detail).not.toHaveProperty('graph');
 
     expect((await request('POST', '/api/workflow-runs/' + r.json.id + '/decision', { body: { decision: 'maybe' } })).status).toBe(400);
-    expect((await request('POST', '/api/workflow-runs/' + r.json.id + '/decision', { body: { decision: 'send_back' } })).status).toBe(400); // a note is required
+    expect((await request('POST', '/api/workflow-runs/' + r.json.id + '/decision', { body: { decision: 'send_back' } })).status).toBe(400);
     expect((await request('POST', '/api/workflow-runs/' + r.json.id + '/decision', { body: { decision: 'approve' } })).status).toBe(200);
     await until(() => hub.workflowRepo.getRun(r.json.id)?.status === 'success');
     expect((await request('POST', '/api/workflow-runs/' + r.json.id + '/decision', { body: { decision: 'approve' } })).status).toBe(409);
@@ -225,9 +219,7 @@ describe('output nodes', () => {
       expect((await request('POST', '/api/workflows', { body: fileFlow(t, p) })).status, p).toBe(400);
     }
     const c = (await request('POST', '/api/workflows', { body: fileFlow(t, 'ok.md') })).json;
-    // Bypass the validation the way a tampered database would.
     hub.workflowRepo.update(c.id, { graph: line({ id: 'a', kind: 'agent', botId: t.bot.id, prompt: 'x' }, { id: 'f', kind: 'output', target: 'file', path: '../../escape.md' }) });
-    // Run now checks the stored graph again, so nothing starts.
     expect((await request('POST', '/api/workflows/' + c.id + '/run')).status).toBe(400);
     expect(hub.workflowRepo.activeRun(c.id)).toBeUndefined();
     expect(fs.existsSync(path.join(roomsDir, 'escape.md'))).toBe(false);
@@ -259,7 +251,7 @@ describe('routines and triggers that a workflow uses', () => {
     await until(() => hub.workflowRepo.lastRun(c.json.id)?.status === 'success');
     expect(turns.length).toBe(before + 1);
     expect(turns.at(-1)!.injected).toContain('[Workflow "Flow"');
-    expect(hub.repos.listRuns(routine.id)).toHaveLength(0); // no routine run: the workflow run replaced it
+    expect(hub.repos.listRuns(routine.id)).toHaveLength(0);
     expect((await request('DELETE', '/api/routines/' + routine.id)).status).toBe(409);
     await request('DELETE', '/api/workflows/' + c.json.id);
     expect((await request('DELETE', '/api/routines/' + routine.id)).status).toBe(200);

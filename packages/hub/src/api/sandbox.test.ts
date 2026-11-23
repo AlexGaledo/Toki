@@ -4,7 +4,6 @@ import { createHub, type Hub } from '../hub.js';
 import { deviceMayAccess } from './guard.js';
 import { setSandboxProbeForTests } from '../providers/sandbox.js';
 
-/** Bridge P7: the sandbox switch and its status. Only the hub token writes it; a device (a phone) cannot. */
 const TOKEN = 'sandbox-test-hub-token';
 let hub: Hub;
 let port: number;
@@ -62,7 +61,6 @@ describe('sandbox setting and status', () => {
     expect(on.status).toBe(200);
     expect(on.json.sandbox).toBe('on');
     expect((await req('GET', '/api/sandbox/status')).json).toEqual({ available: true, active: true, reason: '' });
-    // Turning it off never needs bubblewrap.
     setSandboxProbeForTests(() => ({ ok: false, reason: 'gone' }));
     expect((await req('PUT', '/api/settings', { sandbox: 'off' })).json.sandbox).toBe('off');
   });

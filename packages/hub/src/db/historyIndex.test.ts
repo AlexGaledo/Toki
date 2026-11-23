@@ -24,7 +24,7 @@ describe('messages_fts (G2)', () => {
     const r = room(repos);
     const m = say(repos, r.id, 'the quarterly invoices are late');
     const find = (q: string) => searchHistory(repos.db, { query: q, roomIds: [r.id], limit: 10 }).map((h) => h.id);
-    expect(find('invoice')).toEqual([m.id]); // porter stemming
+    expect(find('invoice')).toEqual([m.id]);
     repos.updateMessage(m.id, { text: 'payroll discussion only' });
     expect(find('invoices')).toEqual([]);
     expect(find('payroll')).toEqual([m.id]);
@@ -85,11 +85,10 @@ describe('messages_fts (G2)', () => {
       for (let i = 0; i < 10; i++) say(orepos, r.id, 'old note ' + i);
       old.raw.close();
       const db = new Db(file, MIGRATIONS.filter((m) => m.version < 201 || m.version === 201));
-      // The migration batch is large, so shrink the work: reset the cursor and clear the index to replay in small batches.
       db.run('DELETE FROM messages_fts');
       db.run("UPDATE fts_backfill SET next_rowid=0 WHERE name='messages'");
       const repos = new Repos(db);
-      repos.updateMessage(repos.listMessages(r.id)[0].id, { text: 'old note edited' }); // trigger indexes this one early
+      repos.updateMessage(repos.listMessages(r.id)[0].id, { text: 'old note edited' });
       let rounds = 0;
       while (backfillMessagesFts(db.raw, 3)) rounds++;
       expect(rounds).toBeGreaterThanOrEqual(2);

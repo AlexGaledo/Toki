@@ -3,20 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Db } from '../db/db.js';
 
-/**
- * Who changed a shared file, and from where (spec: docs/specs/claude-code-bridge.md, 6.1 and 6.3).
- *
- * Every write the hub can see into a room or project folder becomes a row in `file_revisions`: the owner's uploads
- * and text saves, and a bot's Write/Edit tools (a PostToolUse hook in the Claude provider). A bot's Bash writes are
- * not seen here. Small text files keep their content so a later view can show a diff.
- *
- * `writeText` is the versioned write: the caller passes the hash it last read (`base`), and a file that changed since
- * is refused with its current text instead of overwritten. `decisions.md` is append-only: `appendDecision` is the only
- * way the hub writes it, and the provider hook refuses a bot's own edits to it.
- */
-
+/** `appendDecision` is the only writer of decisions.md; the provider hook refuses a bot's own edits to it. */
 export type RootKind = 'room' | 'project' | 'dm';
-/** A folder whose files are tracked. `key` is the project slug, the room id, or (for a direct chat) the bot id. */
 export interface FileRoot {
   kind: RootKind;
   key: string;
@@ -26,22 +14,17 @@ export interface FileRoot {
 export type AuthorKind = 'owner' | 'owner-cc' | 'bot' | 'persona' | 'offload';
 export interface RevisionAuthor {
   kind: AuthorKind;
-  /** Bot id for bots; null for the owner. */
   id: string | null;
-  /** Shown in history: a bot handle or "owner". */
   label: string;
   machine: 'vps' | 'pc';
-  /** Turn id for a bot, Claude Code session id for a terminal session. */
   sessionId?: string | null;
   roomId?: string | null;
   sources?: string[];
-  /** The tool that wrote it (Write, Edit, upload, write_text, log_decision). */
   tool?: string;
 }
 
 export interface Revision {
   rev: number;
-  /** sha256 of the bytes, or null when the file was deleted. */
   hash: string | null;
   size: number;
   author: { kind: AuthorKind; id: string | null; label: string; machine: string; sessionId: string | null; roomId: string | null };
@@ -55,7 +38,6 @@ export type WriteResult =
   | { ok: false; current: { hash: string | null; text: string | null; rev: Revision | null } };
 
 export const DECISIONS_FILE = 'decisions.md';
-/** Text up to this size is kept with its revision, for diffs. */
 const KEEP_CONTENT_BYTES = 256 * 1024;
 const DECISION_HEADING = /^## (D-\d{4,})\b/gm;
 
@@ -63,7 +45,6 @@ export function hashBytes(buf: Buffer | string): string {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
-/** The file's path inside `root`, with forward slashes, or null when it is outside (or is the root itself). */
 export function relIn(root: FileRoot, abs: string): string | null {
   const rel = path.relative(path.resolve(root.dir), path.resolve(abs));
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
@@ -116,7 +97,6 @@ export class FileRevisions {
     return r ? this.toRevision(r) : null;
   }
 
-  /** Newest first. */
   history(root: FileRoot, rel: string, limit = 20): Revision[] {
     return this.db
       .all<Record<string, unknown>>(
@@ -126,7 +106,6 @@ export class FileRevisions {
       .map((r) => this.toRevision(r));
   }
 
-  /** Text kept with a revision (null when the file was too big, binary, or deleted). */
   contentAt(root: FileRoot, rel: string, rev: number): string | null {
     const r = this.db.get<{ content: string | null }>(
       'SELECT content FROM file_revisions WHERE root_kind = ? AND root_key = ? AND path = ? AND rev = ?',
@@ -135,10 +114,6 @@ export class FileRevisions {
     return r?.content ?? null;
   }
 
-  /**
-   * Records the file as it is on disk now. Nothing is recorded when it matches the last revision (a no-op Edit, or a
-   * write the hub already recorded itself). Returns the new revision, or null.
-   */
   record(root: FileRoot, rel: string, author: RevisionAuthor): Revision | null {
     const buf = readOrNull(path.join(root.dir, rel));
     const hash = buf ? hashBytes(buf) : null;
@@ -156,17 +131,11 @@ export class FileRevisions {
     return this.latest(root, rel);
   }
 
-  /** The file's current text and hash, for a reader that will write it back with `writeText`. */
   readText(root: FileRoot, rel: string): { text: string | null; hash: string | null; rev: Revision | null } {
     const buf = readOrNull(path.join(root.dir, rel));
     return { text: buf ? buf.toString('utf8') : null, hash: buf ? hashBytes(buf) : null, rev: this.latest(root, rel) };
   }
 
-  /**
-   * Versioned write. `base` is the hash the writer last read, or null to say the file must not exist yet. When the
-   * file on disk no longer matches, nothing is written and the current text comes back so the writer can merge.
-   * `decisions.md` is refused: it changes only through `appendDecision`.
-   */
   writeText(root: FileRoot, rel: string, text: string, base: string | null, author: RevisionAuthor): WriteResult {
     if (path.posix.basename(rel).toLowerCase() === DECISIONS_FILE) {
       throw new FileRevisionError(409, DECISIONS_FILE + ' is append-only. Add a decision with log_decision instead.');
@@ -175,8 +144,6 @@ export class FileRevisions {
     const cur = readOrNull(abs);
     const curHash = cur ? hashBytes(cur) : null;
     if (curHash !== base) return { ok: false, current: { hash: curHash, text: cur ? cur.toString('utf8') : null, rev: this.latest(root, rel) } };
-    // A file someone changed without the hub seeing it (a bot's Bash, an editor on the server) gets its own
-    // revision first, so the history does not credit those bytes to this writer.
     if (cur && this.latest(root, rel)?.hash !== curHash) this.record(root, rel, { kind: 'owner', id: null, label: 'unknown', machine: 'vps', tool: 'outside the hub' });
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     const tmp = abs + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
@@ -187,10 +154,7 @@ export class FileRevisions {
     return { ok: true, hash, rev: r?.rev ?? this.latest(root, rel)?.rev ?? 0 };
   }
 
-  /**
-   * Appends one decision to `decisions.md` in the root and returns its id (D-0001, D-0002, ...). Earlier entries are
-   * never touched: a changed decision is a new entry naming the one it supersedes.
-   */
+  /** Earlier entries are never touched. */
   appendDecision(root: FileRoot, a: { title: string; text: string; supersedes?: string[] }, author: RevisionAuthor): { id: string; rev: number } {
     const abs = path.join(root.dir, DECISIONS_FILE);
     const cur = readOrNull(abs)?.toString('utf8') ?? '';
@@ -212,7 +176,6 @@ export class FileRevisions {
     if (author.sources?.length) lines.push('', 'Sources: ' + author.sources.join(', '));
     const head = cur ? '' : '# Decisions\n\nAppend-only. Add one with `log_decision`; to change a decision, add a new one that supersedes it.\n\n';
     const sep = cur && !cur.endsWith('\n\n') ? (cur.endsWith('\n') ? '\n' : '\n\n') : '';
-    // Outside edits since the last recorded revision are recorded first, as in writeText.
     const last = this.latest(root, DECISIONS_FILE);
     if (cur && last?.hash !== hashBytes(cur)) this.record(root, DECISIONS_FILE, { kind: 'owner', id: null, label: 'unknown', machine: 'vps', tool: 'outside the hub' });
     fs.mkdirSync(root.dir, { recursive: true });
@@ -228,13 +191,11 @@ export class FileRevisionError extends Error {
   }
 }
 
-/** True for a write tool or shell command aimed at a root's `decisions.md` (which only log_decision may change). */
 export function decisionsWriteDenied(toolName: string, input: Record<string, unknown>, cwd: string, roots: FileRoot[]): string | null {
   const why = DECISIONS_FILE + ' is append-only and keeps every decision as it was made. Use log_decision to add one; to change one, log a new decision that supersedes it.';
   if (toolName === 'Bash') {
     const cmd = String(input.command ?? '');
     if (!/decisions\.md/i.test(cmd)) return null;
-    // Reading it is fine (cat, grep, head, less); anything that can write, move or delete it is not.
     const writes = [
       />>?\s*['"]?[^\s'"|;&]*decisions\.md/i,
       /\b(tee|mv|rm|cp|truncate|dd|ln)\b[^|;&]*decisions\.md/i,
