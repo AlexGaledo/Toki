@@ -40,6 +40,38 @@ The hub does not print its token, because its output ends up in logs. Read it fr
 and paste it into the prompt the UI shows, with `pnpm start` and on the Vite dev server alike, or open
 `http://127.0.0.1:7788/#token=<token>`. Debug a subprocess with `POCKETROCKET_DEBUG=1`.
 
+## Lint
+
+```bash
+pnpm lint              # ESLint over packages/{hub,web,shared}/src; CI runs it on every PR
+pnpm lint:prune        # after you fix frozen violations: drop them from eslint-suppressions.json
+```
+
+Each rule in `eslint.config.js` is a correction someone had to make once, turned into a check whose message
+names the fix (use `logError()` not `console.error` in the hub, `confirmAction()` not `confirm()`, lucide icons
+only, no hub imports from web/shared, no empty `catch`, no `setTimeout` in web without a reason, React hooks rules).
+`scripts/lint-rules.test.mjs` proves each one fires.
+
+**Ratchet.** The violations that existed when a rule landed are frozen in `eslint-suppressions.json` (ESLint bulk
+suppressions, counted per file and rule). Only new ones fail: one more of a frozen rule in a file fails the lint
+and ESLint then lists every hit of that rule in the file, so look for the line you added. Fixing a frozen one makes
+the count stale, which also fails, until you run `pnpm lint:prune` and commit the smaller file.
+
+**Fix or suppress.** Fix it. If the rule is wrong for this one line, disable it inline and say why after `--`:
+
+```ts
+// eslint-disable-next-line no-restricted-syntax -- the toast fades on a fixed beat, not on a state change
+setTimeout(hide, 4000);
+```
+
+A disable without a reason, a blanket `eslint-disable`, or one that no longer disables anything is an error. Never
+grow `eslint-suppressions.json` by hand or with `--suppress-all` to get a PR green; re-run
+`eslint --suppress-rule <rule> .` only in the PR that adds a new rule.
+
+The root `typescript` devDependency is pinned to 6.0 on purpose: typescript-eslint needs the TypeScript JS API,
+which TypeScript 7 does not ship. The packages still typecheck with their own TypeScript 7. Don't let a bump of
+the root one to 7 land until typescript-eslint supports it (`pnpm lint` fails if it does).
+
 ## Desktop app
 
 Building it additionally requires Rust (MSVC toolchain), Visual Studio Build Tools, WebView2

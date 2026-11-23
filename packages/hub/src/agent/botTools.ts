@@ -101,6 +101,12 @@ export interface ToolCtx {
    * exist, for the same cache reason, and refused inside on a turn the owner did not start.
    */
   proposeRouting?: (line: string, reason: string) => Promise<{ ok: boolean; message: string }>;
+  /**
+   * Adds `propose_rule`: a deny rule (a shell command or a path) with what to do instead, stored and enforced by the
+   * PermissionBroker only if the owner approves the card. Offered on every turn (cache), refused inside on a turn the
+   * owner did not start directly.
+   */
+  proposeRule?: (rule: { kind: 'command' | 'path'; pattern: string; instead: string; reason: string }) => Promise<{ ok: boolean; message: string }>;
   // ---- P3: routine tools ----
   /** Reschedule after a routine tool changed the table (RoutineScheduler.reload). Absent in unit tests. */
   routinesChanged?: () => void;
@@ -932,6 +938,28 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       },
       async (a) => {
         const r = await propose(a.line.replace(/\s+/g, ' ').trim(), a.reason);
+        return r.ok ? text(r.message) : err(r.message);
+      },
+    ));
+  }
+  if (ctx.proposeRule) {
+    const propose = ctx.proposeRule;
+    tools.push(hubTool(
+      'propose_rule',
+      'Turn a correction ' + userName + ' has now given you twice into a rule the hub enforces: it refuses the command or file write ' +
+        'from then on and tells you what to do instead. ' + userName + ' sees the exact rule on an approval card; it is added only if they say yes.',
+      {
+        kind: z.enum(['command', 'path']).describe('command: refuse any shell command containing pattern. path: refuse writing files at or under pattern'),
+        pattern: z.string().min(2).max(200).describe('The command words, like "git push --force", or the file/folder path'),
+        instead: z.string().min(5).max(300).describe('What to do instead, in ' + userName + '\'s words, like "open a PR and let CI merge"'),
+        reason: z.string().min(3).max(200).describe('The correction it comes from'),
+      },
+      async (a) => {
+        const one = (t: string) => t.replace(/\s+/g, ' ').trim();
+        let pattern = one(a.pattern);
+        if (/^[*\s]*$/.test(pattern)) return err('The pattern must name a command or a path, not everything.');
+        if (a.kind === 'path') pattern = path.resolve(WORKSPACE_DIR, pattern);
+        const r = await propose({ kind: a.kind, pattern, instead: one(a.instead), reason: one(a.reason) });
         return r.ok ? text(r.message) : err(r.message);
       },
     ));

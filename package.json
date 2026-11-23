@@ -10,6 +10,8 @@
     "build": "pnpm -r build",
     "start": "pnpm --filter @pocketrocket/hub start",
     "test": "pnpm -r test && node --test \"scripts/*.test.mjs\"",
+    "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ .",
+    "lint:prune": "eslint --cache --cache-location node_modules/.cache/eslint/ --prune-suppressions .",
     "hub:bundle": "node scripts/build-hub.mjs",
     "hub:server-bundle": "node scripts/build-hub-server.mjs",
     "desktop:fetch-node": "node scripts/fetch-node.mjs",
@@ -20,9 +22,15 @@
     "version:sync": "node scripts/version.mjs"
   },
   "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
+    "@eslint/js": "^10.0.1",
     "@resvg/resvg-js": "^2.6.2",
     "esbuild": "^0.25.0",
-    "typescript": "^7.0.2",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.74.0",
     "ws": "^8.22.0"
   },
   "packageManager": "pnpm@10.0.0",

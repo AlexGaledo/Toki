@@ -22,7 +22,7 @@ import type { TurnContext } from '../types.js';
 
 export type AcpPermCtx = Pick<
   TurnContext,
-  'permission' | 'bypassPermissions' | 'strictApprovals' | 'workspaceDir' | 'projectGuard' | 'shipGuard' | 'fileGuard'
+  'permission' | 'bypassPermissions' | 'strictApprovals' | 'workspaceDir' | 'projectGuard' | 'shipGuard' | 'fileGuard' | 'ruleGuard'
 >;
 
 /** One broker question an ACP request turns into. */
@@ -100,6 +100,8 @@ export function brokerAsks(tc: ToolCallUpdate, cwd: string): BrokerAsk[] {
 /** Why a guard that holds even with approvals bypassed refuses this request, or null. */
 function guardRefusal(asks: BrokerAsk[], ctx: AcpPermCtx): string | null {
   for (const a of asks) {
+    const ruled = a.tool === 'Bash' || a.tool === 'Edit' || a.tool === 'Write' ? ctx.ruleGuard?.(a.tool, a.input) : null;
+    if (ruled) return ruled;
     if (a.tool === 'Bash') {
       const cmd = String(a.input.command);
       const why = ctx.shipGuard?.(cmd, ctx.workspaceDir) ?? ctx.projectGuard?.('Bash', a.input, ctx.workspaceDir);

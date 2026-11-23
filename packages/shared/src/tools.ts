@@ -103,6 +103,8 @@ export const HUB_TOOLS: Readonly<Record<string, HubToolClass>> = Object.freeze(O
   ...GOOGLE_WRITE_TOOLS.map((n): [string, HubToolClass] => [n, 'signInOnly']),
   // Its handler calls askRoutingChange.
   ['propose_routing_change', 'askEveryTime'],
+  // A deny rule from a repeated correction; its handler calls askRuleProposal (a card under bypass too).
+  ['propose_rule', 'askEveryTime'],
   // A Claude Code job on the owner's PC; its handler calls askFleetChange with evenUnderBypass.
   ['run_on_pc', 'signInOnly'],
   // Bridge P6: proposes moving a PC session to the VPS, or pulling it back. The card is the proposal; only a browser

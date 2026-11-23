@@ -9,7 +9,7 @@ import {
   ASK_EVERY_TIME_TOOLS, GATED_TOOLS, INTEGRATION_WRITE_TOOLS, SIGN_IN_TOOLS, SILENT_TOOLS,
   type ApprovalPayload, type Bot, type Room,
 } from '@pocketrocket/shared';
-import { patternMatches, type ApprovalStore, type ParkedApproval } from '../db/approvalStore.js';
+import { patternMatches, type ApprovalStore, type ParkedApproval, type StoredPolicy } from '../db/approvalStore.js';
 import { isComputerTool } from './controlInterlock.js';
 import { routingFileWrite } from './readOnlyRoots.js';
 import { redact } from '../providers/redact.js';
@@ -87,6 +87,33 @@ export interface ApprovalGrant {
 }
 
 const PATH_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Glob', 'Grep']);
+/** The PATH_TOOLS that write: what a learned `file_write` rule covers. */
+const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
+
+/**
+ * Corrections become checks: what a bot's `propose_rule` can ask the owner to forbid, and the policy tool each kind is
+ * stored under. A `command` rule refuses a shell command containing the pattern; a `path` rule refuses writing a file
+ * at or under it. Both are deny rules with a message (what to do instead), checked by `learnedRule`.
+ */
+export const RULE_KINDS = { command: 'Bash', path: 'file_write' } as const;
+export type RuleKind = keyof typeof RULE_KINDS;
+
+/**
+ * Whether a shell command contains a learned rule's pattern as whole words, anywhere in it (inside `bash -c '...'`,
+ * after `cd x &&`, ...). Whitespace-normalized and case-insensitive, so it fails closed; a trailing `*` is a prefix match
+ * on the last word. Exported for tests.
+ */
+export function commandMatches(pattern: string, command: string): boolean {
+  const norm = (t: string) => t.replace(/\s+/g, ' ').trim();
+  let p = norm(pattern);
+  const prefix = p.endsWith('*');
+  if (prefix) p = norm(p.slice(0, -1));
+  if (!p) return false;
+  const esc = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const edge = '[\\s;&|()`\'"$]';
+  return new RegExp('(?:^|' + edge + ')' + esc + (prefix ? '' : '(?=$|' + edge + ')'), 'i').test(norm(command));
+}
+
 /** P7: the PATH_TOOLS that only read; they alone may reach a read-only root without a card. */
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep']);
 
@@ -118,6 +145,15 @@ const OUTSIDE_INPUT_CAP = 8000;
 
 /** How long a `request_approval` grant stays valid. */
 export const GRANT_TTL_MS = 10 * 60 * 1000;
+
+/** What a bot reads when a learned rule refuses a call: the rule, no retry, and the owner's "do instead" text. */
+function learnedRuleMessage(rule: StoredPolicy): string {
+  return denyMessage('not_allowed', {
+    subject: rule.tool === RULE_KINDS.command ? 'this command' : 'writing this file',
+    note: 'a rule the user approved forbids "' + rule.pattern + '"',
+    alt: 'instead: ' + rule.message,
+  });
+}
 
 export class PermissionBroker {
   private pending = new Map<string, Pending>();
@@ -180,6 +216,10 @@ export class PermissionBroker {
     // Before bypass and before any card: nothing can approve a bot writing the owner's routing rules.
     const refused = routingFileWrite(toolName, input, WORKSPACE_DIR);
     if (refused) return { behavior: 'deny', message: refused };
+    // A rule the owner approved from this bot's correction: ahead of bypass and of the shell allowlist, since the owner
+    // already said no to exactly this.
+    const learned = this.learnedRule(ctx.bot.id, toolName, input);
+    if (learned) return { behavior: 'deny', message: learned };
     // P2: the control interlock runs before bypass. It is a safety stop, not an approval.
     if (isComputerTool(toolName)) {
       const why = ctx.controlBlocked?.();
@@ -232,6 +272,24 @@ export class PermissionBroker {
     if (rule === 'allow') return { behavior: 'allow' };
     if (rule === 'deny') return { behavior: 'deny', message: denyMessage('declined', { note: 'an approval rule the user set denies this', alt: 'choose another approach or ask in chat' }) };
     return this.promptUser(ctx, toolName, input, reason, danger, opts);
+  }
+
+  /**
+   * The refusal for a call a learned rule (propose_rule, approved by the owner) forbids, with the owner's "do instead"
+   * text, or null. Covers Bash (`command` rules) and the file-writing tools (`path` rules).
+   */
+  learnedRule(botId: string, toolName: string, input: Record<string, unknown>): string | null {
+    const store = this.opts.store;
+    if (!store) return null;
+    const isBash = toolName === 'Bash';
+    if (!isBash && !WRITE_TOOLS.has(toolName)) return null;
+    const rules = store.listPolicies(botId, 'all').filter((p) => p.decision === 'deny' && !!p.message);
+    if (!rules.length) return null;
+    const hit = (p: StoredPolicy) => isBash
+      ? p.tool === RULE_KINDS.command && commandMatches(p.pattern, String(input.command ?? ''))
+      : p.tool === RULE_KINDS.path && pathsFromInput(toolName, input).some((x) => isInside(x, [p.pattern], WORKSPACE_DIR));
+    const rule = rules.find(hit);
+    return rule ? learnedRuleMessage(rule) : null;
   }
 
   /** A shell command's write into a read-only root (the knowledge repo), if the command line shows one. */
@@ -361,6 +419,9 @@ export class PermissionBroker {
   ): Promise<{ allowed: boolean; message: string; approvalId?: string }> {
     const refused = req.command ? routingFileWrite('Bash', { command: req.command }, WORKSPACE_DIR) : null;
     if (refused) return { allowed: false, message: refused };
+    const learned = (req.command ? this.learnedRule(ctx.bot.id, 'Bash', { command: req.command }) : null)
+      ?? (req.paths ?? []).map((p) => this.learnedRule(ctx.bot.id, 'Write', { file_path: p })).find(Boolean) ?? null;
+    if (learned) return { allowed: false, message: learned };
     if (this.opts.globalReadOnly?.()) {
       const v = req.command ? classifyBash(req.command, botRoots(ctx.bot.id, ctx.room.id), { readOnlyRoots: this.opts.readOnlyRoots?.() ?? [] }) : null;
       if (!v || v.verdict !== 'allow') return { allowed: false, message: denyMessage('readonly', { subject: 'every write on this hub', alt: 'choose another approach or ask in chat' }) };
@@ -511,6 +572,30 @@ export class PermissionBroker {
     const { decision } = await this.prompt(ctx, 'propose_routing_change', input, 'Add this line to your routing rules', false, { signal });
     if (decision === 'allow' || decision === 'always') return { allowed: true, message: 'Approved by the user.' };
     return { allowed: false, message: denyMessage('declined', { subject: 'this routing line', note: 'it was not added', alt: 'do not propose it again; carry on with the routing rules as they are' }) };
+  }
+
+  /**
+   * A deny rule a bot proposes after the owner corrected the same thing twice (propose_rule). Asks on every call, under
+   * bypass too, and no rule can pre-approve it: the owner reads the exact rule and its "do instead" text on the card.
+   * On yes the rule is stored for this bot and `learnedRule` enforces it from the next call on.
+   */
+  async askRuleProposal(
+    ctx: PermCtx,
+    input: { kind: RuleKind; pattern: string; instead: string; reason: string },
+    signal: AbortSignal,
+  ): Promise<{ allowed: boolean; message: string }> {
+    const reason = 'Add a rule for @' + ctx.bot.handle + ': never ' + (input.kind === 'command' ? 'run a command containing' : 'write files at or under') +
+      ' "' + input.pattern + '". It will be told instead: ' + input.instead;
+    const { decision } = await this.prompt(ctx, 'propose_rule', input, reason, false, { signal, once: true });
+    if (decision !== 'allow' && decision !== 'always') {
+      return { allowed: false, message: denyMessage('declined', { subject: 'this rule', note: 'it was not added', alt: 'do not propose it again; keep following what the user said in chat' }) };
+    }
+    const store = this.opts.store;
+    if (store) {
+      store.addPolicy({ botId: ctx.bot.id, tool: RULE_KINDS[input.kind], pattern: input.pattern, decision: 'deny', scope: 'always', message: input.instead });
+      events.emitEvent({ type: 'policies.changed', policies: store.listPolicies().map(({ scope: _scope, ...p }) => p) });
+    }
+    return { allowed: true, message: 'Rule added. From now on that is refused with: ' + input.instead };
   }
 
   /**

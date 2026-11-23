@@ -162,6 +162,17 @@ describe('ACP permission mapping', () => {
     expect(await s.decide(req({ kind: 'execute', rawInput: { command: 'git push origin main' } }))).toEqual(selected('no'));
     s.off();
   });
+
+  it('a rule the owner approved refuses under bypass too, for commands and writes', async () => {
+    const s = setup({ bypass: true });
+    s.ctx.ruleGuard = (tool, input) =>
+      tool === 'Bash' && /push --force/.test(String(input.command)) ? 'open a PR instead'
+        : tool !== 'Bash' && String(input.file_path ?? '').startsWith(INSIDE) ? 'leave that folder alone' : null;
+    expect(await s.decide(req({ kind: 'execute', rawInput: { command: 'git push --force' } }))).toEqual(selected('no'));
+    expect(await s.decide(req({ kind: 'edit', locations: [{ path: INSIDE }] }))).toEqual(selected('no'));
+    expect(await s.decide(req({ kind: 'execute', rawInput: { command: 'git status' } }))).not.toEqual(selected('no'));
+    s.off();
+  });
 });
 
 describe('strict mode choice', () => {

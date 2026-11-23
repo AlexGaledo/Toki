@@ -95,7 +95,7 @@ export function WorkflowPage({ id }: { id: string }) {
   const dirty = !!draft && !!saved && JSON.stringify(draft) !== JSON.stringify(saved);
   useEffect(() => { hasUnsaved = dirty; return () => { hasUnsaved = false; }; }, [dirty]);
   const savedKey = wf ? wf.id + ':' + wf.updatedAt : '';
-  useEffect(() => { if (saved && (!draft || !dirty)) setDraft(saved); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [savedKey]);
+  useEffect(() => { if (saved && (!draft || !dirty)) setDraft(saved); }, [savedKey]); // eslint-disable-line react-hooks/exhaustive-deps -- re-sync only when the saved version changes, never on draft edits
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pick, setPick] = useState<View | null>(null);
