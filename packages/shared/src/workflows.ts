@@ -130,6 +130,7 @@ export interface WorkflowRun extends WorkflowRunSummary {
   steps: WorkflowStepResult[];
 }
 
+/** Only this card answers it: no bot, chat text or cta button can. */
 export interface WorkflowApprovalCard {
   runId: string;
   workflowId: string;

@@ -14,6 +14,7 @@ import type { WorkflowApprovalCard, WorkflowRunSummary } from './workflows.js';
 
 export interface ContextUsage { contextTokens: number; window: number; rotateAt: number | null }
 
+/** Set by the hub, never by the bot. */
 export const MessageVerificationSchema = z.object({
   state: z.literal('unverified'),
   reason: z.string().max(200),
@@ -21,7 +22,7 @@ export const MessageVerificationSchema = z.object({
 export type MessageVerification = z.infer<typeof MessageVerificationSchema>;
 
 export type ServerEvent =
-  | { type: 'hello'; bots: Bot[]; rooms: Room[]; botStates: Record<string, BotState>; settings: Settings; principal?: 'hub' | 'device'; signedIn?: boolean; openApprovals?: OpenApproval[] }
+  | { type: 'hello'; bots: Bot[]; rooms: Room[]; botStates: Record<string, BotState>; settings: Settings; principal?: 'hub' | 'device'; /** Carries an owner password session, so it may allow sign-in-required cards. */ signedIn?: boolean; openApprovals?: OpenApproval[] }
   | { type: 'settings.changed'; settings: Settings }
   | { type: 'providers.changed'; active: ProviderId }
   | { type: 'provider.limit'; limits: ProviderLimitState[] }
@@ -112,6 +113,7 @@ export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 export interface StoredFileMeta {
   ref: string;
+  /** Never used as a path on the hub. */
   name: string;
   type: string;
   size: number;
@@ -134,6 +136,7 @@ export const BotInputSchema = z.object({
   maxBudgetUsd: z.number().min(0.05).max(50).default(50),
   autoMemory: z.boolean().optional(),
   autoMemoryEvery: z.number().int().min(AUTO_MEMORY_EVERY.min).max(AUTO_MEMORY_EVERY.max).optional(),
+  /** Owner only: the bot tools refuse both. */
   provider: z.enum(PROVIDER_IDS).nullable().optional(),
   backup: z.object({ provider: z.enum(PROVIDER_IDS), model: z.string().min(1).max(80) }).nullable().optional(),
 });

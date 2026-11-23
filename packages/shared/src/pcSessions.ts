@@ -85,6 +85,7 @@ export interface PcSessionMove {
   room: string | null;
   project: string | null;
   repos: { project: string; repo: string; branch: string }[];
+  /** Never a path. */
   worktree: string | null;
   movedAt: number;
   pulledAt: number | null;

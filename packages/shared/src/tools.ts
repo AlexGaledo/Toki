@@ -56,11 +56,13 @@ export const HUB_TOOLS: Readonly<Record<string, HubToolClass>> = Object.freeze(O
     'search_notes', 'write_note',
     'read_skill',
     'create_task', 'update_task', 'list_tasks', 'search_history', 'recall_memory', 'report_blocked', 'send_feedback',
+    // Carries no secret: secret-looking labels and answers are refused.
     'request_form',
     'log_decision', 'file_history',
     'list_repos',
   ]),
   ...silent(DESKTOP_TOOL_NAMES),
+  // Untrusted output is labelled as such.
   ...silent(INTEGRATION_READ_TOOLS),
   ...gated([
     'create_bot', 'update_bot', 'delete_bot', 'create_room', 'delete_room', 'add_to_room', 'remove_from_room',
@@ -73,9 +75,13 @@ export const HUB_TOOLS: Readonly<Record<string, HubToolClass>> = Object.freeze(O
   // which a bot under bypass can read, cannot.
   ...GOOGLE_WRITE_TOOLS.map((n): [string, HubToolClass] => [n, 'signInOnly']),
   ['propose_routing_change', 'askEveryTime'],
+  // A card under bypass too.
   ['propose_rule', 'askEveryTime'],
+  // Asks even under bypass.
   ['run_on_pc', 'signInOnly'],
+  // Only a password-signed-in browser may allow it, and the PC asks again before running anything.
   ['propose_move', 'signInOnly'],
+  // Asked on every call, under bypass too; only a signed-in browser may allow it.
   ['fill_credential', 'signInOnly'],
   ['read_owner_messages', 'unlisted'],
   ['read_any_room', 'unlisted'],
@@ -92,4 +98,5 @@ const where = (pred: (c: HubToolClass) => boolean): ReadonlySet<string> =>
 export const SILENT_TOOLS: ReadonlySet<string> = where((c) => c === 'silent');
 export const GATED_TOOLS: ReadonlySet<string> = where((c) => c === 'gated' || c === 'askEveryTime' || c === 'signInOnly');
 export const ASK_EVERY_TIME_TOOLS: ReadonlySet<string> = where((c) => c === 'askEveryTime' || c === 'signInOnly');
+/** Cards only a browser signed in with the owner's password may allow. */
 export const SIGN_IN_TOOLS: ReadonlySet<string> = where((c) => c === 'signInOnly');

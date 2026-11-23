@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+/** The hub never stores a path on the owner's PC. */
 export const REPO_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,40}$/;
 export const REPO_SYNC_MODES = ['wip-branch', 'bundle', 'none'] as const;
 export type RepoSyncMode = (typeof REPO_SYNC_MODES)[number];
@@ -114,6 +115,7 @@ export interface PcSyncJobInfo {
   repo: string;
   remote: string;
   mode: 'wip-branch' | 'bundle';
+  /** A sync never touches one. */
   protected: string[];
 }
 

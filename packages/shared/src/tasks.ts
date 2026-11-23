@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+/** Local to the hub: never syncs anywhere and never grants anything. */
 export const TASK_STATUSES = ['todo', 'doing', 'done', 'blocked'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 

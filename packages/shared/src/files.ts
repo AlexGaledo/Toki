@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+// Hub token only; a paired device is refused.
 export type RoomFolderKind = 'project' | 'room' | 'dm';
 
 export interface FileEntry {

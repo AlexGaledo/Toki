@@ -21,6 +21,7 @@ export interface User {
   createdAt: number;
 }
 
+/** Never carries the token or its hash. */
 export interface UserSessionInfo {
   id: string;
   userAgent: string | null;
@@ -31,6 +32,7 @@ export interface UserSessionInfo {
   current: boolean;
 }
 
+/** Labels and ids only, never request bodies. */
 export interface AuditEntry {
   id: number;
   at: number;
@@ -153,6 +155,7 @@ export interface ApprovalPayload {
   danger: boolean;
   status: 'pending' | 'allow' | 'always' | 'deny' | 'timeout' | 'expired';
   parked?: boolean;
+  /** "always" is never remembered, so the card does not offer it. */
   once?: boolean;
   /** Only a browser signed in with the owner's password may allow it (a job on the PC); the hub token may only deny. */
   signInRequired?: boolean;
@@ -440,6 +443,7 @@ export interface ApprovalPolicy {
   createdAt: number;
   machine?: string | null;
   expiresAt?: number | null;
+  /** A rule with a message is checked before bypass and before the shell allowlist. */
   message?: string | null;
 }
 

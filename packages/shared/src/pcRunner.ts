@@ -24,6 +24,7 @@ export interface PcRunnerJob {
   newSessionId: string | null;
   prompt: string;
   status: PcJobStatus;
+  /** Redacted and capped by the hub. Plain text. */
   output: string | null;
   costUsd: number | null;
   durationMs: number | null;
@@ -41,6 +42,7 @@ export interface PcRunnerJob {
   pullResult: PcPullResult | null;
 }
 
+/** Bundle mode only, and never a client repo. */
 export type PcMoveRepoInfo = PcSyncJobInfo & { mode: 'bundle' };
 
 export interface PcMoveJobInfo {

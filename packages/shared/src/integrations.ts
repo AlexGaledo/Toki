@@ -1,3 +1,4 @@
+// The hub holds every credential; these shapes carry no secret.
 import { z } from 'zod';
 
 export const INTEGRATION_PROVIDERS = ['github', 'google', 'slack', 'clickup', 'teams'] as const;
@@ -23,6 +24,7 @@ export interface IntegrationInfo {
   hasAppToken?: boolean;
 }
 
+/** The secret is never sent back, only whether one is stored. */
 export interface OAuthAppStatus {
   configured: boolean;
   clientId: string | null;
@@ -63,6 +65,7 @@ export type TokenConnectInput = z.infer<typeof TokenConnectSchema>;
 
 export const IntegrationGrantsSchema = z.object({ botIds: z.array(z.string()).max(200) });
 
+/** No token and no chat id in here. */
 export interface TelegramState {
   configured: boolean;
   botUsername: string | null;

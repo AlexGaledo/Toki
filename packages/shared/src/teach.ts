@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+/** Never the value. */
 export const SECRET_PLACEHOLDER = '«secret»';
 
 export interface RecordingInfo {
