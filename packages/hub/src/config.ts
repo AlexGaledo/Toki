@@ -224,9 +224,11 @@ export const CAUSE_COST_CAP_USD = causeCostCap();
  * This is not the runaway-cost brake — `maxBudgetUsd` is, and it is enforced live inside the run — so this
  * only has to catch a loop that is cheap but endless. 40 was tuned for chat and is too tight for computer
  * use, where every navigate, snapshot, click and keystroke costs a step: reading a few pages and writing a
- * file can pass 50 on its own. Whatever is left over is picked up by MAX_TURN_CONTINUATIONS.
+ * file can pass 50 on its own, and a design or coding job (read, edit, build, screenshot, fix) easily passes 30.
+ * Whatever is left over is picked up by MAX_TURN_CONTINUATIONS. The token brake (TURN_CACHE_READ_CAP) is what stops
+ * a runaway turn, so this can be generous.
  */
-export const MAX_TURNS_PER_QUERY = Number(process.env.MAX_TURNS_PER_QUERY ?? 30);
+export const MAX_TURNS_PER_QUERY = Number(process.env.MAX_TURNS_PER_QUERY ?? 100);
 /**
  * How many times a turn that ran out of steps may be resumed to finish the job.
  *
@@ -234,11 +236,13 @@ export const MAX_TURNS_PER_QUERY = Number(process.env.MAX_TURNS_PER_QUERY ?? 30)
  * A continuation is cheaper and safer: the session is resumed, so the model keeps its context, and every
  * hop is re-checked against the bot's per-turn budget and its abort signal before it starts. 0 disables.
  */
-export const MAX_TURN_CONTINUATIONS = Number(process.env.MAX_TURN_CONTINUATIONS ?? 1);
+export const MAX_TURN_CONTINUATIONS = Number(process.env.MAX_TURN_CONTINUATIONS ?? 3);
 /**
  * A turn cut off by the token brake, or by the step limit after its continuations, was not finished: nobody hears back
- * and a hand-off chain stops there. RoomRouter queues the same bot again in a fresh, small session (seeded with the
- * room summary) up to this many times per request, then hands the job to the room's coordinator.
+ * and a hand-off chain stops there. RoomRouter queues the same bot again up to this many times per request, then hands
+ * the job to the room's coordinator. A step-limit cut resumes the same session (it keeps its place) unless the
+ * session is too large or unmeasured (see rotationReason); a token-brake cut starts a fresh, small one seeded with the
+ * room summary.
  */
 export const CUTOFF_RETRIES = Number(process.env.CUTOFF_RETRIES ?? 2);
 /**

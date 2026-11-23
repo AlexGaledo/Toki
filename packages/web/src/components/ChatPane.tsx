@@ -3,7 +3,7 @@ import { ArrowDown, ArrowRightLeft, Check, ChevronDown, Clock, Download, FileTex
 import { CHAT_MODELS, MODELS } from '@pocketrocket/shared';
 import { TokiMark } from './TokiMark';
 import { ChatHeader } from './ChatHeader';
-import type { ApprovalPayload, Bot, HandoffPayload, HandoffResultPayload, Message, Room, RoutinePayload, TakeoverPayload, TurnFailurePayload } from '@pocketrocket/shared';
+import type { ApprovalPayload, Bot, HandoffPayload, HandoffResultPayload, Message, Room, RoutinePayload, TakeoverPayload, TurnFailurePayload, VerificationPayload } from '@pocketrocket/shared';
 import type { Approvals, TriggerPayload } from '@pocketrocket/shared';
 import { useStore, selectActiveRoom, botById } from '../store';
 import { api, ApiError } from '../lib/api';
@@ -467,16 +467,31 @@ function Item({ m, bots }: { m: Message; bots: Bot[] }) {
     default: {
       // A bot outside this chat reporting back: its work is in its own chat.
       const work = m.kind === 'text' ? (m.payload as HandoffResultPayload | null)?.workRoomId : undefined;
+      const verification = m.kind === 'text' ? (m.payload as Partial<VerificationPayload> | null)?.verification : undefined;
       return (
         <div data-seq={m.seq} className="md w-fit max-w-full rounded-xl rounded-bl-xs bg-card2 px-4 py-2.5 text-body">
           <RichText text={m.text} bots={bots} />
           {m.attachments?.length ? <Attachments refs={m.attachments} /> : null}
           {work && <OpenChat roomId={work} />}
           {m.kind === 'text' && <CtaButtons payload={m.payload} />}
+          {verification && <UnverifiedBadge reason={verification.reason} />}
         </div>
       );
     }
   }
+}
+
+/** B1: the hub saw this turn change files and run no test, build or screenshot after. A quiet label, not a warning. */
+function UnverifiedBadge({ reason }: { reason: string }) {
+  return (
+    <div className="mt-1.5">
+      <Tooltip content={reason}>
+        <span tabIndex={0} className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-card px-2 py-0.5 text-hint text-muted ring-1 ring-line">
+          unverified<span className="sr-only">: {reason}</span>
+        </span>
+      </Tooltip>
+    </div>
+  );
 }
 
 function OpenChat({ roomId }: { roomId: string }) {
