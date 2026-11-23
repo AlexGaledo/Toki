@@ -11,8 +11,6 @@ import { KnowledgeRepo, knowledgeSourceError } from './KnowledgeRepo.js';
 import { SettingsRejected, SettingsStore } from './SettingsStore.js';
 import { parseGitSource, type GitRunner } from './git.js';
 
-/** P7 (7.1): the knowledge repo source is validated, cloned/linked, pulled, and never handed to a shell. */
-
 const tmps: string[] = [];
 const tmp = (p = 'prc-know-') => {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), p));
@@ -26,7 +24,6 @@ afterAll(() => {
 const g = (cwd: string, ...args: string[]) =>
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'init.defaultBranch=main', ...args], { cwd, stdio: 'pipe' }).toString();
 
-/** A source repo with one committed file; returns its folder and a file:// URL for it. */
 function sourceRepo() {
   const dir = tmp('prc-src-');
   g(dir, 'init', '-q');
@@ -79,7 +76,6 @@ describe('KnowledgeRepo.sync', () => {
       return args.includes('rev-parse') ? 'abc1234\n' : '';
     };
     const url = 'https://example.com/kb.git; touch pwned';
-    // A URL with a space is refused by parseGitSource; use a legal-but-nasty one instead.
     const legal = 'https://example.com/$(touch%20pwned).git';
     expect(typeof parseGitSource(url)).toBe('string');
     const k = new KnowledgeRepo({ repos: new Repos(new Db(':memory:')), source: () => legal, dir: path.join(tmp(), 'knowledge'), git });
@@ -113,7 +109,7 @@ describe('KnowledgeRepo.sync', () => {
     const dir = path.join(tmp(), 'knowledge');
     const k = new KnowledgeRepo({ repos: new Repos(new Db(':memory:')), source: () => src.url, dir });
     await k.sync();
-    fs.rmSync(src.dir, { recursive: true, force: true }); // the remote is gone
+    fs.rmSync(src.dir, { recursive: true, force: true });
     const s = await k.sync();
     expect(s.lastError).toBeTruthy();
     expect(s.mode).toBe('clone');
@@ -155,7 +151,7 @@ describe('KnowledgeRepo.sync', () => {
     expect(k.activeDir()).toBeNull();
     await k.sync();
     expect(k.activeDir()).not.toBeNull();
-    source = 'https://example.com/other.git'; // changed in Settings, not synced yet
+    source = 'https://example.com/other.git';
     expect(k.activeDir()).toBeNull();
   });
 });

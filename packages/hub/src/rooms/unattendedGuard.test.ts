@@ -8,12 +8,6 @@ import type { AgentProvider } from '../providers/types.js';
 import { unattendedRefusal } from '../providers/unattended.js';
 import { RoomRouter } from './RoomRouter.js';
 
-/**
- * M7 (P2-3), spec 01 §4.6 and 05 §01 #1: Gemini on a Google login runs only turns a person is behind. Routines,
- * triggers and workflow steps are refused with a note, unless `agy` itself reports API-key auth. A bug here is a
- * terms breach, so the negatives matter most.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -114,7 +108,6 @@ describe('RoomRouter guard', () => {
     s.block(true);
     s.router.onUserMessage(s.room.id, 'first');
     await until(() => s.reqs.length === 1);
-    // While the first turn runs, a routine and a person's message queue in the same lane.
     s.router.fireRoutine(s.room, s.bot, '[Routine "n"] go', { routineId: 'r1', runId: 'run1', name: 'n' });
     s.router.onUserMessage(s.room.id, 'second', undefined, undefined, 'queue');
     await tick();

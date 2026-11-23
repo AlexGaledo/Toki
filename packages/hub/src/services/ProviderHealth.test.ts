@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { ProviderLimitState } from '@pocketrocket/shared';
 import { DEFAULT_HOLD_MS, ProviderHealth, limitModel } from './ProviderHealth.js';
 
-/** M5 (spec 01 P0-2): in-memory holds per (provider, model?) until the reset, on a fake clock. */
 function setup() {
   let t = 1_000_000;
   const changes: ProviderLimitState[][] = [];
@@ -16,7 +15,7 @@ describe('ProviderHealth', () => {
     const resetsAt = s.now() + 3_600_000;
     s.health.hold('claude', { kind: 'usage', resetsAt, window: 'five_hour' }, 'claude-sonnet-5');
     expect(s.health.isHeld('claude')).toBe(true);
-    expect(s.health.isHeld('claude', 'claude-opus-5')).toBe(true); // a whole-login window covers every model
+    expect(s.health.isHeld('claude', 'claude-opus-5')).toBe(true);
     expect(s.health.list()).toEqual([
       { provider: 'claude', status: 'held', kind: 'usage', window: 'five_hour', resetsAt, until: resetsAt, at: s.now() },
     ]);
@@ -76,7 +75,6 @@ describe('ProviderHealth', () => {
     expect(s.health.isHeld('claude')).toBe(false);
     expect(s.changes).toHaveLength(before + 1);
     expect(s.changes.at(-1)).toEqual([]);
-    // Nothing to clear: no event.
     s.health.report('claude', { status: 'allowed', kind: 'usage', window: 'five_hour' });
     expect(s.changes).toHaveLength(before + 1);
   });

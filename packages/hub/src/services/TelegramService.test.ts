@@ -29,7 +29,6 @@ let updates: unknown[];
 function method(c: FakeCall) { return c.url.pathname.split('/').pop(); }
 function callsTo(m: string) { return f.calls.filter((c) => method(c) === m); }
 const user = (over: Record<string, unknown> = {}) => ({ id: OWNER, is_bot: false, first_name: 'Ada', last_name: 'L', username: 'ada_l_private', ...over });
-/** One incoming message update. `date` defaults to "now" on the fake clock. */
 function msg(id: number, text: string, over: { chat?: Record<string, unknown>; from?: Record<string, unknown>; date?: number } = {}) {
   return {
     update_id: id,
@@ -94,7 +93,6 @@ describe('token (A1)', () => {
     expect(err.message).toContain('Unauthorized');
     expect(err.message).not.toContain(TOKEN);
     expect(vault.get('telegram')).toBeNull();
-    // Not even shaped like a token: refused without a request.
     f.calls.length = 0;
     const junk = await build().setToken('../../etc/passwd').catch((e) => e);
     expect(junk.status).toBe(400);
@@ -128,7 +126,6 @@ describe('token (A1)', () => {
     clearSecrets();
     expect(redact('GET /bot' + TOKEN + '/getMe failed')).toBe('GET /bot[redacted]/getMe failed');
     expect(redact('timestamp 1700000000 and 1700000000:short')).toBe('timestamp 1700000000 and 1700000000:short');
-    // A saved token is registered on load, before any request is made.
     clearSecrets();
     const odd = '55555555:' + 'x'.repeat(10) + '#odd';
     vault.set('telegram', { token: odd });
@@ -161,7 +158,6 @@ describe('link flow (A2)', () => {
     expect(s.pendingCode!.code).toMatch(/^[A-Z2-7]{10}$/);
     expect(s.pendingCode!.deepLink).toBe('https://t.me/rocket_notify_bot?start=' + s.pendingCode!.code);
     expect(s.pendingCode!.expiresAt).toBe(T0 + LINK_TTL_MS);
-    // Codes differ between issues.
     const again = await svc.link();
     expect(again.pendingCode!.code).not.toBe(s.pendingCode!.code);
     svc.stop();
@@ -210,7 +206,7 @@ describe('link flow (A2)', () => {
     updates = [
       msg(30, '/start ' + CODE, { chat: { id: -100, type: 'supergroup' } }),
       msg(31, '/start ' + CODE, { from: { is_bot: true } }),
-      msg(32, '/start ' + CODE, { from: { id: 999 } }), // from.id !== chat.id
+      msg(32, '/start ' + CODE, { from: { id: 999 } }),
       msg(33, '/start ' + CODE, { date: before }),
       msg(34, '/start WRONGCODE9'),
       msg(35, 'just chatting'),
@@ -218,7 +214,6 @@ describe('link flow (A2)', () => {
     await svc.pollOnce(0);
     expect(svc.state().linked).toBe(false);
     expect(svc.state().pendingCode).not.toBeNull();
-    // Expired: the right code after ten minutes does nothing, and the code is gone.
     clock += LINK_TTL_MS + 1000;
     updates = [msg(36, '/start ' + CODE)];
     await svc.pollOnce(0).catch(() => {});
@@ -291,7 +286,6 @@ describe('link flow (A2)', () => {
     expect(Date.now() - t).toBeLessThan(50);
     expect(hung!.aborted).toBe(true);
     expect(svc.state().pendingCode).toBeNull();
-    // The loop ended quietly: no error is surfaced for an abort the hub asked for.
     expect(svc.state().error).toBeNull();
   });
 
@@ -370,12 +364,11 @@ describe('Telegram as a notification sink (A3)', () => {
     push.notify('approval');
     await flush();
     expect(callsTo('sendMessage')).toHaveLength(1);
-    // A phone subscribing now is not held back by Telegram's stamp: it has none yet, so it gets this one.
     devices.upsertSubscription(sub);
     push.notify('approval');
     await flush();
     expect(callsTo('sendMessage')).toHaveLength(1);
-    expect(webSent).toHaveLength(0); // no VAPID key in this test: the web sink tried and failed, it did not throw
+    expect(webSent).toHaveLength(0);
     advance(21_000);
     push.notify('approval');
     await flush();

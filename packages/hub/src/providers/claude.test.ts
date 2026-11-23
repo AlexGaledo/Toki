@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Only execFile is faked; check() never spawns anything else, and the SDK keeps the real module.
 const execFile = vi.fn();
 vi.mock('node:child_process', async (importOriginal) => ({
   ...(await importOriginal<typeof import('node:child_process')>()),
@@ -12,7 +11,6 @@ vi.mock('node:child_process', async (importOriginal) => ({
 
 type Callback = (err: (Error & { killed?: boolean }) | null, stdout: string, stderr: string) => void;
 
-/** Answers `--version` and `auth status` the way the real CLI would. */
 function fakeCli(answers: { version?: string | 'timeout' | 'fail'; auth?: string }) {
   execFile.mockImplementation((_exe: string, args: string[], _opts: unknown, cb: Callback) => {
     if (args[0] === '--version') {
@@ -42,7 +40,6 @@ describe('claude check()', () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-claude-'));
     exe = path.join(dir, 'claude.exe');
     fs.writeFileSync(exe, '');
-    // CLAUDE_EXE is read once at import, so each test sets it and imports afresh.
     process.env.CLAUDE_EXE = exe;
     delete process.env.ANTHROPIC_API_KEY;
   });

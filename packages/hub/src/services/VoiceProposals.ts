@@ -4,16 +4,10 @@ import type { Repos } from '../db/repos.js';
 import { events } from '../events.js';
 import type { MemoryService } from './MemoryService.js';
 
-/** Pending proposals kept per bot; older ones drop off when AutoMemory adds more. */
 export const MAX_PENDING_VOICE = 10;
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
-/**
- * P7 (7.2): style notes for a bot's voice.md that AutoMemory *proposes*. Nothing reaches voice.md until the
- * user approves it in the Memory tab, because voice.md rides every prompt: an auto-applied note would be a
- * standing instruction nobody agreed to.
- */
 export class VoiceProposals {
   constructor(private repos: Repos, private memory: MemoryService) {}
 
@@ -25,7 +19,6 @@ export class VoiceProposals {
       .map((r) => ({ id: r.id, botId: r.bot_id, text: r.text, createdAt: r.created_at }));
   }
 
-  /** Stores the notes that are not already in voice.md or pending. Returns how many were added. */
   propose(botId: string, notes: string[]): number {
     const seen = new Set([
       ...this.memory.readVoice(botId).split('\n').map((l) => normalize(l.replace(/^[\s\-*]+/, ''))),
@@ -46,7 +39,6 @@ export class VoiceProposals {
     return added;
   }
 
-  /** Approve: append the note to voice.md as a bullet. Dismiss: drop it. Returns false for an unknown id. */
   decide(botId: string, id: string, decision: 'approve' | 'dismiss'): boolean {
     const p = this.list(botId).find((x) => x.id === id);
     if (!p) return false;

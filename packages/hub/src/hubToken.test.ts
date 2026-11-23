@@ -5,12 +5,6 @@ import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-/**
- * Audit 2026-09-09, B3 / D3: the hub must never run unauthenticated. `config.ts` reads DATA_DIR at import
- * time, so this exercises `ensureHubToken` in a child process with its own POCKETROCKET_DATA rather than
- * trying to re-import the module with different environment.
- */
-
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 let tmp: string;
 let script: string;
@@ -113,7 +107,6 @@ describe('hub startup output', () => {
     return out;
   }
 
-  /** Requests that present the token, in the header and in the query, so request logging would show up too. */
   async function touch(port: number, token: string): Promise<number> {
     await fetch('http://127.0.0.1:' + port + '/api/bots?token=' + token);
     const res = await fetch('http://127.0.0.1:' + port + '/api/bots', { headers: { authorization: 'Bearer ' + token } });
@@ -161,7 +154,7 @@ describe('hub startup output', () => {
 
   it('says so when the token cannot be stored, and still does not print it', async () => {
     const dir = path.join(tmp, 'startup-unwritable');
-    fs.mkdirSync(path.join(dir, 'hub-token'), { recursive: true }); // a directory: unreadable and unwritable as a file
+    fs.mkdirSync(path.join(dir, 'hub-token'), { recursive: true });
     const out = await withHub({ POCKETROCKET_TOKEN: '', POCKETROCKET_DATA: dir }, async () => undefined);
     expect(out).toMatch(/could not write .*POCKETROCKET_TOKEN/);
     expect(out).not.toContain('#token=');

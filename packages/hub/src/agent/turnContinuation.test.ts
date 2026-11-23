@@ -12,13 +12,6 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner } from './BotRunner.js';
 import { MAX_TURN_CONTINUATIONS, MAX_TURNS_PER_QUERY } from '../config.js';
 
-/**
- * Running out of steps is an unfinished job, not a failure: BotRunner resumes the session instead of
- * handing back a dead turn. The bound matters as much as the behaviour — a bot looping forever must still
- * stop, so these pin the limit, the budget brake and the abort path as well as the happy case.
- */
-
-/** Answers with a scripted sequence of outcomes, recording the context it was handed each time. */
 class ScriptedProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Scripted';
@@ -64,7 +57,6 @@ describe('a turn that runs out of steps is continued, not abandoned', () => {
     expect(s.provider.seen).toHaveLength(2);
     expect(r.ok).toBe(true);
     expect(r.error).toBeUndefined();
-    // The continuation resumes the session the first run reported, and tells the model to carry on.
     expect(s.provider.seen[1].resumeToken).toBe('session-1');
     expect(s.provider.seen[1].input).toContain('Continue from exactly where you left off');
     expect(systemTexts(s.repos, s.room.id).some((t) => t.includes('continuing (1/'))).toBe(true);
@@ -89,7 +81,6 @@ describe('a turn that runs out of steps is continued, not abandoned', () => {
   });
 
   it('does not continue when the budget is already spent', async () => {
-    // First run costs the whole budget, so no continuation may start even though it ran out of steps.
     const s = setup([{ error: 'error_max_turns', costUsd: 1 }], 1);
     await s.runner.runTurn({ bot: s.bot, room: s.room, members: [s.bot], injected: 'go', hop: 0, causeId: 'c1' } as never);
 

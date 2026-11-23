@@ -6,8 +6,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { childEnv } from './env.js';
 import { addSecret, clearSecrets, logError, redact } from './redact.js';
 
-/** Audit 2026-09-09, B7: a provider child must never inherit the hub token or a rival provider's key. */
-
 const SOURCE: NodeJS.ProcessEnv = {
   PATH: '/usr/bin',
   PATHEXT: '.COM;.EXE',
@@ -18,7 +16,6 @@ const SOURCE: NodeJS.ProcessEnv = {
   XDG_DATA_HOME: '/home/dev/.local/share',
   HTTPS_PROXY: 'http://proxy:8080',
   NODE_NO_WARNINGS: '1',
-  // Secrets and noise that must not travel.
   POCKETROCKET_TOKEN: 'hub-token-abcdef0123456789',
   POCKETROCKET_DATA: '/data',
   ANTHROPIC_API_KEY: 'sk-ant-key',
@@ -86,7 +83,6 @@ describe('childEnv', () => {
     expect(grok.OPENAI_API_KEY).toBeUndefined();
     expect(grok.ANTHROPIC_API_KEY).toBeUndefined();
 
-    // OpenCode is a multi-provider front end and genuinely reads all three vendor keys.
     const oc = childEnv('opencode', {}, SOURCE);
     expect(oc.XAI_API_KEY).toBe('xai-key');
     expect(oc.ANTHROPIC_API_KEY).toBe('sk-ant-key');
@@ -102,7 +98,6 @@ describe('childEnv', () => {
   });
 });
 
-// ---- the same claim, against a real spawned child ----
 describe('a spawned child cannot see the hub token', () => {
   let tmp: string;
   let dumper: string;
@@ -130,13 +125,11 @@ describe('a spawned child cannot see the hub token', () => {
     expect(seen.AWS_SECRET_ACCESS_KEY).toBeUndefined();
     expect(dumped).not.toContain('hub-token-should-not-appear');
     expect(dumped).not.toContain('xai-should-not-appear');
-    // The child still gets what it needs to run.
     expect(seen.ANTHROPIC_API_KEY).toBe('sk-ant-allowed');
     expect(seen.PATH ?? seen.Path).toBeTruthy();
   });
 });
 
-// ---- audit 2026-09-09, B22 ----
 describe('redact', () => {
   it('scrubs bearer headers and vendor key shapes', () => {
     expect(redact('Authorization: Bearer abcdef0123456789xyz')).toBe('Authorization: Bearer [redacted]');
@@ -161,7 +154,6 @@ describe('redact', () => {
   });
 });
 
-// ---- hardening pass: caught errors are logged through redaction ----
 describe('logError', () => {
   it('scrubs registered secrets and token shapes from the logged stack', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);

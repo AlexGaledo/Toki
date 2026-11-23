@@ -120,7 +120,6 @@ describe('routeByNeeds', () => {
 
   it('an unknown name is blocked, never guessed, whatever else is asked for', () => {
     expect(routeByNeeds(reg, ['made-up'], true)).toMatchObject({ place: 'blocked', missing: ['made-up'] });
-    // Unknown wins over tier 3 and over an all-VPS set.
     expect(routeByNeeds(reg, ['store-p8', 'made-up'], true)).toMatchObject({ place: 'blocked', missing: ['made-up'] });
     expect(routeByNeeds(reg, ['firecrawl', 'Firecrawl'], true)).toMatchObject({ place: 'blocked', missing: ['Firecrawl'] });
     expect(routeByNeeds(new Map(), ['firecrawl'], true)).toMatchObject({ place: 'blocked', missing: ['firecrawl'] });

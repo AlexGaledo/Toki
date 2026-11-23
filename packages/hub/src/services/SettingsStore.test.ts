@@ -13,7 +13,6 @@ const MODELS: Record<ProviderId, ModelInfo[]> = {
   gemini: [],
 };
 
-// The switching tests exercise the repoint path across every adapter, so they enable them all.
 const ALL = PROVIDER_IDS;
 
 function store() {
@@ -83,7 +82,6 @@ describe('SettingsStore', () => {
   });
 
   it('repoints once a cold model cache resolves', async () => {
-    // OpenCode's list comes from `opencode models`, so modelsSync answers empty right after startup.
     const repos = new Repos(new Db(':memory:'));
     const late: ModelInfo[] = [{ id: 'anthropic/claude-sonnet-4', label: 'Sonnet', default: true }];
     const settings = new SettingsStore({
@@ -115,7 +113,7 @@ describe('SettingsStore', () => {
     const bot = repos.createBot({ name: 'B', handle: 'b', title: '', description: '', avatar: '🤖', model: 'claude-sonnet-5', allowedTools: [], maxBudgetUsd: 1 });
 
     settings.patch({ provider: 'opencode' });
-    settings.patch({ provider: 'claude' });   // back before the slow list lands
+    settings.patch({ provider: 'claude' });
     release([{ id: 'anthropic/claude-sonnet-4', label: 'Sonnet', default: true }]);
     await new Promise((r) => setTimeout(r, 0));
 
@@ -162,7 +160,6 @@ describe('SettingsStore with only Claude enabled (the v1 default)', () => {
   });
 });
 
-// ---- P3: settings.timezone ----
 describe('settings.timezone', () => {
   it('follows the system zone until the user picks one, then keeps the choice', () => {
     const { repos, settings } = store();

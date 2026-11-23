@@ -24,7 +24,6 @@ function setup() {
   const reqs: TurnRequest[] = [];
   router.runner = {
     runTurn: async (req: TurnRequest): Promise<TurnResult> => { reqs.push(req); return { ok: true, turnId: 't', finalText: '', costUsd: 0 }; },
-    // A provider that cannot steer: a message to a busy bot queues.
     steer: () => ({ status: 'queued', reason: 'provider' }),
   } as unknown as BotRunner;
   return { repos, router, room, reqs };
@@ -89,7 +88,6 @@ describe('client_msg_id migration', () => {
     const db = new Db(file);
     expect(hasColumn(db.raw, 'messages', 'client_msg_id')).toBe(true);
     expect(db.get<{ text: string; client_msg_id: string | null }>("SELECT text, client_msg_id FROM messages WHERE id='m1'")).toEqual({ text: 'old', client_msg_id: null });
-    // Rows without an id never collide with each other.
     db.run("INSERT INTO messages (id, room_id, seq, author_type, kind, text, created_at) VALUES ('m2', 'r1', 2, 'user', 'text', 'b', 2)");
     db.run("INSERT INTO messages (id, room_id, seq, author_type, kind, text, created_at, client_msg_id) VALUES ('m3', 'r1', 3, 'user', 'text', 'c', 3, 'x')");
     expect(() => db.run("INSERT INTO messages (id, room_id, seq, author_type, kind, text, created_at, client_msg_id) VALUES ('m4', 'r1', 4, 'user', 'text', 'd', 4, 'x')")).toThrow(/UNIQUE/);
@@ -98,7 +96,6 @@ describe('client_msg_id migration', () => {
 });
 
 describe('websocket', () => {
-  /** A stand-in socket: send records, emit('message') feeds the hub. */
   function fakeSocket() {
     return Object.assign(new EventEmitter(), { readyState: 1, sent: [] as ServerEvent[], send(s: string) { this.sent.push(JSON.parse(s)); } });
   }
@@ -147,12 +144,11 @@ describe('websocket', () => {
       expect(pings()).toBe(1);
       vi.advanceTimersByTime(WS_PING_MS * 2);
       expect(pings()).toBe(3);
-      // ws announces its close once its last client is gone (hub.ts terminates them first), which clears the timer.
       wss.clients.delete(ws as never);
       const closed = new Promise((r) => wss.once('close', r));
       wss.close();
       await closed;
-      wss.clients.add(ws as never); // a timer that outlived the server would reach it
+      wss.clients.add(ws as never);
       vi.advanceTimersByTime(WS_PING_MS * 2);
       expect(pings()).toBe(3);
     } finally {

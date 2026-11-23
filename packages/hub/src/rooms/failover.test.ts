@@ -8,12 +8,6 @@ import { FailoverService } from '../services/Failover.js';
 import type { BotRunner, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { RoomRouter } from './RoomRouter.js';
 
-/**
- * M8 (spec 01 §4.7, P3-1) through RoomRouter with a stub runner and a fake clock: the limited turn ends at once, the
- * card waits outside any lane or slot, Continue queues one strict, attended turn on the backup, and the backup stays in
- * force for attended turns until the reset.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -66,7 +60,6 @@ describe('the failover card through the router', () => {
     expect(s.router.pendingLaneCount()).toBe(0);
     const card = s.failover.state().cards[0];
     expect(card).toMatchObject({ botId: s.bot.id, roomId: s.room.id, provider: 'claude', expiresAt: RESET });
-    // The lane is free: another message runs at once (on Claude still: nothing was pressed).
     s.router.onUserMessage(s.room.id, 'never mind');
     await until(() => s.reqs.length === 2);
     expect(s.reqs[1].providerOverride).toBeUndefined();
@@ -86,7 +79,6 @@ describe('the failover card through the router', () => {
     expect(r.causeId).toBe(first.causeId);
     expect(r.causeKind).toBe('user');
     expect(r.injected).toContain('write the report');
-    // Budget never raised: the limited turn had $1 and spent $0.30.
     expect(r.causeBudgetUsd).toBeCloseTo(0.7, 5);
     void ask;
   });
@@ -114,7 +106,6 @@ describe('the failover card through the router', () => {
     await until(() => s.reqs.length === 3);
     expect(s.reqs[2].providerOverride).toEqual({ provider: 'gemini', model: 'gemini-3.1-pro' });
     expect(s.reqs[2].strictApprovals).toBe(true);
-    // A routine in that window is unattended: it stays on Claude.
     s.router.fireRoutine(s.room, s.bot, '[Routine "n"] go', { routineId: 'r1', runId: 'run1', name: 'n' });
     await until(() => s.reqs.length === 4);
     expect(s.reqs[3].providerOverride).toBeUndefined();

@@ -2,26 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 
-/**
- * Git for the knowledge repo and the skill "marketplace" (P7).
- *
- * The source string comes from the user, so it never touches a shell: `execFile('git', [...args])` with the
- * URL after `--`, a source that starts with `-` is refused outright (it would be read as an option), and the
- * `ext::` / `fd::` remote helpers (which run arbitrary commands) are refused both here and by
- * `protocol.allow=never` on every call.
- */
-
-/** URL shapes accepted for a clone. `ext::`, `fd::` and every other `<helper>::` transport are not. */
+/** The source never touches a shell; a `-` source and the ext::/fd:: helpers are refused. */
 const URL_RE = /^(https?:\/\/|ssh:\/\/|git:\/\/|file:\/\/)[^\s]+$/i;
-/** scp-like `user@host:path` (GitHub's `git@github.com:org/repo.git`). */
 const SCP_RE = /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s]+$/;
 
 export type GitSource = { kind: 'url'; value: string } | { kind: 'path'; value: string };
 
-/**
- * Parse and validate a user-supplied repo source. Returns an error string, or the parsed source.
- * A local source must be an absolute path to an existing directory.
- */
 export function parseGitSource(raw: string): GitSource | string {
   const s = raw.trim();
   if (!s) return 'Empty source';
@@ -50,7 +36,6 @@ function gitEnv(): NodeJS.ProcessEnv {
     'APPDATA', 'LOCALAPPDATA', 'ProgramData', 'LANG', 'SSH_AUTH_SOCK', 'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'SSL_CERT_FILE'];
   const env: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(process.env)) if (keep.some((n) => n.toLowerCase() === k.toLowerCase())) env[k] = v;
-  // Never block on a credential prompt: a private repo without stored credentials fails fast instead.
   env.GIT_TERMINAL_PROMPT = '0';
   env.GCM_INTERACTIVE = 'never';
   env.GIT_SSH_COMMAND = 'ssh -o BatchMode=yes';
@@ -59,10 +44,8 @@ function gitEnv(): NodeJS.ProcessEnv {
 
 export type GitRunner = (args: string[], opts?: { cwd?: string; timeoutMs?: number }) => Promise<string>;
 
-/** Hardening applied before every subcommand: no remote helpers that execute commands. */
 export const GIT_SAFE_CONFIG = ['-c', 'protocol.ext.allow=never', '-c', 'protocol.fd.allow=never', '-c', 'core.hooksPath=' + (process.platform === 'win32' ? 'NUL' : '/dev/null')];
 
-/** Run git with an argument array (no shell). Resolves stdout; rejects with stderr's last lines. */
 export const runGit: GitRunner = (args, opts = {}) =>
   new Promise((resolve, reject) => {
     execFile(

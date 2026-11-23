@@ -2,7 +2,6 @@ import WebSocket from 'ws';
 import { IntegrationError } from '../integrations/http.js';
 import { logError } from '../providers/redact.js';
 
-/** The part of a WebSocket the client uses; `ws` fits it, and tests hand in a fake. */
 export interface SocketLike {
   send(data: string): void;
   close(): void;
@@ -13,7 +12,6 @@ export interface SocketLike {
 }
 export type SocketFactory = (url: string) => SocketLike;
 
-/** An `events_api` envelope's payload (Slack's event callback). */
 export interface SlackEventCallback {
   event_id?: string;
   team_id?: string;
@@ -21,13 +19,10 @@ export interface SlackEventCallback {
 }
 
 export interface SlackSocketOptions {
-  /** One-time `wss://` URL from `apps.connections.open` (a fresh one per connect). */
   openUrl: () => Promise<string>;
   onEvent: (payload: SlackEventCallback) => void;
-  /** Connection state for the UI: null error = connected. */
   onStatus?: (s: { connected: boolean; error: string | null }) => void;
   socket?: SocketFactory;
-  /** Reconnect timer; tests pass one they drive. */
   setTimer?: (fn: () => void, ms: number) => { cancel(): void };
 }
 
@@ -83,7 +78,6 @@ export class SlackSocketMode {
       if (gen !== this.generation || !this.running) return;
       const msg = e instanceof Error ? e.message : String(e);
       this.o.onStatus?.({ connected: false, error: msg });
-      // A refused credential will not fix itself; wait for the user (the service restarts us on integrations.changed).
       if (e instanceof IntegrationError && (e.auth || e.status === 400 || e.status === 404)) {
         this.running = false;
         return;
@@ -118,7 +112,6 @@ export class SlackSocketMode {
     } catch {
       return;
     }
-    // Ack first, always: handling must never push the ack past Slack's 3 s.
     if (env.envelope_id) ws.send(JSON.stringify({ envelope_id: env.envelope_id }));
     if (env.type === 'hello') {
       this.failures = 0;
@@ -127,7 +120,6 @@ export class SlackSocketMode {
       return;
     }
     if (env.type === 'disconnect') {
-      // Slack is about to drop this socket; open a fresh one now rather than wait for the close.
       this.ws = null;
       this.connected = false;
       try { ws.close(); } catch { /* ignore */ }

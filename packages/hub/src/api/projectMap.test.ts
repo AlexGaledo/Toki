@@ -122,7 +122,6 @@ describe('/api/projects map, overview and projects.changed', () => {
     expect(seen).toHaveLength(2);
     await request('PUT', '/api/projects/ev/room', { roomId: room.id });
     expect(seen).toHaveLength(3);
-    // Reads and refused writes say nothing.
     await request('GET', '/api/projects/ev/map');
     await request('PUT', '/api/projects/ev/members', { memberIds: ['nope'] });
     expect(seen).toHaveLength(3);
@@ -171,7 +170,6 @@ describe('/api/projects map, overview and projects.changed', () => {
 
   it('reads the overview from current.md, and empty when it is missing', async () => {
     await request('POST', '/api/projects', { name: 'Planned' });
-    // The starter current.md written on create has no plan.
     expect((await request('GET', '/api/projects/planned/overview')).json).toMatchObject({ plan: null, next: null, done: [], waiting: [] });
     put('planned', 'current.md', '---\nupdated: 2026-11-18\n---\n## Build\n- [x] a\n- [ ] b\n## Next\n- do b\n## Waiting on me\n- a decision\n');
     expect((await request('GET', '/api/projects/planned/overview')).json).toEqual({

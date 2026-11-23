@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { SCREEN_COOKIE, SCREEN_VIEWER_PATH, ScreenSessions, screenCookieName, screenViewerPath } from './screenSession.js';
 
-/** Pull the cookie value out of a Set-Cookie header. */
 const valueOf = (setCookie: string) => setCookie.slice(SCREEN_COOKIE.length + 1).split(';')[0];
 
 describe('ScreenSessions', () => {
   it('mints a ticket with real entropy and a redemption URL', () => {
     const s = new ScreenSessions();
     const { ticket, url } = s.mintTicket();
-    // 32 random bytes as base64url: comfortably past the 128-bit floor and URL-safe without escaping.
     expect(ticket).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(url).toBe('/screen/session?ticket=' + ticket);
     expect(s.mintTicket().ticket).not.toBe(ticket);
@@ -43,7 +41,6 @@ describe('ScreenSessions', () => {
     const cookie = s.redeem(fresh)!;
     now += 61_000;
     expect(s.redeem(stale)).toBeNull();
-    // A minute later the viewer is still authenticated; only the handshake is short-lived.
     expect(s.valid(valueOf(cookie))).toBe(true);
   });
 
@@ -73,7 +70,6 @@ describe('ScreenSessions', () => {
     const s = new ScreenSessions(() => now);
     const first = s.mintTicket().ticket;
     for (let i = 0; i < 200; i++) s.mintTicket();
-    // The oldest tickets were pushed out by the cap rather than kept around until their TTL.
     expect(s.redeem(first)).toBeNull();
     const last = s.mintTicket().ticket;
     expect(s.redeem(last)).not.toBeNull();

@@ -1,12 +1,5 @@
 import type { MessageVerification } from '@pocketrocket/shared';
 
-/**
- * B1 "done needs evidence": a deterministic check over one turn's tool calls, in order. A turn that changed files and
- * ran nothing afterwards that could catch a mistake (tests, a build, a linter, a screenshot) ends in a reply the app
- * labels "unverified". It is a label, not a gate: the reply still posts. Enforced here, not in the prompt.
- */
-
-/** One tool call as a provider reported it (`TurnSink.onToolUse`). */
 export interface TurnToolCall { name: string; input: unknown }
 
 /**
@@ -26,7 +19,6 @@ export function isWriteCall(c: TurnToolCall): boolean {
   return WRITE_TOOLS.has(c.name) || obj(c.input).kind === 'edit' || obj(c.input).kind === 'delete';
 }
 
-/** The shell command of a Bash call (Claude, Codex, OpenCode) or an ACP `execute`, else null. */
 function commandOf(c: TurnToolCall): string | null {
   const i = obj(c.input);
   if (c.name !== 'Bash' && i.kind !== 'execute') return null;
@@ -42,7 +34,6 @@ export function isVerifyCall(c: TurnToolCall): boolean {
   return cmd !== null && (CHECK_COMMAND.test(cmd) || SCRIPT_COMMAND.test(cmd));
 }
 
-/** The files a write call names, for the count in the reason. */
 function pathsOf(c: TurnToolCall): string[] {
   const i = obj(c.input);
   const one = [i.file_path, i.notebook_path, i.path, i.filePath].filter((p): p is string => typeof p === 'string');
@@ -50,10 +41,6 @@ function pathsOf(c: TurnToolCall): string[] {
   return [...one, ...many];
 }
 
-/**
- * The turn's verification state: undefined when it changed no files or checked its work after the last change,
- * otherwise `unverified` with a reason that counts the files it changed.
- */
 export function classifyVerification(calls: readonly TurnToolCall[]): MessageVerification | undefined {
   let lastWrite = -1;
   for (let i = 0; i < calls.length; i++) if (isWriteCall(calls[i])) lastWrite = i;

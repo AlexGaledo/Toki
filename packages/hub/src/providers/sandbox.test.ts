@@ -30,7 +30,6 @@ const spec = (over: Partial<SandboxSpec> = {}): SandboxSpec => ({
   ...over,
 });
 
-/** Every (flag, src, dest) triple for the mount flags. */
 function mounts(argv: string[]) {
   const out: { flag: string; src: string; dest: string }[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -68,7 +67,7 @@ describe('sandboxArgv', () => {
     expect(m).toContainEqual({ flag: '--ro-bind', src: `${D}/knowledge`, dest: `${D}/knowledge` });
     const exe = `${HOME}/.local/share/claude/versions/2.1.9`;
     expect(m).toContainEqual({ flag: '--ro-bind', src: exe, dest: exe });
-    expect(argv).toContain('--symlink'); // /bin -> usr/bin
+    expect(argv).toContain('--symlink');
     expect(m).toContainEqual({ flag: '--ro-bind', src: '/etc/resolv.conf', dest: '/etc/resolv.conf' });
     expect(argv).not.toContain('/etc/shadow');
   });
@@ -77,7 +76,6 @@ describe('sandboxArgv', () => {
     for (const hidden of [D, `${D}/vault.key`, `${D}/hub-token`, `${D}/pocketrocket.db`, `${D}/bots`, `${D}/bots/botB`, `${D}/projects`, `${D}/projects/projB`, `${D}/rooms`, `${HOME}/.ssh`, '/', '/home']) {
       expect(dests, hidden).not.toContain(hidden);
     }
-    // Nothing mounted contains the data root.
     for (const d of dests) {
       expect(D.startsWith(d + '/') || d === D, d).toBe(false);
     }
@@ -164,11 +162,9 @@ describe('transcripts', () => {
       const to = path.join(botHome, '.claude-sandbox', 'projects', transcriptDirName(cwd));
       expect(fs.readFileSync(path.join(to, id + '.jsonl'), 'utf8')).toBe('line\n');
       expect(fs.existsSync(path.join(to, id, 'note.txt'))).toBe(true);
-      // A second call must not overwrite what the sandboxed CLI has since appended.
       fs.appendFileSync(path.join(to, id + '.jsonl'), 'more\n');
       migrateTranscript(host, botHome, cwd, id);
       expect(fs.readFileSync(path.join(to, id + '.jsonl'), 'utf8')).toBe('line\nmore\n');
-      // Not an id: nothing happens (no path traversal).
       migrateTranscript(host, botHome, cwd, '../../etc/passwd');
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
@@ -247,8 +243,6 @@ describe('only the REST API writes the sandbox setting', () => {
   });
 });
 
-// The real thing, on a Linux box with bubblewrap: bot A (with Bash) cannot read project B, another bot, the vault key,
-// the hub token or the database, and still reaches its own folders.
 const hasBwrap = process.platform === 'linux' && realProbe().ok;
 describe.skipIf(!hasBwrap)('bubblewrap integration (Linux)', () => {
   it('bot A cannot cat project B or the hub secrets, and can use its own folders', () => {

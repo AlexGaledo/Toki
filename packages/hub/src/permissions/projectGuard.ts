@@ -1,26 +1,15 @@
 import path from 'node:path';
 import { pathsFromInput } from './pathRules.js';
 
-/**
- * One parent folder whose subfolders belong to different rooms: the projects folder (one subfolder per project
- * slug) or the rooms folder (one per room id). `allowed` is the subfolder this turn may use, `known` every
- * subfolder name that really exists, so a relative path that merely looks similar is left alone.
- */
 export interface FolderScope {
   root: string;
   allowed: readonly string[];
   known: readonly string[];
-  /** The folder itself may be listed (the persona, which may read every project). Its subfolders still follow `allowed`. */
   listable?: boolean;
 }
 
-/** The owner-edited repo list in a project's folder (services/ProjectService.ts REPOS_FILE). */
 const REPOS_JSON = 'repos.json';
 
-/**
- * Keeps bots from writing a project's `repos.json`: it says which repos are client repos, how they sync and which branches
- * are protected, and only the owner changes it (PUT /api/projects/:slug/repos). Reading it is fine.
- */
 export function reposFileWriteDenied(toolName: string, input: Record<string, unknown>, cwd: string, projectsRoot: string): string | null {
   const why = REPOS_JSON + ' is the owner\'s repo list. Only the owner changes it, in the project settings.';
   if (toolName === 'Bash') {
@@ -72,7 +61,6 @@ function scopeDenied(toolName: string, input: Record<string, unknown>, cwd: stri
     for (const m of cmd.matchAll(after)) {
       if (!m[1] ? !scope.listable : !allowed.includes(m[1])) return refuse(m[1] || 'list');
     }
-    // A plain relative path, after `cd ..`. Only names that are real, so `src/projects/x` is left alone.
     for (const m of cmd.matchAll(new RegExp('\\b' + escapeRe(base) + '/([\\w-]+)', 'g'))) {
       if (known.includes(m[1]) && !allowed.includes(m[1])) return refuse(m[1]);
     }
@@ -88,7 +76,6 @@ function scopeDenied(toolName: string, input: Record<string, unknown>, cwd: stri
       if (!name ? !scope.listable : !allowed.includes(name)) return refuse(name || 'list');
       continue;
     }
-    // A recursive search from above the folder would read every room's files.
     if (toolName === 'Grep' || toolName === 'Glob') {
       const up = path.relative(abs, root);
       if (up !== '' && !up.startsWith('..') && !path.isAbsolute(up)) return refuse('list');

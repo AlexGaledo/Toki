@@ -2,27 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from '../config.js';
 
-/**
- * Where a job that needs the owner's keys may run: on the hub's own machine (the VPS) or on the owner's PC
- * through the PC runner. The model never decides this; `routeByNeeds` does, from this owner-edited file.
- *
- * <DATA_DIR>/key-registry.json (0600, beside mcp-servers.json), read on every call so an edit takes effect on
- * the next turn. Key NAMES only, never values. No UI and no bot tool writes it, and a bot's file and shell
- * tools are refused it (permissions/secretFiles.ts):
- *
- *   {
- *     "keys": {
- *       "firecrawl":       { "tier": 1, "where": ["vps", "pc"], "service": "Firecrawl" },
- *       "github-repo":     { "tier": 2, "where": ["vps"],       "notes": "fine-grained, one repo" },
- *       "app-store-p8":    { "tier": 3, "where": ["pc"] }
- *     }
- *   }
- *
- * Tiers: 0 none/public, 1 low (read-only scoped tokens), 2 medium (write-scoped tokens with limits), 3 critical
- * (store keys, prod DB writes, GitHub admin, deploys, payments, email send). A tier 3 key is PC-only, always:
- * an entry that lists "vps" for one is rejected at load (logged once, then ignored) rather than trusted.
- * `vps` means the machine the hub runs on.
- */
+/** Key names only, never values; no UI or bot tool writes it, and bot file tools are refused it. */
 export const KEY_REGISTRY_PATH = path.join(DATA_DIR, 'key-registry.json');
 
 export type KeyTier = 0 | 1 | 2 | 3;
@@ -35,20 +15,17 @@ export interface KeyEntry {
 }
 export type KeyRegistry = Map<string, KeyEntry>;
 
-/** Same shape as an outside MCP server name: lower case, digits, `-` and `_`. */
 export const KEY_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const TIERS = new Set([0, 1, 2, 3]);
 const PLACES = new Set(['vps', 'pc']);
 
 const warned = new Set<string>();
-/** A broken entry is logged once per process, not on every turn that reads the file. */
 function warnOnce(msg: string): void {
   if (warned.has(msg)) return;
   warned.add(msg);
   console.warn('[key-registry] ' + msg);
 }
 
-/** Parses the registry document. Invalid entries are skipped (and logged); tier 3 on the VPS is rejected. */
 export function parseKeyRegistry(raw: unknown): KeyRegistry {
   const out: KeyRegistry = new Map();
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
@@ -78,7 +55,6 @@ export function parseKeyRegistry(raw: unknown): KeyRegistry {
   return out;
 }
 
-/** The registry on disk. Missing or unreadable means empty: every named need is then unknown, so blocked. */
 export function loadKeyRegistry(file: string = KEY_REGISTRY_PATH): KeyRegistry {
   let raw: unknown;
   try {
@@ -93,20 +69,12 @@ export function loadKeyRegistry(file: string = KEY_REGISTRY_PATH): KeyRegistry {
 export interface Route {
   place: KeyPlace | 'blocked';
   reason: string;
-  /** Needs that stop the job from running: unknown names, or keys the chosen place does not hold. */
   missing: string[];
 }
 
 const on = (r: KeyRegistry, k: string, p: KeyPlace) => r.get(k)!.where.includes(p);
 
-/**
- * The placement rule, deterministic and in this order:
- * 1. A need the registry does not name is blocked. Never guessed.
- * 2. Any tier 3 need: the PC, when the PC holds every need and the runner is paired; otherwise blocked.
- * 3. Every need held on the VPS: the VPS (no needs at all also means the VPS).
- * 4. Every need held on the PC and the runner paired: the PC.
- * 5. Otherwise blocked, listing the needs the PC does not hold.
- */
+/** A need the registry does not name is blocked, never guessed. */
 export function routeByNeeds(registry: KeyRegistry, needs: readonly string[], runnerPaired: boolean): Route {
   const want = [...new Set(needs.map((n) => n.trim()).filter(Boolean))];
   const unknown = want.filter((k) => !registry.has(k));
@@ -130,7 +98,6 @@ export function routeByNeeds(registry: KeyRegistry, needs: readonly string[], ru
   return { place: 'blocked', reason: 'Neither the VPS nor the PC holds every key. Missing on the PC: ' + notOnPc.join(', ') + '.', missing: notOnPc };
 }
 
-/** The system-prompt note: key names, tiers and places, so a bot calls where_to_run instead of guessing. */
 export function keyRegistryNote(registry: KeyRegistry, prefix = ''): string | null {
   if (!registry.size) return null;
   const list = (p: KeyPlace) => [...registry].filter(([, e]) => e.where.includes(p)).map(([k, e]) => k + ' (tier ' + e.tier + ')').join(', ') || 'none';

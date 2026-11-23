@@ -6,8 +6,6 @@ import { Repos } from '../db/repos.js';
 import { SkillService, resolveSkillDir } from './SkillService.js';
 import { SKILLS_DIR, botPluginDir } from '../config.js';
 
-/** Audit 2026-09-09, B11: the skill pool is not bot-writable and its names are not path fragments. */
-
 function repos() {
   return new Repos(new Db(':memory:'));
 }
@@ -30,7 +28,6 @@ describe('resolveSkillDir', () => {
 describe('SkillService.importFromUser', () => {
   it('refuses a traversing name instead of overwriting an arbitrary directory', () => {
     const s = new SkillService(repos());
-    // The audit's path: POST /api/skills/import took `names[]` straight into cpSync(force:true).
     expect(() => s.importFromUser('../../../evil')).toThrow(/Invalid skill name/);
     expect(() => s.importFromUser('..\\..\\evil')).toThrow(/Invalid skill name/);
   });
@@ -56,15 +53,12 @@ describe('SkillService.materialize', () => {
     expect(plugin).toBe(botPluginDir(bot.id));
     const materialized = path.join(plugin!, 'skills', 'copy-me');
 
-    // The crux: it is a real directory, not a link back into the shared pool.
     expect(fs.lstatSync(materialized).isSymbolicLink()).toBe(false);
     expect(fs.readFileSync(path.join(materialized, 'SKILL.md'), 'utf8')).toContain('Step one');
 
-    // A bot writing through its own plugin dir cannot reach the pool copy.
     fs.writeFileSync(path.join(materialized, 'SKILL.md'), 'REWRITTEN BY A BOT');
     expect(fs.readFileSync(path.join(skill.path, 'SKILL.md'), 'utf8')).toContain('Step one');
 
-    // Re-materializing restores the approved content from the pool.
     svc.materialize(bot.id, bot.handle);
     expect(fs.readFileSync(path.join(materialized, 'SKILL.md'), 'utf8')).toContain('Step one');
 

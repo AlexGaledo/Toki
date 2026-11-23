@@ -6,12 +6,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadOrCreateVapid } from './services/WebPush.js';
 
-/**
- * Hardening pass: static checks on the deploy scripts the hub cannot exercise in a test (they run on a VPS).
- * - P1: every port a per-bot computer (and the shared screen) opens binds 127.0.0.1 only.
- * - P4/P9: backups leave `vault.key` out and keep `vapid.json`; `vapid.json` is owner-only on disk.
- */
-
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const read = (rel: string) => fs.readFileSync(path.join(repo, rel), 'utf8');
 /** Script lines without comments, so a "127.0.0.1" in a comment proves nothing. */
@@ -50,13 +44,9 @@ describe('per-bot computers stay on loopback (P1)', () => {
 
   it('screen.sh binds X, CDP, VNC and noVNC to 127.0.0.1 only', () => {
     expect(screen).not.toMatch(/0\.0\.0\.0|::\b|\[::\]/);
-    // X: no TCP listener at all.
     expect(screen).toMatch(/Xvfb [^\n]*-nolisten tcp/);
-    // CDP: Chromium binds the debugging port to loopback.
     expect(screen).toMatch(/--remote-debugging-port="\$CDP_PORT" --remote-debugging-address=127\.0\.0\.1/);
-    // VNC: x11vnc accepts only local connections.
     expect(screen).toMatch(/x11vnc [^\n]*-localhost[^\n]*-rfbport "\$VNC_PORT"/);
-    // noVNC: websockify listens on loopback and proxies to the loopback VNC port.
     expect(screen).toMatch(/websockify [^\n]*"127\.0\.0\.1:\$NOVNC_PORT" "127\.0\.0\.1:\$VNC_PORT"/);
   });
 });
@@ -65,10 +55,8 @@ describe('backups (P4, P9)', () => {
   const backup = code('deploy/backup.sh');
   it('leaves vault.key out of every archive and does not exclude vapid.json', () => {
     expect(backup).toMatch(/'data\/vault\.key'/);
-    // The excludes feed both the tar and the restic branch.
     expect(backup).toMatch(/for e in "\$\{EXCLUDES\[@\]\}"; do args\+=\(--exclude "\$ROOT\/\$e"\); done/);
     expect(backup).toMatch(/for e in "\$\{EXCLUDES\[@\]\}"; do args\+=\(--exclude="\$e"\); done/);
-    // Losing the VAPID key forces every phone to re-subscribe, so it stays in the backup.
     expect(backup).not.toMatch(/vapid/);
   });
 
@@ -84,17 +72,13 @@ describe('backups (P4, P9)', () => {
     expect(backup).toMatch(/src\.backup\(dst\)/);
     expect(backup).toMatch(/runuser -u "\$owner"/);
     for (const f of ['pocketrocket.db', 'pocketrocket.db-wal', 'pocketrocket.db-shm']) expect(backup).toContain("'data/" + f + "'");
-    // Both branches take the snapshot and the service user's Claude transcripts.
     expect(backup).toMatch(/tar -c "\$\{comp\[@\]\}" -f [^\n]* -C "\$ROOT" data "\$\{EXTRA\[@\]\}"/);
     expect(backup).toMatch(/restic backup [^\n]*"\$ROOT\/data" "\$\{EXTRA_PATHS\[@\]\}"/);
     expect(backup).toMatch(/\$CLAUDE_HOME\/projects/);
-    // Retention: KEEP archives (3 by default; 7 full copies filled the disk on 2026-11-16). Old ones go before the
-    // new one is written, a run without room is skipped, and only a finished tar gets the final name.
     expect(backup).toMatch(/KEEP="\$\{KEEP:-3\}"/);
     expect(backup).toMatch(/tail -n \+"\$KEEP" \| xargs -r rm -f/);
     expect(backup.indexOf('tail -n +"$KEEP"')).toBeLessThan(backup.indexOf('tar -c "${comp[@]}"'));
     expect(backup).toMatch(/backup: skipped/);
-    // zstd when the server has it, gzip otherwise; the archive is written as .partial and renamed when tar finished.
     expect(backup).toMatch(/ext=tar\.zst; comp=\(-I 'zstd -T0 -12'\)/);
     expect(backup).toMatch(/ext=tgz; comp=\(-z\)/);
     expect(backup).toMatch(/tar -c "\$\{comp\[@\]\}" -f "\$final\.partial"/);

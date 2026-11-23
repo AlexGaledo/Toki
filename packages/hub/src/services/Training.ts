@@ -17,14 +17,7 @@ import { settings } from './SettingsStore.js';
 import { fence, runOneShot, type OneShotRunner } from './SkillDistiller.js';
 import type { TurnUsage, UsageTracker } from './UsageTracker.js';
 
-/**
- * Bot training pilot: per bot and opt-in, a weekly pass reads the bot's own failures, a proposer suggests at most
- * one short rule, and a verifier that never sees the proposer's reasoning passes or blocks it. Only the owner's
- * Approve changes a bot: the rule becomes a line under "## Lessons" in its description.
- *
- * Both model calls are one-shots with no tools and no web (SkillDistiller.runOneShot). No bot tool reaches any of it.
- */
-
+/** The verifier never sees the proposer's reasoning; only the owner's Approve changes a bot. */
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_ITEM_CHARS = 2000;
 const MAX_NOTE_CHARS = 300;
@@ -64,14 +57,11 @@ const decodeBreaks = (json: string) => json.replace(/\\r/g, '\r').replace(/\\n/g
 const count = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 ? one : many);
 
 export interface TrainingEvidence {
-  /** Numbered items, oldest first, redacted, within TRAINING_EVIDENCE_MAX_CHARS. '' when there are none. */
   text: string;
-  /** Counts only: this is what a proposal keeps. */
   summary: string;
   items: number;
 }
 
-/** The bot's own evidence in the window (since, until]. Only its current rooms count. */
 export function gatherEvidence(repo: TrainingRepo, repos: Repos, botId: string, since: number, until: number): TrainingEvidence {
   const rooms = repos.listRooms().filter((r) => r.memberIds.includes(botId));
   const declined = repo.declinedApprovals(botId, since, until);
@@ -88,7 +78,6 @@ export function gatherEvidence(repo: TrainingRepo, repos: Repos, botId: string, 
     ...replies.map((r) => ({ at: r.at, line: '[owner reply] after the bot said "' + clean(r.botText, 400) + '", the owner said "' + clean(r.text, 1400) + '"' })),
   ].sort((a, b) => b.at - a.at);
 
-  // Newest first until the cap; numbers go on afterwards, oldest first.
   const kept: string[] = [];
   let size = 0;
   for (const it of all) {
@@ -107,7 +96,6 @@ export function gatherEvidence(repo: TrainingRepo, repos: Repos, botId: string, 
   return { text, summary, items: kept.length };
 }
 
-/** The first JSON object `accept` takes, tolerating prose and code fences around it, the way parseReflection does. */
 function scanJson<T>(raw: string, accept: (v: Record<string, unknown>) => T | undefined): T | undefined {
   const text = raw.replace(/```[a-z]*/gi, '');
   const end = text.lastIndexOf('}');
@@ -126,10 +114,6 @@ function scanJson<T>(raw: string, accept: (v: Record<string, unknown>) => T | un
 
 type ParsedProposal = { change: false } | { change: true; rule: string; reason: string; secret: boolean };
 
-/**
- * The proposer's reply; null when there is no such JSON or the rule breaks the limit. Rule and reason come back
- * redacted (before their whitespace collapses); `secret` says redaction found something.
- */
 export function parseProposal(raw: string): ParsedProposal | null {
   const out = scanJson<ParsedProposal | null>(raw, (v) => {
     if (typeof v.change !== 'boolean') return undefined;
@@ -143,10 +127,6 @@ export function parseProposal(raw: string): ParsedProposal | null {
   return out ?? null;
 }
 
-/**
- * The verifier's reply. `judged` false: nothing readable came back. Anything but a clear pass is not a pass, so a
- * reply that contains a block anywhere is a block, even if it also quotes a pass.
- */
 export function parseVerdict(raw: string): { judged: boolean; pass: boolean; note: string } {
   const v = scanJson(raw, (o) => (o.verdict === 'pass' || o.verdict === 'block' ? o : undefined));
   if (!v) return { judged: false, pass: false, note: UNREADABLE_VERDICT };
@@ -155,7 +135,6 @@ export function parseVerdict(raw: string): { judged: boolean; pass: boolean; not
   return { judged: true, pass: true, note };
 }
 
-// ---- the "## Lessons" section. Every edit is a splice of whole lines, so the other bytes never change. ----
 const lessonLine = (rule: string) => '- ' + rule;
 const sameLine = (line: string, want: string) => line.replace(/\r$/, '') === want;
 const hasLesson = (description: string, rule: string) => description.split('\n').some((l) => sameLine(l, lessonLine(rule)));
@@ -171,7 +150,6 @@ function lessonsSection(lines: string[]): { start: number; end: number } | null 
   return { start, end: next < 0 ? lines.length : next };
 }
 
-/** The description with the rule added, and whether the heading had to be added with it. */
 export function appendLesson(description: string, rule: string): { text: string; headingAdded: boolean } {
   const line = lessonLine(rule);
   if (!description) return { text: LESSONS_HEADING + '\n' + line, headingAdded: true };
@@ -179,15 +157,11 @@ export function appendLesson(description: string, rule: string): { text: string;
   const s = lessonsSection(lines);
   if (!s) return { text: description + '\n\n' + LESSONS_HEADING + '\n' + line, headingAdded: true };
   let at = s.end;
-  while (at > s.start + 1 && !lines[at - 1].trim()) at--; // after the last lesson, before any blank lines
+  while (at > s.start + 1 && !lines[at - 1].trim()) at--;
   lines.splice(at, 0, line);
   return { text: lines.join('\n'), headingAdded: false };
 }
 
-/**
- * The description without this rule's line; null when that exact line is gone. `dropHeading`: the rule owns the
- * heading, so if nothing but blank lines follows the heading it goes too, with the blank line appendLesson put before it.
- */
 export function removeLesson(description: string, rule: string, dropHeading: boolean): string | null {
   const line = lessonLine(rule);
   const lines = description.split('\n');
@@ -204,7 +178,6 @@ export function removeLesson(description: string, rule: string, dropHeading: boo
   return lines.join('\n');
 }
 
-/** A refusal for the owner to read; REST answers with `status`. */
 export class TrainingError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -213,17 +186,11 @@ export interface TrainingDeps {
   repos: Repos;
   memory: Pick<MemoryService, 'writeIdentity'>;
   usage: UsageTracker;
-  /**
-   * M6 (P1-6): Claude is set up (CLI, sign-in) and not held at a limit by ProviderHealth. The pass runs on Claude
-   * whatever provider the bot itself runs on, and is skipped while this is false.
-   */
   claudeReady: () => boolean;
-  /** Claude's models; the router picks the Haiku tier among them. */
   models: () => readonly ModelInfo[];
   exeExists?: () => boolean;
   run?: OneShotRunner;
   now?: () => number;
-  /** Defaults to the live `settings.timezone`. */
   timezone?: () => string;
   cron?: string;
 }
@@ -247,7 +214,6 @@ export class Training {
     return this.deps.timezone?.() ?? settings.get().timezone;
   }
 
-  // ---- schedule ----
   start() {
     this.stopped = false;
     this.abort = new AbortController();
@@ -260,7 +226,6 @@ export class Training {
       }
     });
   }
-  /** Aborts the running pass, skips the queued ones, and resolves when none is left touching the database. */
   async stop() {
     this.stopped = true;
     this.abort.abort();
@@ -278,14 +243,12 @@ export class Training {
     return this.job?.nextRun() ?? null;
   }
 
-  /** Passes never overlap, whichever way they start. */
   private enqueue<T>(fn: () => Promise<T>): Promise<T> {
     const p = this.queue.then(fn);
     this.queue = p.catch(() => undefined);
     return p;
   }
 
-  /** The weekly run: every enabled bot, one at a time. One bot's error does not stop the others. */
   async runAll(): Promise<TrainingPassResult[]> {
     const out: TrainingPassResult[] = [];
     if (this.stopped) return out;
@@ -300,26 +263,23 @@ export class Training {
     return out;
   }
 
-  /** "Run now". A bot that is off, or a hub that cannot make the call, is refused with the reason. */
   async runNow(botId: string): Promise<TrainingPassResult> {
     const r = await this.enqueue(() => this.pass(botId));
     if (r.outcome === 'off' || r.outcome === 'unavailable') throw new TrainingError(409, r.message);
     return r;
   }
 
-  // ---- the pass ----
   private recordCall(botId: string, model: string, reason: string, u: TurnUsage) {
     if (!u.costUsd && !u.inputTokens && !u.outputTokens) return;
     try {
       this.deps.usage.record(botId, '', 'train-' + nanoid(8), null, u, { model, routeReason: reason, causeKind: 'training', provider: 'claude' });
     } catch (e) {
-      logError('[training ' + botId + '] could not record usage', e); // never lose the pass over its bookkeeping
+      logError('[training ' + botId + '] could not record usage', e);
     }
   }
   private spentThisWeek(botId: string) {
     return this.repo.spend(botId, this.now() - WEEK_MS);
   }
-  /** Deleted, switched off or shutting down while a call ran: the result is dropped. */
   private abandoned(botId: string) {
     return this.stopped || !this.deps.repos.getBot(botId) || !this.repo.config(botId).enabled;
   }
@@ -336,7 +296,6 @@ export class Training {
     if (this.repo.pendingCount(botId) >= MAX_TRAINING_PENDING) {
       return { outcome: 'pending_full', message: MAX_TRAINING_PENDING + ' proposals are waiting. Review them first.' };
     }
-    // The window ends here, not when the pass does: what arrives during the calls is next week's evidence.
     const until = this.now();
     const evidence = gatherEvidence(this.repo, repos, botId, Math.max(cfg.lastRunAt ?? 0, cfg.windowStart ?? 0), until);
     if (!evidence.items) return { outcome: 'no_evidence', message: 'Nothing new to learn from.' };
@@ -354,7 +313,6 @@ export class Training {
     );
     this.recordCall(botId, choice.model, choice.reason, first.usage);
     if (this.abandoned(botId)) return { outcome: 'off', message: 'Training was switched off during the pass.' };
-    // The window stays open after a failure, so this evidence is read again next time (the weekly cap bounds that).
     if (!first.ok) return { outcome: 'failed', message: 'The model call failed: ' + redact(first.error ?? 'no result') };
     const proposed = parseProposal(first.text);
     if (!proposed) return { outcome: 'failed', message: "The model's reply could not be read." };
@@ -376,7 +334,6 @@ export class Training {
       judged = false;
       note = 'Not checked: the budget ran out before the verifier could run. ' + RETRY_LATER;
     } else {
-      // The verifier gets the rule and what to check it against. The proposer's reason stays out.
       const second = await run(
         [fence('description', description), fence('rule', rule), fence('evidence', evidence.text), 'Pass or block this rule. Reply with the JSON.'].join('\n\n'),
         { model: choice.model, budgetUsd: left, system: VERIFIER_SYSTEM, signal: this.abort.signal },
@@ -390,8 +347,7 @@ export class Training {
       }
     }
 
-    // Fail closed either way: only a verifier's pass makes a proposal the owner can approve. A real block is final and
-    // closes the window. One that was never judged is shown as blocked, keeps the window open and is replaced next time.
+    // Fail closed: only a verifier's pass makes a proposal the owner can approve.
     this.repo.clearRetries(botId);
     const proposal = this.repo.insert({ botId, status: pass ? 'pending' : 'blocked', rule, reason, evidenceSummary: evidence.summary, verifierNote: note, retry: !judged });
     if (judged) this.repo.setLastRun(botId, until);
@@ -401,14 +357,12 @@ export class Training {
     return { outcome: pass ? 'proposed' : 'blocked', message, proposal: publicProposal(proposal, bot.description) };
   }
 
-  /** The description already says it, or it was decided before. A rule the owner took out of an approved lesson may come back. */
   private alreadyKnown(bot: Bot, rule: string) {
     const key = rule.toLowerCase();
     return bot.description.split('\n').some((l) => oneLine(l.replace(/^[\s\-*]+/, '')).toLowerCase() === key)
       || this.repo.list(bot.id).some((p) => p.rule.toLowerCase() === key && !p.retry && p.status !== 'approved');
   }
 
-  /** Into a group named "Training", if there is one. A system note with no @ and no rule text: it triggers nobody. */
   private noteInTrainingRoom(bot: Bot, what: 'pending' | 'blocked' | 'unchecked') {
     const { repos } = this.deps;
     const room = repos.listRooms().find((r) => r.kind === 'group' && r.name.trim().toLowerCase() === 'training');
@@ -428,7 +382,6 @@ export class Training {
     events.emitEvent({ type: 'training.changed', botId });
   }
 
-  // ---- REST ----
   state(botId: string): TrainingState {
     const { enabled, lastRunAt } = this.repo.config(botId);
     const description = this.deps.repos.getBot(botId)?.description ?? '';
@@ -468,7 +421,6 @@ export class Training {
     events.emitEvent({ type: 'bots.changed', bots: this.deps.repos.listBots() });
   }
 
-  /** Takes this one line out of the current description. Never restores `descriptionBefore`: that would lose later edits. */
   private undo(bot: Bot, p: StoredTrainingProposal) {
     if (p.status !== 'approved') throw new TrainingError(409, 'Only an approved proposal can be undone.');
     const text = removeLesson(bot.description, p.rule, p.headingAdded);
@@ -481,7 +433,6 @@ export class Training {
     events.emitEvent({ type: 'bots.changed', bots: this.deps.repos.listBots() });
   }
 
-  /** The same pair of writes as PATCH /api/bots/:id: the turn prompt reads identity.md before the database column. */
   private writeDescription(botId: string, text: string) {
     this.deps.repos.updateBot(botId, { description: text });
     this.deps.memory.writeIdentity(botId, text);

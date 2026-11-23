@@ -8,11 +8,6 @@ import { PermissionBroker } from '../permissions/PermissionBroker.js';
 import { events } from '../events.js';
 import { createHubTools, type ToolCtx } from './botTools.js';
 
-/**
- * Audit 2026-09-09, B6 + B14: the five fleet-changing hub tools must show the human an approval card
- * before anything changes, and `update_bot` must not be a way for a Read-only bot to grant itself Bash.
- */
-
 type Answer = 'allow' | 'always' | 'deny';
 
 function setup(answer: Answer | ((a: ApprovalPayload) => Answer), extra: Partial<ToolCtx> = {}) {
@@ -82,7 +77,6 @@ describe('fleet changes go through an approval card', () => {
     expect(room.memberIds).not.toContain(s.other.id);
   });
 
-  // ---- the escalation the audit found ----
   it('never lets a Read-only bot grant itself Bash without a card', async () => {
     const s = setup('deny');
     const out = await s.tool('update_bot').handler({ bot: 'me', tools: ['Read', 'Bash', 'WebFetch'] });
@@ -173,7 +167,6 @@ describe('fleet changes go through an approval card', () => {
     await s.tool('update_bot').handler({ bot: '@nova', title: 'first' });
     await s.tool('update_bot').handler({ bot: '@nova', title: 'second' });
     s.off();
-    // One card for add_to_room, one for the first update_bot; the second update rides the "always".
     expect(s.cards.map((c) => c.toolName)).toEqual(['add_to_room', 'update_bot']);
     expect(s.repos.getBot(s.other.id)!.title).toBe('second');
   });
@@ -223,7 +216,6 @@ describe('create_room', () => {
     await s.tool('create_room').handler({ name: 'launch-plan', handles: ['nova'] });
     const room = s.repos.listRooms().find((r) => r.name === 'launch-plan')!;
     expect(room.kind).toBe('group');
-    // The caller is added automatically; it should not have to name itself.
     expect(room.memberIds).toContain(s.bot.id);
     expect(room.memberIds).toContain(s.other.id);
     expect(room.coordinatorBotId).toBe(s.bot.id);
@@ -257,7 +249,6 @@ describe('create_room', () => {
   });
 });
 
-// ---- P3: routines a bot schedules are autonomous future spend, so they go through the same card ----
 describe('routine tools go through an approval card', () => {
   const ZONE = 'Asia/Manila';
   const routineSetup = (answer: Answer) => {
@@ -293,7 +284,6 @@ describe('routine tools go through an approval card', () => {
     const s = routineSetup('allow');
     await s.tool('create_routine').handler({ name: 'Ping', prompt: 'p', once_at: '2099-01-02T09:00' });
     s.off();
-    // 09:00 in Manila (UTC+8) is 01:00 UTC.
     expect(s.repos.listRoutines()[0].onceAt).toBe(Date.UTC(2099, 0, 2, 1, 0));
     expect(s.cards[0].reason).toContain('once at 2099-01-02 09:00');
   });
@@ -345,7 +335,6 @@ describe('routine tools go through an approval card', () => {
   });
 
   it('is gated by the broker too, so a CLI provider cannot skip the card', () => {
-    // decide() lets the tool through because its handler raises the card itself (like create_bot).
     const repos = new Repos(new Db(':memory:'));
     const broker = new PermissionBroker(repos);
     const bot = repos.createBot({ name: 'S', handle: 's', title: '', description: 'x', avatar: '🔎', model: 'm1', allowedTools: [], maxBudgetUsd: 2 });

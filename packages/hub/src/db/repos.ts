@@ -17,7 +17,6 @@ const SUM =
 export class Repos {
   constructor(readonly db: Db) {}
 
-  /** The hub's owner. Created by migration 112, so it always exists. */
   owner(): User {
     const r = this.db.get("SELECT * FROM users WHERE role='owner' ORDER BY created_at LIMIT 1") as Record<string, unknown>;
     return {
@@ -29,7 +28,6 @@ export class Repos {
     };
   }
 
-  /** Changes the owner's name and keeps the old one, so notes written under it still point at them. The id never changes. */
   renameOwner(name: string): User {
     const cur = this.owner();
     if (name === cur.displayName) return cur;
@@ -39,7 +37,6 @@ export class Repos {
     return this.owner();
   }
 
-  // ---------- bots ----------
   private rowToBot(r: Row): Bot {
     return {
       id: r.id as string,
@@ -69,7 +66,6 @@ export class Repos {
     const r = this.db.get('SELECT * FROM bots WHERE handle=?', handle);
     return r && this.rowToBot(r);
   }
-  /** The auto-memory fields default to on, every {@link AUTO_MEMORY_EVERY}.default turns; `provider` and `backup` to null. */
   createBot(
     b: Omit<Bot, 'id' | 'createdAt' | 'autoMemory' | 'autoMemoryEvery' | 'provider' | 'backup'> & Partial<Pick<Bot, 'autoMemory' | 'autoMemoryEvery' | 'provider' | 'backup'>>,
   ): Bot {
@@ -110,7 +106,6 @@ export class Repos {
     });
   }
 
-  // ---------- rooms ----------
   private rowToRoom(r: Row): Room {
     const members = this.db
       .all<{ bot_id: string }>('SELECT bot_id FROM room_members WHERE room_id=?', r.id as string)
@@ -162,7 +157,6 @@ export class Repos {
     });
     return this.getRoom(id);
   }
-  /** The composer's pick for this chat. Only the owner's REST route calls this; no bot tool does. */
   setRoomChatModel(id: string, model: string | null): Room | undefined {
     this.db.run('UPDATE rooms SET chat_model=? WHERE id=?', model, id);
     return this.getRoom(id);
@@ -181,7 +175,6 @@ export class Repos {
     });
   }
 
-  // ---------- messages ----------
   private rowToMessage(r: Row): Message {
     return {
       id: r.id as string,
@@ -208,7 +201,6 @@ export class Repos {
       const seq =
         this.db.get<{ s: number }>('SELECT COALESCE(MAX(seq),0)+1 AS s FROM messages WHERE room_id=?', m.roomId)?.s ?? 1;
       const msg: Message = { ...m, id: m.id ?? nanoid(12), seq, createdAt: now() };
-      // The id column only exists from migration 180, so a message without one is written as it always was.
       const withId = msg.clientMsgId ? ',client_msg_id' : '';
       this.db.run(
         'INSERT INTO messages (id,room_id,seq,author_type,author_id,kind,text,payload,cause_id,hop,turn_id,created_at,model,model_reason,attachments' + withId + ') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?' + (withId ? ',?' : '') + ')',
@@ -227,19 +219,16 @@ export class Repos {
     this.db.run('UPDATE messages SET text=?, payload=? WHERE id=?', m.text, m.payload ? JSON.stringify(m.payload) : null, id);
     return m;
   }
-  /** Queue controls: the owner cancelled a queued message before any bot read it. Returns the time set. */
   markMessageCancelled(id: string): number {
     const at = now();
     this.db.run('UPDATE messages SET cancelled_at=? WHERE id=?', at, id);
     return at;
   }
-  /** Queue controls: the owner's edit of a message still queued. Returns the time set. */
   editMessageText(id: string, text: string): number {
     const at = now();
     this.db.run('UPDATE messages SET text=?, edited_at=? WHERE id=?', text, at, id);
     return at;
   }
-  /** Every picture reference on any message, so the media sweep keeps them (U2a). */
   attachmentRefs(): string[] {
     const out: string[] = [];
     for (const r of this.db.all('SELECT attachments FROM messages WHERE attachments IS NOT NULL')) {
@@ -248,7 +237,6 @@ export class Repos {
     return out;
   }
 
-  /** The message a client already sent under `clientMsgId` in this room (B5), if any. */
   findByClientMsgId(roomId: string, clientMsgId: string): Message | undefined {
     const r = this.db.get('SELECT * FROM messages WHERE room_id=? AND client_msg_id=?', roomId, clientMsgId);
     return r && this.rowToMessage(r);
@@ -264,14 +252,12 @@ export class Repos {
       : this.db.all('SELECT * FROM messages WHERE room_id=? ORDER BY seq DESC LIMIT ?', roomId, limit);
     return rows.reverse().map((r) => this.rowToMessage(r));
   }
-  /** Each bot's latest message, from any room, cut short. A bot that has said nothing has no entry. */
   botPreviews(): Record<string, BotPreview> {
     const rows = this.db.all<{ author_id: string; text: string; at: number }>(
       "SELECT author_id, substr(text,1,200) AS text, created_at AS at, MAX(rowid) FROM messages WHERE author_type='bot' AND kind='text' AND author_id IS NOT NULL AND text<>'' GROUP BY author_id",
     );
     return Object.fromEntries(rows.map((r) => [r.author_id, { text: r.text, at: r.at }]));
   }
-  /** Messages people read, in every room, containing `query` in any case. Newest first. */
   searchMessages(query: string, limit: number): SearchHit[] {
     const rows = this.db.all<{ id: string; room_id: string; room_name: string; seq: number; text: string; created_at: number }>(
       "SELECT m.id, m.room_id, r.name AS room_name, m.seq, m.text, m.created_at FROM messages m JOIN rooms r ON r.id=m.room_id " +
@@ -287,7 +273,6 @@ export class Repos {
       return { id: r.id, roomId: r.room_id, roomName: r.room_name, seq: r.seq, snippet, createdAt: r.created_at };
     });
   }
-  /** What the owner wrote, newest first, across every room or just one. */
   listOwnerMessages(o: { since?: number; before?: number; roomId?: string; query?: string; limit: number }): Array<{ createdAt: number; roomName: string; text: string }> {
     const where = ["m.author_type='user'", "m.kind='text'"];
     const args: Array<string | number> = [];
@@ -310,7 +295,6 @@ export class Repos {
     return this.db.get<{ s: number }>('SELECT COALESCE(MAX(seq),0) AS s FROM messages WHERE room_id=?', roomId)?.s ?? 0;
   }
 
-  // ---------- sessions ----------
   /**
    * Session token for (bot, room). `provider` names the adapter that created the token; pass the active
    * provider id to get `sdkSessionId: null` for a token another provider wrote (resume tokens are not portable).
@@ -337,10 +321,6 @@ export class Repos {
     );
   }
 
-  /**
-   * Token-efficiency state of the (bot, room) session (migration 170). Kept apart from getSession/saveSession so
-   * their shape stays as it was. Every field is null when unknown, which on a legacy row means "never measured".
-   */
   getSessionState(botId: string, roomId: string): SessionState {
     const r = this.db.get('SELECT * FROM sessions WHERE bot_id=? AND room_id=?', botId, roomId);
     const num = (v: unknown) => (typeof v === 'number' ? v : null);
@@ -355,7 +335,6 @@ export class Repos {
       summary: str(r?.summary),
     };
   }
-  /** Writes only the fields given (an explicit null clears one). Creates the row when there is none. */
   saveSessionState(botId: string, roomId: string, patch: Partial<SessionState>) {
     const cols: Record<keyof SessionState, string> = {
       costTotal: 'cost_total', contextTokens: 'context_tokens', contextAt: 'context_at', contextWindow: 'context_window',
@@ -370,7 +349,6 @@ export class Repos {
     );
   }
 
-  // ---------- auto-memory progress ----------
   getAutoMemory(botId: string, roomId: string): { turnsSince: number; lastSeq: number; retryAt: number } {
     const r = this.db.get('SELECT * FROM auto_memory WHERE bot_id=? AND room_id=?', botId, roomId);
     if (!r) return { turnsSince: 0, lastSeq: 0, retryAt: 0 };
@@ -385,18 +363,15 @@ export class Repos {
     );
   }
 
-  /** Records that auto-memory just wrote to the bot's memory.md (notes or a merge) from this room. */
   markAutoMemorySaved(botId: string, roomId: string, at: number = now()) {
     this.saveAutoMemory(botId, roomId, {});
     this.db.run('UPDATE auto_memory SET saved_at=? WHERE bot_id=? AND room_id=?', at, botId, roomId);
   }
-  /** When auto-memory last wrote to the bot's memory.md, from any room; null when it never has. */
   lastAutoMemorySave(botId: string): number | null {
     const r = this.db.get<{ at: number | null }>('SELECT MAX(saved_at) AS at FROM auto_memory WHERE bot_id=?', botId);
     return r?.at ?? null;
   }
 
-  // ---------- settings (key -> JSON value) ----------
   allSettings(): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const r of this.db.all<{ key: string; value: string }>('SELECT key, value FROM settings')) {
@@ -414,7 +389,6 @@ export class Repos {
     this.db.run('DELETE FROM sessions WHERE bot_id=? AND room_id=?', botId, roomId);
   }
 
-  // ---------- routines ----------
   private rowToRoutine(r: Row): Routine {
     return {
       id: r.id as string,
@@ -483,7 +457,6 @@ export class Repos {
       }));
   }
 
-  // ---------- skills ----------
   private rowToSkill(r: Row): Skill {
     return {
       id: r.id as string,
@@ -493,14 +466,12 @@ export class Repos {
       source: r.source as Skill['source'],
       reviewStatus: r.review_status as Skill['reviewStatus'],
       createdByBot: (r.created_by_bot as string) ?? null,
-      // P6: the live version; candidate versions (parent_id set) never come out of listSkills.
       version: (r.version as number) ?? 1,
       parentId: (r.parent_id as string) ?? null,
       ...(r.pending_versions !== undefined ? { pendingVersions: r.pending_versions as number } : {}),
     };
   }
   listSkills(): Skill[] {
-    // P6: candidate versions are rows with parent_id set; they are not pool skills.
     return this.db
       .all("SELECT s.*, (SELECT COUNT(*) FROM skills v WHERE v.parent_id=s.id AND v.review_status='pending') AS pending_versions FROM skills s WHERE s.parent_id IS NULL ORDER BY s.name")
       .map((r) => this.rowToSkill(r));
@@ -546,29 +517,21 @@ export class Repos {
     });
   }
 
-  // ---------- approvals ----------
   createApproval(a: { id: string; botId: string; roomId: string; turnId: string; toolName: string; toolInput: unknown; reason: string }) {
     this.db.run(
       'INSERT INTO approvals (id,bot_id,room_id,turn_id,tool_name,tool_input,reason,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)',
       a.id, a.botId, a.roomId, a.turnId, a.toolName, JSON.stringify(a.toolInput ?? null), a.reason, 'pending', now(),
     );
   }
-  /** `decidedBy`: 'owner' when a person answered the card. An aborted turn records `deny` with no one behind it. */
   decideApproval(id: string, status: string, decidedBy: 'owner' | null = null) {
     this.db.run('UPDATE approvals SET status=?, decided_at=?, decided_by=? WHERE id=?', status, now(), decidedBy, id);
   }
-  /** Cards still waiting for an answer, parked ones included (expirePendingApprovals clears the rest at startup). */
   openApprovals(): OpenApproval[] {
     return this.db.all<{ id: string; bot_id: string; room_id: string }>("SELECT id, bot_id, room_id FROM approvals WHERE status='pending'")
       .map((r) => ({ approvalId: r.id, botId: r.bot_id, roomId: r.room_id }));
   }
-  /**
-   * Startup: every approval still `pending` belonged to a turn that died with the previous hub process, so
-   * nothing can act on it. Marks those rows and their cards `expired`; returns the card messages it changed.
-   */
   expirePendingApprovals(): Message[] {
     return this.db.tx(() => {
-      // P2: a parked card or takeover (its turn ended and waits for the user) survives a restart.
       this.db.run("UPDATE approvals SET status='expired', decided_at=? WHERE status='pending' AND parked_at IS NULL", now());
       const open = "((kind='approval' AND json_extract(payload, '$.status')='pending' AND json_extract(payload, '$.parked') IS NOT 1) OR " +
         "(kind='takeover' AND json_extract(payload, '$.status')='waiting') OR " +
@@ -579,17 +542,14 @@ export class Repos {
     });
   }
 
-  /** Takeover cards whose turn ended and which still wait for the user to hand back. */
   parkedTakeovers(): Message[] {
     return this.db.all<{ id: string }>("SELECT id FROM messages WHERE kind='takeover' AND json_extract(payload, '$.status')='parked' ORDER BY rowid")
       .map((r) => this.getMessage(r.id)).filter((m): m is Message => !!m);
   }
 
-  // ---------- usage ----------
   recordUsage(u: {
     botId: string; roomId: string; turnId: string; causeId: string | null; costUsd: number; inputTokens: number;
     outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; modelUsage: unknown; durationMs: number;
-    /** P8: the model that ran, why the router chose it, and what kind of cause started the turn. M6: the provider that ran it. */
     model?: string; routeReason?: string; causeKind?: CauseKind; provider?: ProviderId;
   }) {
     this.db.run(
@@ -627,15 +587,12 @@ export class Repos {
     }));
   }
 
-  // ---------- P8: usage by model / cause kind ----------
-  /** Spend grouped by the model that ran, what started the turn, or (M6) the provider. Rows from before the column group under ''. */
   usageBy(by: 'model' | 'causeKind' | 'provider'): UsageGroup[] {
     const col = by === 'model' ? 'model' : by === 'provider' ? 'provider' : 'cause_kind';
     return this.db
       .all('SELECT COALESCE(' + col + ", '') k, " + SUM + ' FROM usage GROUP BY k ORDER BY cost DESC')
       .map((r) => ({ key: r.k as string, ...this.totalsFrom(r) }));
   }
-  // ---------- P3: lane journal (services/FollowUp.ts) ----------
   journalAdd(e: Omit<LaneJournalRow, 'id' | 'attempts' | 'createdAt' | 'status' | 'messageId'> & { attempts?: number; status?: LaneJournalStatus; messageId?: string | null }): string {
     const id = nanoid(10);
     this.db.run(
@@ -647,18 +604,12 @@ export class Repos {
   journalRemove(ids: string[]) {
     for (const id of ids) this.db.run('DELETE FROM lane_journal WHERE id=?', id);
   }
-  /** Steering: a steer the turn answered becomes a 'consumed' marker (see `hiddenMessageIds`). */
   journalMarkConsumed(id: string) {
     this.db.run("UPDATE lane_journal SET status='consumed' WHERE id=?", id);
   }
-  /** Queue controls: a queued item the owner cancelled becomes a 'cancelled' marker (see `hiddenMessageIds`). */
   journalMarkCancelled(id: string) {
     this.db.run("UPDATE lane_journal SET status='cancelled' WHERE id=?", id);
   }
-  /**
-   * Message ids a bot's next turn in a room must not be shown while its read cursor is still behind them: steers its
-   * turns already answered, and messages the owner cancelled from its queue.
-   */
   hiddenMessageIds(botId: string, roomId: string): Set<string> {
     return new Set(
       this.db
@@ -666,20 +617,16 @@ export class Repos {
         .map((r) => r.message_id),
     );
   }
-  /** Drops the consumed and cancelled markers the lane's read cursor has now passed (`trigger_seq` is the message's seq). */
   journalPruneConsumed(botId: string, roomId: string, lastSeenSeq: number) {
     this.db.run("DELETE FROM lane_journal WHERE bot_id=? AND room_id=? AND status IN ('consumed','cancelled') AND trigger_seq<=?", botId, roomId, lastSeenSeq);
   }
-  /** Whether any lane pushed this message into a running turn (steered, answered or not). */
   journalSteered(messageId: string): boolean {
     return !!this.db.get("SELECT 1 AS x FROM lane_journal WHERE message_id=? AND status IN ('steered','consumed') LIMIT 1", messageId);
   }
-  /** Whether any bot's read cursor in this room is at or past `seq`: some turn already read the message. */
   anyCursorAt(roomId: string, seq: number): boolean {
     return !!this.db.get('SELECT 1 AS x FROM sessions WHERE room_id=? AND last_seen_seq>=? LIMIT 1', roomId, seq);
   }
 
-  // ---------- queue controls: paused lanes (migration 251) ----------
   lanePaused(botId: string, roomId: string): boolean {
     return !!this.db.get('SELECT 1 AS x FROM lane_pauses WHERE bot_id=? AND room_id=?', botId, roomId);
   }
@@ -687,14 +634,9 @@ export class Repos {
     if (paused) this.db.run('INSERT OR IGNORE INTO lane_pauses (bot_id, room_id, paused_at) VALUES (?,?,?)', botId, roomId, now());
     else this.db.run('DELETE FROM lane_pauses WHERE bot_id=? AND room_id=?', botId, roomId);
   }
-  /** Bots whose queue is paused in this room. */
   pausedBots(roomId: string): string[] {
     return this.db.all<{ bot_id: string }>('SELECT bot_id FROM lane_pauses WHERE room_id=?', roomId).map((r) => r.bot_id);
   }
-  /**
-   * Every row still to run (queued, running or steered-but-unanswered), oldest first, and removes them: the caller
-   * re-enqueues what it still wants. Consumed-steer and cancelled markers are not work and stay.
-   */
   journalTakeAll(): LaneJournalRow[] {
     return this.db.tx(() => {
       const rows = this.db.all("SELECT * FROM lane_journal WHERE status IN ('queued','steered') ORDER BY created_at, rowid").map((r) => ({
@@ -715,18 +657,14 @@ export class Repos {
       return rows;
     });
   }
-  /** Whether a lane item is journaled (queued, running or steered) for this owner: a ref, or any ref starting with `prefix`. */
   journalHasOwner(prefix: string): boolean {
     return !!this.db.get("SELECT 1 AS x FROM lane_journal WHERE status IN ('queued','steered') AND substr(owner_ref, 1, ?) = ? LIMIT 1", prefix.length, prefix);
   }
-  /** Routine runs still `running`: their turn died with the previous hub process. */
   runningRuns(): { id: string; routineId: string }[] {
     return this.db.all<{ id: string; routine_id: string }>("SELECT id, routine_id FROM routine_runs WHERE status='running'")
       .map((r) => ({ id: r.id, routineId: r.routine_id }));
   }
 
-  // ---------- P6: skill reflection ----------
-  /** Every message one turn wrote (text and tool calls), in order. */
   messagesOfTurn(roomId: string, turnId: string): Message[] {
     return this.db
       .all('SELECT * FROM messages WHERE room_id=? AND turn_id=? ORDER BY seq', roomId, turnId)
@@ -734,7 +672,6 @@ export class Repos {
   }
 }
 
-/** One queued or running lane item (P3, `lane_journal`). */
 export interface LaneJournalRow {
   id: string;
   botId: string;
@@ -742,48 +679,33 @@ export interface LaneJournalRow {
   causeId: string;
   hop: number;
   triggerSeq: number;
-  /** What the turn belongs to (`routine:<runId>`, `workflow:<runId>:<nodeId>`); its `onDone` is rebuilt from this. */
   ownerRef: string | null;
   note: string | null;
   attempts: number;
   createdAt: number;
-  /**
-   * Migration 250: `queued` (a lane item), `steered` (pushed into a running turn, unanswered), `consumed` (answered),
-   * `cancelled` (the owner cancelled the queued item; a marker that hides the message from this lane, like `consumed`).
-   */
   status: LaneJournalStatus;
-  /** Steer rows and queued items that came from one message (a person's, a routine's or a trigger's). */
   messageId: string | null;
 }
 export type LaneJournalStatus = 'queued' | 'steered' | 'consumed' | 'cancelled';
 
-/** Per-session token-efficiency state (migration 170); see Repos.getSessionState. */
 export interface SessionState {
-  /** The SDK's cumulative cost last reported for this session; null on a legacy row. */
   costTotal: number | null;
-  /** Input tokens of the last top-level model call of the last turn; null = never measured. */
   contextTokens: number | null;
-  /** When contextTokens was measured (ms). */
   contextAt: number | null;
-  /** P4-2: the model's context window as the provider last reported it; null = never reported. */
   contextWindow: number | null;
   memorySnapshot: string | null;
   identitySnapshot: string | null;
-  /** The hub's running room summary, written when the session rotates. */
   summary: string | null;
 }
 
-/** The routine run id inside a `routine:<runId>` owner ref, for the legacy `run_id` column; null for any other ref. */
 function routineRunOf(ownerRef: string | null | undefined): string | null {
   return ownerRef?.startsWith('routine:') ? ownerRef.slice(8) : null;
 }
 
-/** A stored `bots.provider`: a provider id this build knows, or null (follow the default). An unknown id reads as null. */
 function providerOf(v: unknown): ProviderId | null {
   return typeof v === 'string' && (PROVIDER_IDS as readonly string[]).includes(v) ? (v as ProviderId) : null;
 }
 
-/** A stored `bots.backup` (JSON {provider, model}), or null when absent or unreadable. */
 function backupOf(v: unknown): BotBackup | null {
   if (typeof v !== 'string' || !v) return null;
   try {

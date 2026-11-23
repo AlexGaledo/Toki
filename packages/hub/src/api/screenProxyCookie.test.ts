@@ -13,7 +13,6 @@ let backend: http.Server;
 let hub: Hub;
 let port: number;
 
-// Stands in for the screen backend: it only records the cookies the hub passed on.
 beforeAll(async () => {
   backend = http.createServer((req, res) => {
     seen.push(req.headers.cookie);
@@ -59,7 +58,6 @@ it('keeps the sign-in cookie away from the screen backend, on pages and on the w
   expect(session).toMatch(/^pr_session_\d+=/);
   const minted = await call('POST', '/api/screen/ticket', { cookie: session }, {});
   const screen = (await call('GET', minted.json.url!, {})).cookie;
-  // A real browser sends both: the sign-in cookie has Path=/, so it rides along to /screen/*.
   const cookie = session + '; ' + screen;
 
   expect((await call('GET', '/screen/vnc.html', { cookie })).status).toBe(200);

@@ -1,6 +1,5 @@
 import type { ProjectOverview } from '@pocketrocket/shared';
 
-/** Longest single line kept; a bot-written paragraph in a bullet is cut here. */
 const MAX_LINE = 200;
 const MAX_WAITING = 20;
 
@@ -8,7 +7,6 @@ export const EMPTY_OVERVIEW: ProjectOverview = { updated: null, plan: null, next
 
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const BOX = /^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]\s*(.*)$/;
-/** A top-level bullet (at most one space of indent), so nested detail lines are not read as items. */
 const BULLET = /^ ?(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?(.+)$/;
 
 const clip = (s: string) => {
@@ -16,14 +14,8 @@ const clip = (s: string) => {
   return t.length > MAX_LINE ? t.slice(0, MAX_LINE - 1) + '…' : t;
 };
 
-/**
- * A project's state from its `current.md`, with no AI turn (Toki UI spec, B3). Plain rules over the text: checkboxes
- * for the plan, and bullets under the "Next", "Done"/"Shipped" and "Waiting on me/owner/you" headings. Code fences are
- * skipped. Returns text only; the web shows it as plain text.
- */
 export function parseProjectOverview(md: string): ProjectOverview {
   const text = md.replace(/^\uFEFF/, '');
-  // The same front matter rule as ProjectService.parseFrontmatter (not imported: ProjectService imports this file).
   const front = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(text);
   const updated = front ? (/^updated:\s*(.+?)\s*$/m.exec(front[1])?.[1] ?? null) : null;
   const body = front ? text.slice(front[0].length) : text;

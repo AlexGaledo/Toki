@@ -16,7 +16,6 @@ let hub: Hub;
 let port: number;
 const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-context-projects-'));
 const script = path.resolve(__dirname, '../../../../scripts/context-import.mjs');
-// Fake credential shapes, assembled so no scanner reads this file as holding real ones.
 const SAMPLES = ['sk-' + 'a'.repeat(24), 'ghp_' + 'b'.repeat(24), 'eyJ' + 'c'.repeat(12) + '.eyJ' + 'd'.repeat(12) + '.' + 'e'.repeat(12), 'xoxb-' + '1'.repeat(14)];
 
 beforeAll(async () => {
@@ -176,7 +175,6 @@ describe('the connector', () => {
     expect((await request('GET', '/api/context/' + row.id)).json.body).toBe('be brief. password: [redacted]');
     expect(fs.existsSync(path.join(projectsDir, 'conn'))).toBe(false);
 
-    // Approving needs the project to exist, and keeps the item until it does.
     expect((await request('POST', '/api/context/' + row.id + '/approve', {})).status).toBe(404);
     expect((await request('GET', '/api/context/' + row.id)).status).toBe(200);
     await request('POST', '/api/projects', { body: { name: 'Conn' } });

@@ -6,10 +6,8 @@ import { FailoverRepo } from '../db/failoverRepo.js';
 import { DEFAULT_HOLD_MS } from './ProviderHealth.js';
 import { FailoverError, FailoverService, type ContinueTurn, type LimitedTurn } from './Failover.js';
 
-/** M8 (spec 01 §4.7, P3-1): the failover card on its own, with a fake clock and stub providers. */
-
 const T0 = Date.UTC(2026, 10, 19, 10, 0);
-const RESET = T0 + 4 * 3600_000; // 14:00 UTC
+const RESET = T0 + 4 * 3600_000;
 
 function setup(o: { held?: (id: ProviderId, model?: string) => boolean; enabled?: ProviderId[] } = {}) {
   const repos = new Repos(new Db(':memory:'));
@@ -46,7 +44,6 @@ describe('raising the card', () => {
     const card = s.limited()!;
     expect(card).toMatchObject({ status: 'pending', provider: 'claude', window: 'five_hour', backup: { provider: 'gemini', model: 'gemini-3.1-pro' }, resetsAt: RESET, expiresAt: RESET });
     expect(s.svc.state().cards).toHaveLength(1);
-    // The public card carries no cause, seqs or budget.
     expect(Object.keys(s.svc.state().cards[0])).not.toContain('causeId');
     expect(s.changes.at(-1)!.cards).toHaveLength(1);
   });
@@ -103,10 +100,8 @@ describe('answering the card', () => {
     expect(s.notes.at(-1)!.text).toBe('Ada continues on Gemini (gemini-3.1-pro), with approvals on. Until Claude resets at 14:00, what you send Ada runs there too.');
     expect(s.svc.state()).toEqual({ cards: [], active: [{ botId: s.bot.id, from: 'claude', backup: { provider: 'gemini', model: 'gemini-3.1-pro' }, until: RESET }] });
     expect(s.svc.stickyFor(s.bot.id)).toEqual({ provider: 'gemini', model: 'gemini-3.1-pro' });
-    // Once per press: a second answer is refused and queues nothing.
     expect(() => s.svc.decide(card.id, { decision: 'continue' })).toThrow(FailoverError);
     expect(s.continued).toHaveLength(1);
-    // The reset ends it; the sweep tells the clients the badge is gone.
     s.setNow(RESET);
     expect(s.svc.stickyFor(s.bot.id)).toBeNull();
     s.svc.sweep();

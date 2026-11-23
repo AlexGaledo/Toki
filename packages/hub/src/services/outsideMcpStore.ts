@@ -6,16 +6,7 @@ import { renameOver, restrictFile } from '../config.js';
 import { addSecret } from '../providers/redact.js';
 import { ENV_KEY_RE, NAME_RE, OUTSIDE_MCP_PATH, RESERVED, stdioCommand } from './outsideMcp.js';
 
-/**
- * The owner's writer for <DATA_DIR>/mcp-servers.json (see outsideMcp.ts for the format and the rules the
- * turn-time loader enforces). The REST API (api/mcpServers.ts) is the only caller; no bot tool reaches it.
- *
- * Works on the raw JSON object, not on parsed entries: an entry that is hand-edited, malformed or carries
- * keys this code does not know is written back untouched unless it is the one being changed. A file that does
- * not parse is never overwritten. Secrets stay in the file as the loader reads them (plain, 0600); the
- * IntegrationVault cannot hold them without breaking hand-edited files. Values never leave through `list`.
- */
-
+/** Values never leave through `list`. */
 export class McpStoreError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -27,7 +18,6 @@ const urlRule = z.string().max(2048).superRefine((v, ctx) => {
   try { u = new URL(v); } catch { ctx.addIssue({ code: 'custom', message: 'not a valid URL' }); return; }
   if (u.username || u.password) { ctx.addIssue({ code: 'custom', message: 'no credentials in the url; use token' }); return; }
   const local = u.hostname === '127.0.0.1' || u.hostname === 'localhost';
-  // The loader's rule: a key only ever travels over TLS, or to this machine.
   if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) {
     ctx.addIssue({ code: 'custom', message: 'must be https, or http to 127.0.0.1 / localhost' });
   }
@@ -47,7 +37,6 @@ const shared = {
 
 const nameRule = z.string().regex(NAME_RE, 'lowercase letters, digits, - and single _, up to 32 characters').refine((n) => !RESERVED.has(n), 'that name is reserved');
 
-/** POST body. Exactly one of `url` (remote) or `command` (stdio). */
 export const McpServerAddSchema = z.object({
   name: nameRule,
   url: urlRule.optional(),
@@ -64,7 +53,6 @@ export const McpServerAddSchema = z.object({
   if (Object.keys(v.env ?? {}).length > 32) ctx.addIssue({ code: 'custom', message: 'env: at most 32 variables' });
 });
 
-/** PATCH body. `token: null` clears the token; an `env` value of null removes that variable; absent keeps. */
 export const McpServerPatchSchema = z.object({
   url: urlRule.optional(),
   token: z.string().min(1).max(4096).nullable().optional(),
@@ -78,7 +66,7 @@ export type McpServerPatch = z.infer<typeof McpServerPatchSchema>;
 
 const MASK = '***';
 const SECRETISH = /key|token|secret|passw|auth|bearer|credential/i;
-/** Args are shown so they can be edited, but a value that looks like a credential never is. */
+/** A value that looks like a credential is never shown. */
 export function maskArgs(args: readonly string[]): { args: string[]; masked: boolean } {
   let masked = false;
   const out = args.map((a, i) => {
@@ -102,7 +90,6 @@ export interface McpServerView {
   command?: string;
   args?: string[];
   argsMasked?: boolean;
-  /** Names only. Values are never returned. */
   envKeys?: string[];
   rooms: string[];
   bots: string[];
@@ -116,7 +103,6 @@ const strs = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is st
 const safeOrigin = (u: string): string | null => { try { return new URL(u).origin; } catch { return null; } };
 const isObj = (v: unknown): v is Raw => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** What is wrong with a stored entry, by the loader's own rules. Empty: the loader will mount it. */
 export function entryProblems(v: unknown): string[] {
   if (!isObj(v)) return ['not an object'];
   const p: string[] = [];
@@ -193,7 +179,6 @@ export class McpServerStore {
       throw e;
     }
     restrictFile(this.file);
-    // Keys written here must be scrubbed from output at once, not at the next turn.
     for (const v of Object.values(all)) {
       if (!isObj(v)) continue;
       if (typeof v.token === 'string') addSecret(v.token);
@@ -205,7 +190,7 @@ export class McpServerStore {
     return Object.entries(this.read()).map(([name, v]) => viewOf(name, v));
   }
 
-  /** The raw entry, for the check endpoint only. Never serialised to a client. */
+  /** Never serialised to a client. */
   rawEntry(name: string): Raw | null {
     const all = this.read();
     return Object.hasOwn(all, name) && isObj(all[name]) ? all[name] : null;
@@ -216,7 +201,6 @@ export class McpServerStore {
     if (Object.hasOwn(all, input.name)) throw new McpStoreError(409, 'A server named "' + input.name + '" already exists');
     const { name, ...entry } = input;
     const clean: Raw = Object.fromEntries(Object.entries(entry).filter(([, v]) => v !== undefined));
-    // The token is bound to the origin it was saved for (outsideMcp.ts refuses to send it anywhere else).
     if (typeof clean.token === 'string' && typeof clean.url === 'string') clean.tokenOrigin = new URL(clean.url).origin;
     all[name] = clean;
     this.write(all);
@@ -232,7 +216,7 @@ export class McpServerStore {
     if (!stdio && (input.command !== undefined || input.args !== undefined || input.env !== undefined)) throw new McpStoreError(400, 'command, args and env belong to a command server');
     if (input.args?.some((a) => a.includes(MASK))) throw new McpStoreError(400, 'args holds a masked value (***); send the real arguments');
     const next: Raw = { ...cur };
-    // A stored token must not follow a new url to another origin: the caller sends a new token, or clears it.
+    // A stored token must not follow a new url to another origin.
     if (!stdio && input.url !== undefined && input.token === undefined && typeof cur.token === 'string' && cur.token) {
       const was = typeof cur.tokenOrigin === 'string' ? cur.tokenOrigin : typeof cur.url === 'string' ? safeOrigin(cur.url) : null;
       if (was !== new URL(input.url).origin) {

@@ -4,11 +4,6 @@ import WebSocket from 'ws';
 import { createHub, type Hub } from '../hub.js';
 import { deviceMayAccess, runnerMayAccess } from './guard.js';
 
-/**
- * Queue controls over REST (02 tasks 2.1a/2.1b/2.2): the owner's paired phone may read a room's queue and use its
- * controls, exactly the listed routes; every other queue path stays refused, and nothing answers without a token.
- */
-
 const TOKEN = 'queue-rest-token';
 let hub: Hub;
 let port: number;
@@ -77,16 +72,13 @@ describe('queue routes', () => {
     expect((await req('POST', path + '/pause', { token: phone, body: { paused: false } })).status).toBe(200);
     expect((await req('GET', path, { token: TOKEN })).json).toEqual([]);
 
-    // Reaches the router (not the guard): nothing queued is a 404 / 409, a bad body a 400.
     expect((await req('POST', path + '/cancel', { token: phone, body: { journalId: 'nope' } })).status).toBe(404);
     expect((await req('POST', path + '/edit', { token: phone, body: { journalId: 'nope', text: 'x' } })).status).toBe(404);
     expect((await req('POST', path + '/edit', { token: phone, body: { journalId: 'nope', text: '' } })).status).toBe(400);
     expect((await req('POST', path + '/send-now', { token: phone, body: { botId: bot.json.id } })).status).toBe(409);
     expect((await req('GET', '/api/rooms/missing/queue', { token: TOKEN })).status).toBe(404);
-    // A device still cannot reach routes beside them.
     expect((await req('POST', path + '/reorder', { token: phone, body: {} })).status).toBe(403);
 
-    // Over the socket, a phone pauses the queue and every client hears queue.changed; a refusal names what it was about.
     const ws = new WebSocket('ws://127.0.0.1:' + port + '/ws?token=' + encodeURIComponent(phone));
     const got: any[] = [];
     ws.on('message', (d) => got.push(JSON.parse(String(d))));

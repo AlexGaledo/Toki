@@ -4,63 +4,12 @@ import { DATA_DIR } from '../config.js';
 import { addSecret } from '../providers/redact.js';
 import { routeByNeeds, type KeyRegistry } from './keyRegistry.js';
 
-/**
- * Outside MCP servers the owner gives to named bots, e.g. the Wika dashboard for the Wika bots.
- *
- * Owner-edited JSON at <DATA_DIR>/mcp-servers.json (0600, beside secrets.json), read on every turn so an
- * edit takes effect on the next turn without a restart. No UI and no bot tool writes it, and a bot's file and
- * shell tools are refused it (permissions/secretFiles.ts):
- *
- *   {
- *     "wika": {
- *       "url": "https://dashboard.wikaph.com/api/mcp",
- *       "token": "<key>",
- *       "rooms": ["Wika"],
- *       "bots": ["wika-backend"]
- *     },
- *     "firecrawl": {
- *       "command": "npx",
- *       "args": ["-y", "firecrawl-mcp"],
- *       "env": { "FIRECRAWL_API_KEY": "<key>" },
- *       "bots": ["researcher"],
- *       "approve": "writes",
- *       "readTools": ["firecrawl_search"]
- *     }
- *   }
- *
- * An entry is either remote (`url`, optional bearer `token`; https, or http to this machine only) or a local
- * stdio process (`command`, optional `args` and `env`), never both. `command` must be `npx`, `node` or an
- * absolute path. Every `env` value and every `token` is registered for redaction (`registerOutsideMcpSecrets`),
- * so a key the server echoes back is scrubbed from the chat and the logs.
- *
- * A url entry the REST API saved also carries `tokenOrigin`, the origin its token was saved for. The loader skips
- * an entry whose url has moved to another origin, so a token cannot follow an edited url. Entries without it
- * (hand-written) are taken as the owner's word.
- *
- * `rooms` lists room ids or names: every bot gets the server while it works in that room. `bots` lists
- * handles that get it in every room. An entry needs at least one of the two.
- *
- * `approve` decides when the owner sees a card for a call. The card shows under approvals bypass too, and no
- * "always" answer or approval rule covers it:
- * - `every-call`: every call. The default for stdio entries, which carry the owner's own keys.
- * - `writes`: every call except the bare tool names listed in `readTools`.
- * - `none`: no card of its own. The default for url entries. Outside bypass mode such a call still reaches
- *   the approval broker like any other unlisted tool; under bypass it runs.
- * An unknown `approve` value means `every-call`. Give a bot a read-only key where the service offers one.
- *
- * `needs` lists key names from key-registry.json (services/keyRegistry.ts) the server's keys stand for. An
- * entry whose needs do not all route to the VPS (a tier 3 key, a key the registry keeps on the PC, or a name the
- * registry does not know) is not mounted on this hub; `vpsMountable` drops it and logs why.
- * Claude provider only; other adapters ignore this file.
- */
+/** No UI or bot tool writes it, and a bot's file and shell tools are refused it. */
 export const OUTSIDE_MCP_PATH = path.join(DATA_DIR, 'mcp-servers.json');
 
-/** Names the hub uses itself; an outside server may not take them. */
 export const RESERVED = new Set(['pocketrocket', 'browser']);
-/** No `__` in a name: the SDK names tools `mcp__<server>__<tool>`, and the approval guard splits on it. */
 export const NAME_RE = /^[a-z0-9](?:[a-z0-9-]|_(?!_)){0,31}$/;
 export const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-/** Launchers a stdio entry may name without a full path. Anything else must be an absolute path. */
 const BARE_COMMANDS = new Set(['npx', 'node']);
 
 export type OutsideMcpApprove = 'every-call' | 'writes' | 'none';
@@ -68,9 +17,7 @@ export type OutsideMcpApprove = 'every-call' | 'writes' | 'none';
 interface OutsideMcpBase {
   name: string;
   approve: OutsideMcpApprove;
-  /** Bare tool names that skip the card when `approve` is 'writes'. */
   readTools: string[];
-  /** Key names from key-registry.json this server's keys stand for. Empty: none declared. */
   needs: string[];
 }
 export interface OutsideMcpHttp extends OutsideMcpBase {
@@ -86,14 +33,13 @@ export interface OutsideMcpStdio extends OutsideMcpBase {
 }
 export type OutsideMcpServer = OutsideMcpHttp | OutsideMcpStdio;
 
-/** Does this call need the owner's card? `tool` is the bare tool name, without `mcp__<server>__`. */
 export function outsideMcpNeedsCard(server: Pick<OutsideMcpServer, 'approve' | 'readTools'>, tool: string): boolean {
   if (server.approve === 'none') return false;
   if (server.approve === 'writes') return !server.readTools.includes(tool);
   return true;
 }
 
-/** Registers every key an outside server carries (bearer token, env values) for redaction. */
+/** Registers every key an outside server carries for redaction. */
 export function registerOutsideMcpSecrets(servers: readonly OutsideMcpServer[]): void {
   for (const s of servers) {
     if (s.kind === 'http') addSecret(s.token);
@@ -107,7 +53,6 @@ export function stdioCommand(v: unknown): string | null {
   return path.isAbsolute(v) ? v : null;
 }
 
-/** A list of strings; absent means empty, anything else is null. */
 function strings(v: unknown): string[] | null {
   if (v === undefined) return [];
   if (!Array.isArray(v) || !v.every((x) => typeof x === 'string')) return null;
@@ -119,7 +64,6 @@ function approveOf(v: unknown, fallback: OutsideMcpApprove): OutsideMcpApprove {
   return v === 'writes' || v === 'none' ? v : 'every-call';
 }
 
-/** The servers configured for this bot handle. A missing or broken file means none; a broken entry is skipped. */
 export function outsideMcpFor(handle: string, room: { id: string; name: string } | null, file: string = OUTSIDE_MCP_PATH): OutsideMcpServer[] {
   let raw: unknown;
   try {
@@ -139,7 +83,6 @@ export function outsideMcpFor(handle: string, room: { id: string; name: string }
     const byRoom = !!room && Array.isArray(s.rooms) && (s.rooms.includes(room.id) || s.rooms.includes(room.name));
     if (!byBot && !byRoom) continue;
     const readTools = strings(s.readTools) ?? [];
-    // A malformed `needs` must not read as "needs nothing": skip the entry.
     const needs = strings(s.needs);
     if (!needs) continue;
 
@@ -167,8 +110,7 @@ export function outsideMcpFor(handle: string, room: { id: string; name: string }
     // A key only ever travels over TLS, or to this machine.
     const local = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) continue;
-    // A token saved by the REST API is bound to the origin it was saved for; a url edited to another origin
-    // (by hand, or any other route) must not carry it. Hand-written entries have no binding and are the owner's word.
+    // A saved token is bound to its origin: a url edited to another origin must not carry it.
     if (typeof s.token === 'string' && s.token && typeof s.tokenOrigin === 'string' && s.tokenOrigin !== url.origin) {
       logOnce('[outside-mcp] not mounting "' + name + '": its token was saved for another origin than its url; re-save the token');
       continue;
@@ -182,18 +124,12 @@ export function outsideMcpFor(handle: string, room: { id: string; name: string }
 }
 
 const logged = new Set<string>();
-/** The file is read every turn; say why a server is off once per process, not once per turn. */
 function logOnce(msg: string): void {
   if (logged.has(msg)) return;
   logged.add(msg);
   console.warn(msg);
 }
 
-/**
- * The servers this hub may mount. One that declares `needs` must route to the VPS (routeByNeeds): a tier 3
- * key, a key kept on the PC, or a name the registry does not know keeps the server off this hub. Undeclared
- * needs are not second-guessed. `log` gets one line per dropped server.
- */
 export function vpsMountable(
   servers: readonly OutsideMcpServer[],
   registry: KeyRegistry,

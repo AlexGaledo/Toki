@@ -5,14 +5,6 @@ import type {
 import { DEFAULT_SETTINGS, PROVIDER_IDS } from '@pocketrocket/shared';
 import { steerTurn, type SteerInput, type TurnContext, type TurnSink } from './types.js';
 
-/**
- * Steering in the Claude adapter (task 1.1), against a fake `query()` that reads the adapter's input channel and
- * answers the way CLI 2.1.326 did in spike 1.0: a message pushed mid-tool is folded into the running turn and named
- * in that result's `user_message_uuids`; one pushed later gets a result of its own; Stop's receipt lists it under
- * `still_queued`, and without a close the CLI then runs it.
- */
-
-/** Scripted stand-in for the SDK's Query: the test emits frames and sees every user message the adapter writes. */
 class FakeQuery {
   inputs: SDKUserMessage[] = [];
   interrupts = 0;
@@ -56,7 +48,6 @@ class FakeQuery {
     this.closed = true;
     this.wake?.();
   }
-  /** Emits once the adapter's opening message is in, so frames can name its uuid. */
   afterOpener(...ms: Array<(q: FakeQuery) => unknown>) {
     const go = () => this.emit(...ms.map((f) => f(this)));
     if (this.inputs.length) go();
@@ -72,7 +63,6 @@ class FakeQuery {
 }
 
 let queries: FakeQuery[] = [];
-/** Runs for each new query, so a test can script it before the adapter reads. */
 let script: (q: FakeQuery) => void = () => undefined;
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@anthropic-ai/claude-agent-sdk')>()),
@@ -121,7 +111,6 @@ function ctx(over: Partial<TurnContext> = {}): TurnContext {
 }
 const steer = (uuid: string, t = 'also say BANANA'): SteerInput => ({ uuid, text: t });
 const opener = (q: FakeQuery) => q.inputs[0]!.uuid as string;
-/** Lets the adapter's read loop and the fake's input reader catch up. */
 async function until(cond: () => boolean) {
   let met = cond();
   for (let i = 0; i < 200 && !met; i++) {
@@ -142,7 +131,6 @@ describe('steering a running Claude turn', () => {
     const p = new ClaudeProvider();
     script = (q) => {
       q.emit(init(), toolUse());
-      // Spike 1.0: the CLI folds the message in at the next tool round and the one result names both sends.
       q.onInput = (m) => { if (String(m.uuid) === 's1') q.emit(text('DONE, BANANA'), result({ uuids: [opener(q), 's1'], total: 0.02, tokens: 10, ms: 100 })); };
     };
     const run = p.runTurn(ctx(), sink);
@@ -153,11 +141,10 @@ describe('steering a running Claude turn', () => {
     const q = queries[0]!;
     expect(q.inputs.map((m) => m.uuid)).toEqual([opener(q), 's1']);
     expect(q.inputs[1]!.message.content).toBe('also say BANANA');
-    expect(q.inputs[1]!.priority).toBeUndefined(); // 'now' aborts the running tool; 'later' never folds (spike 1.0)
+    expect(q.inputs[1]!.priority).toBeUndefined();
     expect(out.ok).toBe(true);
     expect(out.steers).toEqual({ consumed: ['s1'], pending: [] });
-    expect(q.closed).toBe(false); // nothing left for the CLI to run: no forced close
-    // The turn is over: a later message queues.
+    expect(q.closed).toBe(false);
     expect(p.steer('t1', steer('s2'))).toEqual({ status: 'queued', reason: 'between-runs' });
   });
 
@@ -167,7 +154,6 @@ describe('steering a running Claude turn', () => {
       q.emit(init(), toolUse());
       q.onInput = (m) => {
         if (String(m.uuid) !== 's1') return;
-        // Taken after the turn finished: the first result names only the opener, the steer gets a turn of its own.
         q.emit(result({ uuids: [opener(q)], total: 0.0112, tokens: 100, ms: 19_000 }));
         setTimeout(() => q.emit(text('BANANA'), result({ uuids: ['s1'], total: 0.0125, tokens: 7, ms: 1_300 })), 5);
       };
@@ -178,7 +164,7 @@ describe('steering a running Claude turn', () => {
     const out = await run;
 
     expect(out.ok).toBe(true);
-    expect(out.costUsd).toBeCloseTo(0.0125); // cumulative across the query's results: the last one, not a sum
+    expect(out.costUsd).toBeCloseTo(0.0125);
     expect(out.sessionCostUsd).toBeCloseTo(0.0125);
     expect(out.usage).toMatchObject({ inputTokens: 107, outputTokens: 107, cacheReadTokens: 107, cacheWriteTokens: 107 });
     expect(out.durationMs).toBe(20_300);
@@ -199,7 +185,6 @@ describe('steering a running Claude turn', () => {
 
     expect(out.ok).toBe(true);
     expect(out.steers).toEqual({ consumed: [], pending: ['s1', 's2'] });
-    // The CLI still holds them and would run them as a turn of their own: the query is closed.
     expect(queries[0]!.closed).toBe(true);
     expect(queries).toHaveLength(1);
   });
@@ -212,7 +197,6 @@ describe('steering a running Claude turn', () => {
       q.emit(init(), toolUse());
       q.receipt = { still_queued: ['s1'] };
       q.onInterrupt = () => {
-        // The interrupted turn's result, then (spike 1.0) the CLI would start the queued steer about a second later.
         setTimeout(() => {
           q.emit(result({ uuids: [opener(q)], subtype: 'error_during_execution', total: 0.01, tokens: 10, ms: 8_000 }));
           setTimeout(() => { if (!q.closed) { ranSteer = true; q.emit(text('BANANA'), result({ uuids: ['s1'], total: 0.012, tokens: 3, ms: 1_000 })); } }, 20);
@@ -223,7 +207,6 @@ describe('steering a running Claude turn', () => {
     await until(() => queries[0]?.inputs.length === 1);
     await until(() => p.steer('t1', steer('s1')).status === 'accepted');
     ac.abort();
-    // Stopping: no further steer gets in.
     expect(p.steer('t1', steer('s2'))).toEqual({ status: 'queued', reason: 'between-runs' });
     const out = await run;
     await new Promise((r) => setTimeout(r, 40));
@@ -233,7 +216,7 @@ describe('steering a running Claude turn', () => {
     expect(q.closed).toBe(true);
     expect(ranSteer).toBe(false);
     expect(out.ok).toBe(false);
-    expect(out.costUsd).toBeCloseTo(0.01); // the interrupted result's cost was read before closing
+    expect(out.costUsd).toBeCloseTo(0.01);
     expect(out.steers).toEqual({ consumed: [], pending: ['s1'] });
   });
 
@@ -282,7 +265,6 @@ describe('steering a running Claude turn', () => {
     const p = new ClaudeProvider();
     script = (q) => {
       q.emit(init(), toolUse());
-      // Spike 1.0: the steer was not folded (no model call left) and the CLI would run it next, with a fresh maxTurns.
       q.onInput = (m) => { if (String(m.uuid) === 's1') q.emit(result({ uuids: [opener(q)], subtype: 'error_max_turns', total: 0.01, tokens: 5, ms: 10 })); };
     };
     const run = p.runTurn(ctx(), sink);
@@ -299,7 +281,7 @@ describe('steering a running Claude turn', () => {
 describe('when a steer is refused', () => {
   it('queues with reason provider when the CLI does not advertise the interrupt receipt, and canSteer follows init', async () => {
     const p = new ClaudeProvider();
-    expect(p.canSteer()).toBe(false); // no turn yet: unknown counts as no
+    expect(p.canSteer()).toBe(false);
     script = (q) => q.emit(init(['msg_lifecycle_v1']), toolUse());
     const run = p.runTurn(ctx(), sink);
     await until(() => queries[0]?.inputs.length === 1 && p.lastInit.capabilities !== undefined);
@@ -319,7 +301,7 @@ describe('when a steer is refused', () => {
   it('queues as between-runs before the run has started reading and for an unknown turn', async () => {
     const p = new ClaudeProvider();
     expect(p.steer('nope', steer('s1'))).toEqual({ status: 'queued', reason: 'between-runs' });
-    script = () => undefined; // no init yet
+    script = () => undefined;
     const run = p.runTurn(ctx(), sink);
     await until(() => queries[0]?.inputs.length === 1);
     expect(p.steer('t1', steer('s1'))).toEqual({ status: 'queued', reason: 'between-runs' });

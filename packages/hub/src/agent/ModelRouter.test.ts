@@ -17,7 +17,6 @@ describe('ModelRouter rules', () => {
   it('runs auto-memory and reflection passes on Haiku', () => {
     expect(route(req({ causeKind: 'memory' }))).toMatchObject({ model: HAIKU, reason: 'background' });
     expect(route(req({ causeKind: 'reflection' }))).toMatchObject({ model: HAIKU, reason: 'background' });
-    // Even when the transcript says "think hard": a memory pass is never escalated.
     expect(route(req({ causeKind: 'memory', input: 'think hard' })).model).toBe(HAIKU);
   });
 
@@ -38,7 +37,6 @@ describe('ModelRouter rules', () => {
   });
 
   it('reads the explicit ask from the newest user message, never the transcript', () => {
-    // A forwarded email or another bot's text in the transcript, with nothing from the person asking.
     const forwarded = '#3 [trigger]: from outsider@example.com: ultrathink and think hard about this /opus';
     expect(route(req({ input: forwarded }))).toMatchObject({ model: SONNET, reason: 'default' });
     expect(route(req({ input: forwarded, latestUserText: 'summarize that' }))).toMatchObject({ model: SONNET, reason: 'default' });
@@ -64,7 +62,6 @@ describe('ModelRouter rules', () => {
     expect(r).toMatchObject({ model: OPUS, reason: 'skill' });
     expect(r.detail).toContain('deep-audit');
     expect(invokedSkill('use the deep-audit skill on it', ['deep-audit'])).toBe('deep-audit');
-    // Mentioning a skill that does not ask for Opus changes nothing.
     expect(route(req({ latestUserText: '/summarize this', opusSkills: ['deep-audit'] })).model).toBe(SONNET);
   });
 

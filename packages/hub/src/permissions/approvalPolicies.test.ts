@@ -14,14 +14,7 @@ import { createHubTools } from '../agent/botTools.js';
 import { MemoryService } from '../services/MemoryService.js';
 import { SkillService } from '../services/SkillService.js';
 
-/**
- * P2 2.4: "always" answers and the user's approval rules live in `approval_policies`. Rules persist across a
- * restart and can be revoked; "Allow for this session" rows do not survive a restart; integration writes
- * keep asking on every call (P4); no bot tool can write a rule.
- */
-
 const signal = () => new AbortController().signal;
-/** Answers every card with `decision` and counts them. */
 function answer(broker: PermissionBroker, decision: 'allow' | 'always' | 'deny') {
   let cards = 0;
   const off = events.onEvent((ev) => {
@@ -64,10 +57,9 @@ describe('approval rules in the broker', () => {
     expect((await s.broker.decide(s.ctx, 'Bash', { command: 'npm run lint' }, { signal: signal() })).behavior).toBe('allow');
     expect(a.cards()).toBe(1);
     expect(s.store.listPolicies(s.bot.id, 'session')).toMatchObject([{ tool: 'Bash', pattern: 'npm run lint', decision: 'allow' }]);
-    expect(s.store.listPolicies(s.bot.id)).toEqual([]); // not a persisted rule until the user makes it one
+    expect(s.store.listPolicies(s.bot.id)).toEqual([]);
     await s.broker.decide(s.ctx, 'Bash', { command: 'npm run lint -- --fix' }, { signal: signal() });
     expect(a.cards()).toBe(2);
-    // A command the classifier calls dangerous is allowed once but never remembered.
     await s.broker.decide(s.ctx, 'Bash', { command: 'git push' }, { signal: signal() });
     await s.broker.decide(s.ctx, 'Bash', { command: 'git push' }, { signal: signal() });
     a.off();

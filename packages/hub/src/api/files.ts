@@ -16,7 +16,6 @@ import { logError } from '../providers/redact.js';
 import { ScreenOpenError, type ScreenOpener } from '../services/screenOpen.js';
 import { DECISIONS_FILE, FileRevisionError, type FileRevisions, type FileRoot, type RevisionAuthor } from '../services/FileRevisions.js';
 
-/** Base64 of the biggest upload, plus room for the JSON around it. */
 const UPLOAD_BODY_BYTES = Math.ceil(MAX_FILE_UPLOAD_BYTES / 3) * 4 + 64 * 1024;
 const HIDDEN = new Set(['.git']);
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
@@ -49,7 +48,6 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
   return true;
 };
 
-/** A request path, '/' separated, back to its clean form ('' for the folder itself). */
 function cleanRel(rel: string): string {
   return rel.replaceAll('\\', '/').split('/').filter((p) => p && p !== '.').join('/');
 }
@@ -83,24 +81,18 @@ export function windowsNameProblem(name: string): string | null {
   if (WIN_RESERVED.test(name)) return 'Windows keeps that name for a device';
   return null;
 }
-/** A name the hub is about to create: valid everywhere (the schema checked that), and on Windows, not a device. */
 function checkNewName(name: string): void {
   if (!isValidFileName(name)) throw new FilesError(400, 'Not a valid name: ' + name);
   const why = process.platform === 'win32' ? windowsNameProblem(name) : null;
   if (why) throw new FilesError(400, why + ': ' + name);
 }
 
-/**
- * The folder `rel`, which must exist, or with `parents` is made one level at a time (`mkdir -p`). Each level is
- * resolved through resolveIn before it is made, so a link part way down that leads out of the folder is refused
- * rather than followed, and every name in the path is checked like a file name. Returns the folder and the folders made.
- */
+/** Each level goes through resolveIn first, so a link leading out of the folder is refused, not followed. */
 export function folderIn(root: string, rel: string, parents: boolean): { abs: string; rel: string; made: string[] } {
   const dir = resolveIn(root, rel);
   const made: string[] = [];
   if (parents) {
     const segs = dir.rel ? dir.rel.split('/') : [];
-    // Every name first, so a bad one deep down leaves nothing half made.
     segs.forEach(checkNewName);
     let cur = '';
     for (const seg of segs) {
@@ -113,26 +105,13 @@ export function folderIn(root: string, rel: string, parents: boolean): { abs: st
       cur = step.rel;
     }
   }
-  // Asked again once made: the disk has the last word on where the folder really is.
   const final = resolveIn(root, dir.rel);
   if (!statOr404(final.abs).isDirectory()) throw new FilesError(400, 'Not a folder');
   return { ...final, made };
 }
 export const parentOf = (rel: string) => (rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '');
 
-/**
- * `/api/rooms/:id/files*`: the owner's view of a room's file folder (rooms/roomFiles.ts). Hub token only: a paired
- * phone is refused here and by DEVICE_ALLOW, and a bot's per-turn MCP bearer is not a hub token.
- *
- *   GET    /api/rooms/:id/files?path=                 list a folder
- *   GET    /api/rooms/:id/files/raw?path=&download=1  the file's bytes (50 MB cap)
- *   POST   /api/rooms/:id/files/upload                { path, name, dataBase64, overwrite? } (25 MB cap)
- *   POST   /api/rooms/:id/files/folder                { path, name }
- *   POST   /api/rooms/:id/files/browse                { path, botId? } open it in a bot's server browser
- *   GET    /api/rooms/:id/files/where?path=           an absolute server path (a bot's link) as a path in the folder
- *   PATCH  /api/rooms/:id/files                       { from, to } rename or move
- *   DELETE /api/rooms/:id/files?path=&recursive=true  a folder with anything in it needs recursive
- */
+/** Hub token only: a paired phone and a bot's per-turn MCP bearer are refused. */
 export function createFilesApi(deps: { repos: Repos; roomFiles: RoomFiles; screenOpener?: ScreenOpener; revisions?: FileRevisions }) {
   const { repos, roomFiles } = deps;
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -150,7 +129,6 @@ export function createFilesApi(deps: { repos: Repos; roomFiles: RoomFiles; scree
       const folder = room ? roomFiles.folderOf(room) : null;
       if (!room || !folder) return send(res, 404, { error: 'No room with that id' });
       const root = roomFiles.ensure(folder);
-      // Bridge P1: the folder as a tracked root, and the owner as the author of what this API writes.
       const fileRoot: FileRoot = fileRootOf(room, { ...folder, dir: root });
       const owner: RevisionAuthor = { kind: 'owner', id: null, label: 'owner', machine: process.platform === 'win32' ? 'pc' : 'vps', roomId };
       const revisions = deps.revisions;
@@ -203,7 +181,6 @@ export function createFilesApi(deps: { repos: Repos; roomFiles: RoomFiles; scree
           const stream = fs.createReadStream(abs);
           stream.on('error', (e) => { logError('[files api]', e); res.destroy(); resolve(); });
           stream.on('end', () => resolve());
-          // A client that hangs up mid-download: stop reading and let the request finish.
           res.on('close', () => { stream.destroy(); resolve(); });
           stream.pipe(res);
         });
@@ -229,8 +206,6 @@ export function createFilesApi(deps: { repos: Repos; roomFiles: RoomFiles; scree
         return send(res, 200, { ok: true, path: target.rel });
       }
 
-      // Bridge P1: versioned text. GET returns the text with its hash; POST writes only when `base` still matches
-      // what is on disk (null = the file must not exist yet), otherwise 409 with the current text to merge from.
       if (action === 'text' && method === 'GET') {
         if (!revisions) throw new FilesError(404, 'Not available on this hub');
         const { abs, rel } = resolveIn(root, url.searchParams.get('path') ?? '');
@@ -307,7 +282,6 @@ export function createFilesApi(deps: { repos: Repos; roomFiles: RoomFiles; scree
         const target = resolveIn(root, cleanRel(dir.rel + '/' + p.data.name));
         const existing = lstatOrNull(target.abs);
         if (existing) {
-          // mkdir -p: a folder that is already there is what was asked for.
           if (p.data.parents && statOrNull(target.abs)?.isDirectory()) {
             if (dir.made.length) changed('folder_created', dir.rel, dir.made.map(parentOf));
             return send(res, 200, { ok: true, path: target.rel });
@@ -374,7 +348,6 @@ function lstatOrNull(abs: string): fs.Stats | null {
   try { return fs.lstatSync(abs); } catch { return null; }
 }
 
-/** Folders first, then files, by name. Sorting needs only the names; the stats are read for the entries kept. */
 export function listFolder(
   root: string, abs: string, rel: string, roomId: string, kind: FileListing['folder'], projectSlug: string | null, cap = MAX_FILE_LIST_ENTRIES,
 ): FileListing {
@@ -385,7 +358,6 @@ export function listFolder(
   const entries: FileEntry[] = [];
   for (const { d, dir } of keyed.slice(0, cap)) {
     const full = path.join(abs, d.name);
-    // A link that leads out of the folder is left out: the panel could not open it anyway.
     if (d.isSymbolicLink() && !isInside(full, [root])) continue;
     const st = statOrNull(full);
     if (!st) continue;

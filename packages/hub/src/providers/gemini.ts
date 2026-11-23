@@ -30,15 +30,12 @@ export const GEMINI_INFO: ProviderStaticInfo = {
   secretKeys: ['GEMINI_API_KEY'],
   // agy asks through session/request_permission before shell, but not before its own file writes (live G6, 1.5.12).
   permissions: 'best-effort',
-  // Not `verified`: writes do not ask (G6). The picker keeps its warning.
   maturity: 'untested',
   testedVersions: '1.5.12',
 };
 
-/** The variable the key is handed to `agy` in. Gemini's documented name; P2-4 confirms `agy` reads it. */
 export const GEMINI_KEY_VAR = 'GEMINI_API_KEY';
 
-/** The agy versions run live against Toki (P2-4). `GEMINI_INFO.testedVersions` says the same for the UI. */
 export const AGY_TESTED: { min: string; max: string } | null = { min: '1.5.12', max: '1.5.12' };
 
 /**
@@ -63,7 +60,6 @@ export const GEMINI_HINT =
   'sign in with Google, or set a Gemini API key in Settings. Set `AGY_EXE` if `agy` is not on PATH. ' +
   'On the Google sign-in, Gemini answers only messages a person sends; routines and triggers need the API key.';
 
-/** `x.y.z` from whatever `agy --version` prints ("agy 1.4.2", "Antigravity CLI v1.4.2 (abc123)"), or null. */
 export function parseAgyVersion(text: string): string | null {
   const m = /(\d+)\.(\d+)(?:\.(\d+))?/.exec(text);
   return m ? m[1] + '.' + m[2] + '.' + (m[3] ?? '0') : null;
@@ -76,7 +72,6 @@ function cmpVersion(a: string, b: string): number {
   return 0;
 }
 
-/** A warning when `version` is outside the tested range, or unreadable; null when it is a tested one. Never a refusal. */
 export function agyVersionWarning(version: string | null, tested = AGY_TESTED): string | null {
   if (!version) return 'unknown agy version (untested)';
   if (!tested) return 'agy ' + version + ' has not been tested with Toki yet';
@@ -122,10 +117,6 @@ export function parseGeminiAuth(init: Pick<InitializeResponse, '_meta' | 'agentI
  */
 const AGY_WARNING_LINE = /^[ \t]*⚠[ \t]*((?:API error \(attempt \d+\): RESOURCE_EXHAUSTED \(code 429\):|Individual quota reached\.)[^\r\n]*?)[ \t]*\r?$/gm;
 
-/**
- * Takes agy's limit warnings out of a chunk of answer text. `text` is what is left for the room (the chunk unchanged
- * when it held none); `warnings` are the warning lines without the `⚠`, for `geminiLimit`.
- */
 export function splitAgyWarnings(text: string): { text: string; warnings: string[] } {
   if (!text.includes('⚠')) return { text, warnings: [] };
   const warnings: string[] = [];
@@ -169,7 +160,6 @@ export function agySettingsPath(home = os.homedir()): string {
   return path.join(home, '.gemini', 'antigravity-cli', 'settings.json');
 }
 
-/** `modelProvider` from agy's settings file, or null when the file is missing, unreadable or has none. */
 export function readAgyModelProvider(file = agySettingsPath()): string | null {
   try {
     const v = (JSON.parse(fs.readFileSync(file, 'utf8')) as { modelProvider?: unknown } | null)?.modelProvider;
@@ -201,13 +191,11 @@ export const GEMINI_KEY_IGNORED_HINT =
   '"modelProvider": "gemini". Until then it runs on the Google sign-in, so routines and triggers stay off.';
 
 export function findAgyExe(): Promise<string | null> {
-  // AGY_EXE first; the default install folder is added once a live install confirms it (spec 01 §4.8); then PATH.
   return findExe('agy', 'AGY_EXE');
 }
 
 export interface GeminiProviderOptions extends AcpProviderOptions {
   secrets?: Pick<SecretsStore, 'get'>;
-  /** agy's settings file (tests). Default: `agySettingsPath()`. */
   agySettings?: string;
 }
 
@@ -245,7 +233,6 @@ export function geminiPreset(opts: GeminiProviderOptions = {}): AcpPreset {
       }
       const version = parseAgyVersion(v.stdout + '\n' + v.stderr) ?? parseAgyVersion(p.init.agentInfo?.version ?? '');
       const warning = agyVersionWarning(version);
-      // The same env the turn spawns agy with (AcpProvider.env): the Secrets store's key, or the hub's own variable.
       const spawnEnv = childEnv('gemini', { ...env(), ...opts.env });
       const auth = inferGeminiAuth(parseGeminiAuth(p.init), spawnEnv, readAgyModelProvider(opts.agySettings));
       return {

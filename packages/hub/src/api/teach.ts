@@ -19,32 +19,7 @@ class HttpError extends Error {
 type Ctx = { params: Record<string, string>; body: unknown };
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx) => unknown }
 
-/**
- * P6 REST, human-only (hub token, or a paired phone for the routes guard.ts `DEVICE_ALLOW` lists: reading
- * recordings, versions and the reflection setting, and stopping a recording). Starting a recording, distilling,
- * corrections, reflection opt-in and approving or rejecting a version are desktop actions. No bot tool or MCP
- * route reaches any of it. Kept out of rest.ts so phases merge cleanly; hub.ts asks it before rest.
- *
- *   GET    /api/computers/:botId/recorder                 RecorderStatus
- *   POST   /api/computers/:botId/recorder/start           { title? }  Teach
- *   POST   /api/computers/:botId/recorder/stop            Done
- *   GET    /api/computers/:botId/recordings               RecordingInfo[]
- *   GET    /api/computers/:botId/recordings/:rid          RecordingInfo & { trace }
- *   DELETE /api/computers/:botId/recordings/:rid
- *   POST   /api/computers/:botId/recordings/:rid/distill  { name?, hint? }  → { skill, version }
- *   GET    /api/skills/:id/versions                       SkillVersion[]
- *   GET    /api/skills/:id/versions/:vid                  SkillVersionDetail (with the line diff)
- *   POST   /api/skills/:id/versions/:vid                  { decision: approve|reject }
- *   POST   /api/skills/:id/corrections                    { text }  → SkillVersion (pending)
- *   GET|PUT /api/bots/:id/skill-reflection                SkillReflectionConfig
- *
- * The bot training pilot lives here too. A phone may read it; everything that spends or changes a bot is desktop.
- *
- *   GET    /api/bots/:id/training                         TrainingState
- *   PUT    /api/bots/:id/training                         { enabled }  → TrainingState
- *   POST   /api/bots/:id/training/run                     TrainingPassResult
- *   POST   /api/bots/:id/training/proposals/:pid          { decision: approve|reject|undo }  → TrainingProposal
- */
+/** Human-only: a paired phone reaches only the routes DEVICE_ALLOW lists. */
 export function createTeachApi(deps: { repos: Repos; skills: SkillService; recorder: Recorder; distiller: SkillDistiller; training: Training }) {
   const { repos, skills, recorder, distiller, training } = deps;
   const routes: Route[] = [];

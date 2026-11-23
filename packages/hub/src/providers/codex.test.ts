@@ -63,8 +63,6 @@ function makeCtx(over: Partial<TurnContext> = {}): TurnContext {
 }
 
 function provider(secretKey: string | null = null) {
-  // The child env is an allowlist now (audit 2026-09-09, B7) and FAKE_CODEX_* is not on it, so the fake
-  // CLI's knobs are passed in explicitly rather than inherited.
   const knobs: NodeJS.ProcessEnv = {};
   for (const k of KNOBS) if (process.env[k]) knobs[k] = process.env[k];
   return createCodexProvider({ exe: FAKE_EXE, secrets: { get: () => secretKey }, env: knobs });
@@ -74,7 +72,6 @@ function readRecord(): { argv: string[]; stdin: string; cwd: string; token: stri
   return JSON.parse(fs.readFileSync(recordPath, 'utf8')) as never;
 }
 
-/** The value of the flag that follows `name` in argv. */
 function flag(argv: string[], name: string): string | undefined {
   const i = argv.indexOf(name);
   return i === -1 ? undefined : argv[i + 1];
@@ -201,7 +198,6 @@ describe('codex runTurn()', () => {
     expect(r.only('session')).toEqual([['session', '0199a213-81c0-7800-8aa1-bbab2a035a53']]);
     expect(r.only('text')).toEqual([['text', 'pong']]);
     expect(out.costUsd).toBeCloseTo(0.006984, 6);
-    // input_tokens includes the cache reads; the hub splits them into two columns.
     expect(out.usage.inputTokens).toBe(315);
     expect(out.usage.cacheReadTokens).toBe(24448);
     expect(out.usage.outputTokens).toBe(122);
@@ -278,7 +274,6 @@ describe('codex runTurn()', () => {
     const out = await provider().runTurn(ctx, recorder().sink);
     expect(out.ok).toBe(false);
     expect(out.error).toContain('budget exceeded');
-    // The usage that blew the budget is still reported so it lands in the ledger.
     expect(out.usage.outputTokens).toBe(122);
   });
 
@@ -292,7 +287,7 @@ describe('codex runTurn()', () => {
     const out = await running;
     expect(out.ok).toBe(false);
     expect(out.error).toBe('interrupted');
-    expect(p.interrupt(ctx.turnId)).toBe(false); // no longer registered
+    expect(p.interrupt(ctx.turnId)).toBe(false);
   }, 20000);
 
   it('aborting ctx.signal stops the turn the same way', async () => {
@@ -302,7 +297,6 @@ describe('codex runTurn()', () => {
     fs.mkdirSync(ctx.workspaceDir, { recursive: true });
     const p = provider();
     const running = p.runTurn(ctx, recorder().sink);
-    // The fake writes its record right after it has read the prompt, i.e. once the child is really up.
     for (let i = 0; i < 100 && !fs.existsSync(recordPath); i++) await new Promise((r) => setTimeout(r, 20));
     ac.abort();
     const out = await running;

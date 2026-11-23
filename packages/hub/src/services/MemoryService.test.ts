@@ -3,14 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { botHome } from '../config.js';
 import { MAX_MEMORY_BYTES, MemoryService, TRIM_NOTE, capMemory } from './MemoryService.js';
 
-/**
- * Memory rides the system prompt on every turn, so it is capped. These cover the cap itself and the
- * append path that would otherwise grow without bound.
- */
-
 const line = (i: number) => 'note ' + i + ': ' + 'x'.repeat(80);
 
-/** A unique id per test so the real BOTS_DIR is never shared between them. */
 let n = 0;
 function bot() {
   return 'memtest-' + process.pid + '-' + n++;
@@ -34,7 +28,6 @@ describe('capMemory', () => {
     expect(out.trimmed).toBe(true);
     expect(Buffer.byteLength(out.text, 'utf8')).toBeLessThanOrEqual(MAX_MEMORY_BYTES);
     expect(out.text.startsWith(TRIM_NOTE)).toBe(true);
-    // Newest survives, oldest does not.
     expect(out.text).toContain(line(399));
     expect(out.text).not.toContain(line(0));
   });
@@ -72,8 +65,6 @@ describe('MemoryService', () => {
     const id = bot();
     const mem = new MemoryService();
     try {
-      // Each append is a full read + write, so use few large chunks rather than many small ones:
-      // 20 x ~1 KB comfortably overshoots the 8 KB ceiling without 300 round trips to disk.
       const chunk = (i: number) => 'entry ' + i + '\n' + Array.from({ length: 12 }, (_, j) => line(j)).join('\n');
       let everTrimmed = false;
       for (let i = 0; i < 20; i++) everTrimmed = mem.append(id, chunk(i)) || everTrimmed;

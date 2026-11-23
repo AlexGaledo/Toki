@@ -50,7 +50,6 @@ export function failurePage(message: string): string {
   );
 }
 
-/** Exported for the integrations OAuth callback (api/oauth.ts), so both pages look the same. */
 export function page(title: string, body: string, ok: boolean): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} · Toki</title><style>

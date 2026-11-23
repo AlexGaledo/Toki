@@ -28,13 +28,10 @@ export interface AcpHandlers {
 export interface AcpProcess {
   conn: ClientConnection;
   child: ChildProcess;
-  /** The agent's stderr so far (the last 8 KB). Never posted unredacted. */
+  /** Never posted unredacted. */
   stderr(): string;
-  /** Resolves with the exit code once the process is gone (null after a spawn error or a signal). */
   exited: Promise<number | null>;
-  /** Set when the process could not start at all. */
   spawnError(): string | null;
-  /** Closes the connection and tree-kills the process. Safe to call twice. */
   stop(): void;
 }
 
@@ -51,7 +48,7 @@ export function startAcp(exe: string, args: string[], opts: { cwd: string; env: 
   child.stderr?.on('data', (d: string) => {
     stderr = (stderr + d).slice(-8192);
   });
-  child.stdin?.on('error', () => undefined); // the agent may exit before reading everything
+  child.stdin?.on('error', () => undefined);
   const exited = new Promise<number | null>((resolve) => {
     child.on('error', (e) => {
       spawnError ??= String(e.message);
@@ -68,7 +65,6 @@ export function startAcp(exe: string, args: string[], opts: { cwd: string; env: 
     Readable.toWeb(child.stdout!) as unknown as ReadableStream<Uint8Array>,
   );
   const conn = app.connect(stream);
-  // When the agent goes away, pending requests fail at once instead of hanging the turn.
   void exited.then(() => conn.close(new Error('the agent process exited')));
 
   let stopped = false;
@@ -91,7 +87,6 @@ export function startAcp(exe: string, args: string[], opts: { cwd: string; env: 
   };
 }
 
-/** Rejects with `what timed out` after `ms`, so a silent agent cannot hold a turn slot forever. */
 export function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: NodeJS.Timeout;
   return Promise.race([
@@ -122,12 +117,6 @@ export async function findExe(name: string, overrideVar: string, timeoutMs = 300
   return spawnable[0] ?? null;
 }
 
-/**
- * A stdio MCP server that forwards each JSON-RPC line to the hub's `/mcp` with the turn's bearer, for agents that do
- * not take HTTP MCP servers. The hub's endpoint is stateless and answers in plain JSON (`mcp/httpServer.ts`), so a
- * line in is one POST and at most one line out. One line, single quotes only, run as `node -e`: the hub ships as a
- * single bundle, so there is no separate script file to point at.
- */
 export const MCP_STDIO_BRIDGE =
   "const u=process.env.PR_MCP_URL,k=process.env.PR_MCP_TOKEN;let b='',q=Promise.resolve();" +
   "const out=(m)=>process.stdout.write(JSON.stringify(m)+'\\n');" +
@@ -138,10 +127,6 @@ export const MCP_STDIO_BRIDGE =
   "process.stdin.setEncoding('utf8');process.stdin.on('data',(d)=>{b+=d;let i;while((i=b.indexOf('\\n'))>=0){const l=b.slice(0,i).trim();b=b.slice(i+1);if(l)q=q.then(()=>send(l))}});" +
   "process.stdin.on('end',()=>q.then(()=>process.exit(0)));";
 
-/**
- * The hub's tools as the ACP `mcpServers` entry for this turn: HTTP with the per-turn bearer when the agent says it
- * takes HTTP servers (`mcpCapabilities.http`), otherwise the stdio bridge above, run by this same Node.
- */
 export function hubMcpServer(init: Pick<InitializeResponse, 'agentCapabilities'>, mcp: { url: string; token: string }): McpServer {
   if (init.agentCapabilities?.mcpCapabilities?.http) {
     return { type: 'http', name: 'pocketrocket', url: mcp.url, headers: [{ name: 'Authorization', value: 'Bearer ' + mcp.token }] };

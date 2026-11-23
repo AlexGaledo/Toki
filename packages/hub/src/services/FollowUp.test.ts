@@ -15,7 +15,6 @@ const until = async (cond: () => boolean) => {
 };
 const tick = () => new Promise((r) => setTimeout(r, 20));
 
-/** A router whose turns either finish at once or hang (`hang` returns true for that request). */
 function routerOn(repos: Repos, hang: (req: TurnRequest) => boolean = () => false) {
   const router = new RoomRouter(repos, new UsageTracker(repos));
   const reqs: TurnRequest[] = [];
@@ -41,7 +40,6 @@ function world() {
 describe('FollowUp: resume turns a restart cut off', () => {
   it('resumes a queued/running turn once after a restart, keeping its thread and routine run', async () => {
     const w = world();
-    // First process: a user turn and a routine turn are in flight when the hub stops.
     const p1 = routerOn(w.repos, () => true);
     p1.router.onUserMessage(w.room.id, '@ann draft the plan');
     const run = w.repos.createRun('routine-1', null);
@@ -49,7 +47,6 @@ describe('FollowUp: resume turns a restart cut off', () => {
     await until(() => p1.reqs.length === 2);
     p1.router.freeze();
 
-    // Second process.
     const p2 = routerOn(w.repos);
     const f = new FollowUp({ repos: w.repos, router: p2.router });
     expect(f.resumeInterrupted()).toBe(2);
@@ -58,11 +55,11 @@ describe('FollowUp: resume turns a restart cut off', () => {
     expect(byBot.ann.injected).toContain(RESUME_NOTE);
     expect(byBot.ann.strictApprovals).toBe(false);
     expect(byBot.bob.causeId).toBe(routineMsg.id);
-    expect(byBot.bob.strictApprovals).toBe(true); // still a routine thread: approvals still required
+    expect(byBot.bob.strictApprovals).toBe(true);
     await until(() => w.repos.listRuns('routine-1')[0].status === 'success');
     expect(w.repos.listMessages(w.room.id, { limit: 50 }).filter((m) => m.text.includes('resuming'))).toHaveLength(2);
     await tick();
-    expect(w.repos.journalTakeAll()).toEqual([]); // settled turns leave no journal rows behind
+    expect(w.repos.journalTakeAll()).toEqual([]);
   });
 
   it('does not resume the same turn across a second restart (no crash loop)', async () => {
@@ -100,7 +97,7 @@ describe('FollowUp: nudge a stalled handoff once', () => {
     const { router, reqs } = routerOn(w.repos, hang);
     let t = 1_000_000;
     const f = new FollowUp({ repos: w.repos, router, nudgeAfterMs: N, now: () => t });
-    const cause = router.onUserMessage(w.room.id, 'ship it'); // the coordinator takes it
+    const cause = router.onUserMessage(w.room.id, 'ship it');
     const handoff = (hop = 1, from = w.ann, to = w.bob) => {
       const payload: HandoffPayload = { fromBotId: from.id, toBotId: to.id, task: 'write tests' };
       const m = w.repos.insertMessage({ roomId: w.room.id, authorType: 'bot', authorId: from.id, kind: 'handoff', text: '@' + to.handle + ' handoff', payload, causeId: cause.id, hop, turnId: 'x' });
@@ -125,7 +122,7 @@ describe('FollowUp: nudge a stalled handoff once', () => {
     await until(() => s.reqs.length === 2);
     const nudge = s.reqs[1];
     expect(nudge.bot.handle).toBe('chief');
-    expect(nudge.hop).toBe(2); // one more hop on the thread: it counts toward MAX_HOPS
+    expect(nudge.hop).toBe(2);
     expect(nudge.injected).toContain('has not answered handoff');
 
     s.advance(10 * N);

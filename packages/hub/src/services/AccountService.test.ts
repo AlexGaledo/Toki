@@ -29,7 +29,6 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-/** A stand-in for the Supabase client: records calls, answers like the real one, never touches the network. */
 function fake() {
   let listener: ((e: AuthChangeEvent, s: Session | null) => void) | null = null;
   const profile: { row: unknown; error: { message: string } | null } = { row: { display_name: 'Alex', plan: 'pro' }, error: null };
@@ -186,7 +185,7 @@ describe('AccountService', () => {
   it('starts offline without waiting on the network, from the cached sign-in', async () => {
     new FileStorage(file).setItem('pocketrocket-user', JSON.stringify({ id: 'u1', email: 'alex@example.com', displayName: 'Alex', plan: 'pro' }));
     const f = fake();
-    f.auth.getSession.mockReturnValue(new Promise(() => undefined)); // the refresh never comes back
+    f.auth.getSession.mockReturnValue(new Promise(() => undefined));
     const s = service(f, offline());
     void s.start();
     expect(s.state()).toMatchObject({ signedIn: true, user: { plan: 'pro' }, oauth: { google: false, github: false } });
@@ -250,7 +249,6 @@ describe('AccountService', () => {
 });
 
 describe('AccountService over the real supabase-js client', () => {
-  /** Answers the handful of Supabase endpoints the flow touches; records every request. */
   function supabaseStub() {
     const calls: { method: string; url: string; body: unknown }[] = [];
     const fn = vi.fn(async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
@@ -287,7 +285,6 @@ describe('AccountService over the real supabase-js client', () => {
       expect(st).toMatchObject({ signedIn: true, user: { email: 'alex@example.com', displayName: 'Alex', plan: 'pro' } });
       expect(onDisk()['pocketrocket-auth']).toContain('refresh-secret');
 
-      // A new process picks the session straight back up from the file.
       const again = new AccountService({ url: URL_, key: 'sb_publishable_x', file, fetch: stub.fn as unknown as typeof fetch, email: true });
       await again.start();
       expect(again.state()).toMatchObject({ signedIn: true, user: { id: 'u1', plan: 'pro' } });

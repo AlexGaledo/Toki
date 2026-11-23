@@ -3,8 +3,6 @@ import type { Bot, Room } from '@pocketrocket/shared';
 import { FLEET_LINE_CHARS, FLEET_MAX_BOTS, FLEET_MAX_CHARS, buildSystemPrompt, fleetDirectory } from './PromptBuilder.js';
 import { MAX_VOICE_BYTES } from '../services/MemoryService.js';
 
-/** P7: voice, notes, knowledge and the fleet directory join the prompt, each bounded. */
-
 const mk = (i: number, extra: Partial<Bot> = {}): Bot => ({
   id: 'b' + i, name: 'Bot ' + i, handle: 'bot' + i, title: 'Specialist ' + i, description: 'Handles area ' + i + '.\nSecond line.',
   avatar: '🤖', model: 'claude-sonnet-5', allowedTools: [], maxBudgetUsd: 2, autoMemory: true, autoMemoryEvery: 10, createdAt: i, ...extra,
@@ -22,7 +20,6 @@ describe('fleet directory', () => {
     expect(p).toContain('## Fleet directory');
     expect(p).toContain('- @analyst — Analyst: Crunches numbers and builds dashboards.');
     expect(p).toContain('call handoff with its @handle');
-    // Room members are in the roster, not repeated in the directory; the bot itself is never listed.
     const dir = p.slice(p.indexOf('## Fleet directory'));
     expect(dir).not.toContain('@writer');
     expect(dir).not.toContain('@chief');
@@ -61,7 +58,6 @@ describe('voice, notes and knowledge in the prompt', () => {
   it('names the notes folder and tools but never puts note contents in the prompt', () => {
     const p = buildSystemPrompt({ ...base, notesCount: 42 });
     expect(p).toContain('Notes: kept in');
-    // Whether there are notes, not how many: a count would rewrite the cached prompt after every write_note.
     expect(buildSystemPrompt({ ...base, notesCount: 43 })).toBe(p);
     expect(buildSystemPrompt({ ...base, notesCount: 0 })).toContain('Notes: none yet');
     expect(p).toContain('mcp__pocketrocket__search_notes');
@@ -82,7 +78,6 @@ describe('voice, notes and knowledge in the prompt', () => {
       voice: 'v'.repeat(100_000), notesCount: 500, knowledgeDir: '/data/knowledge',
       fleet: [chief, writer, ...Array.from({ length: 500 }, (_, i) => mk(i + 10, { description: 'x'.repeat(4000) }))],
     });
-    // Voice 1 KB + directory 2.4 KB + fixed lines: the prompt can never grow past this from P7 alone.
     expect(maxed.length - plain.length).toBeLessThan(MAX_VOICE_BYTES + FLEET_MAX_CHARS + 1200);
   });
 });

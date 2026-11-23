@@ -7,12 +7,10 @@ import { DATA_DIR, restrictFile } from '../../config.js';
 const isWin = process.platform === 'win32';
 const EXE = isWin ? 'grok.exe' : 'grok';
 
-/** Private Grok home for the hub: config, sessions and logs stay out of the user's `~/.grok`. */
 export const GROK_HOME = process.env.POCKETROCKET_GROK_HOME
   ? path.resolve(process.env.POCKETROCKET_GROK_HOME)
   : path.join(DATA_DIR, 'grok-home');
 
-/** Where the user's own `grok login` writes its credentials. */
 export function userGrokHome(): string {
   return process.env.GROK_HOME ? path.resolve(process.env.GROK_HOME) : path.join(os.homedir(), '.grok');
 }
@@ -99,7 +97,6 @@ function mirrorAuth(home: string) {
   }
 }
 
-/** Delete the mirrored credentials. Called from GrokProvider.shutdown(); safe when nothing was mirrored. */
 export function removeAuthMirror(home: string = GROK_HOME): void {
   const dst = path.join(home, 'auth.json');
   if (path.resolve(dst) === path.resolve(path.join(userGrokHome(), 'auth.json'))) return;
@@ -110,7 +107,6 @@ export function removeAuthMirror(home: string = GROK_HOME): void {
   }
 }
 
-/** Directory holding the per-turn rules files. */
 export function rulesDir(home: string = GROK_HOME): string {
   return path.join(home, 'rules');
 }
@@ -140,7 +136,6 @@ export function writeRulesFile(turnId: string, systemPrompt: string, home: strin
   };
 }
 
-/** Delete a turn's rules file. Never throws. */
 export function removeRulesFile(file: string | null): void {
   if (!file) return;
   try {
@@ -167,7 +162,6 @@ const RULE_CLASS: Record<string, string[]> = {
   WebSearch: ['WebSearch'],
 };
 
-/** Rule classes to deny, i.e. every class no allowed built-in maps to. */
 export function denyRules(allowedBuiltins: string[]): string[] {
   const keep = new Set<string>();
   for (const b of allowedBuiltins) for (const c of RULE_CLASS[b] ?? []) keep.add(c);
@@ -177,7 +171,6 @@ export function denyRules(allowedBuiltins: string[]): string[] {
 
 export interface ArgOptions {
   prompt: string;
-  /** Text for `--rules`: the pointer produced by `writeRulesFile`, not the system prompt itself. */
   rules: string;
   model: string;
   cwd: string;
@@ -195,8 +188,7 @@ export function buildArgs(o: ArgOptions): string[] {
     '--cwd', o.cwd,
     '-m', o.model,
     '--max-turns', String(o.maxTurns),
-    // Approvals are best-effort for Grok: the bot asks the human through the `request_approval` hub tool
-    // (BotRunner adds it for every best-effort provider), and the deny rules below are the hard floor.
+    // Approvals are best-effort via `request_approval`; these deny rules are the hard floor.
     '--always-approve',
     // `--rules` appends to grok's system prompt; `--system-prompt-override` would replace it and drop the
     // CLI's own tool instructions. The value is a short pointer at a 0600 rules file, never the prompt

@@ -3,15 +3,8 @@ import { bashWritesReadOnly } from './bashRules.js';
 import { isInside, pathsFromInput } from './pathRules.js';
 import { denyMessage } from './messages.js';
 
-/**
- * P7: the knowledge repo is a read-only root. The Claude SDK gets it in `additionalDirectories` so reads are
- * free, but under `acceptEdits` that would also auto-accept edits there without ever asking canUseTool. This
- * is the PreToolUse decision that stops it: any file-writing tool aimed inside a read-only root is escalated
- * to `ask` (an approval card from the PermissionBroker), or denied outright when approvals are bypassed,
- * because then nothing would ask at all.
- */
+/** acceptEdits would auto-accept writes in a read-only root: this asks instead, or denies under bypass. */
 export const WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const;
-/** The PreToolUse matcher for the read-only guard: the file writers plus Bash. */
 export const READ_ONLY_GUARD_TOOLS = [...WRITE_TOOLS, 'Bash'] as const;
 
 /**
@@ -34,7 +27,6 @@ export function readOnlyWriteDecision(
   bypass: boolean,
 ): { decision: 'ask' | 'deny'; reason: string } | null {
   if (!readOnlyRoots.length) return null;
-  // Hardening pass: a shell command that writes there, as far as the command line shows (bashWritesReadOnly).
   if (toolName === 'Bash') {
     const hit = bashWritesReadOnly(String(input.command ?? ''), cwd, readOnlyRoots);
     if (!hit) return null;

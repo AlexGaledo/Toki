@@ -8,7 +8,7 @@ import { SECRET_PLACEHOLDER } from '@pocketrocket/shared';
 export const SECRET_AUTOCOMPLETE_RE = /password|(^|\s)cc-|one-time-code/i;
 export const SECRET_NAME_RE = /passw(or)?d|pwd|passcode|cvv|cvc|csc|card.?num|cc.?num|cc.?number|security.?code|one.?time|otp|api.?key|access.?key|private.?key|secret|token|bearer|credential|passphrase/i;
 
-/** The element description the page script sends (never an input's value). */
+/** Never an input's value. */
 export interface ElementDesc {
   tag?: string;
   type?: string;
@@ -20,7 +20,7 @@ export interface ElementDesc {
   text?: string;
   placeholder?: string;
   selector?: string;
-  /** The page script's own verdict. The hub ORs it with isSecretField; it can only add redaction. */
+  /** The hub ORs it with isSecretField; it can only add redaction. */
   secret?: boolean;
 }
 
@@ -34,9 +34,7 @@ export function isSecretField(d: ElementDesc | undefined | null): boolean {
   return SECRET_NAME_RE.test([d.name, d.id, d.label, d.placeholder].map((v) => String(v ?? '')).join(' '));
 }
 
-/** The CDP binding the page script reports through. It lives only in the recorder's isolated world. */
 export const RECORDER_BINDING = '__prcRec';
-/** Isolated world: shares the DOM with the page but not its JavaScript, so the page cannot see or call the binding. */
 export const RECORDER_WORLD = 'prc-recorder';
 
 /**

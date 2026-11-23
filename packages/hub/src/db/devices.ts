@@ -1,6 +1,6 @@
 import type { Db } from './db.js';
 
-/** A paired device as the UI sees it. Never carries the token or its hash. */
+/** Never carries the token or its hash. */
 export interface DeviceInfo {
   id: string;
   name: string;
@@ -34,7 +34,6 @@ const toSub = (r: Record<string, unknown>): PushSubscriptionRow => ({
   createdAt: r.created_at as number,
 });
 
-/** P9: `devices` and `push_subscriptions` (migrations 90–91). */
 export class DevicesRepo {
   constructor(private db: Db) {}
 
@@ -49,7 +48,6 @@ export class DevicesRepo {
   list(): DeviceInfo[] {
     return this.db.all('SELECT * FROM devices ORDER BY revoked ASC, created_at DESC').map(toDevice);
   }
-  /** id + hash of every device that may still sign in. Read on every request, so a revoke bites at once. */
   activeHashes(): { id: string; tokenHash: string }[] {
     return this.db.all<{ id: string; token_hash: string }>('SELECT id, token_hash FROM devices WHERE revoked = 0').map((r) => ({ id: r.id, tokenHash: r.token_hash }));
   }
@@ -60,7 +58,6 @@ export class DevicesRepo {
   touch(id: string, now: number): void {
     this.db.run('UPDATE devices SET last_seen_at = ? WHERE id = ?', now, id);
   }
-  /** Marks the device revoked and drops its push subscriptions in one go. False when there was no live device. */
   revoke(id: string): boolean {
     return this.db.tx(() => {
       const r = this.db.run('UPDATE devices SET revoked = 1 WHERE id = ? AND revoked = 0', id);
@@ -69,7 +66,6 @@ export class DevicesRepo {
     });
   }
 
-  // ---- push subscriptions. device_id NULL = the hub-token holder (the desktop app / a browser on the PC).
   upsertSubscription(s: { id: string; deviceId: string | null; endpoint: string; p256dh: string; auth: string; now: number }): void {
     this.db.run(
       'INSERT INTO push_subscriptions (id, device_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?, ?) ' +
@@ -82,7 +78,6 @@ export class DevicesRepo {
     if (deviceId === null) return this.db.all('SELECT * FROM push_subscriptions WHERE device_id IS NULL ORDER BY created_at').map(toSub);
     return this.db.all('SELECT * FROM push_subscriptions WHERE device_id = ? ORDER BY created_at', deviceId).map(toSub);
   }
-  /** Removes one endpoint; `deviceId` (when given) must own it, so a phone cannot unsubscribe another. */
   deleteSubscription(endpoint: string, owner?: { deviceId: string | null }): boolean {
     if (!owner) return Number(this.db.run('DELETE FROM push_subscriptions WHERE endpoint = ?', endpoint).changes) > 0;
     if (owner.deviceId === null) return Number(this.db.run('DELETE FROM push_subscriptions WHERE endpoint = ? AND device_id IS NULL', endpoint).changes) > 0;

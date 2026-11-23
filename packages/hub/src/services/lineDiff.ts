@@ -1,12 +1,7 @@
 import type { DiffLine } from '@pocketrocket/shared';
 
-/** Above this many lines on either side the diff gives up on alignment and shows old out, new in. */
 const MAX_LINES = 2000;
 
-/**
- * A plain line diff (longest common subsequence), for the Skills tab's version history. SKILL.md files are
- * small, so the O(n·m) table is fine; past {@link MAX_LINES} it falls back to "all removed, all added".
- */
 export function lineDiff(before: string, after: string): DiffLine[] {
   const a = before.replace(/\r\n/g, '\n').split('\n');
   const b = after.replace(/\r\n/g, '\n').split('\n');
@@ -15,7 +10,6 @@ export function lineDiff(before: string, after: string): DiffLine[] {
   }
   const n = a.length;
   const m = b.length;
-  // lcs[i][j] = LCS length of a[i..] and b[j..], flattened.
   const w = m + 1;
   const lcs = new Uint32Array((n + 1) * w);
   for (let i = n - 1; i >= 0; i--) {

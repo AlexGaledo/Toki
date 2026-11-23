@@ -21,7 +21,6 @@ beforeAll(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-trig-rest-'));
   const vault = new IntegrationVault({ file: path.join(dir, 'a.json'), keyFile: path.join(dir, 'a.key') });
   hub = createHub({ port: 0, dbFile: ':memory:', skipBootstrap: true, token: TOKEN, integrations: (db) => new IntegrationService({ db, vault, fetch: f.fetch }) });
-  // No provider CLI in tests: record the turn instead of running it.
   hub.runner.runTurn = async (req: TurnRequest): Promise<TurnResult> => { turns.push(req); return { ok: true, turnId: 't', finalText: '', costUsd: 0 }; };
   port = await hub.listen();
 });
@@ -58,7 +57,6 @@ describe('/api/triggers', () => {
     const bot = hub.repos.createBot({ name: 'Scout', handle: 'scout', title: '', description: '', avatar: '🔎', model: 'm', allowedTools: [], maxBudgetUsd: 2 });
     const room = hub.repos.createRoom({ kind: 'dm', name: 'Scout', memberIds: [bot.id], coordinatorBotId: null });
 
-    // Only connected providers are offered as sources.
     let s = (await request('GET', '/api/triggers')).json as TriggersState;
     expect(s.available).toEqual([]);
     const info = hub.integrations.repo.upsert({ provider: 'github', method: 'token', accountLabel: 'octo', scopes: [] });
@@ -81,7 +79,6 @@ describe('/api/triggers', () => {
     expect(patched.enabled).toBe(false);
     expect((await request('PATCH', '/api/triggers/nope', { body: { enabled: false } })).status).toBe(404);
 
-    // Test fire: a sample event straight to the bot, as a strict trigger turn.
     const fire = (await request('POST', '/api/triggers/' + t.id + '/test', { body: { event: { title: 'Sample crash', text: 'It broke' } } })).json as TriggerFire;
     expect(fire).toMatchObject({ status: 'running', test: true, title: 'Sample crash' });
     await until(() => turns.length === 1);

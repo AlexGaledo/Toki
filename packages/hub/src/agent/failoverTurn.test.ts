@@ -14,8 +14,6 @@ import { createProviders } from '../providers/registry.js';
 import { EMPTY_USAGE, type TurnContext, type TurnOutcome, type TurnSink } from '../providers/types.js';
 import { BotRunner } from './BotRunner.js';
 
-/** M8 through BotRunner: a failover turn's provider and model (P3-1), and rotation for any provider that measures context (P4-1). */
-
 class Scripted extends StubProvider {
   started: TurnContext[] = [];
   next: (sink: TurnSink) => Partial<TurnOutcome> = () => ({});
@@ -59,13 +57,11 @@ describe('M8 (P3-1): a failover turn', () => {
     const r = await s.turn({ providerOverride: { provider: 'codex', model: 'gpt-5-mini' }, strictApprovals: true, chatModel: 'claude-sonnet-5' });
     expect(s.codex.started).toHaveLength(1);
     expect(s.claude.started).toHaveLength(1);
-    // The backup's model, not the bot's own nor the composer's pick; a fresh session seeded with what came before.
     expect(s.codex.started[0].model).toBe('gpt-5-mini');
     expect(s.codex.started[0].resumeToken).toBeNull();
     expect(s.codex.started[0].strictApprovals).toBe(true);
     expect(s.notes()).toContain('Ada now runs on Codex; earlier context carried over as a summary.');
     expect(r.provider).toBe('codex');
-    // The bot itself is unchanged: its next ordinary turn is on Claude again (seeded once more).
     expect(s.repos.getBot(s.bot.id)!.provider).toBe('claude');
     await s.turn();
     expect(s.claude.started).toHaveLength(2);

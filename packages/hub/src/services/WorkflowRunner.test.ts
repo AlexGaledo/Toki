@@ -13,13 +13,6 @@ import { UsageTracker } from './UsageTracker.js';
 import { WorkflowError, WorkflowRunner } from './WorkflowRunner.js';
 import type { BotRunner, LaneSteerResult, SteerRequest, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 
-/**
- * Workflows 3.2b / 3.3: the run engine, with a fake turn runner and a fake clock. Covers the spec's acceptance list:
- * a 3-step run completes, a kill between steps resumes at the right node, a kill mid-step resumes once without a
- * double run, over budget stops with a note, hand-offs are not killed by MAX_HOPS, a 3 a.m. approval waits, and
- * nobody but `decide()` answers the card.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 400 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -134,7 +127,6 @@ describe('workflow runs', () => {
   it('a step with two hand-offs is not killed by MAX_HOPS: hops count per step', async () => {
     const e = engine();
     const w = threeSteps(e);
-    // Every step bot hands off to the next bot, which hands back (hops 1 and 2); 3 steps x 2 hops would pass MAX_HOPS if hops carried over.
     const others = new Map([['ann', w.bob], ['bob', w.cy], ['cy', w.ann]]);
     const back = new Map([['ann', w.cy], ['bob', w.ann], ['cy', w.bob]]);
     const handed: number[] = [];
@@ -151,7 +143,7 @@ describe('workflow runs', () => {
     const run = e.wf.start(w.wf.id, { manual: true });
     await until(() => runOf(e, run.id).status === 'success');
     await new Promise((r) => setTimeout(r, 300));
-    expect(handed.filter((h) => h === 2).length).toBeGreaterThanOrEqual(2); // two hand-offs deep in at least two steps
+    expect(handed.filter((h) => h === 2).length).toBeGreaterThanOrEqual(2);
     expect(notes(e, w.room.id).some((t) => t.includes('Too many hand-offs'))).toBe(false);
     expect(runOf(e, run.id).status).toBe('success');
   });
@@ -163,7 +155,7 @@ describe('workflow runs', () => {
     await until(() => runOf(e, run.id).status === 'error');
     const r = runOf(e, run.id);
     expect(r.error).toBe('over budget');
-    expect(e.reqs).toHaveLength(2); // step 1 ($0.20), step 2 ($0.20, now $0.40 > $0.30), step 3 never starts
+    expect(e.reqs).toHaveLength(2);
     expect(r.steps.map((s) => s.status)).toEqual(['done', 'done', 'done', 'failed', 'pending']);
     expect(notes(e, w.room.id).some((t) => t.includes('Stopped before step "c"') && t.includes('budget'))).toBe(true);
 
@@ -206,7 +198,7 @@ describe('workflow runs', () => {
     e.wf.retry(run.id);
     await until(() => runOf(e, run.id).status === 'success');
     expect(e.reqs).toHaveLength(2);
-    expect(() => e.wf.retry(run.id)).toThrowError(expect.objectContaining({ status: 409 })); // only an errored run retries
+    expect(() => e.wf.retry(run.id)).toThrowError(expect.objectContaining({ status: 409 }));
   });
 
   it('Cancel stops a running run, drops its queued step and the late answer changes nothing', async () => {
@@ -251,7 +243,6 @@ describe('workflow restarts', () => {
     const w = threeSteps(e1);
     const run = e1.wf.start(w.wf.id, { manual: true, input: 'in' });
     await until(() => e1.reqs.length === 1);
-    // The hub dies after step a finished and was saved, before step b was queued.
     const steps = runOf(e1, run.id).steps.slice();
     steps[1] = { ...steps[1], status: 'done', output: 'from-a', endedAt: e1.clock.t };
     e1.repo.updateRun(run.id, { steps });
@@ -262,7 +253,7 @@ describe('workflow restarts', () => {
     expect(new FollowUp({ repos: e2.repos, router: e2.router }).resumeInterrupted()).toBe(0);
     expect(e2.wf.recover()).toBe(1);
     await until(() => runOf(e2, run.id).status === 'success');
-    expect(e2.reqs.map((r) => r.bot.handle)).toEqual(['bob', 'cy']); // not ann again
+    expect(e2.reqs.map((r) => r.bot.handle)).toEqual(['bob', 'cy']);
     expect(e2.reqs[0].injected).toContain('from-a');
   });
 
@@ -277,7 +268,7 @@ describe('workflow restarts', () => {
     expect(new FollowUp({ repos: e2.repos, router: e2.router }).resumeInterrupted()).toBe(1);
     expect(e2.wf.recover()).toBe(0);
     await until(() => runOf(e2, run.id).status === 'success');
-    expect(e2.reqs.map((r) => r.bot.handle)).toEqual(['ann', 'bob', 'cy']); // ann once on the new hub
+    expect(e2.reqs.map((r) => r.bot.handle)).toEqual(['ann', 'bob', 'cy']);
     expect(e1.reqs).toHaveLength(1);
   });
 
@@ -314,7 +305,7 @@ describe('workflow approvals', () => {
     const off = events.onEvent((ev) => { if (ev.type === 'workflow.cards') seen.push(ev.cards.length); });
     const run = e.wf.start(w.wf.id, { manual: false });
     await until(() => runOf(e, run.id).status === 'waiting');
-    e.clock.t += 7 * HOUR; // 10 a.m.
+    e.clock.t += 7 * HOUR;
     expect(e.wf.sweep()).toBe(0);
     expect(runOf(e, run.id).status).toBe('waiting');
     const [card] = e.wf.cards();
@@ -454,7 +445,7 @@ describe('workflow definitions', () => {
     expect(e.reqs[0].injected).toContain('weekly prompt');
 
     e.wf.update(wf.id, { enabled: false });
-    expect(e.wf.fireRoutine(routine.id, { manual: false })).toBe(true); // handled (never the plain prompt), but no run
+    expect(e.wf.fireRoutine(routine.id, { manual: false })).toBe(true);
     await new Promise((r) => setTimeout(r, 30));
     expect(e.repo.listRuns(wf.id, 10)).toHaveLength(1);
   });

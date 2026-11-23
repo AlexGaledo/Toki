@@ -25,7 +25,6 @@ describe('review 3: per-picture size limit', () => {
   it('the store refuses an upload over the per-picture cap and checkAttachments refuses a stored oversize file', () => {
     const media = new MediaStore(tmp());
     expect(() => media.put(png(MAX_ATTACHMENT_IMAGE_BYTES + 1), MAX_ATTACHMENT_IMAGE_BYTES)).toThrow(MediaRejected);
-    // An oversize file that got in by another route (older hub, copied folder) is still refused when attached.
     const ref = media.put(png(MAX_ATTACHMENT_IMAGE_BYTES + 1), MAX_ATTACHMENT_IMAGE_BYTES + 100);
     expect(media.checkAttachments([ref])).toMatch(/too large/);
     expect(media.checkAttachments([media.put(png(100))])).toBeNull();
@@ -133,7 +132,7 @@ describe('review 9: write_note tags', () => {
     expect(b.isError).toBe(true);
     expect(b.text).toMatch(/front matter/);
     expect(s.memory.listNotes(s.bot.id).length).toBe(before);
-    const c = await s.call('write_note', { title: t, text: 'x', mode: 'append' }); // no tags: unchanged
+    const c = await s.call('write_note', { title: t, text: 'x', mode: 'append' });
     expect(c.isError).toBe(false);
     fs.rmSync(c.text.replace(/^Saved /, '').replace(/\.$/, ''), { force: true });
   });
@@ -161,7 +160,6 @@ describe('review 7: messages_fts migration 240', () => {
     r2.updateMessage(t.id, { text: 'gamma text' });
     expect(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM messages_fts WHERE messages_fts MATCH 'gamma'")!.n).toBe(1);
     expect(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM messages_fts WHERE messages_fts MATCH 'beta'")!.n).toBe(0);
-    // a kind change out of the searchable set removes the row; back in adds it
     db.run("UPDATE messages SET kind='system' WHERE id=?", t.id);
     expect(count(db)).toBe(2);
     db.run("UPDATE messages SET kind='text' WHERE id=?", t.id);

@@ -2,14 +2,11 @@ import { nanoid } from 'nanoid';
 import { TURN_FAILURE_BEHAVIOUR, type TrainingProposal, type TrainingStatus } from '@pocketrocket/shared';
 import type { Db, Row } from './db.js';
 
-/** Most rows one evidence query reads, per source. The evidence cap is far smaller. */
 const EVIDENCE_ROWS = 200;
 
 export type StoredTrainingProposal = TrainingProposal & {
   headingAdded: boolean;
-  /** The description just before this rule was approved. A record: undo does not restore it. */
   descriptionBefore: string | null;
-  /** Blocked only because the verifier never judged it. */
   retry: boolean;
 };
 
@@ -17,7 +14,6 @@ export interface DeclinedApproval { toolName: string; toolInput: string; reason:
 export interface FailedTurn { text: string; at: number }
 export interface OwnerReply { botText: string; text: string; at: number }
 
-/** Storage for the bot training pilot, in a file of its own like db/skillVersions.ts. */
 export class TrainingRepo {
   constructor(private db: Db, private now: () => number = Date.now) {}
 
@@ -25,7 +21,6 @@ export class TrainingRepo {
     const r = this.db.get('SELECT * FROM training_config WHERE bot_id=?', botId);
     return { enabled: !!r?.enabled, lastRunAt: (r?.last_run_at as number) ?? null, windowStart: (r?.window_start as number) ?? null };
   }
-  /** Switching on starts the evidence window now, so nothing from before opt-in or from while it was off is read. */
   setEnabled(botId: string, enabled: boolean) {
     this.db.run(
       'INSERT INTO training_config (bot_id,enabled,window_start) VALUES (?,?,?) ON CONFLICT(bot_id) DO UPDATE SET ' +
@@ -57,7 +52,6 @@ export class TrainingRepo {
       retry: !!r.retry,
     };
   }
-  /** Newest first. */
   list(botId: string): StoredTrainingProposal[] {
     return this.db.all('SELECT * FROM training_proposals WHERE bot_id=? ORDER BY created_at DESC, rowid DESC', botId).map((r) => this.toProposal(r));
   }
@@ -85,22 +79,18 @@ export class TrainingRepo {
   markUndone(id: string) {
     this.db.run("UPDATE training_proposals SET status='undone', undone_at=?, heading_added=0 WHERE id=?", this.now(), id);
   }
-  /** The owner removed this rule's old line and now approved it again: the new row is the one that counts. */
   supersede(botId: string, rule: string, keepId: string) {
     this.db.run("UPDATE training_proposals SET status='undone', undone_at=?, heading_added=0 WHERE bot_id=? AND rule=? AND status='approved' AND id<>?", this.now(), botId, rule, keepId);
   }
-  /** A finished pass replaces rows that were only waiting for a retry. */
   clearRetries(botId: string) {
     this.db.run('DELETE FROM training_proposals WHERE bot_id=? AND retry=1', botId);
   }
-  /** The heading outlives the rule that added it: another approved rule of this bot takes over owning it. */
   passHeading(botId: string, fromId: string) {
     this.db.run(
       "UPDATE training_proposals SET heading_added=1 WHERE id=(SELECT id FROM training_proposals WHERE bot_id=? AND status='approved' AND id<>? ORDER BY created_at DESC, rowid DESC LIMIT 1)",
       botId, fromId,
     );
   }
-  /** What this bot's training passes spent since `since` (epoch ms), read from the usage table. */
   spend(botId: string, since: number): number {
     return this.db.get<{ c: number }>("SELECT COALESCE(SUM(cost_usd),0) c FROM usage WHERE bot_id=? AND cause_kind='training' AND created_at>=?", botId, since)?.c ?? 0;
   }
@@ -113,11 +103,6 @@ export class TrainingRepo {
     }
   }
 
-  // ---- evidence, always a window (since, until], only from the bot's current rooms, filtered before the LIMIT ----
-  /**
-   * Cards the owner denied, and cards that timed out. A `deny` no person gave (the turn was stopped or the hub shut
-   * down) and `expired` (the hub restarted) say nothing about the bot.
-   */
   declinedApprovals(botId: string, since: number, until: number): DeclinedApproval[] {
     return this.db.all<{ tool_name: string; tool_input: string | null; reason: string | null; status: 'deny' | 'timeout'; decided_at: number }>(
       'SELECT tool_name, tool_input, reason, status, decided_at FROM approvals ' +
@@ -126,7 +111,6 @@ export class TrainingRepo {
       botId, since, until, botId, EVIDENCE_ROWS,
     ).map((r) => ({ toolName: r.tool_name, toolInput: r.tool_input ?? '', reason: r.reason ?? '', status: r.status, at: r.decided_at }));
   }
-  /** Notes marked by agent/turnFailure.ts as a failure of the bot's own making. */
   failedTurns(botId: string, since: number, until: number): FailedTurn[] {
     return this.db.all<{ text: string; created_at: number }>(
       "SELECT text, created_at FROM messages WHERE author_type='system' AND author_id=? AND kind='system' AND json_extract(payload, '$.turnFailure')=? " +
@@ -134,7 +118,6 @@ export class TrainingRepo {
       botId, TURN_FAILURE_BEHAVIOUR, since, until, botId, EVIDENCE_ROWS,
     ).map((r) => ({ text: r.text, at: r.created_at }));
   }
-  /** The owner's messages in one room whose last non-owner message was this bot's, with that message. */
   ownerReplies(roomId: string, botId: string, since: number, until: number): OwnerReply[] {
     return this.db.all<{ text: string; created_at: number; prev_text: string | null }>(
       'SELECT m.text, m.created_at, p.text prev_text FROM messages m ' +

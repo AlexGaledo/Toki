@@ -60,7 +60,6 @@ describe('IntegrationVault', () => {
     blob.data = data.toString('base64');
     fs.writeFileSync(file, JSON.stringify(blob));
     expect(() => vault().get('a')).toThrow(VaultError);
-    // still there for the user to restore, not overwritten
     expect(fs.existsSync(file)).toBe(true);
   });
 
@@ -85,7 +84,7 @@ describe('IntegrationVault', () => {
     v.set('a', { accessToken: 'opaque-oauth-token-value-42' });
     expect(redact('echo opaque-oauth-token-value-42')).toBe('echo [redacted]');
     clearSecrets();
-    vault().get('a'); // loading from disk registers them too
+    vault().get('a');
     expect(redact('x opaque-oauth-token-value-42')).toBe('x [redacted]');
     v.delete('a');
   });

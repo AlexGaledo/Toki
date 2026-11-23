@@ -16,8 +16,6 @@ import { MAX_NOTE_BYTES, MAX_VOICE_BYTES, MemoryService, noteSlug } from './Memo
 import { UsageTracker } from './UsageTracker.js';
 import { MAX_PENDING_VOICE, VoiceProposals } from './VoiceProposals.js';
 
-/** P7 (7.2): notes/ searched on demand, voice.md small and in the prompt, AutoMemory only proposes voice. */
-
 const ids: string[] = [];
 let n = 0;
 const botId = () => {
@@ -55,7 +53,7 @@ describe('notes', () => {
     expect(hits[0].lines.join('\n')).toContain('Fridays');
     expect(m.searchNotes(id, 'pays')[0].name).toBe('customer-list.md');
     expect(m.searchNotes(id, 'nonexistentword')).toEqual([]);
-    expect(m.searchNotes(id, 'x')).toEqual([]); // too short to search
+    expect(m.searchNotes(id, 'x')).toEqual([]);
   });
 
   it('caps one note at MAX_NOTE_BYTES', () => {

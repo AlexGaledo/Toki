@@ -3,8 +3,6 @@ import http from 'node:http';
 import { createHub, type Hub } from '../hub.js';
 import { deviceMayAccess } from './guard.js';
 
-/** P4-2: GET /api/rooms/:id/context, the context meter's read. */
-
 const TOKEN = 'context-meter-token';
 
 describe('GET /api/rooms/:id/context', () => {
@@ -33,7 +31,6 @@ describe('GET /api/rooms/:id/context', () => {
     const room = hub.repos.createRoom({ kind: 'group', name: 'crew', memberIds: [a.id, b.id, c.id], coordinatorBotId: a.id });
     hub.repos.saveSession(a.id, room.id, { sdkSessionId: 's1', provider: 'claude' });
     hub.repos.saveSessionState(a.id, room.id, { contextTokens: 84_000, contextWindow: 1_000_000, contextAt: Date.now() });
-    // b: a fresh session that has not run a model call yet. c: never ran here.
     hub.repos.saveSessionState(b.id, room.id, { contextTokens: 0, contextAt: Date.now() });
     const r = await get('/api/rooms/' + room.id + '/context');
     expect(r.status).toBe(200);

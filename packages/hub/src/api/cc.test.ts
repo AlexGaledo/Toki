@@ -49,7 +49,6 @@ function request(method: string, p: string, opts: { body?: unknown; token?: stri
     req.end(opts.body === undefined ? undefined : JSON.stringify(opts.body));
   });
 }
-/** As the Claude Code MCP server on the PC: the runner's token, plus the session headers. */
 const cc = (method: string, p: string, body?: unknown, headers: Record<string, string> = { 'x-cc-session': 'sess-1', 'x-cc-repo': 'wika-saas' }) =>
   request(method, '/api/cc' + p, { token: runnerToken, body, headers });
 
@@ -95,7 +94,6 @@ describe('/api/cc: who may call it', () => {
       expect(runnerMayAccess(m, full), m + ' ' + full).toBe(true);
       expect(deviceMayAccess(m, full), m + ' ' + full).toBe(false);
     }
-    // ...and the runner still reaches nothing else.
     expect(runnerMayAccess('GET', '/api/rooms')).toBe(false);
     expect(runnerMayAccess('GET', '/api/rooms/r1/files/text')).toBe(false);
     expect(runnerMayAccess('DELETE', '/api/cc/rooms/r1/messages')).toBe(false);
@@ -216,7 +214,6 @@ describe('/api/cc/rooms/:id/state, files and decisions', () => {
     expect(read.json.rev.author.label).toBe(settings.get().userName + ' via Claude Code (wika-saas)');
     expect(read.json.rev.sources).toEqual(['https://example.com']);
 
-    // Someone else wrote in between: this writer still holds the old base.
     const ok = await cc('POST', base, { path: 'current.md', text: 'v2 by someone else\n', base: first.json.hash });
     expect(ok.status).toBe(200);
     const stale = await cc('POST', base, { path: 'current.md', text: 'my v2\n', base: first.json.hash });
@@ -291,7 +288,6 @@ describe('/api/cc/rooms/:id/handoff', () => {
       const msg = hub.repos.getMessage(r.json.id)!;
       expect(msg.authorType).toBe('user');
       expect(msg.text).toBe('[via Claude Code · wika-saas] @' + bots[1].handle + ' handoff from a Claude Code session: Fix the login bug\n\nContext:\nSee src/auth.ts');
-      // The mention, not the coordinator, decides who wakes.
       await vi.waitFor(() => expect(run).toHaveBeenCalled());
       expect(run.mock.calls.map((c) => c[0].bot.id)).toEqual([bots[1].id]);
     } finally {

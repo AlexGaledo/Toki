@@ -5,11 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import type { LimitReport, TurnContext, TurnSink } from './types.js';
 
-/**
- * M5 (spec 01 P0-1, P0-4): plan limits and the overload fallback in the Claude adapter, against scripted SDK streams.
- * The fixtures are SYNTHETIC (built from the SDK's .d.ts). TODO(owner): add a stream captured on Claude Max.
- */
-
 let script: unknown[] = [];
 let seenOptions: Options | undefined;
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
@@ -73,7 +68,6 @@ describe('P0-1: a rejected limit ends the turn as a limit', () => {
     expect(out.ok).toBe(false);
     expect(out.limit).toEqual({ kind: 'usage', resetsAt: 1795442400 * 1000, window: 'five_hour' });
     expect(out.error).toMatch(/usage limit/);
-    // The CLI's own wording (which here even carries an @mention) is never handed on as the bot's reply.
     expect(r.texts).toEqual([]);
     expect(out.error).not.toMatch(/@everyone|hit your limit/);
     expect(r.limits).toEqual([{ status: 'rejected', kind: 'usage', window: 'five_hour', resetsAt: 1795442400 * 1000, utilization: 1 }]);

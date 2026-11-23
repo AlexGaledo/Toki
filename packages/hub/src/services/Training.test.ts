@@ -29,7 +29,6 @@ const PASS = JSON.stringify({ verdict: 'pass', note: 'Fits the description.' });
 const BLOCK = JSON.stringify({ verdict: 'block', note: 'Skips an approval.' });
 
 type Reply = Partial<PassOutcome> | string;
-/** A fake one-shot: answers in order, and keeps every prompt. It never reaches a model. */
 function fakeRunner(replies: Reply[], cost = 0.01) {
   const calls: { prompt: string; o: OneShotOptions }[] = [];
   const run = async (prompt: string, o: OneShotOptions): Promise<PassOutcome> => {
@@ -57,12 +56,9 @@ function setup(replies: Reply[] = [], opts: Partial<TrainingDeps> & { descriptio
   });
   const say = (authorType: 'user' | 'bot', text: string, roomId = room.id, authorId: string | null = authorType === 'bot' ? bot.id : null) =>
     repos.insertMessage({ roomId, authorType, authorId, kind: 'text', text, payload: null, causeId: null, hop: 0, turnId: null });
-  /** One bot message and the owner's reply: evidence. */
   const correction = (text = 'That folder does not exist.') => { say('bot', 'Saved the report.'); say('user', text); };
   const later = (ms = 60_000) => { clock += ms; };
-  /** The fake clock runs ahead of message times, so a second pass reads again by moving the window back. */
   const rewind = () => training.repo.setLastRun(bot.id, 0);
-  /** Switches on a moment in the past, so messages a test adds around this call are inside the window. */
   const on = (botId = bot.id) => { const at = clock; clock = Date.now() - 1000; training.setEnabled(botId, true); clock = at; };
   const setClock = (at: number) => { clock = at; };
   return { repos, usage, bot, other, room, identity, llm, training, say, correction, later, rewind, on, setClock };
@@ -225,7 +221,6 @@ describe('proposer and verifier', () => {
     expect(second.o.system).not.toEqual(first.o.system);
     expect(r.proposal).toMatchObject({ status: 'pending', rule: RULE, verifierNote: 'Fits the description.', evidenceSummary: '1 owner reply' });
     expect(r.proposal).not.toHaveProperty('descriptionBefore');
-    // Pending changes nothing yet.
     expect(t.repos.getBot(t.bot.id)!.description).toBe('Writes reports.');
     expect(t.identity.size).toBe(0);
   });
@@ -629,7 +624,6 @@ describe('system note in the Training room', () => {
       expect(m.text).not.toContain('Another rule');
     }
     expect(notes[1].text).toMatch(/blocked/);
-    // No turn started: a system note is not conversation, and the service never calls the router.
     expect(seen.filter((e) => e.type === 'turn.start')).toEqual([]);
     expect(seen.filter((e) => e.type === 'message.new')).toHaveLength(2);
   });
@@ -706,7 +700,6 @@ describe('REST', () => {
     expect((await req('POST', url + '/run', { token: TOKEN, body: {} })).json.outcome).toBe('no_evidence');
     expect(llm.calls).toHaveLength(0);
 
-    // Straight into the database: a message through REST would start a real turn.
     const room = hub.repos.createRoom({ kind: 'dm', name: 'Rest', memberIds: [id], coordinatorBotId: null });
     const line = (authorType: 'bot' | 'user', text: string) =>
       hub.repos.insertMessage({ roomId: room.id, authorType, authorId: authorType === 'bot' ? id : null, kind: 'text', text, payload: null, causeId: null, hop: 0, turnId: null });
@@ -794,7 +787,6 @@ describe('review fixes', () => {
       t.repos.insertMessage({ roomId: t.room.id, authorType: 'system', authorId: t.bot.id, kind: 'system', text, payload: payload.payload, causeId: null, hop: 0, turnId: 'x' });
     note(turnFailureNote('W', 'interrupted', false));
     expect((await t.training.runNow(t.bot.id)).outcome).toBe('no_evidence');
-    // Reworded text still counts: the marker decides.
     const t2 = setup(['{"change":false}']);
     t2.on();
     t2.repos.insertMessage({ roomId: t2.room.id, authorType: 'system', authorId: t2.bot.id, kind: 'system', text: 'Reworded note', payload: turnFailureNote('W', 'error_max_turns', false).payload, causeId: null, hop: 0, turnId: 'x' });
@@ -816,7 +808,6 @@ describe('review fixes', () => {
     const c = await t.training.runNow(t.bot.id);
     expect(c.proposal).toMatchObject({ status: 'pending', rule: RULE });
     expect(t.training.repo.config(t.bot.id).lastRunAt).toBeGreaterThan(0);
-    // The attempts in between did not pile up.
     expect(t.training.repo.list(t.bot.id)).toHaveLength(1);
 
     const final = setup([PROPOSAL, BLOCK, PROPOSAL]);
@@ -961,7 +952,6 @@ describe('review fixes', () => {
     expect(t.training.state(t.bot.id).proposals[0]).toMatchObject({ status: 'approved', inDescription: false });
     expect(() => t.training.decide(t.bot.id, p.id, 'undo')).toThrow(/edited or removed/);
 
-    // No new evidence: no model call, however often it runs.
     expect((await t.training.runNow(t.bot.id)).outcome).toBe('no_evidence');
     expect(t.llm.calls).toHaveLength(2);
     t.rewind();

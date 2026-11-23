@@ -49,7 +49,6 @@ describe('MediaStore files', () => {
     const media = new MediaStore(dir);
     const big = Buffer.alloc(MAX_FILE_BYTES + 1);
     await expect(media.putFile(chunks(big), { name: 'a.bin' })).rejects.toBeInstanceOf(MediaRejected);
-    // Declared a video to get the bigger cap, but the bytes are not one.
     await expect(media.putFile(chunks(big), { name: 'a.mp4', declaredType: 'video/mp4' })).rejects.toThrow(/25 MB/);
     expect(fs.readdirSync(path.join(dir, 'files'))).toEqual([]);
     const video = await media.putFile(chunks(MP4, big), { name: 'long.mp4', declaredType: 'video/mp4' });
@@ -107,7 +106,6 @@ describe('a turn gets the files', () => {
     expect(files.map((f) => f.name)).toEqual(['plan.pdf', 'demo.mp4']);
     expect(fs.readFileSync(files[0].path, 'utf8')).toBe('%PDF-1.7 fake');
     expect(path.dirname(files[0].path)).toBe(path.join(root, 'bot1'));
-    // Same file again reuses the copy.
     expect(materializeFiles(media, root, 'bot1', [doc.ref])[0].path).toBe(files[0].path);
     const withFf = fileNote(files, true);
     expect(withFf).toContain(files[0].path);

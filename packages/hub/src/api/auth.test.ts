@@ -9,7 +9,6 @@ import { auditAction } from '../services/AuditLog.js';
 import { AuthService, hashPassword, passwordMatches } from '../services/AuthService.js';
 import { recordAudit } from '../services/AuditLog.js';
 
-// Password hashing is slow on purpose, and a busy machine makes it slower.
 vi.setConfig({ testTimeout: 60_000 });
 
 const TOKEN = 'auth-hub-token';
@@ -135,7 +134,6 @@ describe('sessions', () => {
     const minted = await req('POST', '/api/screen/ticket', { cookie, body: {} });
     const redeemed = await req('GET', minted.json.url);
     const screen = redeemed.cookie!;
-    // No screen is running here, so 502 means it got past the check.
     expect((await req('GET', '/screen/vnc.html', { cookie: screen })).status).toBe(502);
     await req('POST', '/api/auth/logout', { cookie, body: {} });
     expect((await req('GET', '/screen/vnc.html', { cookie: screen })).status).toBe(401);
@@ -190,7 +188,6 @@ describe('sessions', () => {
     expect((await req('POST', '/api/auth/password', { token: TOKEN, body: { password: next } })).status).toBe(403);
     expect((await req('POST', '/api/auth/password', { token: TOKEN, body: { password: next, currentPassword: 'a wrong guess here' } })).status).toBe(403);
     expect((await req('POST', '/api/auth/login', { body: { password: next } })).status).toBe(403);
-    // With the current password the token may change it, and it still sets the first one (see setPassword()).
     expect((await req('POST', '/api/auth/password', { token: TOKEN, body: { password: next, currentPassword: PASSWORD } })).status).toBe(200);
     expect((await req('POST', '/api/auth/login', { body: { password: next } })).status).toBe(200);
   });
@@ -204,7 +201,6 @@ describe('sessions', () => {
     expect(auth.hasPassword(owner)).toBe(false);
     expect(auth.authenticate(s.token)).toBeNull();
     expect(auth.clearPassword(owner)).toBe(false);
-    // Wired at hub start: a second hub on the same database file finds the password gone.
     const dbFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pr-reset-')), 'hub.db');
     const first = createHub({ port: 0, dbFile, skipBootstrap: true, token: TOKEN });
     await new AuthService(first.repos.db).setPassword(first.repos.owner().id, PASSWORD);
@@ -235,7 +231,6 @@ describe('sessions', () => {
 });
 
 describe('audit log', () => {
-  // Last in the file on its own hub: the lockout would refuse every later test in this one.
   it('refuses a wrong password and locks the IP after repeated tries', async () => {
     const own = createHub({ port: 0, dbFile: ':memory:', skipBootstrap: true, token: TOKEN });
     const ownPort = await own.listen();
@@ -294,7 +289,6 @@ describe('audit log', () => {
       let last = 0;
       for (let i = 0; i < 12 && last !== 429; i++) {
         last = (await call('POST', '/api/auth/password', { cookie }, { currentPassword: 'not the password', password: 'another long password' })).status;
-        // The app keeps polling between guesses.
         if (last !== 429) await call('GET', '/api/settings', { cookie });
       }
       expect(last).toBe(429);

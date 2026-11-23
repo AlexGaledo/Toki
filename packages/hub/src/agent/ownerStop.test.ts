@@ -12,9 +12,6 @@ import { EMPTY_USAGE, type AgentProvider, type TurnContext, type TurnOutcome } f
 import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner } from './BotRunner.js';
 
-/** 02 task 2.3: a turn the owner stops ends without a failure note or an error event; any other stop keeps its note. */
-
-/** Runs until stopped, then reports the abort the way the Claude adapter does. */
 class BlockingProvider implements AgentProvider {
   readonly id: ProviderId = 'claude';
   readonly label = 'Blocking';
