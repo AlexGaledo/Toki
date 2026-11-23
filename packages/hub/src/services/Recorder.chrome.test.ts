@@ -133,8 +133,14 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     await typeText(OTP);
     await click('#pay');
     await sleep(400);
+    const tgts = (await user.send('Target.getTargets')) as { targetInfos: unknown[] };
     user.close();
     const info = (await rec.stop('b'))!;
+    const dbgTrace = rec.readTrace('b', info.id);
+    if (!dbgTrace.some((e) => e.t === 'nav' && String(e.url).endsWith('checkout.html'))) {
+      console.log('DBG-FAIL targets=' + JSON.stringify(tgts.targetInfos) + ' userPage=' + page.targetId);
+      console.log('DBG-FAIL trace=' + JSON.stringify(dbgTrace.map((e) => ({ t: e.t, url: e.url, initial: e.initial, value: e.value }))));
+    }
 
     const dir = path.join(root, info.id);
     const raw = fs.readFileSync(path.join(dir, 'trace.jsonl'), 'utf8');
