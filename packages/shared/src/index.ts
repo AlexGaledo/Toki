@@ -2,43 +2,26 @@ export * from './models.js';
 export * from './protocol.js';
 export * from './providers.js';
 export * from './account.js';
-// P3
 export * from './schedule.js';
-// P4
 export * from './integrations.js';
-// P5
 export * from './triggers.js';
-// P6
 export * from './teach.js';
-// Bot training pilot
 export * from './training.js';
-// Room files
 export * from './files.js';
-// PC runner
 export * from './pcRunner.js';
-// Machines (B4)
 export * from './machines.js';
-// Hub tool registry
 export * from './tools.js';
-// Tasks
 export * from './tasks.js';
-// Credential vault (G4)
 export * from './credentials.js';
 
-// Form and call-to-action cards (U4, U5)
 export * from './cards.js';
 
-// Bot export / import files
 export * from './botExport.js';
 
-// PC session mirror (bridge P3)
 export * from './pcSessions.js';
 
-// Project repo lists and sync (bridge P5)
 export * from './projectRepos.js';
 
-// Workflows v1 (OpenBot gaps M4)
 export * from './workflows.js';
 
-// Project map and overview (Toki UI B2, B3)
 export * from './projectMap.js';

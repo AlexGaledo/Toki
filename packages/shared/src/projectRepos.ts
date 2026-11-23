@@ -1,29 +1,15 @@
 import { z } from 'zod';
 
-/**
- * Project repo lists (Claude Code bridge P5, docs/specs/claude-code-bridge.md 5).
- *
- * A project folder holds `repos.json`, edited only by the owner (PUT /api/projects/:slug/repos). Repos are identified by
- * their remote URL and a name. The hub never stores a path on the owner's PC: the PC runner finds its own checkout
- * (session cwd -> git toplevel -> an `origin` whose normalised URL matches).
- */
-
 export const REPO_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,40}$/;
 export const REPO_SYNC_MODES = ['wip-branch', 'bundle', 'none'] as const;
 export type RepoSyncMode = (typeof REPO_SYNC_MODES)[number];
-/** Always protected, whatever a repo lists. */
 export const ALWAYS_PROTECTED_BRANCHES: readonly string[] = ['main', 'master'];
 export const MAX_PROJECT_REPOS = 50;
 
 /**
- * One canonical form for a git remote, so `git@GitHub.com:org/app.git`, `ssh://git@github.com/org/app` and
- * `https://github.com/org/app.git` compare equal: `https://<lower-case host>/<path>`.
- *
- * Credentials (`user:token@`) are dropped, a trailing `.git` and slashes are dropped, the host is lower-cased and the
- * path keeps its case. An ssh port is dropped (it is not an https port); an http(s) port is kept unless it is the
- * scheme's default. Returns null for anything that is not a remote with a host and a path: local paths, `file://`,
- * option-like text, `ext::` helpers, control characters. The runner keeps an identical copy; both are tested against the
- * same table (`projectRepos.test.ts` in shared and the runner's own test).
+ * One canonical form, `https://<lower-case host>/<path>`, so ssh, scp-like and https remotes compare equal.
+ * Credentials, a trailing `.git`, ssh ports and default ports are dropped. Null for local paths, `file://`,
+ * option-like text, `ext::` helpers and control characters.
  */
 export function normaliseRemote(raw: string): string | null {
   if (typeof raw !== 'string') return null;
@@ -70,10 +56,8 @@ export function remoteHasCredentials(raw: string): boolean {
 
 const BRANCH_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,100}$/;
 const branchOk = (b: string) => BRANCH_RE.test(b) && !b.includes('..') && !b.includes('//') && !b.endsWith('/') && !b.endsWith('.lock');
-/** A path segment of `vps`. No dot-prefixed names: `.git` and `.incoming` are the hub's. */
 const VPS_SEGMENT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-/** True for a relative, forward-slash path under the project folder with no `..`, no absolute or drive forms. */
 export function vpsPathOk(p: string): boolean {
   if (!p || p.length > 200 || p.includes('\\') || p.startsWith('/') || /^[A-Za-z]:/.test(p)) return false;
   const segs = p.split('/');
@@ -108,7 +92,6 @@ export const ProjectReposFileSchema = z
     const names = new Set<string>();
     const vpss = new Set<string>();
     f.repos.forEach((r, i) => {
-      // An entry that already failed its own checks arrives untransformed.
       if (typeof r?.name !== 'string' || typeof r.vps !== 'string') return;
       if (names.has(r.name)) ctx.addIssue({ code: 'custom', path: ['repos', i, 'name'], message: 'duplicate repo name "' + r.name + '"' });
       names.add(r.name);
@@ -121,24 +104,19 @@ export const ProjectReposFileSchema = z
 export type ProjectRepo = z.output<typeof ProjectRepoSchema>;
 export type ProjectReposFile = z.output<typeof ProjectReposFileSchema>;
 
-/** Which project repos a mirrored PC session belongs to (`PcSessionSummary.links`, computed at read). */
 export interface PcSessionLink {
   project: string;
   repo: string;
 }
 
-/** What a sync job carries to the runner (`GET /api/pc-runner/jobs/next` -> `sync`). */
 export interface PcSyncJobInfo {
   project: string;
   repo: string;
-  /** The repo's remote as listed in repos.json; the runner compares its own `origin` through normaliseRemote(). */
   remote: string;
   mode: 'wip-branch' | 'bundle';
-  /** The repo's protected branches plus main and master. A sync never touches one. */
   protected: string[];
 }
 
-/** What the runner reports for a sync job (`POST .../result` -> `sync`). Stored redacted. */
 export interface PcSyncResult {
   mode: 'wip-branch' | 'bundle';
   branch?: string;
@@ -147,11 +125,8 @@ export interface PcSyncResult {
   scan: { blocked: boolean; findings: string[] };
 }
 
-/** What the hub did with an uploaded bundle (`PcRunnerJob.hubImport`). */
 export interface PcSyncImport {
-  /** The branch in the VPS copy. */
   branch: string;
-  /** Relative to the project folder. */
   vps: string;
   bytes: number;
   at: number;
@@ -159,9 +134,7 @@ export interface PcSyncImport {
 
 export const PC_BUNDLE_MAX_BYTES = 200 * 1024 * 1024;
 
-/** `wip/<machine>/<first 8 of the session id>`: the one ref a sync is allowed to write. */
 export function wipBranchName(machine: string, sessionId: string): string {
-  // Same rule as the PC runner's sanitizeMachine (scripts/pc-runner/sync.mjs), so both name the same branch.
   const m = machine.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/g, '') || 'pc';
   const s = sessionId.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toLowerCase() || 'session';
   return 'wip/' + m + '/' + s;

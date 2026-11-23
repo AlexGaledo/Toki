@@ -1,10 +1,9 @@
 import { z } from 'zod';
 import type { CtaButton, FormAnswer, FormField } from './models.js';
 
-/*
- * U4 forms and U5 calls to action. Everything a bot writes onto these cards is untrusted: the hub cleans it before
- * it is stored and the browser cleans it again before it is drawn (a stored row may predate a rule), and the card
- * draws it as plain text, never markdown or HTML. The limits live here so both sides agree.
+/**
+ * Everything a bot writes onto a card is untrusted: the hub cleans it before storing, the browser cleans it again
+ * before drawing (a stored row may predate a rule), and the card draws plain text, never markdown or HTML.
  */
 
 export const MAX_FORM_FIELDS = 8;
@@ -13,13 +12,11 @@ export const MAX_FORM_DESCRIPTION = 300;
 export const MAX_FIELD_ID = 32;
 export const MAX_FIELD_LABEL = 80;
 export const MAX_FIELD_HELP = 200;
-/** A text answer is at most this long, whatever the bot asks for. */
 export const MAX_TEXT_ANSWER = 500;
 export const DEFAULT_TEXT_ANSWER = 200;
 export const MIN_CHOICES = 2;
 export const MAX_CHOICES = 10;
 export const MAX_CHOICE_LENGTH = 60;
-/** How long the owner has before a form is treated as unanswered. */
 export const FORM_TIMEOUT_MS = 10 * 60_000;
 
 export const MAX_CTA_BUTTONS = 3;
@@ -41,16 +38,12 @@ export function cleanText(s: unknown, max: number, multiline = false): string {
   return Array.from(t).slice(0, max).join('');
 }
 
-/**
- * Lookalike letters that survive NFKC (Cyrillic and Greek that read as Latin), folded to Latin so "раssword" is
- * still caught. A short list, not the whole confusables table.
- */
+/** Lookalikes that survive NFKC, folded to Latin so "раssword" is still caught. */
 const CONFUSABLES: Record<string, string> = {
   'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'х': 'x', 'у': 'y', 'і': 'i', 'ѕ': 's', 'ј': 'j', 'ԁ': 'd', 'ɡ': 'g',
   'ο': 'o', 'α': 'a', 'ρ': 'p', 'ν': 'v', 'ι': 'i', 'κ': 'k', 'τ': 't', 'ε': 'e',
 };
 
-/** NFKC, then drop zero-width, soft-hyphen, bidi and combining marks, then fold the lookalikes above. */
 function foldForScan(s: string): string {
   return s
     .normalize('NFKC')
@@ -62,9 +55,8 @@ function foldForScan(s: string): string {
 /** Words that mean the card is asking for a secret. Those go through the vault, never through a form. */
 const SECRET_WORDS = /pass(word|code|phrase|wd)|\bpin\b|secret|api[\s_-]?key|\btokens?\b|private[\s_-]?key|seed[\s_-]?phrase|recovery[\s_-]?(code|phrase|key)|credit[\s_-]?card|card[\s_-]?number|\bcvv\b|\bcvc\b|\bssn\b|social[\s_-]?security|\b2[\s-]?fa\b|two[\s-]?factor|\botp\b|one[\s_-]?time[\s_-]?(code|password|pin)|(verification|verify|sign[\s_-]?in|log[\s_-]?in|security|auth(entication|enticator)?|confirmation|access)[\s_-]?(code|pin)s?\b|credentials?|bearer/i;
 /**
- * Best effort only: a regex over normalised text cannot stop a determined bot (it can spell a request out in
- * words this list does not know). The real defence is that the owner reads the card and the vault exists; this
- * just refuses the obvious asks, including ones disguised with lookalike or invisible characters.
+ * Best effort: a determined bot can word a request around this list. The real defence is the owner reading the
+ * card, and the vault.
  */
 export const looksLikeSecretRequest = (s: string): boolean => SECRET_WORDS.test(foldForScan(s));
 
@@ -85,7 +77,6 @@ export const FormInputShape = {
 
 export type Built<T> = { ok: true; value: T } | { ok: false; error: string };
 
-/** Checks and cleans a bot's form. Errors are written for the bot to read and fix. */
 export function buildForm(input: unknown): Built<{ title: string; description?: string; fields: FormField[] }> {
   const parsed = z.object(FormInputShape).safeParse(input);
   if (!parsed.success) return { ok: false, error: 'Invalid form: ' + parsed.error.issues.map((i) => i.path.join('.') + ' ' + i.message).join('; ') };
@@ -122,7 +113,6 @@ export function buildForm(input: unknown): Built<{ title: string; description?: 
 
 export const FormAnswersSchema = z.record(z.string().max(MAX_FIELD_ID), z.union([z.string().max(MAX_TEXT_ANSWER * 4), z.boolean()])).refine((r) => Object.keys(r).length <= MAX_FORM_FIELDS, 'too many answers');
 
-/** Checks what the owner sent against the stored fields. Unknown ids, wrong types, long or missing values are refused. */
 export function validateAnswers(fields: FormField[], answers: Record<string, FormAnswer>): Built<Record<string, FormAnswer>> {
   const known = new Set(fields.map((f) => f.id));
   for (const k of Object.keys(answers)) if (!known.has(k)) return { ok: false, error: 'Unknown field: ' + k.slice(0, 40) };
@@ -177,7 +167,6 @@ export function cleanSay(raw: unknown, max: number): string {
   return cleanText(t, max);
 }
 
-/** Checks and cleans a bot's buttons. `say` text is sent as the owner's own message, so it is shown on the card. */
 export function buildCta(input: unknown): Built<CtaButton[]> {
   const parsed = z.array(CtaInputSchema).min(1).max(MAX_CTA_BUTTONS).safeParse(input);
   if (!parsed.success) return { ok: false, error: 'Invalid cta: ' + parsed.error.issues.map((i) => i.path.join('.') + ' ' + i.message).join('; ') };
@@ -199,7 +188,6 @@ export function buildCta(input: unknown): Built<CtaButton[]> {
   return { ok: true, value: out };
 }
 
-/** What the browser draws: the stored buttons, cleaned again, at most the cap, links that fail the check dropped. */
 export function displayCta(payload: unknown): Array<CtaButton & { host?: string }> {
   const list = (payload as { cta?: unknown } | null)?.cta;
   if (!Array.isArray(list)) return [];

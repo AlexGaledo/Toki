@@ -1,18 +1,15 @@
 import { z } from 'zod';
 
-/** A task on a room's board (G1). Local to the hub: it never syncs anywhere and never grants anything. */
 export const TASK_STATUSES = ['todo', 'doing', 'done', 'blocked'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export const MAX_TASK_TITLE = 200;
 export const MAX_TASK_NOTES_BYTES = 4096;
-/** Tasks that are not `done`, per room. */
 export const MAX_OPEN_TASKS_PER_ROOM = 200;
 
 export interface Task {
   id: string;
   roomId: string;
-  /** The bot that created it, or null when the owner did. */
   botId: string | null;
   assigneeBotId: string | null;
   title: string;
