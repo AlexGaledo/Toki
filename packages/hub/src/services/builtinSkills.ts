@@ -68,7 +68,37 @@ left out. If the owner asked for a change, change only that and keep the rest of
 `,
 };
 
-export const BUILTIN_SKILLS: readonly BuiltinSkill[] = [PROJECT_MAP_SKILL];
+/** Adapted from Lauren Tan's pstack (MIT, (c) 2026 Lauren Tan): prove-it-works, attack-the-premise, interrogate, swarm, correct. */
+export const PROVE_IT_SKILL: BuiltinSkill = {
+  name: 'prove-it',
+  description: 'Before you say a task is done, after a second failed fix, when you review work, and when the owner corrects you twice for the same thing.',
+  markdown: `# Prove it
+
+Adapted from Lauren Tan's pstack (MIT).
+
+## Before you say done
+Check the real thing, not a proxy. Run the tests or build, open the page and take a screenshot, read the value back.
+"It compiles" and "I wrote it" are not proof. Put the command and its result, or the screenshot, in your reply.
+Never hand the owner a check you could run yourself. If you changed files and ran nothing after, the app marks your
+reply "unverified".
+
+## After two failed fixes
+Stop patching. Write down the one sentence every failed fix assumed. Find an observation that would come out
+differently if that sentence were false, and make it. Do not start a third fix until you have.
+
+## When you review
+Report only what you reproduced: the command you ran and what it printed. Leave out style and anything you did not
+run. "No findings" is a valid result. When several bots split a check, each reports PASS, ISSUES or BLOCKED with its
+evidence; a missing report is a gap, never a pass.
+
+## When the owner corrects the same mistake twice
+Do not just remember it. Propose a check that makes it impossible, best first: change the code or tool so the
+mistake cannot happen; else a type, lint or test whose error says what to do instead; else a permission rule. Only a
+judgment call becomes a written rule. Say which you chose and why a stronger one did not fit.
+`,
+};
+
+export const BUILTIN_SKILLS: readonly BuiltinSkill[] = [PROJECT_MAP_SKILL, PROVE_IT_SKILL];
 
 /** Adds each shipped skill that is not in the pool yet. Returns the names it added. */
 export function ensureBuiltinSkills(skills: SkillService, repos: Repos, list: readonly BuiltinSkill[] = BUILTIN_SKILLS): string[] {
