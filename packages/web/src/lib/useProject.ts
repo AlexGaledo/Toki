@@ -1,7 +1,3 @@
-/**
- * The new layout's view of "where am I" (docs/specs/toki-ui.md, W5/W6): whether the layout is on for this browser,
- * the project whose room is open, and that project's parsed current.md.
- */
 import { useEffect } from 'react';
 import type { Bot, ProjectOverview } from '@pocketrocket/shared';
 import { useStore, botById } from '../store';
@@ -9,24 +5,18 @@ import { useLayout } from './layout';
 import { projectOfRoom } from './projects';
 import type { ProjectInfo } from './api';
 
-/** The new layout is on here. A paired phone always keeps the classic one. */
 export function useToki(): boolean {
   const layout = useLayout();
   const device = useStore((s) => s.device);
   return layout === 'toki' && !device;
 }
 
-/** The project whose group chat is open, in the new layout only. */
 export function useActiveProject(): ProjectInfo | null {
   const toki = useToki();
   const project = useStore((s) => projectOfRoom(s.projects, s.activeRoomId));
   return toki ? project : null;
 }
 
-/**
- * A project's overview, fetched the first time it is asked for and refreshed by the store after each turn in its room.
- * `undefined` while loading, `null` when the hub had none to give.
- */
 export function useOverview(slug: string | null | undefined): ProjectOverview | null | undefined {
   const overview = useStore((s) => (slug ? s.overviews[slug] : undefined));
   const known = useStore((s) => !!slug && slug in s.overviews);
@@ -37,10 +27,6 @@ export function useOverview(slug: string | null | undefined): ProjectOverview | 
   return slug ? overview : null;
 }
 
-/**
- * Brings a card in the open chat into view: the chat may still be loading, so it looks for a short while. The
- * transcript marks each card with `data-msg`.
- */
 export function revealMessage(messageId: string, tries = 40): void {
   const step = (left: number) => {
     const el = document.querySelector('[data-msg="' + CSS.escape(messageId) + '"]')?.firstElementChild;
@@ -53,11 +39,6 @@ export function revealMessage(messageId: string, tries = 40): void {
   requestAnimationFrame(() => step(tries));
 }
 
-/**
- * The bot asked for a project's map from the Map tab, where that ask stands (`sent`, then `done` once its turn in the
- * project room ends), and whether that bot has a turn running in that room right now. Only a running turn counts as
- * "drawing"; a queued ask is just "asked".
- */
 export function useMapDrawing(slug: string): { bot: Bot | null; phase: 'sent' | 'done' | null; running: boolean } {
   const ask = useStore((s) => s.mapAsks[slug]);
   const bots = useStore((s) => s.bots);

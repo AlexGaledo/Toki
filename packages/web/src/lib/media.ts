@@ -4,20 +4,19 @@ import { api } from './api';
 import { getToken, reportAuthFailure } from './auth';
 
 /**
- * Uploaded pictures. `<img>` cannot send the Bearer token and the token must stay out of URLs, so a picture is fetched
- * with the token, like any other API call, and shown through a blob URL that only this tab can use.
+ * `<img>` cannot send the Bearer token and the token must stay out of URLs, so pictures are fetched with it and
+ * shown through blob URLs.
  */
 
-/** What the file picker offers, and all the hub accepts. Never SVG: it can carry script. */
+/** Never SVG: it can carry script. */
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 const MAX_SIDE = 512;
 
 const urls = new Map<string, string>();
 const loading = new Map<string, Promise<void>>();
 const waiting = new Set<() => void>();
-/** The token the hub last refused. Every refusal feeds its auth limiter, so nothing more is asked with that token. */
+/** Every refusal feeds the hub's auth limiter, so nothing more is asked with that token. */
 let refused: string | null | undefined;
-/** One at a time, for the same reason: a stale token costs one failed request, not one per picture on screen. */
 let queue: Promise<unknown> = Promise.resolve();
 
 function load(hash: string): Promise<void> {
@@ -42,7 +41,6 @@ function load(hash: string): Promise<void> {
   return job;
 }
 
-/** A blob URL for an avatar that is a picture; null for an icon key, '' and while it loads. */
 export function useMediaUrl(avatar: string | undefined): string | null {
   const hash = isMediaRef(avatar) ? mediaHash(avatar) : null;
   const [, rerender] = useState(0);
@@ -56,10 +54,8 @@ export function useMediaUrl(avatar: string | undefined): string | null {
   return hash ? urls.get(hash) ?? null : null;
 }
 
-/** A refused image, with the words to show. */
 export class ImageRefused extends Error {}
 
-/** The same check the hub makes, so a wrong file is refused before anything is uploaded. */
 export function sniffImage(b: Uint8Array): (typeof IMAGE_TYPES)[number] | null {
   const ascii = (from: number, to: number) => String.fromCharCode(...b.subarray(from, to));
   if (b.length < 12) return null;
@@ -72,10 +68,7 @@ export function sniffImage(b: Uint8Array): (typeof IMAGE_TYPES)[number] | null {
 const encode = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
   new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
 
-/**
- * Down to 512 px at most, re-encoded, which also drops EXIF such as a photo's location. A browser that cannot write
- * WebP hands back a PNG, which is still one of the three; JPEG is the way down when a detailed picture is too big.
- */
+/** A browser that cannot write WebP hands back a PNG. */
 async function shrink(file: File): Promise<Blob> {
   const type = (IMAGE_TYPES as readonly string[]).includes(file.type) ? sniffImage(new Uint8Array(await file.slice(0, 12).arrayBuffer())) : null;
   if (!type) throw new ImageRefused('Use a PNG, JPEG or WebP image.');
@@ -98,13 +91,11 @@ async function shrink(file: File): Promise<Blob> {
   throw new ImageRefused('Image too large.');
 }
 
-/** Remembers a blob as the preview of an uploaded reference, so showing it needs no second trip. */
 export function cachePreview(ref: string, blob: Blob): void {
   const hash = mediaHash(ref);
   if (!urls.has(hash)) urls.set(hash, URL.createObjectURL(blob));
 }
 
-/** Checks, shrinks and uploads a file. Returns the reference to store; refuses with words to show. */
 export async function uploadImage(file: File): Promise<string> {
   const blob = await shrink(file);
   const data = await new Promise<string>((resolve, reject) => {
@@ -114,7 +105,6 @@ export async function uploadImage(file: File): Promise<string> {
     reader.readAsDataURL(blob);
   });
   const { ref } = await api.media.upload(data);
-  // Already in hand, so the preview needs no second trip.
   const hash = mediaHash(ref);
   if (!urls.has(hash)) urls.set(hash, URL.createObjectURL(blob));
   return ref;

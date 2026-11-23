@@ -1,21 +1,8 @@
-/**
- * Which bot's screen shows, and how big. Nobody picks a size: it follows what the user is doing.
- *
- *   glance  a small thumbnail over the chat while the bot is using its computer; nothing when it is not
- *   watch   split beside the chat, after the user asks to see the screen
- *   focus   full pane, while this browser has control
- *
- * The right panel showing Files (or the new layout's overview) counts as not watching: the thumbnail may still come up beside it.
- *
- * The screen follows the chat. The one exception is a screen this browser holds, which stays up whatever chat is
- * open, because leaving it would strand a bot that cannot act until it gets its screen back. RightPanel warns then.
- */
 import { getItem, setItem } from './persist';
 import type { Bot, BotState, ControlStatus, Message, Room, ToolPayload } from '@pocketrocket/shared';
 
 export type ScreenSize = 'glance' | 'watch' | 'focus';
 
-/** This browser's id, sent as the control `holder` so the hub can say who took over. Not a secret. */
 export function deviceId(): string {
   let id = getItem('pocketrocket.deviceId');
   if (!id) {
@@ -25,11 +12,6 @@ export function deviceId(): string {
   return id;
 }
 
-/**
- * True when control was taken from this browser. A bot's `request_takeover` also sets `user`, but with no holder,
- * and that must not throw the screen over whatever the user is doing: it stays a card until they say so. The
- * recorder is its own holder and the Done button is on the screen, so a recording counts.
- */
 export function holdsScreen(c: ControlStatus | undefined): boolean {
   return c?.control === 'user' && (c.holder === 'recorder' || c.holder === deviceId());
 }
@@ -44,7 +26,6 @@ export interface ScreenState {
   activeRoomId: string | null;
   panelBotId: string | null;
   panelOpen: boolean;
-  /** Missing reads as 'screen'. */
   panelKind?: 'screen' | 'files' | 'overview';
   control: Record<string, ControlStatus>;
   botStates: Record<string, BotState>;
@@ -63,10 +44,6 @@ function hostOf(url: unknown): string {
   }
 }
 
-/**
- * The thumbnail's caption while the bot's current turn in this chat is using its computer, else null. Null also
- * lets the computer go: no thumbnail means no viewer holding it awake.
- */
 export function computerUse(botId: string, s: ScreenState): string | null {
   if (s.control[botId]?.takeover) return 'Waiting for you';
   const st = s.botStates[botId];
@@ -93,7 +70,6 @@ export function computerUse(botId: string, s: ScreenState): string | null {
   return site ? 'Browsing ' + site : 'Using its screen';
 }
 
-/** The user asked to see the screen: the panel is open on it, not on Files or the overview. */
 const watching = (s: ScreenState) => s.panelOpen && (s.panelKind ?? 'screen') === 'screen';
 
 export function selectScreenBotId(s: ScreenState): string | null {
@@ -102,7 +78,6 @@ export function selectScreenBotId(s: ScreenState): string | null {
   const room = s.rooms.find((r) => r.id === s.activeRoomId);
   if (!room) return s.panelBotId ?? s.bots[0]?.id ?? null;
   const picked = s.panelBotId && room.memberIds.includes(s.panelBotId) ? s.panelBotId : room.memberIds[0] ?? null;
-  // A thumbnail in a group chat is for whoever is at their computer. A split stays on the one the user chose.
   if (room.kind === 'group' && !watching(s) && !(picked && computerUse(picked, s))) {
     return room.memberIds.find((id) => computerUse(id, s)) ?? picked;
   }

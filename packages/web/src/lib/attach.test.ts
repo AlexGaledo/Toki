@@ -6,7 +6,6 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0
 const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0, 0, 0, 0, 0, 0, 1, 2]);
 const fileOf = (bytes: Uint8Array, type: string, name = 'a') => ({ type, name, slice: () => ({ arrayBuffer: async () => bytes.buffer.slice(0) }) }) as unknown as File;
 
-/** A canvas that records what it was asked for and hands back blobs of a chosen size/type. */
 function mockCanvas(blobs: Array<{ type: string; size: number } | null>) {
   const canvas = { width: 0, height: 0, drawn: [] as number[][], tries: [] as Array<[string, number | undefined]> } as any;
   canvas.getContext = () => ({ drawImage: (_b: unknown, x: number, y: number, w: number, h: number) => canvas.drawn.push([x, y, w, h]) });

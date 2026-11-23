@@ -1,6 +1,4 @@
-// The Tasks board: one room's to-do list, in four columns. Tasks are notes the owner and the bots keep together
-// (G1); a task never grants an approval or changes a setting. Statuses change with a plain select, so the board
-// works from the keyboard and on a phone. A `task.changed` event from a bot or another window refreshes it.
+// A task never grants an approval or changes a setting.
 import { useCallback, useEffect, useState } from 'react';
 import { ListChecks, Plus } from 'lucide-react';
 import { TASK_STATUSES, type Task, type TaskStatus } from '@pocketrocket/shared';
@@ -34,7 +32,6 @@ export function TasksPage() {
   );
 }
 
-/** New layout: a project's Tasks tab, under the project header (App.tsx). The board of the project's own room. */
 export function ProjectTasks({ roomId }: { roomId: string }) {
   return <PageBody><div className="pt-4"><Board key={roomId} roomId={roomId} /></div></PageBody>;
 }
@@ -109,7 +106,6 @@ function Board({ roomId }: { roomId: string }) {
                     <li key={t.id} className={cn('rounded-lg bg-card2/40 p-3 ring-1 ring-line', st === 'done' && 'opacity-70')}>
                       <div className={cn('text-ui', st === 'done' && 'line-through')}>{t.title}</div>
                       {t.notes && <p className="mt-1 line-clamp-3 text-hint text-muted">{t.notes}</p>}
-                      {/* New layout: status above assignee, so neither select is cut off in a quarter-width column. */}
                       <div className={cn('mt-2 flex gap-2', fresh && 'flex-col')}>
                         <Select aria-label={'Status of ' + t.title} value={t.status} onChange={(e) => void patch(t, { status: e.target.value as TaskStatus })}>
                           {TASK_STATUSES.map((s) => <option key={s} value={s}>{LABEL[s]}</option>)}

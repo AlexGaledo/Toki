@@ -1,4 +1,3 @@
-// The third section of Automations: every workflow, newest activity visible, each opening its own page.
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useStore, selectActiveRoom } from '../../store';
@@ -17,7 +16,6 @@ export function WorkflowsSection() {
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (workflows === null) void refreshWorkflows(); }, [workflows]);
 
-  // A starter that is already valid (run on demand, one bot step, post to the chat), so the page opens ready to edit.
   const create = async () => {
     const home = room && room.memberIds.length ? room : rooms.find((r) => r.memberIds.length);
     if (!home) { toast('Add a bot to a chat first. A workflow runs in a chat.', true); return; }

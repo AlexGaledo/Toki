@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-// lib/persist touches localStorage on import paths only when called; nothing here reads storage.
 vi.mock('./persist', () => ({ getItem: () => null, setItem: () => undefined }));
 const { PANES, PANEL_INLINE_MIN, RAIL_W, paneLayout, paneRange, separatorPane } = await import('./panes');
 
@@ -19,7 +18,6 @@ describe('paneLayout with the overview', () => {
 
   it('folds to a fixed rail', () => {
     expect(paneLayout(1440, { ...base, panelKind: 'overview', overviewRail: true }).panel).toBe(RAIL_W);
-    // The rail is the overview's: a screen opened over it has its usual width.
     expect(paneLayout(1440, { ...base, panelKind: 'screen', overviewRail: true }).panel).toBe(600);
   });
 
@@ -32,7 +30,6 @@ describe('paneLayout with the overview', () => {
     const w = paneLayout(narrow, { ...base, panelKind: 'overview' });
     expect(w.panel).toBe(0);
     expect(w.sidebar).toBeGreaterThan(0);
-    // Files at the same width still fold the sidebar away, as before.
     expect(paneLayout(narrow, { ...base, panelKind: 'files' }).sidebar).toBe(0);
   });
 

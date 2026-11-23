@@ -2,7 +2,6 @@ import { ExternalLink } from 'lucide-react';
 import type { Bot } from '@pocketrocket/shared';
 import { openPopout } from '../lib/popout';
 
-/** "Open this bot in its own window". A sibling of a bot row's buttons, with the same hover rules as the settings cog. */
 export function PopoutButton({ bot, roomId }: { bot: Pick<Bot, 'id' | 'name'>; roomId?: string | null }) {
   return (
     <button

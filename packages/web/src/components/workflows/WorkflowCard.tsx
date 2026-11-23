@@ -1,6 +1,4 @@
-// The person-only approval card a workflow's approval step posts. It sits on ActionCard like the other chat cards and
-// shows in the chat of the workflow's room and in Needs you. Only these buttons answer it: the hub refuses a bot, a cta
-// button and chat text, so there is no CtaButtons here and nothing the bot wrote is a button.
+// Only these buttons answer it: the hub refuses a bot, a cta button and chat text.
 import { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import type { WorkflowApprovalCard } from '@pocketrocket/shared';
@@ -27,7 +25,6 @@ export function WorkflowApprovalCardView({ card, className }: { card: WorkflowAp
       await api.workflows.decide(card.runId, d);
       dropCard(card.runId, card.nodeId);
     } catch (e) {
-      // 403 (not allowed from here), 409 (already answered or expired), or the hub's own words.
       setError((e as Error).message);
       setBusy(false);
     }
@@ -76,7 +73,6 @@ export function WorkflowApprovalCardView({ card, className }: { card: WorkflowAp
   );
 }
 
-/** Open cards for one room, above the composer. Nothing renders when there are none. */
 export function WorkflowCardsForRoom({ roomId }: { roomId: string }) {
   const cards = useWorkflows((s) => s.cards);
   const workflows = useWorkflows((s) => s.workflows);

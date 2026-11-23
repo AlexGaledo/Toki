@@ -9,10 +9,6 @@ const group = (id: string, memberIds: string[]) => ({ id, kind: 'group', name: i
 const dm = (id: string, botId: string) => ({ id, kind: 'dm', name: botId, memberIds: [botId] }) as unknown as Room;
 const project = (slug: string, roomId: string | null, memberIds: string[] = []): ProjectInfo => ({ slug, name: slug, dir: '/p/' + slug, memberIds, roomId, templateVersion: null, createdAt: 0 });
 
-/**
- * Fleet: project "wika" runs in room r-wika (lead, eng); project "notes" has no room (writer); room r-train belongs to
- * no project (coach); "solo" is in no group; "old" is paused and alone in room r-old.
- */
 function input(over: Partial<ProjectTreeInput> = {}): ProjectTreeInput {
   const paused = new Set(['old']);
   return {
@@ -69,16 +65,13 @@ describe('buildProjectTree', () => {
   it('hides a project whose bots are all paused, and an empty one', () => {
     const t = buildProjectTree(input({ projects: [project('wika', 'r-wika'), project('empty', null)], statusOf: (id) => (id === 'lead' || id === 'eng' ? 'paused' : 'idle') }));
     expect(t.projects).toEqual([]);
-    expect(t.hidden).toBe(2); // the two projects; r-old's bot is live in this input, so its room shows
+    expect(t.hidden).toBe(2);
   });
 
   it('never hides what holds the open chat', () => {
-    // The paused room is open.
     expect(buildProjectTree(input({ activeRoomId: 'r-old' })).rooms.map((r) => r.room.id)).toContain('r-old');
-    // A DM with the paused bot is open: its room and the bot itself stay.
     const t = buildProjectTree(input({ activeRoomId: 'd-old' }));
     expect(t.rooms.find((r) => r.room.id === 'r-old')?.bots.map((b) => b.id)).toEqual(['old']);
-    // A project whose bots are all paused, but its chat is open.
     const p = buildProjectTree(input({ activeRoomId: 'r-wika', statusOf: () => 'paused' }));
     expect(p.projects[0].active).toBe(true);
   });

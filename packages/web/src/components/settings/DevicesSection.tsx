@@ -1,11 +1,4 @@
-/**
- * Settings › Devices (P9). On the desktop (hub token): pair a phone with a QR code, see paired devices and
- * revoke them. On a paired phone: "This device" and Unpair only — the hub refuses everything else a device
- * may not do. Either way: opt-in, content-free push notifications for this browser.
- *
- * The QR code holds the hub's address and a one-time pairing code (five minutes, single use). It never holds
- * the hub token.
- */
+/** A device never holds the hub token; the hub refuses everything a device may not do. */
 import { useCallback, useEffect, useState } from 'react';
 import { BellRing, RefreshCw, Smartphone } from 'lucide-react';
 import { useStore } from '../../store';
@@ -40,8 +33,6 @@ export function DevicesSection() {
     </>
   );
 }
-
-// ---------- desktop: pair + list ----------
 
 function PairAndList() {
   const toast = useStore((s) => s.toast);
@@ -143,7 +134,6 @@ function PairPhone({ onPaired }: { onPaired: () => void }) {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [pairing]);
-  // A code that ran out is useless: drop it, and refresh the list in case the phone paired with it.
   useEffect(() => {
     if (pairing && left === 0) { setPairing(null); onPaired(); }
   }, [pairing, left, onPaired]);
@@ -206,8 +196,6 @@ function PairPhone({ onPaired }: { onPaired: () => void }) {
   );
 }
 
-// ---------- phone: this device ----------
-
 function ThisDevice() {
   const [me, setMe] = useState<DeviceInfo | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -217,7 +205,6 @@ function ThisDevice() {
   const unpair = async () => {
     if (!me) return;
     await disablePush().catch(() => undefined);
-    // The hub revokes the token, and the next request it refuses clears it here and asks to pair again.
     await api.devices.revoke(me.id).catch(() => undefined);
     location.reload();
   };
@@ -244,8 +231,6 @@ function ThisDevice() {
     </Group>
   );
 }
-
-// ---------- push (both) ----------
 
 function PushGroup() {
   const support = pushSupport();

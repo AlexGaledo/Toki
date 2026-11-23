@@ -1,6 +1,3 @@
-// Claude Code sessions mirrored from the owner's PC (bridge phase 3). Types come from @pocketrocket/shared; the pure
-// helpers (grouping, nesting, row labels, paging) live here so they can be tested without a DOM.
-
 import type { PcEntry, PcEntryKind, PcSessionDetail, PcSessionSummary, PcSessionUpdatedEvent, PcStoredEntry } from '@pocketrocket/shared';
 
 export type { PcEntry, PcEntryKind, PcSessionDetail, PcSessionSummary };
@@ -11,7 +8,6 @@ export const PC_ENTRY_PAGE = 200;
 
 export interface PcSessionQuery { q?: string; repo?: string; before?: number; limit?: number }
 
-/** Builds the query string for GET /api/pc-sessions; empty values are left out. */
 export function listQuery(p: PcSessionQuery): string {
   const u = new URLSearchParams();
   if (p.repo) u.set('repo', p.repo);
@@ -21,34 +17,19 @@ export function listQuery(p: PcSessionQuery): string {
   return '?' + u.toString();
 }
 
-// ---- grouping ----
-
 export interface SessionNode { session: PcSessionSummary; children: PcSessionSummary[] }
 export interface SessionGroup { key: string; label: string; lastAt: number; nodes: SessionNode[] }
 
-/**
- * The name a session is grouped under. Worktrees of one repo share its remote, so the remote's last path part wins
- * (agent-… and wt-… worktrees land with their repo); then the repo folder's name; then, for a session outside any git
- * repo, the name of the folder it ran in. Claude's own project-dir name (C--Users-…) is the last resort.
- */
 export function groupLabelOf(s: PcSessionSummary): string {
   const fromRemote = s.repo?.remote?.replace(/[?#].*$/, '').replace(/\/+$/, '').replace(/\.git$/i, '').split(/[/:]/).pop();
   const fromCwd = s.cwd?.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
   return fromRemote || s.repo?.name || fromCwd || s.projectDir || 'Other';
 }
-/** Case-insensitive, so Desktop\WIKA-SaaS and desktop\wika-saas are one group. */
+/** Case-insensitive, as Windows paths are. */
 export function groupKeyOf(s: PcSessionSummary): string {
   return groupLabelOf(s).toLowerCase();
 }
 
-/**
- * Groups by repo (else project dir), newest activity first, with subagent sessions nested under their parent.
- * A child whose parent is not in the list (not loaded yet, or filtered out) stands on its own so it is never lost.
- */
-/**
- * What is going on right now: a session Claude Code wrote to in the last few minutes (status 'live'), or one that is
- * moving to, on, or coming back from the VPS. A subagent counts for its parent, so the parent stays in view.
- */
 export function activeSessions(list: PcSessionSummary[]): PcSessionSummary[] {
   const busy = (x: PcSessionSummary) => x.status === 'live' || (!!x.move && x.move.state !== 'local');
   const parents = new Set(list.filter((x) => x.parentId && busy(x)).map((x) => x.parentId as string));
@@ -78,25 +59,20 @@ export function groupSessions(list: PcSessionSummary[]): SessionGroup[] {
   return out.sort((a, b) => b.lastAt - a.lastAt);
 }
 
-/** Distinct repo names in a list, for the repo filter. */
 export function repoOptions(list: PcSessionSummary[]): string[] {
   return [...new Set(list.map((s) => s.repo?.name).filter((n): n is string => !!n))].sort((a, b) => a.localeCompare(b));
 }
 
-/** Cursor for the next page: the oldest lastAt seen, or null when the last page was short (nothing more). */
 export function nextBefore(list: PcSessionSummary[], lastPageSize: number, limit = PC_SESSION_PAGE): number | null {
   if (lastPageSize < limit || list.length === 0) return null;
   return Math.min(...list.map((s) => s.lastAt));
 }
 
-/** Replaces sessions with the same id and appends new ones. */
 export function mergeSessions(cur: PcSessionSummary[], incoming: PcSessionSummary[]): PcSessionSummary[] {
   const byId = new Map(cur.map((s) => [s.id, s]));
   for (const s of incoming) byId.set(s.id, s);
   return [...byId.values()].sort((a, b) => b.lastAt - a.lastAt);
 }
-
-// ---- display ----
 
 export function sessionTitle(s: { title: string | null }): string {
   return s.title?.trim() || 'Untitled session';
@@ -114,22 +90,17 @@ export function relativeTime(at: number, now = Date.now()): string {
   return new Date(at).toLocaleDateString();
 }
 
-/** "Bash · npm test": the tool name and the first line of its summary. */
 export function toolRowLabel(e: Pick<PcEntry, 'tool' | 'text' | 'kind'>): string {
   const name = e.tool || (e.kind === 'tool_result' ? 'result' : 'tool');
   const first = e.text.split('\n', 1)[0].trim();
   return first ? name + ' · ' + first : name;
 }
 
-/** Entries merged by seq, ascending; a repeated seq (a page fetched twice) keeps the newer copy. */
 export function mergeEntries(cur: PcSeqEntry[], incoming: PcSeqEntry[]): PcSeqEntry[] {
   const bySeq = new Map(cur.map((e) => [e.seq, e]));
   for (const e of incoming) bySeq.set(e.seq, e);
   return [...bySeq.values()].sort((a, b) => a.seq - b.seq);
 }
-
-// ---- WebSocket ----
-// ws.ts hands `pc_session_updated` here before the store path; only this page listens.
 
 export type PcSessionUpdated = PcSessionUpdatedEvent;
 type Listener = (ev: PcSessionUpdated) => void;
@@ -140,7 +111,6 @@ export function onPcSessionUpdated(fn: Listener): () => void {
   return () => { listeners.delete(fn); };
 }
 
-/** Returns true when the raw event was a pc_session_updated (so the caller skips the typed store path). */
 export function dispatchPcSessionEvent(raw: unknown): boolean {
   const ev = raw as { type?: unknown; id?: unknown; lastAt?: unknown } | null;
   if (!ev || ev.type !== 'pc_session_updated' || typeof ev.id !== 'string') return false;

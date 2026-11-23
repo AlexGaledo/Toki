@@ -17,7 +17,6 @@ const lane = (botId: string, over: Partial<LaneQueue> = {}): LaneQueue => ({
 });
 
 let fetchMock: ReturnType<typeof vi.fn>;
-/** The hub's REST answers, by method and path. */
 let answers: Record<string, () => Response>;
 
 async function boot() {
@@ -71,7 +70,6 @@ describe('store: queues', () => {
 
   it('forgets every lane on a new hello, since events may have been missed', async () => {
     const store = await boot();
-    // hello applies the theme and font to <html>.
     vi.stubGlobal('document', { documentElement: { classList: { toggle: () => undefined }, dataset: {} } });
     store.getState().applyEvent({ type: 'queue.changed', queue: lane('ada') });
     store.getState().applyEvent({ type: 'hello', bots: [], rooms: [], botStates: {}, settings: store.getState().settings });

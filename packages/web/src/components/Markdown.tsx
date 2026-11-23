@@ -1,13 +1,6 @@
 /**
- * The one place the app renders markdown. Bots and provider checks write links freely, and a plain <a>
- * would take the whole app with it: in a browser tab the click replaces Toki, and in the desktop
- * window a relative link like `report.md` stays in-window on a 404 with no back button. So every link
- * goes through `MdLink`, which opens real web links in a new tab (the desktop shell hands those to the
- * system browser) and never lets anything else navigate the app window. A link to a file opens the chat's
- * Files panel there instead.
- *
- * A click on a web link or a file link asks where to open it: on this device, or in the server's virtual browser
- * (the Screen panel, where the bots' logins are). A file can also be saved to this PC and opened there.
+ * Every link goes through `MdLink`: a plain <a> replaces the app in a browser tab, and in the desktop webview a
+ * relative link stays in-window on a 404 with no back button.
  */
 import { createContext, useContext, type ComponentPropsWithoutRef, type MouseEvent, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
@@ -20,23 +13,13 @@ import { saveBlob } from '../lib/saveBlob';
 import { Menu, MenuContent, MenuItem, MenuSeparator } from './ui';
 import { resolveFileLink } from './files/fileKinds';
 
-/**
- * The folder, inside the room's folder, that relative file links start from: '' in chat, the file's own folder in
- * a Markdown file previewed in Files.
- */
 export const FileLinkBase = createContext('');
 
-/** The bot that wrote the text being shown, if any: "Open in server browser" uses its computer first. */
 export const LinkBot = createContext<string | undefined>(undefined);
 
 type LinkKind = 'external' | 'file' | 'internal';
 
-/** Sorts an href by where following it would take the app window. */
 function classifyLink(href: string): LinkKind {
-  // No scheme and not protocol-relative: a path relative to wherever the bot was, almost always a
-  // workspace file ("report.md", "./out/notes.txt"). Opening it would only hit the hub's 404.
-  // An absolute path is a file too (a bot on the server writes /home/…/rooms/<id>/report.md), unless it is one
-  // of the hub's own routes; Files places it inside the room's folder or says it is outside.
   if (!/^[a-z][a-z0-9+.-]*:/i.test(href) && !href.startsWith('//')) return href.startsWith('#') || /^\/(api|ws|screen)(\/|$)/.test(href) ? 'internal' : 'file';
   let url: URL;
   try {
@@ -45,14 +28,12 @@ function classifyLink(href: string): LinkKind {
     return 'internal';
   }
   if (url.protocol === 'mailto:') return 'external';
-  // A link back to the hub itself (the desktop window keeps those in-window) is treated like a relative one.
   if ((url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== location.origin) return 'external';
   return 'internal';
 }
 
 type FileTarget = { roomId: string; path: string; name: string };
 
-/** The file a link names, as a path in the active chat's folder; null (after saying why) when it is not one. */
 async function placeFile(href: string, base: string): Promise<FileTarget | null> {
   const s = useStore.getState();
   const roomId = s.activeRoomId;
@@ -78,7 +59,6 @@ function failed(e: unknown) {
   useStore.getState().toast(e instanceof ApiError ? e.message : 'The hub could not be reached.');
 }
 
-/** In a bot's server browser, then the Screen panel on that bot's screen. */
 async function openInServer(open: () => Promise<{ botId: string | null }>) {
   try {
     const { botId } = await open();
@@ -88,12 +68,10 @@ async function openInServer(open: () => Promise<{ botId: string | null }>) {
   }
 }
 
-/** "Open on this PC" in the desktop app; a plain download in a browser tab. */
 async function openFileHere(href: string, base: string) {
   const f = await placeFile(href, base);
   if (!f) return;
   if (desktopCan('localcopy')) {
-    // The desktop app catches this window request, saves the file under Documents\PocketRocket and opens it.
     const room = useStore.getState().rooms.find((r) => r.id === f.roomId);
     const q = new URLSearchParams({ localcopy: f.roomId, path: f.path, folder: room?.name ?? '' });
     window.open(location.origin + '/?' + q.toString(), '_blank');
@@ -121,7 +99,6 @@ function MdLink({ href, children, node: _node, ...rest }: ComponentPropsWithoutR
   const botId = useContext(LinkBot);
   const kind = href ? classifyLink(href) : 'internal';
   if (href && kind === 'external') {
-    // A real <a>: Ctrl/Cmd-click and middle-click still open it in a new tab, without the menu.
     const plainClick = (e: MouseEvent) => {
       e.stopPropagation();
       if (!e.ctrlKey && !e.metaKey && !e.shiftKey) e.preventDefault();
@@ -136,7 +113,6 @@ function MdLink({ href, children, node: _node, ...rest }: ComponentPropsWithoutR
       </LinkMenu>
     );
   }
-  // No href at all, so middle-click or "open in new tab" cannot reach a dead page either.
   const hint = kind === 'file'
     ? 'Opens in Files'
     : "That link points inside Toki and can't be opened from here";
@@ -144,7 +120,6 @@ function MdLink({ href, children, node: _node, ...rest }: ComponentPropsWithoutR
     const s = useStore.getState();
     if (kind !== 'file' || !href || !s.activeRoomId) return toast(kind === 'file' ? 'Open a chat to see its files.' : hint);
     const at = resolveFileLink(href, base);
-    // Somewhere this cannot place (outside the room's folder): the folder itself, rather than nothing.
     s.openFiles(at && 'path' in at ? at : at ? { path: '', file: at.abs } : { path: '' });
   };
   const button = (onClick?: () => void) => (
@@ -157,7 +132,6 @@ function MdLink({ href, children, node: _node, ...rest }: ComponentPropsWithoutR
       {children}
     </button>
   );
-  // A folder, or a link that is not a file: straight to Files (or the hint), as before.
   const at = kind === 'file' && href ? resolveFileLink(href, base) : null;
   if (!href || !at || ('path' in at && !at.file)) return button(preview);
   const local = desktopCan('localcopy');
@@ -170,12 +144,10 @@ function MdLink({ href, children, node: _node, ...rest }: ComponentPropsWithoutR
   );
 }
 
-/** A wide table scrolls inside its own box instead of pushing the whole transcript sideways. */
 function MdTable({ node: _node, ...rest }: ComponentPropsWithoutRef<'table'> & { node?: unknown }) {
   return <div className="md-table"><table {...rest} /></div>;
 }
 
-// Module-level so ReactMarkdown sees the same object every render.
 const COMPONENTS: Components = { a: MdLink, table: MdTable };
 const PLUGINS = [remarkGfm];
 

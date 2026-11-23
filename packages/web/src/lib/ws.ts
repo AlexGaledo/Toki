@@ -8,9 +8,8 @@ let socket: WebSocket | null = null;
 let retry = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 /**
- * A link that has carried nothing for two ping periods (plus a little slack for a busy hub) is treated as dead:
- * a pulled cable or a sleeping laptop leaves the browser's socket "open" for minutes and fires no `close`.
- * Any frame, not only a ping, counts as proof of life.
+ * A pulled cable or a sleeping laptop leaves the browser's socket "open" for minutes with no `close`, so a link
+ * silent for two ping periods is dead. Any frame counts as proof of life.
  */
 export const STALE_AFTER_MS = WS_PING_MS * 2 + 5000;
 let watchdog: ReturnType<typeof setTimeout> | null = null;
@@ -18,17 +17,9 @@ function disarmWatchdog() {
   if (watchdog) clearTimeout(watchdog);
   watchdog = null;
 }
-/** Bumped for every new socket, so callbacks from a replaced one (and its probe) change nothing. */
 let generation = 0;
 
-/**
- * What stands between this page and the hub, found with plain HTTP because a refused WebSocket upgrade
- * says nothing about why:
- * - `unreachable`: nothing answered at all (hub not running, wrong port) or it answered with a server error.
- * - `rateLimited`: the hub's brute-force brake is on (429), usually after a run of failed attempts.
- * - `auth`: the hub is up and rejects this token (401). The only case that should ask for a token.
- * - `ok`: the hub is up and accepts the token, so the socket failed for some other reason.
- */
+/** Found with plain HTTP because a refused WebSocket upgrade says nothing about why. */
 export type HubProbe =
   | { result: 'ok' }
   | { result: 'auth' }
@@ -40,10 +31,6 @@ function retryAfterMs(r: Response): number {
   return (Number.isFinite(seconds) && seconds > 0 ? seconds : 60) * 1000;
 }
 
-/**
- * Health first, since it needs no token: when that fails the token cannot be the problem. Only then one
- * authenticated GET with the token, whose 401 is the real "wrong token" signal.
- */
 export async function probeHub(token: string | null): Promise<HubProbe> {
   try {
     const health = await fetch('/api/health', { cache: 'no-store' });
@@ -64,7 +51,6 @@ export async function probeHub(token: string | null): Promise<HubProbe> {
   }
 }
 
-/** Exponential backoff from 1s to 15s, with jitter so several tabs do not retry in lockstep. */
 function backoffMs() {
   const base = Math.min(15_000, 1000 * 2 ** retry++);
   return base / 2 + Math.random() * (base / 2);
@@ -75,7 +61,6 @@ function schedule(delay: number) {
   retryTimer = setTimeout(connectWs, delay);
 }
 
-/** Drop any pending backoff retry and reconnect immediately — used after the user pastes a token, or presses Retry. */
 export function reconnectWsNow() {
   if (retryTimer) clearTimeout(retryTimer);
   retryTimer = null;
@@ -85,8 +70,6 @@ export function reconnectWsNow() {
 
 export function connectWs() {
   const gen = ++generation;
-  // The old socket (usually one still trying to open) would otherwise report its own close later and
-  // schedule a duplicate; the generation check ignores it, and closing it frees the connection.
   disarmWatchdog();
   if (socket) {
     socket.onclose = null;
@@ -100,7 +83,6 @@ export function connectWs() {
     disarmWatchdog();
     watchdog = setTimeout(() => {
       if (gen !== generation) return;
-      // Same road as a close that was noticed: drop the dead socket quietly and come back with the usual backoff.
       const dead = socket;
       if (dead) {
         dead.onclose = null;
@@ -122,7 +104,6 @@ export function connectWs() {
     if (gen !== generation) return;
     disarmWatchdog();
     useStore.getState().setConnected(false);
-    // A socket that was open and dropped: the hub restarted or the network blinked. Just come back.
     if (opened) return schedule(backoffMs());
     void diagnose(gen, token);
   };
@@ -131,9 +112,7 @@ export function connectWs() {
     armWatchdog();
     try {
       const raw: unknown = JSON.parse(e.data);
-      // Not in the shared ServerEvent union yet (bridge P3): hand it to the PC sessions view and stop.
       if (dispatchPcSessionEvent(raw)) return;
-      // Workflow events (OpenBot gaps M4) feed lib/workflows.ts, which the Automations section, the page and Needs you read.
       if (dispatchWorkflowEvent(raw)) return;
       const ev = raw as ServerEvent;
       if (ev.type === 'ping') {
@@ -147,11 +126,6 @@ export function connectWs() {
   };
 }
 
-/**
- * The socket never opened. Earlier this assumed a bad token after three failures, which popped the token
- * panel whenever the hub was merely slow to start or rate-limiting. Now it asks, and every failed upgrade
- * also counts against the hub's limiter, so the retry pace follows the answer.
- */
 async function diagnose(gen: number, token: string | null) {
   const probe = await probeHub(token);
   if (gen !== generation) return;
@@ -160,8 +134,6 @@ async function diagnose(gen: number, token: string | null) {
     case 'auth':
       setHubIssue({ kind: 'auth' });
       reportAuthFailure();
-      // Slow retries only: a new token from the panel reconnects at once, and fast ones would trip the
-      // limiter. This keeps a desktop restart that fixes the token from needing a reload.
       return schedule(30_000);
     case 'rateLimited':
       setHubIssue({ kind: 'rateLimited', retryInMs: probe.retryInMs });

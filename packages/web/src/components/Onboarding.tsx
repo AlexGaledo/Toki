@@ -12,7 +12,6 @@ import { TokiMark } from './TokiMark';
 import { botIcon } from '../lib/botIcon';
 import { ConnectionStatus, authPhrase } from './settings/ConnectionStatus';
 
-/** A template has no bot id yet, so its key stands in for one. */
 function TemplateIcon({ id, icon }: { id: string; icon: string }) {
   const { Glyph, tint } = botIcon({ id, avatar: icon });
   return <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-full text-fg" style={{ background: tint }}><Glyph size={18} strokeWidth={1.75} /></span>;
@@ -70,20 +69,12 @@ export function Onboarding() {
   const [name, setName] = useState(settings.userName === 'you' ? '' : settings.userName);
   const [busy, setBusy] = useState(false);
   const [botCreated, setBotCreated] = useState(false);
-  /** Why the last create or finish failed. Shown in the card, where the user is looking, not only as a toast in a corner. */
   const [error, setError] = useState<string | null>(null);
   const steps: readonly Step[] = STEPS.filter((s) => {
-    // With one provider (the v1 default: Claude only) there is nothing to choose, so that step is skipped.
     if (s === 'provider') return !providers || providers.providers.length > 1;
-    // The account step only exists when this hub can sign people in.
     if (s === 'account') return account.enabled && (account.email || account.oauth.google || account.oauth.github);
-    // 'connect' always stays: with the provider step gone, it is the only place anything checks that Claude
-    // is installed and signed in before the first bot tries to run.
     return true;
   });
-  // The step is tracked by name, not position: providers and account state load after the wizard opens,
-  // and a step appearing or vanishing must not move the user to a different screen. If the current step
-  // has just vanished, show the next one that still exists.
   const step: Step = steps.includes(current) ? current : (STEPS.slice(STEPS.indexOf(current)).find((s) => steps.includes(s)) ?? 'done');
   const idx = steps.indexOf(step);
 
@@ -98,7 +89,6 @@ export function Onboarding() {
     if (busy) return;
     setBusy(true);
     setError(null);
-    // updateSettings resolves false instead of throwing; the wizard stays open on this step so Finish can be pressed again.
     const saved = await updateSettings({ onboarded: true, userName: name.trim() || settings.userName });
     setBusy(false);
     if (saved) play('connected');
@@ -111,8 +101,6 @@ export function Onboarding() {
     try {
       const { tools: _tools, ...input } = tpl.v;
       const bot = await api.bots.create({ ...input, model: settings.defaultModel || input.model });
-      // Once the bot exists a failed DM is not worth stopping for: pressing the template again would only
-      // hit "Handle already taken", and clicking the bot in the sidebar creates the DM anyway.
       const room = await api.rooms.create({ kind: 'dm', name: bot.name, memberIds: [bot.id], coordinatorBotId: null }).catch(() => null);
       if (room) setActiveRoom(room.id);
       setBotCreated(true);
@@ -136,8 +124,6 @@ export function Onboarding() {
 
   return (
     <div className={cn('fixed inset-0 z-[60] flex overflow-y-auto overscroll-contain bg-bg/80 backdrop-blur-sm p-4', fresh && 'pr-sheet-host')} onKeyDown={onKeyDown} role="dialog" aria-modal="true" aria-label="Set up Toki">
-      {/* m-auto rather than centring from the overlay: a card taller than a small window can still scroll to its top. */}
-      {/* New layout: the card takes the dialogs' surface (panel colour, dialog radius and shadow). */}
       <div className={cn('pr-enter m-auto flex w-[560px] max-w-full flex-col p-6 sm:p-8', fresh ? 'pr-sheet-card rounded-xl bg-panel shadow-[var(--shadow-lg)]' : 'panel')}>
         {step === 'welcome' && (
           <div className="pr-step flex flex-col items-center gap-4 py-4 text-center">
@@ -205,7 +191,6 @@ export function Onboarding() {
               </>
             )}
             <div className="mt-3 flex justify-end gap-2">
-              {/* Back is quiet here so "Skip for now" reads as the way forward for most people. */}
               <Button variant="ghost" onClick={goBack}>Back</Button>
               {account.signedIn
                 ? <Button variant="primary" autoFocus onClick={goNext}>Continue</Button>
@@ -269,13 +254,6 @@ export function Onboarding() {
   );
 }
 
-/**
- * "Connect Claude": the provider check as a setup step. It checks again every few seconds while it is
- * failing, so someone following the install steps in a terminal sees it pass without pressing anything.
- * The signed-in row waits for a check made since the step opened: the list's cached answer can be a minute old,
- * or a placeholder when GET /api/providers failed. Continue follows what the step shows: while the cached answer
- * says Ready and the fresh check is still running, it is open; a fresh check that fails closes it again.
- */
 function ConnectStep({ info, onBack, onNext }: { info: ProviderInfo | undefined; onBack: () => void; onNext: () => void }) {
   const [fresh, setFresh] = useState(false);
   const continueRef = useRef<HTMLButtonElement>(null);
@@ -289,7 +267,6 @@ function ConnectStep({ info, onBack, onNext }: { info: ProviderInfo | undefined;
     useStore.setState((s) => (s.providers ? { providers: { ...s.providers, providers: s.providers.providers.map((p) => (p.id === info.id ? { ...p, check } : p)) } } : {}));
   };
 
-  // Keyboard users land on the way forward the moment it opens up.
   useEffect(() => {
     if (canContinue) continueRef.current?.focus();
   }, [canContinue]);
@@ -313,7 +290,6 @@ function ConnectStep({ info, onBack, onNext }: { info: ProviderInfo | undefined;
         <ConnectionStatus info={info} onChecked={onChecked} hasKeyField={false} autoRecheckMs={4000} />
       )}
       <div className="mt-3 flex items-center justify-between gap-2">
-        {/* An API key instead of a subscription, or sorting it out later: nothing else in setup depends on this. */}
         <button className="text-ui text-muted underline underline-offset-2 hover:text-fg" onClick={onNext}>
           Skip for now
         </button>
@@ -326,7 +302,6 @@ function ConnectStep({ info, onBack, onNext }: { info: ProviderInfo | undefined;
   );
 }
 
-/** "Signed in as alex@example.com · Claude Max", or how it signs in when the provider reports no email. */
 function connectedLine(label: string, check: ProviderCheck): string {
   if (check.account) return 'Signed in as ' + check.account + (check.plan ? ' · ' + label + ' ' + check.plan : '');
   return authPhrase(check) ?? label + ' is ready';

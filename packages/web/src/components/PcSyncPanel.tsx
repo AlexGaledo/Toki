@@ -1,6 +1,3 @@
-// Bridge P5: "Sync to VPS / push wip branch" for a mirrored session that belongs to a project repo. The click is the
-// approval (same rule as Continue on PC), the PC snapshots the working tree without touching it, scans it for secrets,
-// and pushes a wip branch or sends a bundle. Client repos and sync "none" are disabled with the reason shown.
 import { useEffect, useState } from 'react';
 import { GitBranch, ShieldAlert, ShieldCheck, Upload } from 'lucide-react';
 import { api } from '../lib/api';
@@ -12,7 +9,7 @@ import {
 import { usePcStart } from './PcRunForm';
 import { Badge, Banner, Button } from './ui';
 
-/** What a sync job did: where it went and what the pre-push scan said. Plain text only; the PC's findings are untrusted. */
+/** Plain text only: the PC's findings are untrusted. */
 export function SyncSummary({ j }: { j: PcJobWithSync }) {
   const r = syncResultOf(j);
   const repo = j.sync?.project && j.sync.repo ? j.sync.project + ' / ' + j.sync.repo : null;
@@ -43,17 +40,13 @@ export function SyncSummary({ j }: { j: PcJobWithSync }) {
 
 export interface SyncRowsProps {
   links: PcSessionLink[];
-  /** project slug -> its repo list; a project missing here has not loaded or is gone. */
   repos: Record<string, ProjectRepo[] | undefined>;
-  /** PC offline / not signed in, or null. */
   blocked: string | null;
-  /** The server's bot sandbox is on and working (P7): client repos may sync. */
   sandboxOn?: boolean;
   busy?: boolean;
   onSync: (l: PcSessionLink) => void;
 }
 
-/** One row per linked repo. Presentational so every disabled reason can be rendered in a test. */
 export function SyncRows({ links, repos, blocked, sandboxOn, busy, onSync }: SyncRowsProps) {
   return (
     <ul className="space-y-2">
@@ -78,7 +71,6 @@ export function SyncRows({ links, repos, blocked, sandboxOn, busy, onSync }: Syn
   );
 }
 
-/** The panel under a transcript: loads each linked project's repo list, starts the job, follows it live. */
 export function SyncPanel({ sessionId, links, blocked, onOpenLog }: { sessionId: string; links: PcSessionLink[]; blocked: string | null; onOpenLog?: () => void }) {
   const [repos, setRepos] = useState<Record<string, ProjectRepo[] | undefined>>({});
   const run = usePcStart();

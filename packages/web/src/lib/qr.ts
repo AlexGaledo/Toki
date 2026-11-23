@@ -1,11 +1,4 @@
-/**
- * A small, dependency-free QR code encoder (ISO/IEC 18004), enough for a pairing URL: byte mode, error
- * correction level M, versions 1–10 (up to 213 bytes). Reed–Solomon over GF(256), BCH format and version
- * information, all eight masks scored with the standard penalty rules. The layout follows the spec and
- * Project Nayuki's reference implementation.
- *
- * `encodeQr(text)` returns the module matrix (true = dark), without the quiet zone.
- */
+/** QR encoder (ISO/IEC 18004), following Project Nayuki's reference implementation: byte mode, level M, versions 1-10. */
 
 // Per version 1–10, level M: [EC codewords per block, blocks in group 1, data codewords each, blocks in group 2, data codewords each].
 const M_BLOCKS: readonly (readonly [number, number, number, number, number])[] = [
@@ -15,10 +8,8 @@ const M_BLOCKS: readonly (readonly [number, number, number, number, number])[] =
 const ALIGN: readonly (readonly number[])[] = [
   [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50],
 ];
-/** Format bits for level M are 00. */
 const EC_M = 0;
 
-// ---- GF(256) with the QR polynomial x^8 + x^4 + x^3 + x^2 + 1 ----
 const EXP = new Uint8Array(512);
 const LOG = new Uint8Array(256);
 {
@@ -33,7 +24,6 @@ const LOG = new Uint8Array(256);
 }
 const mul = (a: number, b: number) => (a === 0 || b === 0 ? 0 : EXP[LOG[a] + LOG[b]]);
 
-/** Generator polynomial of the given degree, highest coefficient first (the leading 1 omitted). */
 function rsGenerator(degree: number): number[] {
   let g = [1];
   for (let i = 0; i < degree; i++) {
@@ -47,7 +37,6 @@ function rsGenerator(degree: number): number[] {
   return g.slice(1);
 }
 
-/** The `degree` Reed–Solomon EC codewords for `data`. Exported for tests. */
 export function rsRemainder(data: readonly number[], degree: number): number[] {
   const gen = rsGenerator(degree);
   const rem = new Array<number>(degree).fill(0);
@@ -59,7 +48,6 @@ export function rsRemainder(data: readonly number[], degree: number): number[] {
   return rem;
 }
 
-/** 15 format bits (EC level + mask, BCH-protected, XOR-masked). Exported for tests. */
 export function formatBits(ec: number, mask: number): number {
   const data = (ec << 3) | mask;
   let rem = data;
@@ -67,7 +55,6 @@ export function formatBits(ec: number, mask: number): number {
   return ((data << 10) | rem) ^ 0x5412;
 }
 
-/** 18 version bits for version >= 7. Exported for tests. */
 export function versionBits(version: number): number {
   let rem = version;
   for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25);
@@ -81,7 +68,6 @@ function dataCapacity(v: number): number {
   return b1 * d1 + b2 * d2;
 }
 
-/** Data codewords: mode, count, bytes, terminator, padding. */
 function dataCodewords(bytes: Uint8Array, v: number): number[] {
   const cap = dataCapacity(v) * 8;
   const bits: number[] = [];
@@ -97,7 +83,6 @@ function dataCodewords(bytes: Uint8Array, v: number): number[] {
   return out;
 }
 
-/** Split into blocks, add EC to each, interleave. */
 function withEc(data: number[], v: number): number[] {
   const [ecLen, b1, d1, b2, d2] = M_BLOCKS[v - 1];
   const blocks: number[][] = [];
@@ -124,7 +109,6 @@ class Grid {
     this.m = Array.from({ length: this.size }, () => new Array<boolean>(this.size).fill(false));
     this.fn = Array.from({ length: this.size }, () => new Array<boolean>(this.size).fill(false));
   }
-  /** x = column, y = row. */
   setFn(x: number, y: number, dark: boolean) {
     this.m[y][x] = dark;
     this.fn[y][x] = true;
@@ -154,12 +138,11 @@ function drawFunctionPatterns(g: Grid) {
   const pos = ALIGN[g.version - 1];
   for (let i = 0; i < pos.length; i++) {
     for (let j = 0; j < pos.length; j++) {
-      // Skip the three that would sit on a finder.
       if ((i === 0 && j === 0) || (i === 0 && j === pos.length - 1) || (i === pos.length - 1 && j === 0)) continue;
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) g.setFn(pos[i] + dx, pos[j] + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
     }
   }
-  drawFormat(g, 0); // reserve; real bits drawn after masking
+  drawFormat(g, 0);
   if (g.version >= 7) {
     const bits = versionBits(g.version);
     for (let i = 0; i < 18; i++) {
@@ -181,7 +164,7 @@ function drawFormat(g: Grid, mask: number) {
   for (let i = 9; i < 15; i++) g.setFn(14 - i, 8, bit(bits, i));
   for (let i = 0; i < 8; i++) g.setFn(n - 1 - i, 8, bit(bits, i));
   for (let i = 8; i < 15; i++) g.setFn(8, n - 15 + i, bit(bits, i));
-  g.setFn(8, n - 8, true); // the dark module
+  g.setFn(8, n - 8, true);
 }
 
 function drawCodewords(g: Grid, cw: number[]) {
@@ -220,7 +203,6 @@ function applyMask(g: Grid, mask: number) {
   for (let y = 0; y < g.size; y++) for (let x = 0; x < g.size; x++) if (!g.fn[y][x] && maskHit(mask, x, y)) g.m[y][x] = !g.m[y][x];
 }
 
-/** The four standard penalty rules (lower is better). */
 function penalty(m: boolean[][]): number {
   const n = m.length;
   let p = 0;
@@ -233,7 +215,6 @@ function penalty(m: boolean[][]): number {
         run = 1;
       }
     }
-    // 1:1:3:1:1 finder look-alikes with four light modules on one side.
     for (let i = 0; i + 11 <= n; i++) {
       const s = Array.from({ length: 11 }, (_, k) => get(i + k));
       const a = [true, false, true, true, true, false, true, false, false, false, false];
@@ -253,10 +234,6 @@ function penalty(m: boolean[][]): number {
   return p;
 }
 
-/**
- * Encode `text` (UTF-8, byte mode, level M) in the smallest version 1–10 that fits. `forceMask` is for tests.
- * Throws when the text is longer than version 10 holds.
- */
 export function encodeQr(text: string, forceMask?: number): boolean[][] {
   const bytes = new TextEncoder().encode(text);
   let v = 1;

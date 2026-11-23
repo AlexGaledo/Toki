@@ -1,7 +1,6 @@
 import type { FormField } from '@pocketrocket/shared';
 import { MAX_FORM_FIELDS, cleanText, MAX_FIELD_LABEL, MAX_FIELD_HELP, MAX_CHOICES, MAX_CHOICE_LENGTH } from '@pocketrocket/shared';
 
-/** The card's fields as drawn: cleaned again and capped, so a bad row cannot flood the chat. */
 export function displayFields(fields: unknown): FormField[] {
   if (!Array.isArray(fields)) return [];
   const out: FormField[] = [];

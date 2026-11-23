@@ -3,10 +3,6 @@ import type { ProviderLimitState } from '@pocketrocket/shared';
 import { useStore } from '../store';
 import { activeLimits } from './limits';
 
-/**
- * The limits in force, re-checked when the earliest one expires (no WS event says so). Keeps one timer, set to the
- * next `until`, so nothing ticks while there is nothing to expire.
- */
 export function useLimits(): ProviderLimitState[] {
   const limits = useStore((s) => s.limits);
   const [now, setNow] = useState(() => Date.now());

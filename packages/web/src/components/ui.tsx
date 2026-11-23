@@ -19,7 +19,6 @@ export function cn(...a: (string | false | null | undefined)[]) {
 
 const FieldIdContext = React.createContext<string | undefined>(undefined);
 
-/** An explicit id always wins; otherwise the control inherits the surrounding `Field`'s. */
 function useFieldId(explicit?: string) {
   const fieldId = React.useContext(FieldIdContext);
   return explicit ?? fieldId;
@@ -32,12 +31,10 @@ export function Button({ className, variant = 'outline', size = 'md', ...p }: Bt
     <button
       className={cn(
         'inline-flex items-center justify-center gap-1.5 rounded-md whitespace-nowrap disabled:opacity-40 disabled:pointer-events-none',
-        // Press feedback: a small, quick scale (Emil). Off under reduced motion; colours still change.
         'transition-[transform,opacity,background-color,color,filter] duration-150 ease-out active:scale-[0.97] motion-reduce:active:scale-100',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel',
         size === 'sm' && 'h-7 px-2.5 text-ui',
         size === 'md' && 'h-8 px-3 text-ui',
-        // A finger needs more than a pointer: icon buttons grow to 40px on touch screens.
         size === 'icon' && 'h-8 w-8 pointer-coarse:h-10 pointer-coarse:w-10',
         variant === 'primary' && 'bg-ink text-ink-fg hover:opacity-90',
         variant === 'outline' && 'bg-card2 text-fg hover:brightness-95 dark:hover:brightness-110',
@@ -65,10 +62,6 @@ export function Select({ className, ...p }: React.SelectHTMLAttributes<HTMLSelec
   return <select id={id} className={cn('h-9 w-full rounded-md bg-card2 px-2.5 focus:outline-none focus:ring-2 focus:ring-accent', className)} {...p} />;
 }
 
-/**
- * Wraps one caption + control. It mints an id so `Label` can be a real `<label for>` and the control
- * picks the same id up, without every call site having to invent one.
- */
 export function Field({ className, children }: { className?: string; children: React.ReactNode }) {
   const id = React.useId();
   return (
@@ -78,12 +71,6 @@ export function Field({ className, children }: { className?: string; children: R
   );
 }
 
-/**
- * Field caption. Sentence case, quiet; the hint sits at the end of the same line.
- *
- * Inside a `Field` it renders a real `<label for>`. With nothing to point at — a caption over a group of
- * toggle buttons, say — it renders a plain span, which `id` can then name via `aria-labelledby`.
- */
 export function Label({ children, hint, htmlFor, id }: { children: React.ReactNode; hint?: string; htmlFor?: string; id?: string }) {
   const fieldId = React.useContext(FieldIdContext);
   const target = htmlFor ?? fieldId;
@@ -93,27 +80,15 @@ export function Label({ children, hint, htmlFor, id }: { children: React.ReactNo
       {target
         ? <label id={id} htmlFor={target} className={caption}>{children}</label>
         : <span id={id} className={caption}>{children}</span>}
-      {/* Wraps under itself rather than being cut off when the caption is long or the dialog narrow. */}
       {hint && <span className="min-w-0 text-right text-hint text-dim">{hint}</span>}
     </div>
   );
 }
 
-/**
- * The modal frame alone: overlay, centring, focus trap, Escape. `Dialog` below puts a title row and
- * padding inside it; a dialog with its own layout (Settings has a side nav) uses the shell directly
- * and renders `DialogTitle` itself.
- */
-/** `stacked` raises a dialog over another open one, so its overlay dims the dialog underneath too. */
-/**
- * New layout: `pr-sheet` makes the dialog a sheet pulled up from the bottom on a phone-width window (index.css), the
- * native place for it under a thumb. Same content, focus trap, Escape and focus return; no added motion.
- */
 export function DialogShell({ open, onOpenChange, className, hasDescription, role, stacked, children }: { open: boolean; onOpenChange: (o: boolean) => void; className?: string; hasDescription?: boolean; role?: 'dialog' | 'alertdialog'; stacked?: boolean; children: React.ReactNode }) {
   const sheet = useNewLayout();
-  // Our dialogs open from the store, not a Radix Trigger, so Radix's own focus return has nothing to go back to and
-  // lands on <body>. Remember what had focus when the dialog opened and go back there on close, if it is still on
-  // the page (a menu item that opened the dialog is gone by then; its menu already put focus on the menu button).
+  // Our dialogs open from the store, not a Radix Trigger, so Radix's focus return lands on <body>. Remember what had
+  // focus and go back there on close, if it is still on the page.
   const returnTo = React.useRef<HTMLElement | null>(null);
   if (open && !returnTo.current && typeof document !== 'undefined') returnTo.current = document.activeElement as HTMLElement | null;
   const onCloseAutoFocus = (e: Event) => {
@@ -130,7 +105,6 @@ export function DialogShell({ open, onOpenChange, className, hasDescription, rol
           {...(hasDescription ? {} : { 'aria-describedby': undefined })}
           {...(role ? { role } : {})}
           onCloseAutoFocus={onCloseAutoFocus}
-          // max-w keeps every dialog inside a phone-width window instead of running off the right edge.
           className={cn('fixed left-1/2 top-1/2 max-w-[calc(100vw-1.5rem)]', stacked ? 'z-[52]' : 'z-50', 'pr-dialog -translate-x-1/2 -translate-y-1/2 rounded-xl bg-panel shadow-[var(--shadow-lg)] focus:outline-none', className, sheet && 'pr-sheet')}
         >
           {children}
@@ -144,7 +118,6 @@ export function DialogTitle({ className, children }: { className?: string; child
   return <DialogPrimitive.Title className={cn('text-title-sm', className)}>{children}</DialogPrimitive.Title>;
 }
 
-/** The dialog's description, read out with its title. Pair it with `hasDescription` on DialogShell. */
 export function DialogDescription({ className, children }: { className?: string; children: React.ReactNode }) {
   return <DialogPrimitive.Description className={className}>{children}</DialogPrimitive.Description>;
 }
@@ -171,25 +144,15 @@ export function Dialog({ open, onOpenChange, title, description, children, wide 
 }
 
 export interface ConfirmOptions {
-  /** The question, as the dialog's title: "Delete Scout?" */
   title: string;
-  /** What happens, and what doesn't: "Chat history stays." */
   body?: React.ReactNode;
-  /** A verb for what the button does ("Delete"), never "OK". */
   confirmLabel?: string;
   cancelLabel?: string;
-  /** Destructive: the confirm button uses the danger style. */
   danger?: boolean;
 }
 
-/**
- * The in-app stand-in for `window.confirm`: a small alert dialog with Cancel and one action. Cancel comes first, so
- * it takes the initial focus and Enter on a stray keypress never deletes anything. Controlled; for a one-line
- * "ask, then act", `confirmAction()` below is shorter.
- */
 export function ConfirmDialog({ open, onOpenChange, onConfirm, title, body, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger }: ConfirmOptions & { open: boolean; onOpenChange: (o: boolean) => void; onConfirm: () => void }) {
   return (
-    // Stacked: it is often asked from inside another dialog (a bot's settings), and must sit over that one.
     <DialogShell open={open} onOpenChange={onOpenChange} hasDescription={!!body} role="alertdialog" stacked className="w-[420px] p-6">
       <DialogTitle>{title}</DialogTitle>
       {body && <DialogPrimitive.Description className="mt-2 text-ui leading-relaxed text-muted">{body}</DialogPrimitive.Description>}
@@ -205,9 +168,8 @@ type PendingConfirm = ConfirmOptions & { resolve: (ok: boolean) => void };
 let askConfirm: ((p: PendingConfirm) => void) | null = null;
 
 /**
- * Ask, then act: `if (!(await confirmAction({ title: 'Delete Scout?', confirmLabel: 'Delete', danger: true }))) return;`
- * Resolves true on the action, false on Cancel, Escape or a click outside. Needs `<ConfirmHost />` mounted once
- * (App does); without it the answer is false, so nothing destructive runs unasked.
+ * Resolves true on the action, false on Cancel, Escape or a click outside. Needs `<ConfirmHost />` mounted once;
+ * without it the answer is false, so nothing destructive runs unasked.
  */
 export function confirmAction(options: ConfirmOptions): Promise<boolean> {
   return new Promise((resolve) => {
@@ -216,11 +178,9 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
   });
 }
 
-/** Renders whatever `confirmAction()` is asking. Mount once, near the root. */
 export function ConfirmHost() {
   const [pending, setPending] = React.useState<PendingConfirm | null>(null);
   React.useEffect(() => {
-    // A second question replaces the first, which counts as cancelled.
     askConfirm = (next) => setPending((cur) => { cur?.resolve(false); return next; });
     return () => { askConfirm = null; };
   }, []);
@@ -230,11 +190,6 @@ export function ConfirmHost() {
   return <ConfirmDialog open {...options} onOpenChange={(o) => { if (!o) answer(false); }} onConfirm={() => answer(true)} />;
 }
 
-/**
- * Keyboard for a `role="radio"` that is not a native input: Enter/Space select it, arrows move to the
- * previous/next radio in the same radiogroup and select that one, as a native radio group does. Pair it
- * with a roving tabindex (0 on the checked radio, -1 on the rest) so Tab enters the group once.
- */
 export function radioKeyDown(e: React.KeyboardEvent<HTMLElement>, onSelect: () => void) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
@@ -251,7 +206,6 @@ export function radioKeyDown(e: React.KeyboardEvent<HTMLElement>, onSelect: () =
   next?.click();
 }
 
-/** The dot inside a radio card. Decorative: the card itself carries role="radio" and aria-checked. */
 export function RadioDot({ checked }: { checked: boolean }) {
   return (
     <span aria-hidden className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full ring-1', checked ? 'bg-ink ring-ink' : 'ring-dim')}>
@@ -260,15 +214,8 @@ export function RadioDot({ checked }: { checked: boolean }) {
   );
 }
 
-/**
- * One choice in a radiogroup, drawn as a card with a title and a line of explanation. Put several inside
- * an element with role="radiogroup" and an accessible name. `disabled` keeps the card readable (and the
- * checked one focusable) but ignores selection.
- */
 export function RadioCard({ checked, onSelect, disabled, title, badge, children }: { checked: boolean; onSelect: () => void; disabled?: boolean; title: React.ReactNode; badge?: React.ReactNode; children?: React.ReactNode }) {
   const select = () => { if (!disabled) onSelect(); };
-  // The title names the radio and the explanation describes it; otherwise a screen reader would read
-  // the whole card as one long name.
   const titleId = React.useId();
   const descriptionId = React.useId();
   return (
@@ -299,7 +246,6 @@ export function RadioCard({ checked, onSelect, disabled, title, badge, children 
   );
 }
 
-/** On/off toggle. Name it with `aria-labelledby` (or `aria-label`) pointing at its caption. */
 export function Switch({ checked, onChange, className, disabled, ...aria }: { checked: boolean; onChange: (next: boolean) => void; className?: string; disabled?: boolean; 'aria-labelledby'?: string; 'aria-label'?: string; 'aria-describedby'?: string }) {
   return (
     <button
@@ -324,15 +270,9 @@ export function Switch({ checked, onChange, className, disabled, ...aria }: { ch
 export const Tabs = TabsPrimitive.Root;
 type TabsVariant = 'segmented' | 'underline';
 const TabsVariantContext = React.createContext<TabsVariant>('segmented');
-/**
- * Segmented control, like a native toolbar. `underline` is the quieter strip for a header (Chat | Map): plain labels
- * with a 2px accent bar under the chosen one; the caller places it, so it brings no margin of its own.
- */
 export function TabsList({ children, variant = 'segmented', className }: { children: React.ReactNode; variant?: TabsVariant; className?: string }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const lastActive = React.useRef<Element | null>(null);
-  // In a narrow pane the strip scrolls, so bring the chosen tab into view. Only when it changes: this runs on
-  // every parent render, and must not undo the user's own scrolling.
   React.useEffect(() => {
     const active = ref.current?.querySelector('[data-state="active"]') ?? null;
     if (active && active !== lastActive.current) active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -344,10 +284,6 @@ export function TabsList({ children, variant = 'segmented', className }: { child
     </TabsVariantContext.Provider>
   );
 }
-/**
- * `id` and `controls`: for tabs whose panels live outside the Tabs root (the project header's Chat | Map), so the tab
- * points at the real panel instead of a TabsContent that is never drawn.
- */
 export function TabsTrigger({ value, children, id, controls }: { value: string; children: React.ReactNode; id?: string; controls?: string }) {
   const variant = React.useContext(TabsVariantContext);
   return (
@@ -366,7 +302,10 @@ export function TabsTrigger({ value, children, id, controls }: { value: string; 
 export const TabsContent = TabsPrimitive.Content;
 
 export const Menu = MenuPrimitive;
-/** Stays in Radix's default modal mode: a click inside the screen's iframe never reaches this page, so a non-modal menu would stay open over it. */
+/**
+ * Stays in Radix's modal mode: a click inside the screen's iframe never reaches this page, so a non-modal menu
+ * would stay open over it.
+ */
 export function MenuContent({ className, ...p }: React.ComponentProps<typeof MenuPrimitive.Content>) {
   return <MenuPrimitive.Content collisionPadding={8} sideOffset={4} className={cn('pr-pop z-[55] max-h-[70dvh] overflow-y-auto rounded-lg bg-panel p-1.5 shadow-[var(--shadow-overlay)] ring-1 ring-line focus:outline-none', className)} {...p} />;
 }
@@ -381,7 +320,6 @@ export const STATE_LABEL: Record<BotState, string> = {
   idle: 'Idle', thinking: 'Thinking', working: 'Working', waiting: 'Waiting on a bot', blocked: 'Needs you', done: 'Done', error: 'Stopped with an error',
 };
 
-/** `state` draws the ring. Pass `label` when the words differ from the hub's state (see lib/botStatus.ts). */
 export function Avatar({ bot, state, label, size = 36 }: { bot: Pick<Bot, 'id' | 'avatar' | 'name'>; state?: BotState; label?: string; size?: number }) {
   const cls = state && state !== 'idle' ? 'state-' + state : '';
   const { Glyph, tint } = botIcon(bot);
@@ -404,14 +342,12 @@ export function Avatar({ bot, state, label, size = 36 }: { bot: Pick<Bot, 'id' |
   );
 }
 
-/** An uploaded picture filling its circle, or `children` while there is none or if it will not decode. */
 function Face({ src, children }: { src: string | null; children: React.ReactNode }) {
   const [broken, setBroken] = React.useState<string | null>(null);
   if (!src || broken === src) return <>{children}</>;
   return <img src={src} alt="" draggable={false} onError={() => setBroken(src)} className="h-full w-full rounded-full object-cover" />;
 }
 
-/** Your picture, or your initial on a neutral tint. Pass `settings.userName`; an empty name shows "Y" (you). */
 export function UserAvatar({ name, avatar, size = 36 }: { name: string; avatar?: string; size?: number }) {
   const initial = (Array.from(name.trim())[0] ?? 'Y').toUpperCase();
   const src = useMediaUrl(avatar);
@@ -422,7 +358,6 @@ export function UserAvatar({ name, avatar, size = 36 }: { name: string; avatar?:
   );
 }
 
-/** A group chat's picture or icon, or the plain group mark. `className` colors the mark; the room's name sits beside this. */
 export function RoomAvatar({ room, size = 34, className }: { room: Pick<Room, 'id' | 'avatar'>; size?: number; className?: string }) {
   const src = useMediaUrl(room.avatar);
   const key = isBotIconKey(room.avatar) ? room.avatar : null;
@@ -436,7 +371,6 @@ export function RoomAvatar({ room, size = 34, className }: { room: Pick<Room, 'i
   );
 }
 
-/** `needs` looks like `warn` but names the role: a count of things waiting on the owner (docs/specs/toki-ui.md). */
 export function Badge({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'ok' | 'warn' | 'needs' | 'bad' | 'accent' }) {
   return (
     <span
@@ -455,14 +389,6 @@ export function Badge({ children, tone = 'muted' }: { children: React.ReactNode;
   );
 }
 
-/**
- * How full something is: a plan window now, the context window later. A 6 px bar with the percentage and `detail`
- * (a reset time) always written out, so colour is never the only cue. The fill is the accent below 80 %, warn from
- * 80 %, bad at the limit (`atLimit`, or 100 %). Screen readers get `role="meter"` and one sentence:
- * "Claude 5-hour limit 82%, resets 14:00".
- */
-/** `marker`: a tick on the bar at `value` percent (e.g. where a session rotates); its `label` is read after the value. */
-/** `size="thin"`: a 3 px bar, for a quiet row of meters (the sidebar's foot). */
 export function Meter({ label, value, detail, atLimit, marker, size = 'md', className }: { label: string; value: number; detail?: string | null; atLimit?: boolean; marker?: { value: number; label: string }; size?: 'md' | 'thin'; className?: string }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   const full = atLimit || pct >= 100;
@@ -499,11 +425,6 @@ const BANNER_TONE = {
   error: { icon: CircleAlert, box: 'bg-bad/10 ring-bad/30', glyph: 'text-bad' },
 } as const;
 
-/**
- * An inline notice that stays in the layout (unlike a toast). Text is always --fg on a faint tint, so contrast
- * does not depend on the tone; the tone shows in the icon and ring. `error` is an assertive live region
- * (role="alert"), `info` and `warn` are polite (role="status"). Pass `role` to override.
- */
 export function Banner({ tone = 'info', title, children, action, onDismiss, dismissLabel = 'Dismiss', role, className }: {
   tone?: 'info' | 'warn' | 'error';
   title?: React.ReactNode;
@@ -535,20 +456,10 @@ export function Banner({ tone = 'info', title, children, action, onDismiss, dism
 
 const ACTION_RING = { quiet: 'ring-line', warn: 'ring-warn/60', 'warn-soft': 'ring-warn/40', danger: 'ring-bad/40' } as const;
 
-/**
- * The shell of a card in the chat that waits for a person: approval, takeover, form, workflow approval. `tone` is
- * the ring: `warn` while it needs you (`warn-soft` for the lighter tool approval), `danger` for a risky one, `quiet`
- * once answered. `ActionCardHeader` and `ActionCardActions` carry the shared padding.
- */
-/**
- * `edge` adds a 3 px left border: `needs` while the card waits on the owner, `done` (a hairline colour) once answered.
- * For the overview and Needs-you cards, which sit in a list rather than in the transcript.
- */
 export function ActionCard({ tone = 'quiet', edge, className, children, ...p }: React.ComponentProps<'div'> & { tone?: keyof typeof ACTION_RING; edge?: 'needs' | 'done' }) {
   return <div {...p} className={cn('overflow-hidden rounded-lg ring-1', ACTION_RING[tone], edge && 'border-l-[3px]', edge === 'needs' && 'border-needs', edge === 'done' && 'border-line', className)}>{children}</div>;
 }
 
-/** The title row. `compact` is the one-line tool-approval header (icon first); the default wraps and reads as body text. */
 export function ActionCardHeader({ icon, meta, compact, children }: { icon?: React.ReactNode; meta?: React.ReactNode; compact?: boolean; children: React.ReactNode }) {
   return compact ? (
     <div className="flex items-center gap-2 px-4 pt-3 text-ui">{icon}{children}{meta}</div>
@@ -557,7 +468,6 @@ export function ActionCardHeader({ icon, meta, compact, children }: { icon?: Rea
   );
 }
 
-/** The button row at the foot of an open card; wraps on a phone, targets grow to 44px through `.touch-target`. */
 export function ActionCardActions({ className, children }: { className?: string; children: React.ReactNode }) {
   return <div className={cn('flex flex-wrap gap-2 px-4 pb-4', className)}>{children}</div>;
 }
@@ -566,11 +476,6 @@ export const Popover = PopoverPrimitive.Root;
 export const PopoverTrigger = PopoverPrimitive.Trigger;
 export const PopoverAnchor = PopoverPrimitive.Anchor;
 export const PopoverClose = PopoverPrimitive.Close;
-/**
- * Anchored panel for small forms and detail (a menu is for commands, a dialog is for tasks). Non-modal:
- * Escape and an outside click close it, focus moves in on open and back to the trigger on close. It is
- * portaled, so it never shifts the layout; z-[65] puts it above dialogs (50) and onboarding (60).
- */
 export function PopoverContent({ className, ...p }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
     <PopoverPrimitive.Portal>
@@ -584,14 +489,7 @@ export function PopoverContent({ className, ...p }: React.ComponentProps<typeof 
   );
 }
 
-/** Wrap a group of tooltips once (App level) so moving between neighbours skips the open delay. Optional: `Tooltip` works alone. */
 export const TooltipProvider = TooltipPrimitive.Provider;
-/**
- * A short, non-interactive label for a control that shows on hover and on keyboard focus (not on touch) and
- * closes on Escape or blur. It is a description, not a name: an icon-only button still needs `aria-label`.
- * `content` must be plain text; put anything interactive in a Popover. There is no enter or exit animation,
- * so nothing changes under prefers-reduced-motion, and the bubble is portaled so it cannot shift layout.
- */
 export function Tooltip({ content, children, side = 'top', delay = 400 }: { content: React.ReactNode; children: React.ReactElement; side?: 'top' | 'right' | 'bottom' | 'left'; delay?: number }) {
   if (content == null || content === false || content === '') return children;
   return (
@@ -608,13 +506,10 @@ export function Tooltip({ content, children, side = 'top', delay = 400 }: { cont
   );
 }
 
-/** A key cap for shortcut hints: `<Kbd>Esc</Kbd>`, or `<Kbd>Ctrl</Kbd> <Kbd>K</Kbd>` for a chord. Plain `<kbd>`, so screen readers say the text. */
 export function Kbd({ children, className }: { children: React.ReactNode; className?: string }) {
   return <kbd className={cn('inline-flex min-w-5 items-center justify-center rounded-xs bg-card2 px-1.5 py-px font-mono text-hint text-muted ring-1 ring-line', className)}>{children}</kbd>;
 }
 
-/** Placeholder for a list or pane with nothing in it. `icon` is decorative (hidden from assistive tech); `title` carries the meaning. */
-/** `size="lg"`: the dialog-title size, for an empty state that fills a whole pane (no chat open). */
 export function EmptyState({ icon, title, children, action, as: Title = 'div', size = 'md', className }: {
   icon?: React.ReactNode;
   title: React.ReactNode;
@@ -634,10 +529,6 @@ export function EmptyState({ icon, title, children, action, as: Title = 'div', s
   );
 }
 
-/**
- * A section's heading row in a list (the sidebar's "Projects", an overview section): quiet label, optional count, and
- * an optional control at the end. `as` picks the heading level; the default is a plain div.
- */
 export function SectionLabel({ children, count, aside, as: Tag = 'div', id, className }: {
   children: React.ReactNode;
   count?: number;
@@ -655,13 +546,9 @@ export function SectionLabel({ children, count, aside, as: Tag = 'div', id, clas
   );
 }
 
-/**
- * A 28 px pill naming one thing: a map node, a room. `leading` is an avatar or dot; `onRemove` adds an × whose
- * accessible name is "Remove <label>". Plain text only, never a link.
- */
+/** Plain text only, never a link. */
 export function Chip({ children, label, leading, onRemove, className }: {
   children: React.ReactNode;
-  /** What the remove button says it removes; defaults to the text when that is a string. */
   label?: string;
   leading?: React.ReactNode;
   onRemove?: () => void;
@@ -681,14 +568,8 @@ export function Chip({ children, label, leading, onRemove, className }: {
   );
 }
 
-/** Where a project's plan stands: `done` of `total` boxes ticked, under the heading `stage`. Null means no plan yet. */
 export interface StagePlan { done: number; total: number; stage: string | null }
 
-/**
- * A project's progress as a row of small bars (done, current, next), then the stage and `done/total`, or "No plan
- * yet". The bars are a picture of the numbers, which are always written out; screen readers get one sentence.
- */
-/** `wrap`: the stage name may wrap under a narrow header instead of being cut off. */
 export function StagePips({ plan, pips = 5, wrap = false, className }: { plan: StagePlan | null; pips?: number; wrap?: boolean; className?: string }) {
   if (!plan || plan.total <= 0) return <span className={cn('text-hint text-dim', className)}>No plan yet</span>;
   const done = Math.max(0, Math.min(plan.total, plan.done));
@@ -708,10 +589,6 @@ export function StagePips({ plan, pips = 5, wrap = false, className }: { plan: S
   );
 }
 
-/**
- * A 40 px square icon button for a rail (the overview's icons). `label` is its accessible name and tooltip; `pressed`
- * marks the open pane; `count` shows in the corner, in the needs colour when `needs` (things waiting on the owner).
- */
 export function IconRailButton({ icon, label, pressed, count, needs, onClick }: {
   icon: React.ReactNode;
   label: string;
@@ -738,14 +615,9 @@ export function IconRailButton({ icon, label, pressed, count, needs, onClick }: 
   );
 }
 
-/**
- * One loading placeholder shape: size and radius come from `className` (`h-3 w-24`, `h-8 w-8 rounded-full`).
- * Pulses only when motion is allowed. Hidden from assistive tech; wrap a group in `SkeletonGroup` to announce loading once.
- */
 export function Skeleton({ className, ...p }: React.ComponentProps<'span'>) {
   return <span aria-hidden className={cn('block rounded-full bg-card2 motion-safe:animate-pulse', className)} {...p} />;
 }
-/** The accessible shell for a set of Skeletons: a polite status with a visually hidden label. */
 export function SkeletonGroup({ label = 'Loading…', className, children }: { label?: string; className?: string; children: React.ReactNode }) {
   return (
     <div role="status" className={className}>

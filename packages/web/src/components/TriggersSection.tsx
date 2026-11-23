@@ -8,12 +8,7 @@ import { useStore, botById, selectActiveRoom } from '../store';
 import { api } from '../lib/api';
 import { Button, Input, Label, Select, Textarea, Tooltip, cn, confirmAction, fmtUsd } from './ui';
 
-/**
- * P5: the Triggers half of Automations (the fleet page, and the Bot page filtered to one bot). A trigger wakes a bot in a room when an outside event arrives
- * (GitHub, Gmail, Calendar, Drive, Slack, ClickUp, Teams). The hub polls (Slack pushes over Socket Mode), so
- * only connected providers are offered. Trigger turns always ask before acting, even with approvals bypassed.
- */
-
+/** Trigger turns always ask before acting, even with approvals bypassed. */
 type Form = {
   open: boolean; id?: string; name: string; source: TriggerSource | ''; filter: Record<string, string>;
   botId: string; roomId: string; prompt: string; maxPerHour: number; budgetUsd: number; enabled: boolean;
@@ -58,7 +53,6 @@ export function TriggersSection({ botId }: { botId: string | null }) {
       setState(await api.triggers.get());
     } catch (e) { toast((e as Error).message, true); }
   };
-  // Refetch on triggers.changed / trigger.fired / integrations.changed, and refresh any open history.
   useEffect(() => {
     void load();
     for (const id of Object.keys(fires)) if (fires[id]) void api.triggers.fires(id).then((x) => setFires((f) => ({ ...f, [id]: x }))).catch(() => undefined);

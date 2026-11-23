@@ -1,12 +1,6 @@
-/**
- * What a side pane should do when the window crosses its inline breakpoint. Shrinking past it closes an open
- * pane rather than dropping a drawer over the chat; growing back reopens it, but only if that close was ours.
- * The user opening the drawer in between takes over, so a close they make afterwards sticks.
- * No imports, so `node --test` can load it straight from source (packages/web/test).
- */
+/** No imports, so `node --test` can load it straight from source (packages/web/test). */
 export interface PaneAuto {
   inline: boolean;
-  /** Closed by a shrink, not by the user, and not touched since. */
   autoClosed: boolean;
 }
 

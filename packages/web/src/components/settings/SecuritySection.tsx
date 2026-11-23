@@ -1,9 +1,4 @@
-/**
- * Settings › Security: the owner's password, which browsers are signed in, and the activity log. The server
- * token keeps working for the desktop app and scripts, but cannot change a password: changing one always needs the
- * current one (a signed-in browser is what approves jobs on the PC). A forgotten one is cleared by restarting the hub
- * with POCKETROCKET_RESET_PASSWORD=1.
- */
+/** The server token cannot change a password: that always needs the current one. */
 import { useCallback, useEffect, useState } from 'react';
 import type { AuditEntry, SandboxStatus, UserSessionInfo } from '@pocketrocket/shared';
 import { api, ApiError } from '../../lib/api';
@@ -20,7 +15,6 @@ const ACTOR: Record<AuditEntry['actorKind'], string> = {
   anonymous: 'Unknown',
 };
 
-/** `bot.memory.updated` reads as "Bot memory updated". */
 function actionLabel(action: string): string {
   const words = action.replace(/^auth\./, '').replace(/^bot_tool\./, 'bot tool: ').replace(/[._]/g, ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -35,10 +29,7 @@ function browserName(ua: string | null): string {
 
 const when = (t: number) => new Date(t).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
-/**
- * Bridge P7: one switch for the per-turn bubblewrap sandbox. The hub says whether it can run here; it is refused (409) when
- * it cannot, so the switch never claims protection that is not there.
- */
+/** Refused (409) when the sandbox cannot run, so the switch never claims protection that is not there. */
 function SandboxGroup() {
   const on = useStore((s) => s.settings.sandbox) === 'on';
   const updateSettings = useStore((s) => s.updateSettings);
@@ -101,7 +92,6 @@ export function SecuritySection() {
       await load();
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
-      // 403: the current password was wrong (asked from every client now, the server token included).
       if (status === 403) {
         setOldPassword('');
         setError('Your current password is wrong. Nothing was changed.');
@@ -122,7 +112,6 @@ export function SecuritySection() {
   const signOut = async () => {
     try {
       await api.auth.logout();
-      // Without another credential the socket closes and the sign-in screen comes up.
       reconnectWsNow();
     } catch (e) {
       toast((e as Error).message, true);

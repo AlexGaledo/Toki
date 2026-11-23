@@ -1,6 +1,3 @@
-// The shapes in the Files panel: a folder, or a page with its corner folded and the extension on a badge. Colour
-// says the type (doc, code, image...) through the --ft-* tokens; the badge says it in words, so colour is never
-// the only cue.
 import { memo } from 'react';
 import {
   AlignLeft, Archive, Braces, File, FileArchive, FileAudio, FileCode, FileImage, FileSpreadsheet, FileText, Film, Folder, Image, Table,
@@ -18,16 +15,13 @@ const FILL: Record<FileKind, string> = {
   folder: 'bg-ft-folder', doc: 'bg-ft-doc', pdf: 'bg-ft-pdf', code: 'bg-ft-code', image: 'bg-ft-image',
   data: 'bg-ft-data', archive: 'bg-ft-archive', media: 'bg-ft-media', other: 'bg-ft-other',
 };
-/** Inside the page on a tile. */
 const GLYPH: Record<FileKind, LucideIcon> = {
   folder: Folder, doc: AlignLeft, pdf: FileText, code: Braces, image: Image, data: Table, archive: Archive, media: Film, other: File,
 };
-/** One small icon for a list row. */
 const ROW_ICON: Record<FileKind, LucideIcon> = {
   folder: Folder, doc: FileText, pdf: FileText, code: FileCode, image: FileImage, data: FileSpreadsheet, archive: FileArchive, media: FileAudio, other: File,
 };
 
-/** The big shape on a grid tile, in a 72px-tall box. */
 export const TileIcon = memo(function TileIcon({ entry }: { entry: Pick<FileEntry, 'kind' | 'ext'> }) {
   const kind = fileKind(entry);
   if (kind === 'folder') {
@@ -53,7 +47,6 @@ export const TileIcon = memo(function TileIcon({ entry }: { entry: Pick<FileEntr
   );
 });
 
-/** The small icon at the start of a list row. */
 export function RowIcon({ entry, size = 18 }: { entry: Pick<FileEntry, 'kind' | 'ext'>; size?: number }) {
   const kind = fileKind(entry);
   const Icon = kind === 'media' && /^(mp4|webm|mov|mkv|avi)$/.test(entry.ext) ? Film : ROW_ICON[kind];

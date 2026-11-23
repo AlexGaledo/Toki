@@ -1,6 +1,4 @@
-// New layout (docs/specs/toki-ui.md, W6): the right panel's overview for the open chat. Needs you, then Bots, then
-// Next, Rooms and Done behind icons; or, folded, a 56 px rail of the same icons with their counts. In a room with no
-// project only Needs you and Bots show. Approving is never offered here: Review opens the chat's own card.
+// Approving is never offered here: Review opens the chat's own card.
 import { useEffect, useState } from 'react';
 import { ArrowRight, Bot as BotIcon, CheckCheck, ClipboardList, Gauge, Hash, Inbox, Monitor, PanelRightClose, PanelRightOpen, ShieldQuestion, Sparkles, Workflow as WorkflowIcon, X } from 'lucide-react';
 import type { ApprovalPayload, Bot, Room } from '@pocketrocket/shared';
@@ -26,7 +24,6 @@ const PANES: { id: Pane; label: string; icon: React.ReactNode }[] = [
 
 const KIND_ICON = { approval: ShieldQuestion, takeover: Monitor, skill: Sparkles, form: ClipboardList, workflow: WorkflowIcon, failover: Gauge } as const;
 
-/** `inline`: beside the chat. Otherwise it covers the window (a phone), and has a close button instead of a rail. */
 export function OverviewPanel({ inline }: { inline: boolean }) {
   const room = useStore(selectActiveRoom);
   const project = useStore((s) => projectOfRoom(s.projects, s.activeRoomId));
@@ -37,7 +34,6 @@ export function OverviewPanel({ inline }: { inline: boolean }) {
   const members = useMembersOf(room, project);
   const { statusOf } = useBotStatus();
   const [showPaused, setShowPaused] = useState(false);
-  // Next, Rooms or Done, opened below the icons. A new chat starts with none open.
   const [pane, setPane] = useState<Pane | null>(null);
   useEffect(() => setPane(null), [room?.id]);
 
@@ -110,14 +106,12 @@ export function OverviewPanel({ inline }: { inline: boolean }) {
   );
 }
 
-/** A project's bots are its room's members, or its own list while it has no room. */
 function useMembersOf(room: Room | null | undefined, project: ProjectInfo | null): Bot[] {
   const bots = useStore((s) => s.bots);
   const ids = room?.memberIds ?? project?.memberIds ?? [];
   return ids.map((id) => botById(bots, id)).filter((b): b is Bot => !!b);
 }
 
-/** Next, Rooms or Done: a few lines from current.md, or the rooms to jump to. Plain text only. */
 function MorePane({ pane, project, room }: { pane: Pane; project: ProjectInfo; room: Room }) {
   const overview = useOverview(project.slug);
   const rooms = useStore((s) => s.rooms);
@@ -126,7 +120,6 @@ function MorePane({ pane, project, room }: { pane: Pane; project: ProjectInfo; r
   const closePage = useStore((s) => s.closePage);
   const title = PANES.find((p) => p.id === pane)!.label;
   const quiet = (text: string) => <p className="text-hint text-muted">{text}</p>;
-  // The project's room, then a one-on-one chat with each of its bots.
   const dms = room.memberIds.flatMap((id) => rooms.filter((r) => r.kind === 'dm' && r.memberIds[0] === id));
   return (
     <div role="region" aria-label={title} className="mt-3 rounded-lg bg-card2 p-3">
@@ -154,7 +147,6 @@ function MorePane({ pane, project, room }: { pane: Pane; project: ProjectInfo; r
   );
 }
 
-/** One bot: face with its state ring, name, and what it is doing. Opens its page, like the header's faces. */
 function BotLine({ bot, status }: { bot: Bot; status: BotStatus }) {
   const openPage = useStore((s) => s.openPage);
   const sub = status === 'idle' ? bot.title || '@' + bot.handle : STATUS_LABEL[status];
@@ -170,11 +162,6 @@ function BotLine({ bot, status }: { bot: Bot; status: BotStatus }) {
   );
 }
 
-/**
- * A card waiting on the owner, shaped like the chat's approval card: the same header, then Review (which opens the
- * chat at the full card) and Deny only where the inbox allows it. Workflow and limit cards are answered on their
- * own buttons, so they come in whole.
- */
 function NeedsCard({ item, covering }: { item: InboxItem; covering: boolean }) {
   if (item.workflowCard) return <WorkflowApprovalCardView card={item.workflowCard} className="w-full" />;
   if (item.failoverCard) return <FailoverCardView card={item.failoverCard} className="w-full" />;
@@ -201,14 +188,12 @@ function ReviewCard({ item, covering }: { item: InboxItem; covering: boolean }) 
       : item.key.slice(item.key.indexOf(':') + 1);
     closePage();
     setActiveRoom(item.roomId);
-    // Over the window on a phone: get out of the way so the card can be seen.
     if (covering) closePanel();
     if (messageId) revealMessage(messageId);
   };
 
   return (
     <ActionCard edge="needs" className="bg-card">
-      {/* Worded like the chat's approval card ("Needs your OK" and the tool), so the two read as the same thing. */}
       <ActionCardHeader compact icon={<Icon size={15} aria-hidden className="shrink-0 text-needs" />} meta={<>
         {item.approval && <span className="min-w-0 truncate font-mono text-hint text-muted">{item.approval.toolName}</span>}
         {age && <span className="ml-auto shrink-0 pl-2 text-hint tabular-nums text-muted">{age}</span>}

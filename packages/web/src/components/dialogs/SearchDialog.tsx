@@ -6,14 +6,12 @@ import { Dialog, Input } from '../ui';
 import { useNewLayout } from '../../lib/newLayout';
 import { projectOfRoom } from '../../lib/projects';
 
-/** The match inside a snippet, marked. Case-insensitive, like the hub's search. */
 function Marked({ text, query }: { text: string; query: string }) {
   const at = text.toLowerCase().indexOf(query.toLowerCase());
   if (at < 0) return <>{text}</>;
   return <>{text.slice(0, at)}<mark className="rounded-xs bg-highlight text-highlight-fg">{text.slice(at, at + query.length)}</mark>{text.slice(at + query.length)}</>;
 }
 
-/** New layout: where a hit is, with its project first when the chat belongs to one; wraps rather than cut off. */
 function HitPlace({ name, project }: { name: string; project?: string }) {
   return (
     <span className="min-w-0 break-words">
@@ -23,14 +21,12 @@ function HitPlace({ name, project }: { name: string; project?: string }) {
   );
 }
 
-/** Finds a message in any chat. Picking one opens that chat at the message, with the words highlighted. */
 export function SearchDialog({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const toast = useStore((s) => s.toast);
   const openHit = useStore((s) => s.openSearchHit);
   const term = query.trim();
-  // New layout: a hit in a project's chat says which project, before the chat's name.
   const fresh = useNewLayout();
   const projects = useStore((s) => s.projects);
 

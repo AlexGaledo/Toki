@@ -1,9 +1,3 @@
-/**
- * Settings › Notifications › Telegram: content-free pings through the owner's own Telegram bot. Token (checked,
- * then masked, shows @yourbot) → link a chat with a short code (same pattern as pairing a phone) → "Notify me
- * here". The cloud warning sits above the switch, always, so nobody can turn it on without it on screen.
- * `TelegramView` is the pure view (rendered by tests); `TelegramCard` wires it to the hub.
- */
 import { useEffect, useId, useMemo, useState } from 'react';
 import { ExternalLink, Send } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -134,7 +128,7 @@ export function TelegramView({ view, actions, now }: { view: View; actions: Tele
 }
 
 export function TelegramCard() {
-  const rev = useStore((s) => s.triggersRev); // bumped by the WS event `integrations.changed`
+  const rev = useStore((s) => s.triggersRev);
   const [view, setView] = useState<View>({ state: null, busy: false, error: null, notice: null });
   const [now, setNow] = useState(Date.now());
   const ctl = useMemo(() => {
@@ -143,7 +137,6 @@ export function TelegramCard() {
   }, []);
   useEffect(() => { void ctl.load(rev > 0); }, [ctl, rev]);
 
-  // While a code is showing: tick the countdown, poll for the link, and drop the code when it runs out.
   const expiresAt = view.state?.pendingCode?.expiresAt ?? null;
   useEffect(() => {
     if (expiresAt === null) return;
@@ -155,7 +148,6 @@ export function TelegramCard() {
   }, [ctl, expiresAt]);
 
   const actions: TelegramActions = {
-    // Throwing keeps the pasted token in the field and shows Telegram's words under it.
     onSaveToken: async (token) => {
       await ctl.saveToken(token);
       const err = ctl.view.error;

@@ -1,6 +1,3 @@
-// One line per bot turn instead of a row of tool pills. Running: what it is doing, the step and the clock. Done:
-// how long and how many. The steps and the bot's narration are in the fold; the answer, cards and any failure that
-// was not recovered sit outside it (see ChatPane's MessageGroup).
 import { useEffect, useId, useMemo, useState } from 'react';
 import { AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import type { Message, ToolPayload } from '@pocketrocket/shared';
@@ -12,13 +9,9 @@ import { Markdown } from './Markdown';
 
 const payload = (m: Message) => m.payload as ToolPayload;
 
-/** The card stands for this call, so it is not also a step. If the call failed there is no card, and it is one. */
 export const isStep = (m: Message) => m.kind === 'tool' && !(payload(m).name.endsWith('request_takeover') && !payload(m).isError);
 
-/**
- * Plain words for a step: "Opened page example.com". What was typed never goes in the label, since it can be a
- * password. It stays in the step's detail, behind two clicks, as it always was.
- */
+/** What was typed never goes in the label: it can be a password. */
 export function stepText(p: ToolPayload, tense: 'done' | 'now' = 'done'): string {
   const i = (p.input ?? {}) as Record<string, unknown>;
   const s = (k: string) => (typeof i[k] === 'string' ? (i[k] as string) : '');
@@ -35,7 +28,6 @@ export function stepText(p: ToolPayload, tense: 'done' | 'now' = 'done'): string
   return (toolPhrase(n, tense) + ' ' + target).trim();
 }
 
-/** A failed step that a later call of the same tool got past. The turn did not end worse for it, so it isn't red. */
 function outcomes(steps: Message[]) {
   const failed = steps.filter((m) => payload(m).done && payload(m).isError);
   const recovered = failed.filter((m) => {
@@ -57,17 +49,12 @@ const fmtClock = (ms: number) => {
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 };
 
-/**
- * `items` is the turn's steps and narration, in order. The times are the whole turn's, answer included. `continued`: this
- * turn already showed above (a message in between, usually the person steering it), so this is more of it, not a new turn.
- */
 export function WorkLine({ items, startedAt, endedAt, continued }: { items: Message[]; startedAt: number; endedAt: number; continued?: boolean }) {
   const steps = useMemo(() => items.filter(isStep), [items]);
   const turnId = items[0].turnId;
   const authorId = items[0].authorId;
   const streaming = useStore((s) => !!turnId && !!s.streaming[turnId]);
   const { statusOf } = useBotStatus();
-  // Without the status check, a step cut off by a hub restart would read as running for ever.
   const running = streaming || (steps.some((m) => !payload(m).done) && !!authorId && isWorking(statusOf(authorId)));
   const [open, setOpen] = useState(false);
   const [openStep, setOpenStep] = useState<string | null>(null);

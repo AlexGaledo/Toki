@@ -1,5 +1,3 @@
-// P6: a skill's version history (with a line diff), Approve / Reject per pending version, a correction box, and
-// the per-bot opt-in for post-run reflection. Nothing here changes a skill without an explicit Approve.
 import { useCallback, useEffect, useId, useState } from 'react';
 import type { Skill, SkillReflectionConfig, SkillVersion, SkillVersionDetail } from '@pocketrocket/shared';
 import { useStore } from '../store';
@@ -103,7 +101,6 @@ export function SkillVersionsPanel({ skill, onChanged }: { skill: Skill; onChang
   );
 }
 
-/** A unified line diff. Colour is never the only cue: every changed line keeps its + / − sign. */
 function DiffView({ diff }: { diff: SkillVersionDetail['diff'] }) {
   if (!diff.some((l) => l.op !== ' ')) return <p className="text-dim">No changes.</p>;
   return (
@@ -121,7 +118,6 @@ function DiffView({ diff }: { diff: SkillVersionDetail['diff'] }) {
 
 const EVERY = [3, 5, 10, 20];
 
-/** Per-bot opt-in: after every N runs of one of its skills, a cheap pass may propose a fix (pending review). */
 export function ReflectionSetting({ botId }: { botId: string }) {
   const toast = useStore((s) => s.toast);
   const [cfg, setCfg] = useState<SkillReflectionConfig | null>(null);

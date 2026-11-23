@@ -90,7 +90,6 @@ describe('live events', () => {
     dispatchWorkflowEvent({ type: 'workflow.run', run: run({ status: 'waiting' }) });
     expect(useWorkflows.getState().workflows?.[0].lastRun?.status).toBe('waiting');
     expect(useWorkflows.getState().runs.run1.status).toBe('waiting');
-    // An older run must not displace the newest.
     dispatchWorkflowEvent({ type: 'workflow.run', run: run({ id: 'old', startedAt: 1, status: 'success' }) });
     expect(useWorkflows.getState().workflows?.[0].lastRun?.id).toBe('run1');
   });

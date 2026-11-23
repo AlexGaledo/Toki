@@ -1,7 +1,3 @@
-/**
- * Settings › About: version, a couple of facts from GET /api/health and the Claude check, and links out. Deliberately small.
- * Links open with `target="_blank"`; the desktop app hands those to the default browser.
- */
 import type { ReactNode } from 'react';
 import { ExternalLink } from 'lucide-react';
 import type { HealthResponse } from '../../lib/api';
@@ -18,8 +14,7 @@ const LINKS: { href: string; label: string }[] = [
 ];
 
 export function AboutSection({ health }: { health: HealthResponse | null }) {
-  // The account, plan and the path to the CLI come from the provider check, not health: health answers
-  // without the hub token, so the hub keeps who is signed in — and where their home directory is — off it.
+  // Health answers without the hub token, so account and home path stay off it.
   const claudeCheck = useStore((s) => s.providers?.providers.find((p) => p.id === 'claude')?.check);
   const signedIn = claudeCheck?.ok ? claudeCheck : undefined;
   const how = signedIn ? authPhrase(signedIn) : null;

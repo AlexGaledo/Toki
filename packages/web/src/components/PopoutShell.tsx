@@ -6,11 +6,6 @@ import { TokenPrompt } from './TokenPrompt';
 import { STATUS_LABEL, avatarStatus, useBotStatus } from '../lib/botStatus';
 import type { PopoutRoute } from '../lib/popout';
 
-/**
- * A bot's chat on its own (U1): a slim header and the normal ChatPane, no sidebar, panels or dialogs. It shares
- * the store with the rest of the app, so the outbox, drafts and the hub's live events work the same as in the
- * main window. Closing the window only closes the window.
- */
 export function PopoutShell({ route }: { route: PopoutRoute }) {
   const bots = useStore((s) => s.bots);
   const rooms = useStore((s) => s.rooms);
@@ -22,9 +17,6 @@ export function PopoutShell({ route }: { route: PopoutRoute }) {
   const bot = botById(bots, route.botId);
   const picked = useRef(false);
 
-  // Pick the chat once the hub has said which rooms exist: the named room, else the bot's own chat, else any
-  // chat it is in. Set straight on the store (not setActiveRoom) so this window's choice is not saved as the
-  // main window's last chat; loading its messages is the same call setActiveRoom makes.
   useEffect(() => {
     if (!helloReceived) return;
     const has = (id: string | null) => !!id && rooms.some((r) => r.id === id && r.memberIds.includes(route.botId));

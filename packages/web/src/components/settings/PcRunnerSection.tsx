@@ -1,11 +1,4 @@
-/**
- * Settings › PC runner. The owner's Windows PC runs Claude Code jobs a bot asked for and the owner approved on a
- * card. Here: whether the PC is paired and online, the folders it allows, a new pairing token (shown once, never
- * stored), the kill switch, and the log of jobs with their output.
- *
- * The output is redacted and capped by the hub. It is rendered as text in a <pre>, never as markdown or HTML.
- * Desktop only: the hub refuses a paired phone on every /api/pc-runner route, and the dialog hides the section.
- */
+/** Job output is redacted and capped by the hub, and rendered as plain text. */
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronRight, KeyRound, Power, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { MachineInfo, MachinePolicy, PcRunnerStatus } from '@pocketrocket/shared';
@@ -45,7 +38,7 @@ export function PcRunnerSection({ onOpenSecurity }: { onOpenSecurity: () => void
   const [statusError, setStatusError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<PcJobView[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
-  // Jobs can only be allowed from a password-signed-in browser, so with no password nothing can ever run.
+  // Jobs can only be allowed from a password-signed-in browser.
   const [passwordSet, setPasswordSet] = useState<boolean | null>(null);
   useEffect(() => {
     api.auth.status().then((r) => setPasswordSet(r.passwordSet), () => undefined);
@@ -55,8 +48,6 @@ export function PcRunnerSection({ onOpenSecurity }: { onOpenSecurity: () => void
     api.pcRunner.status().then((s) => { setStatus(s); setStatusError(null); }, (e: Error) => setStatusError(e.message));
     api.pcRunner.jobs(50).then((j) => { setJobs(j); setJobsError(null); }, (e: Error) => setJobsError(e.message));
   }, []);
-  // Every job or pairing change arrives as `pc-runner.changed`. "Online" lapses without one (no heartbeat for
-  // 30 s), so the status is also re-read every 30 s while this section is open.
   useEffect(load, [load, rev]);
   useEffect(() => {
     const t = setInterval(() => api.pcRunner.status().then(setStatus, () => undefined), 30_000);
@@ -80,8 +71,6 @@ export function PcRunnerSection({ onOpenSecurity }: { onOpenSecurity: () => void
     </>
   );
 }
-
-// ---------- status, pairing, kill switch ----------
 
 function StatusGroup({ status, error, onChanged }: { status: PcRunnerStatus | null; error: string | null; onChanged: () => void }) {
   const toast = useStore((s) => s.toast);
@@ -132,7 +121,6 @@ function StatusGroup({ status, error, onChanged }: { status: PcRunnerStatus | nu
     <Group title="Your PC">
       <Card>
         <div className="flex flex-wrap items-start gap-x-3 gap-y-3">
-          {/* The min width makes the buttons wrap under the state on a phone instead of squeezing it. */}
           <div className="min-w-[12rem] flex-1">
             <div className="flex items-center gap-2 text-ui font-medium" role="status">
               {state && (
@@ -192,8 +180,6 @@ function StatusGroup({ status, error, onChanged }: { status: PcRunnerStatus | nu
   );
 }
 
-// ---------- per-machine policy ----------
-
 const POLICY_HELP: Record<MachinePolicy, string> = {
   never: 'Bots cannot send anything to this machine.',
   ask: 'Bots can ask. Every job needs your OK here and again on the PC.',
@@ -209,7 +195,6 @@ function MachinesGroup({ rev }: { rev: number }) {
     api.pcRunner.machines().then((m) => alive && setMachines(m), () => alive && setMachines([]));
     return () => { alive = false; };
   }, [rev]);
-  // The bot's own computer has no policy to set here; approvals settings govern it.
   const pc = machines?.find((m) => m.kind === 'pc');
   if (!pc) return null;
   const change = async (policy: MachinePolicy) => {
@@ -239,8 +224,6 @@ function MachinesGroup({ rev }: { rev: number }) {
     </Group>
   );
 }
-
-// ---------- the job log ----------
 
 function JobsGroup({ jobs, error, onRefresh }: { jobs: PcJobView[] | null; error: string | null; onRefresh: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -337,7 +320,6 @@ function JobDetail({ id, j }: { id: string; j: PcJobView }) {
   );
 }
 
-/** Resume jobs name the mirrored session they continued; the link opens its transcript. */
 function SessionLink({ id }: { id: string }) {
   const openPcSession = useStore((s) => s.openPcSession);
   const [title, setTitle] = useState<string | null>(null);
@@ -353,13 +335,10 @@ function SessionLink({ id }: { id: string }) {
   );
 }
 
-// ---------- start a new run from the app ----------
-
 function RunGroup({ status, signedIn }: { status: PcRunnerStatus; signedIn: boolean }) {
   const [folder, setFolder] = useState('');
   const [prompt, setPrompt] = useState('');
   const run = usePcStart();
-  // Keep the choice valid when the runner's folders load or change.
   const chosen = status.folders.includes(folder) ? folder : (status.folders[0] ?? '');
   return (
     <Group title="Run on PC">

@@ -32,21 +32,16 @@ import { useBotStatus } from '../lib/botStatus';
 import { canSteer, deliveryLines, deliveryOf, earlierTurns, sendKey, showSendChoice } from '../lib/delivery';
 import type { DeliveryPayload, SendMode } from '@pocketrocket/shared';
 
-/** `hideHeader`: the new layout draws a project room's header itself, above both the chat and the Map tab. */
 export function ChatPane({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const room = useStore(selectActiveRoom);
   const bots = useStore((s) => s.bots);
   const openDialog = useStore((s) => s.openDialog);
   const helloReceived = useStore((s) => s.helloReceived);
-  // P9: a paired phone may not create or edit bots and rooms (the hub answers 403), so it is not offered.
   const device = useStore((s) => s.device);
-  // New layout (docs/specs/toki-ui.md, W10): the same empty states built from EmptyState; with projects, the first
-  // one says a project can be picked too. Never on a paired phone, so these need no device branch.
   const fresh = useNewLayout();
   const hasProjects = useStore((s) => s.projects.length > 0);
 
   if (!room && !helloReceived) {
-    // Until the hub's hello arrives there is no telling whether the team is empty, so claim nothing.
     return <div className="flex h-full flex-col px-6 py-8"><TranscriptSkeleton label="Connecting" /></div>;
   }
 
@@ -118,20 +113,15 @@ export function ChatPane({ hideHeader = false }: { hideHeader?: boolean } = {}) 
 
   return (
     <>
-      {/* The new layout draws a project room's header above the chat (App.tsx, ProjectHeader.tsx). */}
       {!hideHeader && <ChatHeader room={room} members={members} />}
-      {/* Keyed so scroll state and the paging bookkeeping start fresh in every room. */}
       <Transcript key={room.id} roomId={room.id} />
-      {/* A workflow's approval step waits here, in the chat it runs in, until you answer it. */}
       <WorkflowCardsForRoom roomId={room.id} />
-      {/* A bot here hit its provider's limit and has a backup: continue there once, or wait. */}
       <FailoverCardsForRoom roomId={room.id} />
       <Composer room={room} members={members} />
     </>
   );
 }
 
-/** Grey message shapes while a chat loads, so the page doesn't flash an empty "Loading…" and then jump. */
 function TranscriptSkeleton({ label }: { label: string }) {
   return (
     <SkeletonGroup label={label} className="mx-auto w-full max-w-[var(--page-max)]">
@@ -159,7 +149,6 @@ function Transcript({ roomId }: { roomId: string }) {
   const bots = useStore((s) => s.bots);
   const ref = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState(true);
-  // What arrived below while the user was reading further up; drives the jump button.
   const [unseen, setUnseen] = useState<'messages' | 'approval' | 'takeover' | null>(null);
 
   const isDm = useStore((s) => s.rooms.find((r) => r.id === roomId)?.kind === 'dm');
@@ -172,7 +161,6 @@ function Transcript({ roomId }: { roomId: string }) {
   }, [messages, streams, pending, stick]);
   useEffect(() => { if (stick) setUnseen(null); }, [stick]);
 
-  // New messages land at the end of the list; older pages land at the start. Only the former count as unseen.
   const lastId = messages?.[messages.length - 1]?.id;
   const seenLastId = useRef(lastId);
   useEffect(() => {
@@ -180,17 +168,14 @@ function Transcript({ roomId }: { roomId: string }) {
     seenLastId.current = lastId;
     if (stick || !prev || !messages || lastId === prev) return;
     const at = messages.findIndex((m) => m.id === prev);
-    // The user's own messages are not news to them.
     const fresh = at >= 0 ? messages.slice(at + 1).filter((m) => m.authorType !== 'user') : [];
     if (!fresh.length) return;
     const approval = fresh.some((m) => m.kind === 'approval' && (m.payload as ApprovalPayload).status === 'pending');
     const takeover = fresh.some((m) => m.kind === 'takeover' && (m.payload as TakeoverPayload).status === 'waiting');
-    // Something the user must answer is never downgraded to "New messages".
     setUnseen((u) => (approval || u === 'approval' ? 'approval' : takeover || u === 'takeover' ? 'takeover' : 'messages'));
   }, [lastId]);
 
-  // Keep the reader's place when an older page is prepended: shift by exactly the height it added.
-  // The scroller opts out of the browser's own scroll anchoring so the two never adjust twice.
+  // The scroller opts out of the browser's own scroll anchoring, so the two never adjust twice.
   const oldestId = messages?.[0]?.id;
   const lastOldestId = useRef(oldestId);
   const lastHeight = useRef(0);
@@ -205,7 +190,6 @@ function Transcript({ roomId }: { roomId: string }) {
   const onScroll = () => {
     const el = ref.current;
     if (!el) return;
-    // Heights also change without a render here (a tool chip expanding), so re-measure on every scroll.
     lastHeight.current = el.scrollHeight;
     setStick(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
     if (el.scrollTop < 200 && el.scrollHeight > el.clientHeight) void loadOlder(roomId);
@@ -217,11 +201,8 @@ function Transcript({ roomId }: { roomId: string }) {
   };
 
   const groups = useMemo(() => groupMessages(messages ?? []), [messages]);
-  // Steering splits a bot's turn around the person's message; the later part's work line says "continued".
   const earlier = useMemo(() => earlierTurns(groups), [groups]);
 
-  // A search result: bring its message in if it is older than what is loaded, scroll to it once, and mark the
-  // words with the CSS Highlight API, which paints over the text without touching what React rendered.
   const target = useStore((s) => (s.searchTarget?.roomId === roomId ? s.searchTarget : null));
   const scrolledTo = useRef<typeof target>(null);
   useEffect(() => {
@@ -256,7 +237,6 @@ function Transcript({ roomId }: { roomId: string }) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {history?.loading && (
-        // Overlaid rather than in the flow, so it appearing does not push the transcript down.
         <div role="status" className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-panel px-3 py-1 text-hint text-muted shadow-[var(--shadow-overlay)]">Loading…</div>
       )}
       <div ref={ref} onScroll={onScroll} className="flex-1 overflow-x-clip overflow-y-auto overscroll-contain px-6 py-4 [overflow-anchor:none]">
@@ -300,10 +280,6 @@ function Transcript({ roomId }: { roomId: string }) {
   );
 }
 
-/**
- * What the user has sent that the hub has not echoed yet: shown at once, in the user's bubble style but dimmed,
- * with its state spelled out in words (not colour alone) and Retry / Discard when it did not go.
- */
 function PendingSends({ entries, bots }: { entries: OutboxEntry[]; bots: Bot[] }) {
   const userName = useStore((s) => s.settings.userName);
   const userAvatar = useStore((s) => s.settings.userAvatar);
@@ -348,7 +324,6 @@ function groupMessages(msgs: Message[]): Group[] {
     const solo = m.kind === 'system' || m.kind === 'routine' || m.kind === 'trigger';
     const lastSolo = last && (last.items[0].kind === 'system' || last.items[0].kind === 'routine' || last.items[0].kind === 'trigger');
     const prev = last?.items[last.items.length - 1];
-    // A long pause starts a new group, except inside one turn: a bot on a slow page is still on the same job.
     const together = prev && (m.createdAt - prev.createdAt < 5 * 60_000 || (m.turnId !== null && m.turnId === prev.turnId));
     if (!solo && last && !lastSolo && last.authorType === m.authorType && last.authorId === m.authorId && together) {
       last.items.push(m);
@@ -359,11 +334,6 @@ function groupMessages(msgs: Message[]): Group[] {
 
 type Segment = { kind: 'work'; key: string; items: Message[]; startedAt: number; endedAt: number } | { kind: 'one'; item: Message };
 
-/**
- * One work line per turn, first in the turn, and then what the user came for. Text that a later step and a later
- * text both follow is narration, so it folds; the last text of a turn always stays out, because a bot often answers
- * first and then saves to memory. Cards are never tools, so they stay out too.
- */
 function segments(items: Message[]): Segment[] {
   const out: Segment[] = [];
   for (let start = 0; start < items.length;) {
@@ -400,7 +370,6 @@ function MessageGroup({ group, bots, earlier }: { group: Group; bots: Bot[]; ear
                   {m.attachments?.length ? <Attachments refs={m.attachments} /> : null}
                 </div>
                 {delivery && <DeliveryStatus delivery={delivery} bots={bots} />}
-                {/* Queue controls: what the owner did to it while it waited. Words only; the buttons live on the queue chip. */}
                 {m.cancelledAt ? <span className="pr-1 text-hint text-dim">Cancelled. No bot reads it.</span>
                   : m.editedAt ? <span className="pr-1 text-hint text-dim">Edited</span> : null}
               </div>
@@ -414,7 +383,6 @@ function MessageGroup({ group, bots, earlier }: { group: Group; bots: Bot[]; ear
   }
   return (
     <div className="flex gap-3 pr-10 @max-[560px]:pr-2">
-      {/* A chat with one bot needs no name on every message: the header says who it is. */}
       {!isDm && (bot ? <Avatar bot={bot} size={30} /> : <div className="h-[30px] w-[30px] rounded-full bg-card2" />)}
       <div className="min-w-0 flex-1">
         {!isDm && (
@@ -441,10 +409,6 @@ function MessageGroup({ group, bots, earlier }: { group: Group; bots: Bot[]; ear
   );
 }
 
-/**
- * Steering: what the hub did with this message for each busy bot, in words under the bubble. Quiet like the
- * timestamp; a polite live region, so a screen reader hears it when the hub's answer arrives.
- */
 function DeliveryStatus({ delivery, bots }: { delivery: DeliveryPayload; bots: Bot[] }) {
   const providerLabel = useStore((s) => s.providers?.providers.find((p) => p.id === s.settings.provider)?.label ?? null);
   const lines = deliveryLines(delivery, bots, providerLabel);
@@ -459,13 +423,11 @@ function DeliveryStatus({ delivery, bots }: { delivery: DeliveryPayload; bots: B
 
 function Item({ m, bots }: { m: Message; bots: Bot[] }) {
   switch (m.kind) {
-    // `data-msg`: the overview's Review scrolls here (lib/useProject.ts revealMessage). `contents` keeps the layout as it was.
     case 'approval': return <div data-msg={m.id} className="contents"><ApprovalCard m={m} /></div>;
     case 'takeover': return <div data-msg={m.id} className="contents"><TakeoverCard m={m} /></div>;
     case 'form': return <div data-msg={m.id} className="contents"><FormCard m={m} /></div>;
     case 'handoff': return <HandoffCard m={m} bots={bots} />;
     default: {
-      // A bot outside this chat reporting back: its work is in its own chat.
       const work = m.kind === 'text' ? (m.payload as HandoffResultPayload | null)?.workRoomId : undefined;
       const verification = m.kind === 'text' ? (m.payload as Partial<VerificationPayload> | null)?.verification : undefined;
       return (
@@ -481,7 +443,6 @@ function Item({ m, bots }: { m: Message; bots: Bot[] }) {
   }
 }
 
-/** B1: the hub saw this turn change files and run no test, build or screenshot after. A quiet label, not a warning. */
 function UnverifiedBadge({ reason }: { reason: string }) {
   return (
     <div className="mt-1.5">
@@ -504,7 +465,6 @@ function SystemLine({ m, bots }: { m: Message; bots: Bot[] }) {
   const isRoutine = m.kind === 'routine';
   const p = m.payload as RoutinePayload | null;
   return (
-    // rounded-lg, not a pill: routine output and notes often run to several lines of markdown.
     <div className="mx-auto flex w-full max-w-[640px] items-start gap-2 rounded-lg bg-card2/70 px-4 py-1.5 text-hint text-muted">
       {isRoutine ? <Clock size={14} className="mt-0.5 shrink-0 text-accent" /> : <Info size={14} className="mt-0.5 shrink-0" />}
       <div className="min-w-0 flex-1">
@@ -517,7 +477,6 @@ function SystemLine({ m, bots }: { m: Message; bots: Bot[] }) {
   );
 }
 
-/** M8: a usage-limit note for a bot with no backup links to its settings, where the backup is set. Owner only. */
 function SetBackupLink({ botId, bots }: { botId: string; bots: Bot[] }) {
   const openDialog = useStore((s) => s.openDialog);
   const device = useStore((s) => s.device);
@@ -530,10 +489,7 @@ function SetBackupLink({ botId, bots }: { botId: string; bots: Bot[] }) {
   );
 }
 
-/**
- * P5: a trigger fired. The bot's instructions show as usual; the outside event (third-party text, fenced as
- * untrusted data by the hub) is folded away and shown as plain text, never as markdown.
- */
+/** The outside event is third-party text: shown as plain text, never as markdown. */
 const EVENT_PREAMBLE = '\n\nThe block below is content from an external sender';
 function TriggerLine({ m, bots }: { m: Message; bots: Bot[] }) {
   const p = m.payload as TriggerPayload | null;
@@ -558,9 +514,6 @@ function TriggerLine({ m, bots }: { m: Message; bots: Bot[] }) {
   );
 }
 
-// ---------- approval + handoff ----------
-
-/** A hand-off or routing card reads as words: the whole task, or the exact line. Anything unexpected stays raw. */
 function cardWords(p: ApprovalPayload): { main: string; more?: string } | null {
   const input = (p.toolInput ?? {}) as Record<string, unknown>;
   const [main, more] = p.toolName === 'handoff' ? [input.task, input.context] : [input.line, input.reason];
@@ -568,7 +521,6 @@ function cardWords(p: ApprovalPayload): { main: string; more?: string } | null {
   return { main, more: typeof more === 'string' && more ? more : undefined };
 }
 
-/** run_on_pc's input, when it has the expected shape. Anything else falls back to the raw view. */
 function pcJobInput(p: ApprovalPayload): { folder: string; prompt: string } | null {
   const input = (p.toolInput ?? {}) as Record<string, unknown>;
   return typeof input.folder === 'string' && typeof input.prompt === 'string' ? { folder: input.folder, prompt: input.prompt } : null;
@@ -578,22 +530,18 @@ function ApprovalCard({ m }: { m: Message }) {
   const p = m.payload as ApprovalPayload;
   const decide = useStore((s) => s.decide);
   const bots = useStore((s) => s.bots);
-  // P2: answering here may lead to a rule offer. Only here and now: a transcript reloaded later does not re-offer.
   const [answered, setAnswered] = useState(false);
-  // "Always allow": the pattern editor is open, then a permanent rule was saved (no "make it a rule" offer after).
   const [always, setAlways] = useState<'closed' | 'open' | 'saved'>('closed');
   const pending = p.status === 'pending';
   const device = useStore((s) => s.device);
-  // A job on the PC: only a browser signed in with the owner's password may allow it; anyone may deny it.
+  // A PC job: only a browser signed in with the owner's password may allow it; anyone may deny it.
   const signedIn = useStore((s) => s.signedIn);
   const needsSignIn = !!p.signInRequired && !signedIn;
   const refused = useStore((s) => s.approvalErrors[p.approvalId]);
-  // These two are yes or no, once. A "yes" to a hand-off covers the pair, as a rule the hub records and Settings lists.
   const handoff = p.toolName === 'handoff';
   const proposal = p.toolName === 'propose_routing_change';
   const yesOrNo = handoff || proposal;
   const words = yesOrNo ? cardWords(p) : null;
-  // Asked on every call (a PC job, an outside MCP tool): no "for this session", and no rule offer after.
   const once = !!p.once || p.toolName === 'run_on_pc';
   const pcJob = p.toolName === 'run_on_pc' ? pcJobInput(p) : null;
   const outcome = p.status === 'allow' ? (handoff ? 'Sent' : proposal ? 'Added' : 'Allowed once') : p.status === 'always' ? (once ? 'Allowed once' : 'Allowed for that session') : p.status === 'deny' ? (handoff ? 'Kept here' : proposal ? 'Not added' : 'Denied') : p.status === 'timeout' ? 'Timed out, denied' : p.status === 'expired' ? 'Expired after restart. Ask the bot to retry.' : null;
@@ -606,7 +554,6 @@ function ApprovalCard({ m }: { m: Message }) {
       <div className="px-4 py-1.5 text-ui text-muted">{p.reason}</div>
       {pending && p.parked && <div className="px-4 pb-1.5 text-ui text-warn">Run paused until you answer.</div>}
       {pcJob ? (
-        // The owner reads the whole job before it reaches the PC: folder name, then the prompt as written.
         <div className="mx-4 mb-3 rounded-md bg-card2 p-2.5 text-ui">
           <div className="text-hint text-muted">Folder <span className="font-mono text-fg">{pcJob.folder}</span></div>
           <div className="mt-1.5 max-h-60 overflow-auto whitespace-pre-wrap break-words">{pcJob.prompt}</div>
@@ -620,12 +567,11 @@ function ApprovalCard({ m }: { m: Message }) {
         <pre className="mx-4 mb-3 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-card2 p-2.5 font-mono text-hint">{fmtInput(p.toolInput)}</pre>
       )}
       {pending && (
-        // P9: wraps on a phone, and touch targets grow to 44px (`.touch-target` in index.css).
         <ActionCardActions>
           {needsSignIn
             ? <SignInToApprove />
             : <Button size="sm" variant="primary" className="touch-target" onClick={() => { setAnswered(true); decide(p.approvalId, 'allow'); }}>{handoff ? 'Send it' : proposal ? 'Add it' : 'Allow once'}</Button>}
-          {/* A paired device answers once; the hub refuses a standing grant from one (and approval rules). */}
+          {/* A paired device answers once; the hub refuses a standing grant from one. */}
           {!device && !yesOrNo && !once && !p.danger && !needsSignIn && always === 'closed' && <Button size="sm" className="touch-target" onClick={() => setAlways('open')}>Always allow…</Button>}
           <Button size="sm" variant={yesOrNo ? 'outline' : 'danger'} className="touch-target" onClick={() => decide(p.approvalId, 'deny')}>{handoff ? 'Keep it here' : proposal ? 'Leave it out' : 'Deny'}</Button>
           {always === 'open' && <AlwaysAllow p={p} botName={botById(bots, m.authorId)?.name ?? 'this bot'} onCancel={() => setAlways('closed')} onSaved={() => setAlways('saved')} />}
@@ -640,7 +586,6 @@ function ApprovalCard({ m }: { m: Message }) {
   );
 }
 
-/** One line in the chat. The whole task and its context fold out of it. */
 function HandoffCard({ m, bots }: { m: Message; bots: Bot[] }) {
   const p = m.payload as HandoffPayload;
   const to = botById(bots, p.toBotId);
@@ -659,16 +604,12 @@ function HandoffCard({ m, bots }: { m: Message; bots: Bot[] }) {
   );
 }
 
-/** Chat markdown: @handles of known bots come out bold, links go through the shared safe renderer. */
 function RichText({ text, bots }: { text: string; bots: Bot[] }) {
   const handles = useMemo(() => new Set(bots.map((b) => b.handle.toLowerCase())), [bots]);
   const t = useMemo(() => text.replace(/(^|[^\w@])@([a-z0-9_-]{2,24})\b/gi, (all, pre, h) => (handles.has(h.toLowerCase()) ? pre + '**@' + h + '**' : all)), [text, handles]);
   return <Markdown>{t}</Markdown>;
 }
 
-// ---------- attachments ----------
-
-/** A message's attachments: pictures as thumbnails that open full-size, files and videos as chips that download. */
 function Attachments({ refs }: { refs: string[] }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
@@ -681,7 +622,6 @@ function Attachments({ refs }: { refs: string[] }) {
   );
 }
 
-/** One attached file: its name and size, and a download. The name comes from the hub, not the message text. */
 function AttachmentFile({ fileRef }: { fileRef: string }) {
   const hash = fileHash(fileRef);
   const [meta, setMeta] = useState<StoredFileMeta | null | 'gone'>(null);
@@ -745,32 +685,19 @@ function ImageLightbox({ mediaRef, onClose }: { mediaRef: string; onClose: () =>
   );
 }
 
-// ---------- composer: the floating pill ----------
-
-/**
- * An attachment on its way, uploaded before the message is queued so the outbox only ever holds refs. Pictures are
- * re-encoded first (metadata dropped, downscaled); any other file or video goes up as its own bytes.
- */
 interface PendingPic {
   id: string; file: File; kind: 'image' | 'file'; preview: string; status: 'working' | 'ready' | 'failed';
   ref?: string; blob?: Blob; error?: string; progress?: number; abort?: AbortController;
 }
 
-/** PNG, JPEG and WebP go the picture way (the bot sees them inline); everything else, GIFs included, as a file. */
 const isPicture = (f: File) => (IMAGE_TYPES as readonly string[]).includes(f.type);
 const isVideoFile = (f: File) => f.type.startsWith('video/') || /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(f.name);
-/** Why a file cannot be attached, or null. The hub checks again (and checks the bytes really are a video). */
 function fileTooBig(f: File): string | null {
   if (isVideoFile(f)) return f.size > MAX_VIDEO_BYTES ? f.name + ' is over 200 MB, the most a video can be.' : null;
   return f.size > MAX_FILE_BYTES ? f.name + ' is over 25 MB, the most a file can be (videos can be 200 MB).' : null;
 }
 const sizeLabel = (n: number) => (n >= 1024 * 1024 ? (Math.round(n / 1024 / 1024 * 10) / 10) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
 
-/**
- * `dock`: the same composer docked at the foot of the Needs you page (new layout). It writes to the room its chip
- * names, keeps one draft of its own, and leaves out the rows that belong to an open chat (queue, limits, pickers).
- * Sending opens that room, so the message lands where you can see the reply.
- */
 interface DockOptions { chip: React.ReactNode }
 const DOCK_DRAFT = 'needs-you-dock';
 
@@ -782,17 +709,12 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
   const draftKey = dock ? DOCK_DRAFT : roomId;
   const toki = useToki();
   const control = useStore((s) => s.control);
-  // Hidden on a paired phone, and in a room where any bot runs on a provider whose models the picker does not name.
   const showPicker = useStore((s) => !dock && !s.device && allOnClaude(members, s.settings.provider));
-  // A paired phone may not change settings, and the hub would refuse it.
   const showPermissions = useStore((s) => !dock && !s.device);
   const device = useStore((s) => s.device);
   const openDialog = useStore((s) => s.openDialog);
-  // Steering: can a busy bot take this message mid-turn, and what Enter does with it by default.
   const steerable = useStore((s) => canSteer(s.providers, s.settings));
   const busyDefault: SendMode = useStore((s) => s.settings.busyMessages ?? 'join');
-  // One draft per room (the composer remounts per room): restored here, saved a moment after typing stops,
-  // saved at once when the room changes or the pane closes, and cleared on send.
   const [text, setText] = useState(() => readDraft(draftKey));
   const textRef = useRef(text);
   textRef.current = text;
@@ -801,7 +723,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
     return () => clearTimeout(t);
   }, [draftKey, text]);
   useEffect(() => () => writeDraft(draftKey, textRef.current), [draftKey]);
-  // Pictures waiting to go (U2a). Not drafted: they live until sent or removed, and a room switch drops them.
   const [pics, setPics] = useState<PendingPic[]>([]);
   const picsRef = useRef(pics);
   picsRef.current = pics;
@@ -855,7 +776,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
     setNotice(null);
   };
   useEffect(() => () => picsRef.current.forEach((p) => { p.abort?.abort(); if (p.preview) URL.revokeObjectURL(p.preview); }), []);
-  // Drop anywhere on the chat pane (the composer's parent), not only on the composer itself.
   useEffect(() => {
     const pane = shell.current?.parentElement;
     if (!pane) return;
@@ -892,12 +812,9 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
   const failedPics = pics.some((p) => p.status === 'failed');
   const canSend = (!!text.trim() || pics.length > 0) && !busyPics && !failedPics;
   const [mentionIdx, setMentionIdx] = useState(0);
-  // Escape hides the popup for the @word being typed; typing on reopens it.
   const [mentionDismissed, setMentionDismissed] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  // Grows with the text like a chat app's composer usually does, instead of stopping at a fixed line
-  // count: tall on a tall screen, never past a third of the viewport, scrollable past that.
   const resize = () => {
     const el = ref.current;
     if (!el) return;
@@ -907,7 +824,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
     el.style.overflowY = el.scrollHeight > cap ? 'auto' : 'hidden';
   };
   useLayoutEffect(resize, [text]);
-  // The cap is a third of the window, so rotating a tablet or resizing the window should move it too.
   useEffect(() => {
     window.addEventListener('resize', resize);
     return () => window.removeEventListener('resize', resize);
@@ -915,7 +831,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
 
   const activeTurns = Object.entries(streaming).filter(([, v]) => v.roomId === roomId);
   const busyBots = members.filter((m) => activeTurns.some(([, v]) => v.botId === m.id));
-  // Only while a bot that can steer is busy: otherwise there is nothing to choose and the composer stays as it was.
   const choice = !dock && showSendChoice(busyBots.map((b) => b.id), () => steerable);
   const busyName = busyBots.length === 1 ? busyBots[0].name : busyBots.length + ' bots';
   const stopLabel = room.kind === 'dm' ? 'Stop ' + (members[0]?.name ?? 'the bot') : 'Stop all running bots in this room';
@@ -924,10 +839,8 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
     return m ? m[1].toLowerCase() : null;
   }, [text]);
   const suggestions = mentionQuery !== null && !mentionDismissed ? members.filter((b) => b.handle.toLowerCase().startsWith(mentionQuery)).slice(0, 6) : [];
-  // The `/` menu: only while the message is a lone `/word` at its very start (no space typed yet).
   const [commands, setCommands] = useState<SlashCommandInfo[] | null>(null);
   const slashQuery = /^\/([a-z0-9:_-]*)$/i.exec(text)?.[1]?.toLowerCase() ?? null;
-  // The dock can change rooms under the same composer; a room's commands are its own.
   useEffect(() => setCommands(null), [roomId]);
   useEffect(() => {
     if (slashQuery === null || commands !== null) return;
@@ -959,7 +872,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
   };
   const submit = (mode?: SendMode) => {
     if (!canSend) return;
-    // `/clear` is the app's own: a fresh session for every bot here. It is not posted to the room.
     if (slashCommandOf(text) === 'clear' && !pics.length) {
       const done = Promise.all(members.map((m) => api.bots.resetSession(m.id, roomId)));
       setText('');
@@ -972,7 +884,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
       return;
     }
     if (dock) {
-      // Into the room first: the store sends to the open chat, and the reply is what you want to see next.
       useStore.getState().closePage();
       useStore.getState().setActiveRoom(roomId);
     }
@@ -985,8 +896,8 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
     writeDraft(draftKey, '');
   };
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // While an IME is composing (Japanese, Chinese, Korean…), Enter confirms the candidate; it must not send.
-    // Safari reports the confirming keydown after composition ends, recognisable only by keyCode 229.
+    // While an IME is composing, Enter confirms the candidate and must not send. Safari reports the confirming keydown
+    // after composition ends, recognisable only by keyCode 229.
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (menu.length) {
       if (e.key === 'Escape') { e.preventDefault(); setMentionDismissed(true); return; }
@@ -994,21 +905,15 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
       if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIdx((i) => (i - 1 + menu.length) % menu.length); return; }
       if (e.key === 'Tab' || e.key === 'Enter') { e.preventDefault(); pick(mentionIdx); return; }
     }
-    // Enter sends (a busy bot that can steer takes it into its running turn, unless Settings says queue);
-    // Ctrl+Enter queues it for after. Alt+Enter is left alone: the desktop app uses it for full screen.
     const send = sendKey(e);
     if (send) { e.preventDefault(); submit(send.mode); }
   };
   useEffect(() => { setMentionIdx(0); setMentionDismissed(false); }, [mentionQuery, slashQuery]);
 
-  // A bot asking for a login makes replying here the natural move, and the chat goes to the model and the transcript.
   const secretsHint = members.some((m) => control[m.id]?.takeover) ? 'Type secrets on its screen, not here' : null;
-  // Messages wait in the bot's queue for the turn to end, so say that rather than let typing look ignored.
   const hint = secretsHint ?? (dock
-    // The chip beside it already names the room.
     ? 'Message…'
     : room.kind === 'group'
-    // New layout (docs/specs/toki-ui.md): the concept's wording, only where the room really answers without a mention.
     ? (room.coordinatorBotId ? (toki ? 'Message @bot or the room…' : 'Ask here, or @mention a bot') : '@mention a bot')
     : activeTurns.length ? (members[0]?.name ?? 'The bot') + (choice && busyDefault === 'join' ? ' is working. Your message joins in.' : ' reads this when it finishes')
     : 'Message ' + (members[0]?.title ? members[0].name + ' · ' + members[0].title : members[0]?.name ?? ''));
@@ -1017,10 +922,8 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
     <div ref={shell} className={cn('relative shrink-0 px-3 pb-5 pt-2 sm:px-6', dock && 'pt-3')}>
       <div className="relative mx-auto max-w-[var(--page-max)]">
         {menu.length > 0 && (
-          // New layout: the popover's own frame (ring, overlay shadow), so it reads as the menus and popovers do.
           <div role="listbox" aria-label={suggestions.length ? 'Mention a bot' : 'Commands'} className={cn('absolute bottom-full left-0 z-10 mb-2 max-w-full rounded-xl bg-panel p-1.5', toki ? 'shadow-[var(--shadow-overlay)] ring-1 ring-line' : 'shadow-[var(--shadow)]', suggestions.length ? (toki ? 'w-[300px]' : 'w-[320px]') : 'w-[440px]')}>
             {menu.map((item, i) => item.kind === 'bot' ? (toki ? (
-              // Name first, handle after in mono: the person picks by name, the message gets the handle.
               <div key={item.bot.id} role="option" aria-selected={i === mentionIdx} className={cn('flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-ui', i === mentionIdx && 'bg-active')} onMouseDown={(e) => { e.preventDefault(); pick(i); }}>
                 <span aria-hidden><Avatar bot={item.bot} size={24} /></span>
                 <span className="min-w-0 flex-1 truncate font-medium">{item.bot.name}</span>
@@ -1047,7 +950,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
           {pics.length > 0 && (
             <ul aria-label="Attachments to send" className="flex flex-wrap gap-2 pt-1">
               {pics.map((p, i) => (
-                // Wraps on a narrow composer, so a long upload error and its Retry are never pushed out of sight.
                 <li key={p.id} className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
                   {p.kind === 'image' ? (
                     <span className="relative block h-14 w-14 shrink-0 overflow-hidden rounded-md ring-1 ring-line">
@@ -1082,9 +984,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
             placeholder={hint}
             aria-label={room.kind === 'group' ? 'Message #' + room.name : 'Message ' + (members[0]?.name ?? '')}
             aria-description={secretsHint ?? undefined}
-            // Height is set in JS, up to a third of the viewport (see the effect above); resize-none because
-            // the drag handle a free-form textarea gets would fight that. A long placeholder wraps in a
-            // narrow composer, and must not lose its second line. It can be a safety note.
             className={cn('w-full resize-none bg-transparent pt-1.5 pb-1 text-body placeholder:text-dim focus-visible:outline-none', !text && hint.length > 24 && '@max-[480px]:min-h-[64px]')}
           />
           <div className="flex items-center justify-end gap-1.5">
@@ -1103,7 +1002,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
             {showPermissions && <PermissionPicker textarea={ref} />}
             {showPicker && <ModelPicker room={room} members={members} busy={activeTurns.length > 0} textarea={ref} />}
             {!dock && activeTurns.length > 0 && (
-              // Room-wide: every running turn here stops. Messages a bot had not answered yet are answered next.
               <Tooltip content={stopLabel}>
                 <Button variant="ghost" size="icon" aria-label={stopLabel} onClick={() => activeTurns.forEach(([t]) => interrupt(t))}><Square size={15} className="text-bad" /></Button>
               </Tooltip>
@@ -1131,11 +1029,6 @@ function Composer({ room, members, dock }: { room: Room; members: Bot[]; dock?: 
   );
 }
 
-/**
- * New layout: the composer docked at the foot of the Needs you page (docs/specs/toki-ui.md, W11), so answering
- * a bot never needs a trip to the sidebar first. Its chip picks the room: by default the one the first waiting
- * item is in, else the open chat. The chip is a menu button, so the keyboard reaches every room.
- */
 export function NeedsYouDock() {
   const rooms = useStore((s) => s.rooms);
   const bots = useStore((s) => s.bots);
@@ -1145,10 +1038,8 @@ export function NeedsYouDock() {
   const { statusOf } = useBotStatus();
   const [picked, setPicked] = useState<string | null>(null);
   const waitingIn = useMemo(() => new Set(items.flatMap((i) => (i.roomId ? [i.roomId] : []))), [items]);
-  // Rooms that wait on you first, then the ones with unread messages, then group chats before one-on-ones.
   const choices = useMemo(() => {
     const rank = (r: Room) => (waitingIn.has(r.id) ? 0 : (unread[r.id] ?? 0) > 0 ? 1 : r.kind === 'group' ? 2 : 3);
-    // Like the sidebar, a room whose bots are all paused stays out of the way (unless it waits on you).
     const live = (r: Room) => waitingIn.has(r.id) || r.id === activeRoomId || r.memberIds.some((id) => statusOf(id) !== 'paused');
     return rooms.filter(live).sort((a, b) => rank(a) - rank(b));
   }, [rooms, waitingIn, unread, activeRoomId, statusOf]);
@@ -1189,11 +1080,6 @@ export function NeedsYouDock() {
   );
 }
 
-// ---------- steering: the send-mode menu, attached to Send ----------
-/**
- * Join the running turn or queue for after, for pointers and phones (no modifier keys). Shown only while a bot that
- * can steer is busy. Choosing an item sends at once. Radix gives it arrow keys, Escape and focus return.
- */
 function SendModeMenu({ busyName, plural, busyDefault, disabled, onSend, onSettings, textarea }: {
   busyName: string; plural: boolean; busyDefault: SendMode; disabled: boolean; onSend: (mode: SendMode) => void;
   onSettings: (() => void) | null; textarea: React.RefObject<HTMLTextAreaElement | null>;
@@ -1214,7 +1100,7 @@ function SendModeMenu({ busyName, plural, busyDefault, disabled, onSend, onSetti
           side="top"
           align="end"
           className="w-[min(300px,calc(100vw-1.5rem))]"
-          // Back to typing, except on touch, where focusing the box would bring the keyboard back up.
+          // Except on touch, where focusing the box would bring the keyboard back up.
           onCloseAutoFocus={(e) => { if (window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); textarea.current?.focus(); } }}
         >
           <p className="px-2.5 py-1 text-hint text-muted">{busyName} {plural ? 'are' : 'is'} working</p>
@@ -1244,18 +1130,12 @@ function SendModeMenu({ busyName, plural, busyDefault, disabled, onSend, onSetti
   );
 }
 
-// ---------- the permission picker, by the model picker ----------
 const PERMISSIONS: { id: Approvals; label: string; note: string }[] = [
   { id: 'read-only', label: 'Read only', note: 'Bots look around. Every write is refused.' },
   { id: 'ask', label: 'Approval', note: 'Risky actions show a card first.' },
   { id: 'bypass', label: 'Full permission', note: 'No cards. Bots run everything.' },
 ];
 
-/**
- * How much all bots may do. Unlike the model beside it, this is one hub-wide setting, not a per-chat one, so the
- * menu says so. Same second step as Settings before approvals go off. A level the server pins comes back as an
- * error from updateSettings, which rolls back and says why.
- */
 function PermissionPicker({ textarea }: { textarea: React.RefObject<HTMLTextAreaElement | null> }) {
   const current = useStore((s) => s.settings.approvals);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -1321,26 +1201,15 @@ function PermissionPicker({ textarea }: { textarea: React.RefObject<HTMLTextArea
   );
 }
 
-// ---------- the model picker, by Send ----------
-/**
- * This chat's model. It is stored on the chat, never on the bot, so schedules and hand-offs keep each bot's own model.
- * A pick stays until changed. Choosing what the bot already uses clears the pick rather than storing a copy of it.
- */
-/** "Ada", "Ada and Dev", "Ada, Dev and Max". */
 function nameList(names: string[]): string {
   return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
 }
 
-/**
- * Spec 01 P0-5: a calm note above the composer while a bot here cannot reply because its provider is at a plan limit.
- * It goes away by itself at the reset time (useLimits re-checks then). Not shown for an API-key login, which has no plan.
- */
 function LimitBanner({ members }: { members: Bot[] }) {
   const limits = useLimits();
   const providers = useStore((s) => s.providers);
   const defaultProvider = useStore((s) => s.settings.provider);
   const failoverActive = useStore((s) => s.failover.active);
-  // A bot running on its backup (M8) can reply, so it is not one this note is about; its header badge says where it runs.
   const now = Date.now();
   const groups = heldGroups(members.filter((m) => !activeFor(failoverActive, m.id, now)), defaultProvider, limits, providers);
   if (!groups.length) return null;
@@ -1359,7 +1228,6 @@ function LimitBanner({ members }: { members: Bot[] }) {
 function ModelPicker({ room, members, busy, textarea }: { room: Room; members: Bot[]; busy: boolean; textarea: React.RefObject<HTMLTextAreaElement | null> }) {
   const providers = useStore((s) => s.providers);
   const toast = useStore((s) => s.toast);
-  // Beside the picker, not a toast: a toast sits on top of Send, the next thing the user reaches for.
   const [applies, setApplies] = useState(false);
   useEffect(() => {
     if (!applies) return;
@@ -1410,12 +1278,11 @@ function ModelPicker({ room, members, busy, textarea }: { room: Room; members: B
           side="top"
           align="end"
           className="w-[min(280px,calc(100vw-1.5rem))]"
-          // Back to typing, except on touch, where focusing the box would bring the keyboard back up.
+          // Except on touch, where focusing the box would bring the keyboard back up.
           onCloseAutoFocus={(e) => { if (window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); textarea.current?.focus(); } }}
         >
           <Menu.RadioGroup value={value ?? ''} onValueChange={(v) => void choose(v)}>
             {CHAT_MODELS.map((m) => item(m.id, m.label, m.note))}
-            {/* Only when the bots' own setting is not one of the four, so there is still a way back to it. */}
             {!ownListed && item('', defaultName, ownId ? "This bot's setting" : "Each bot's setting")}
           </Menu.RadioGroup>
         </MenuContent>
@@ -1425,23 +1292,16 @@ function ModelPicker({ room, members, busy, textarea }: { room: Room; members: B
   );
 }
 
-// ---------- P8: model chip ----------
-/**
- * One chip per bot turn: on the last text message of a turn (or of the part of it that ran on one model, when
- * the router escalated a retry), so a long multi-message reply is not stamped on every paragraph.
- */
 function chipAfter(items: Message[], m: Message): boolean {
   if (m.kind !== 'text' || !m.model) return false;
   const rest = items.slice(items.indexOf(m) + 1);
   return !rest.some((x) => x.kind === 'text' && x.turnId === m.turnId && x.model === m.model);
 }
 
-/** Which model wrote this, and why. Muted and mono like the other metadata; static, no motion. */
 function ModelChip({ m }: { m: Message }) {
   const providers = useStore((s) => s.providers);
   const id = m.model ?? '';
   const known = providers?.providers.flatMap((p) => p.models).find((x) => x.id === id)?.label ?? MODELS.find((x) => x.id === id)?.label;
-  // "Sonnet 5 (default)" reads as a claim about this turn; the chip only names the model.
   const label = (known ?? id).replace(/\s*\(.*\)\s*$/, '');
   const auto = m.modelReason?.startsWith('Auto:');
   const reason = m.modelReason ?? '';

@@ -4,7 +4,7 @@ import type { Bot, ProjectOverview, Room } from '@pocketrocket/shared';
 import type { InboxItem } from '../lib/inbox';
 import type { ProjectInfo } from '../lib/api';
 
-// Server rendering reads a Zustand store's initial state, so the header's store is a plain object the test fills in.
+// Server rendering reads a Zustand store's initial state, so the store is a plain object the test fills in.
 let state: Record<string, unknown> = {};
 let overview: ProjectOverview | null | undefined;
 let inbox: InboxItem[] = [];

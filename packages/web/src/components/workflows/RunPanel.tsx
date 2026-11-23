@@ -1,5 +1,3 @@
-// The run view: which run is on show (the newest unless you pick one), per-step status and cost on the canvas and the
-// list, cancel, retry the failed step, and the history. Live: a `workflow.run` event for the run on show refetches it.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WorkflowNode, WorkflowRun, WorkflowRunSummary, WorkflowStepResult } from '@pocketrocket/shared';
 import { Badge, Button, confirmAction, fmtUsd } from '../ui';
@@ -15,7 +13,6 @@ export interface RunView {
   reload: () => void;
 }
 
-/** History plus the run on show, kept live. `viewId` null follows the newest run, so Run now shows its own progress at once. */
 export function useRunView(workflowId: string): RunView {
   const live = useWorkflows((s) => s.runs);
   const lastRun = useWorkflows((s) => s.workflows?.find((w) => w.id === workflowId)?.lastRun ?? null);
@@ -25,7 +22,6 @@ export function useRunView(workflowId: string): RunView {
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
-  // Any change to this workflow's newest run (a step moved, a status changed) refreshes the list.
   const lastKey = lastRun ? lastRun.id + lastRun.status + lastRun.nodeId + lastRun.costUsd + (lastRun.endedAt ?? '') : '';
   useEffect(() => {
     let off = false;

@@ -1,5 +1,3 @@
-// P2: Take over / Hand back / Pause for a bot's screen, the takeover card, and the "make this a rule?" offer.
-// One accent (the primary action is the ink button), no new motion; every control is a real button or input.
 import { useId, useState } from 'react';
 import { Hand, MonitorUp, Pause, Play } from 'lucide-react';
 import type { ApprovalPayload, Bot, ComputerControl, ControlStatus, Message, TakeoverPayload } from '@pocketrocket/shared';
@@ -16,10 +14,8 @@ export function useControl(botId: string | undefined): ControlStatus {
   return c ?? { botId: botId ?? '', ...DEFAULT };
 }
 
-/** True when the bot can use a computer at all (Browser or Desktop). */
 export { hasComputer };
 
-/** PUT the new state; the store follows the `computer.control` event. Errors become a toast. */
 function useSetControl(bot: Bot) {
   const toast = useStore((s) => s.toast);
   const [busy, setBusy] = useState(false);
@@ -37,11 +33,6 @@ function useSetControl(bot: Bot) {
   return { busy, run };
 }
 
-/**
- * The one control bar, on the bot's screen. Take over / Pause while the bot drives; a hand-back note and Hand back
- * while this browser has control; Take over again while control is unclaimed (a bot asked) or held elsewhere;
- * Resume while paused. Handing back is only ever here, so the note can't be skipped by accident.
- */
 export function ControlBar({ bot, canTake }: { bot: Bot; canTake: boolean }) {
   const c = useControl(bot.id);
   const { busy, run } = useSetControl(bot);
@@ -88,13 +79,8 @@ export function ControlBar({ bot, canTake }: { bot: Bot; canTake: boolean }) {
   );
 }
 
-/** Goes back to the bot as the note a hand-back carries, so a stuck user does not have to fake finishing. */
 const CANT_DO = "I can't do this one. Find another way, or tell me what you need from me.";
 
-/**
- * Chat card for `request_takeover`. Take over both claims control and, through that, fills the pane with the
- * screen. The hand-back is on the screen, never here, so this card only says who is driving.
- */
 export function TakeoverCard({ m }: { m: Message }) {
   const p = m.payload as TakeoverPayload;
   const bots = useStore((s) => s.bots);
@@ -132,10 +118,8 @@ function TakeoverActions({ bot }: { bot: Bot }) {
   );
 }
 
-/** How many identical approvals earn the offer: a one-off should not lead to a standing permission. */
 const RULE_OFFER_AFTER = 3;
 
-/** Approved cards for the same bot, tool and subject, across every loaded room. */
 function approvedCount(messages: Record<string, Message[]>, botId: string | null, toolName: string, pattern: string): number {
   let n = 0;
   for (const list of Object.values(messages)) {
@@ -148,11 +132,6 @@ function approvedCount(messages: Record<string, Message[]>, botId: string | null
   return n;
 }
 
-/**
- * "Always allow" on a pending card: a permanent rule for this bot (Settings › Bots lists and revokes it), then this
- * call is allowed. The pattern starts wide enough to match the bot's next, reworded call (broadPattern) and the owner
- * can narrow it. Kept across hub restarts, and checked for scheduled and triggered runs too.
- */
 export function AlwaysAllow({ p, botName, onCancel, onSaved }: { p: ApprovalPayload; botName: string; onCancel: () => void; onSaved: () => void }) {
   const toast = useStore((s) => s.toast);
   const decide = useStore((s) => s.decide);
@@ -164,7 +143,6 @@ export function AlwaysAllow({ p, botName, onCancel, onSaved }: { p: ApprovalPayl
   const save = async () => {
     setSaving(true);
     try {
-      // The exact subject: let the hub derive it exactly as it matches calls. `*` with no narrow subject: same.
       const trimmed = pattern.trim();
       await api.policies.fromApproval(p.approvalId, trimmed === exact || (anyCall && !exact) ? undefined : trimmed);
       decide(p.approvalId, 'allow');
@@ -188,11 +166,6 @@ export function AlwaysAllow({ p, botName, onCancel, onSaved }: { p: ApprovalPayl
   );
 }
 
-/**
- * After the third identical approval: offer to keep it as a rule (Settings › Bots lists and revokes them). The
- * pattern starts as the exact command or path, and a trailing * widens it to a prefix. There is no offer at all
- * for a call with no narrow pattern, since the only rule it could become is "any call" of that tool.
- */
 export function RuleOffer({ p, botId, botName }: { p: ApprovalPayload; botId: string | null; botName: string }) {
   const toast = useStore((s) => s.toast);
   const [state, setState] = useState<'offer' | 'saving' | 'saved' | 'dismissed'>('offer');
@@ -206,7 +179,6 @@ export function RuleOffer({ p, botId, botName }: { p: ApprovalPayload; botId: st
   const save = async () => {
     setState('saving');
     try {
-      // Unchanged: let the hub derive the pattern exactly as it matches calls.
       await api.policies.fromApproval(p.approvalId, pattern.trim() !== initial ? pattern.trim() : undefined);
       setState('saved');
     } catch (e) {

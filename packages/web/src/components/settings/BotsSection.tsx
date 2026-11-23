@@ -1,13 +1,3 @@
-/**
- * Settings › Bots: whether bots ask before risky actions (`settings.approvals`, default 'ask').
- * Turning approvals off takes an explicit second step with a plain warning. When the server's
- * environment pins the value (GET /api/health → approvalsLocked) the control shows the value in force,
- * is read-only, and says where it is set; the hub would answer 409 to any change anyway.
- *
- * Then what a message to a busy bot does by default (`settings.busyMessages`, steering).
- *
- * Below it, per bot: auto-memory on/off and how many turns in a room between passes (PATCH /api/bots/:id).
- */
 import { useEffect, useId, useRef, useState } from 'react';
 import { Lock, ShieldAlert } from 'lucide-react';
 import { AUTO_MEMORY_EVERY, type Approvals, type Bot, type BotInput, type SendMode } from '@pocketrocket/shared';
@@ -18,9 +8,7 @@ import { Card, Group, SectionHeader } from './parts';
 import { ApprovalRules } from './ApprovalRules';
 
 export function BotsSection({ health, onHealthStale }: {
-  /** Latest GET /api/health, or null while loading / if it failed (then we assume "not locked"). */
   health: HealthResponse | null;
-  /** Called when a save is refused, so the dialog can refetch health and pick up a lock. */
   onHealthStale: () => void;
 }) {
   const stored = useStore((s) => s.settings.approvals);
@@ -39,7 +27,6 @@ export function BotsSection({ health, onHealthStale }: {
     const ok = await updateSettings({ approvals: next });
     setSaving(false);
     setConfirming(false);
-    // The store already rolled back and showed why; a 409 means the environment pinned it meanwhile.
     if (!ok) onHealthStale();
   };
 
@@ -94,16 +81,11 @@ export function BotsSection({ health, onHealthStale }: {
         </Card>
       </Group>
 
-      {/* P2 */}
       <ApprovalRules />
     </>
   );
 }
 
-/**
- * Steering: what Enter does with a message to a bot that is busy (`settings.busyMessages`). Ctrl+Enter and the menu
- * beside Send still pick per message. Only providers that can take a message mid-turn join; the rest always queue.
- */
 function BusyMessagesGroup() {
   const value = useStore((s) => s.settings.busyMessages ?? 'join');
   const updateSettings = useStore((s) => s.updateSettings);
@@ -124,7 +106,6 @@ function BusyMessagesGroup() {
   );
 }
 
-/** One bot's auto-memory controls. The switch flips at once and snaps back if the hub refuses the change. */
 function AutoMemoryRow({ bot, describedBy }: { bot: Bot; describedBy: string }) {
   const toast = useStore((s) => s.toast);
   const [on, setOn] = useState(bot.autoMemory);
@@ -168,7 +149,6 @@ function AutoMemoryRow({ bot, describedBy }: { bot: Bot; describedBy: string }) 
   );
 }
 
-/** The second step before approvals go off. Focus lands on the safe choice so Enter keeps you protected. */
 function ConfirmBypass({ saving, onCancel, onConfirm }: { saving: boolean; onCancel: () => void; onConfirm: () => void }) {
   const keepAskingRef = useRef<HTMLButtonElement>(null);
   const headingId = useId();

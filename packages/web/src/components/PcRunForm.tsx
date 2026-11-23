@@ -1,7 +1,4 @@
-// Bridge P4: start a run on the owner's PC from the app. One form, two uses: "Continue on PC" under a mirrored
-// transcript (resume that session) and "Run on PC" in Settings > PC runner (a new run in an allowed folder).
-// The click is the approval, so it only works from a password-signed-in browser; the hub's 403 / 409 are the
-// real gate and their message is shown as-is. The PC still asks before it runs anything.
+// The click is the approval; the hub's 403 / 409 are the real gate.
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Play } from 'lucide-react';
 import type { PcRunnerStatus } from '@pocketrocket/shared';
@@ -11,14 +8,12 @@ import { PC_PROMPT_MAX, jobActive, pcBlockedReason, promptOk, statusLabel, JOB_S
 import { Badge, Banner, Button, Field, Label, Select, Textarea } from './ui';
 
 export interface PcRunFormProps {
-  /** Why starting is blocked (offline, not signed in), or null. Shown as a hint and disables the controls. */
   blocked: string | null;
   prompt: string;
   onPrompt: (v: string) => void;
   submitLabel: string;
   busy?: boolean;
   onSubmit: () => void;
-  /** New-run mode: the runner's allowed folder names and the chosen one. */
   folders?: string[];
   folder?: string;
   onFolder?: (v: string) => void;
@@ -28,7 +23,6 @@ export interface PcRunFormProps {
   onOpenLog?: () => void;
 }
 
-/** Presentational, so the disabled states render the same in a test as on screen. */
 export function PcRunForm(p: PcRunFormProps) {
   const id = useId();
   const needsFolder = !!p.folders;
@@ -78,7 +72,6 @@ export function PcRunForm(p: PcRunFormProps) {
   );
 }
 
-/** Runner status (refetched on every pc-runner.changed) plus whether this browser holds a password session. */
 export function usePcStatus() {
   const rev = useStore((s) => s.pcRunnerRev);
   const signedIn = useStore((s) => s.signedIn);
@@ -91,7 +84,6 @@ export function usePcStatus() {
   return { status, signedIn, blocked: pcBlockedReason({ status, signedIn }) };
 }
 
-/** Sends the request, then follows that job through `pc-runner.changed`. */
 export function usePcStart() {
   const rev = useStore((s) => s.pcRunnerRev);
   const [busy, setBusy] = useState(false);

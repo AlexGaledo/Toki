@@ -1,14 +1,6 @@
-/**
- * Settings: a wide dialog with a section list on the left (a tab strip across the top in a narrow
- * window) — Account · Claude · Bots · Connections · Knowledge · Devices · Appearance · About. Each section lives in
- * components/settings/.
- * The list is Radix Tabs, which brings arrow-key navigation, aria-selected and the tab/tabpanel wiring.
- * The last section opened is remembered until the page reloads.
- */
 import { useCallback, useEffect, useState } from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { Bell, BookOpen, Flag, FolderGit2, KeyRound, Wrench, Info, Palette, Plug, ShieldCheck, Sparkles, UserRound, type LucideIcon, LockKeyhole } from 'lucide-react';
-// P9
 import { Monitor, Smartphone } from 'lucide-react';
 import { DevicesSection } from '../settings/DevicesSection';
 import { PcRunnerSection } from '../settings/PcRunnerSection';
@@ -32,16 +24,13 @@ import { McpServersSection } from '../settings/McpServersSection';
 import { BotReportsSection } from '../settings/BotReportsSection';
 
 export type SectionId = 'account' | 'security' | 'claude' | 'bots' | 'appearance' | 'about' | 'knowledge'
-  // P4
   | 'integrations'
   | 'projects'
   | 'tools'
   | 'reports'
-  // P9
   | 'devices'
   | 'pc-runner'
   | 'credentials'
-  // U7: desktop card (app only) + Telegram (every non-device client)
   | 'notifications';
 
 const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
@@ -52,37 +41,23 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: 'projects', label: 'Projects', icon: FolderGit2 },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'reports', label: 'Reports', icon: Flag },
-  // P4
   { id: 'integrations', label: 'Connections', icon: Plug },
-  // G4: saved logins bots can type into a page (desktop only: the hub refuses a phone).
-  // Logins, Tools and Reports are desktop only: they are not in DEVICE_SECTIONS, and the hub 403s a phone on their routes.
   { id: 'credentials', label: 'Logins', icon: KeyRound },
-  // P7
   { id: 'knowledge', label: 'Knowledge', icon: BookOpen },
-  // P9
   { id: 'devices', label: 'Devices', icon: Smartphone },
-  // Desktop only (not in DEVICE_SECTIONS): the hub refuses a phone on /api/pc-runner.
   { id: 'pc-runner', label: 'PC runner', icon: Monitor },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'about', label: 'About', icon: Info },
 ];
 
-/**
- * P9: what a paired phone sees. The hub refuses a device's settings writes, secrets, account and integrations
- * (guard.ts deviceMayAccess), so those sections are left out rather than shown failing. Theme and sounds are hub
- * settings too, so Appearance is shown read-only.
- */
+/** What a paired phone sees: the hub refuses a device's settings writes, secrets, account and integrations. */
 const DEVICE_SECTIONS: readonly SectionId[] = ['devices', 'appearance', 'about'];
 
-/** Matches Tailwind's `sm` breakpoint, where the section list moves from the top to the left. */
 const SIDE_NAV_QUERY = '(min-width: 640px)';
 
-// Module scope rather than component state: the dialog unmounts when it closes, and the choice should
-// outlive that. A reload starts again at Account, which is fine (no persistence wanted).
 let lastSection: SectionId = 'account';
 
-/** GET /api/health, shared by Bots (approvals lock) and About. Refetched when approvals change. */
 function useHealth() {
   const approvals = useStore((s) => s.settings.approvals);
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -94,17 +69,13 @@ function useHealth() {
 }
 
 export function SettingsDialog({ section: opening, onClose }: { section?: SectionId; onClose: () => void }) {
-  // P9
   const device = useStore((s) => s.device);
   const sections = (device ? SECTIONS.filter((x) => DEVICE_SECTIONS.includes(x.id)) : SECTIONS);
   const [section, setSection] = useState<SectionId>(opening ?? (device && !DEVICE_SECTIONS.includes(lastSection) ? 'devices' : lastSection));
   const sideNav = useMediaQuery(SIDE_NAV_QUERY);
-  // New layout: the section list uses the sidebar's row shape (rounder, the sidebar's padding) and the needs colour.
   const fresh = useNewLayout();
   const { health, refresh: refreshHealth } = useHealth();
 
-  // A small dot on "Providers" ("Claude" with one) when a provider some bot runs on isn't ready, so the problem is
-  // visible from any section. With bots on their own providers, that is the default plus every bot's own.
   const providers = useStore((s) => s.providers);
   const providerId = useStore((s) => s.settings.provider);
   const bots = useStore((s) => s.bots);
@@ -131,7 +102,6 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
             <DialogTitle>Settings</DialogTitle>
             <div className="sm:hidden"><DialogCloseButton /></div>
           </div>
-          {/* On a phone the names wrap onto a few rows instead of scrolling sideways, so no section is ever half off-screen. */}
           <TabsPrimitive.List aria-label="Settings sections" className="flex flex-wrap gap-1 py-1 sm:flex-col sm:flex-nowrap">
             {sections.map(({ id, label, icon: Icon }) => (
               <TabsPrimitive.Trigger
@@ -141,7 +111,6 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
                   ? 'flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-ui text-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent data-[state=active]:bg-active data-[state=active]:text-fg sm:gap-2.5'
                   : 'flex shrink-0 items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-ui text-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent data-[state=active]:bg-active data-[state=active]:text-fg sm:gap-2.5 sm:px-3 sm:py-2'}
               >
-                {/* Icons only in the side list; the top rows need the room to fit every name. */}
                 <Icon size={15} aria-hidden className="hidden shrink-0 sm:block" />
                 {id === 'claude' && list.length > 1 ? 'Providers' : label}
                 {id === 'claude' && claudeNeedsAttention && (
@@ -158,22 +127,18 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
         <div className="relative min-h-0 min-w-0 flex-1 border-t border-line sm:border-t-0">
           <div className="absolute right-4 top-4 z-10 hidden sm:block"><DialogCloseButton /></div>
           <div className="h-full overflow-y-auto overscroll-contain">
-            {/* tabIndex -1: every panel has its own controls to Tab into, so the panel itself needn't be a stop. */}
             <TabsPrimitive.Content value="account" tabIndex={-1} className={PANEL}><AccountSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="security" tabIndex={-1} className={PANEL}><SecuritySection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="claude" tabIndex={-1} className={PANEL}><ClaudeSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="bots" tabIndex={-1} className={PANEL}><BotsSection health={health} onHealthStale={refreshHealth} /></TabsPrimitive.Content>
-            {/* P4 */}
             <TabsPrimitive.Content value="integrations" tabIndex={-1} className={PANEL}><IntegrationsSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="credentials" tabIndex={-1} className={PANEL}><CredentialsSection /></TabsPrimitive.Content>
-            {/* P7 */}
             <TabsPrimitive.Content value="knowledge" tabIndex={-1} className={PANEL}><KnowledgeSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="notifications" tabIndex={-1} className={PANEL}><NotificationsSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="appearance" tabIndex={-1} className={PANEL}><AppearanceSection readOnly={device} /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="about" tabIndex={-1} className={PANEL}><AboutSection health={health} /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="tools" tabIndex={-1} className={PANEL}><McpServersSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="reports" tabIndex={-1} className={PANEL}><BotReportsSection /></TabsPrimitive.Content>
-            {/* P9 */}
             <TabsPrimitive.Content value="projects" tabIndex={-1} className={PANEL}><ProjectsSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="devices" tabIndex={-1} className={PANEL}><DevicesSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="pc-runner" tabIndex={-1} className={PANEL}><PcRunnerSection onOpenSecurity={() => select('security')} /></TabsPrimitive.Content>
@@ -184,5 +149,4 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
   );
 }
 
-/** Panel padding: roomier beside the side list, tighter under the top strip. */
 const PANEL = 'px-5 py-5 focus:outline-none sm:px-8 sm:py-7';

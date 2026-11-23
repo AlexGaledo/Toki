@@ -1,6 +1,3 @@
-// The room's files, in the right panel: the chat's folder on the hub (its project's folder, the group's own folder,
-// or a direct chat's bot's files/ folder). Browse, preview, download, upload, new folder, rename, delete.
-// The hub's api/files.ts is the authority on paths and names; this checks names only to say what is wrong sooner.
 import { memo, startTransition, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ChevronRight, Download, Eye, FolderOpen, FolderPlus, FolderUp, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Trash2, Upload, X } from 'lucide-react';
 import {
@@ -29,12 +26,10 @@ const writePref = (key: string, v: unknown) => void setJson(key, v);
 const isView = (v: unknown): v is View => v === 'grid' || v === 'list';
 const isSort = (v: unknown): v is Sort => !!v && typeof v === 'object' && ['name', 'size', 'mtime'].includes((v as Sort).key) && ((v as Sort).dir === 1 || (v as Sort).dir === -1);
 
-/** A big folder paints this many at once; the rest follow in a transition, so the panel answers while they render. */
 const FIRST_PAINT = 300;
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
-/** Folders first whatever the order, as the hub sends them. Name ascending is the hub's own order, so it is kept. */
 function sortEntries(entries: FileEntry[], sort: Sort): FileEntry[] {
   if (sort.key === 'name' && sort.dir === 1) return entries;
   const by = sort.key === 'name' ? (a: FileEntry, b: FileEntry) => collator.compare(a.name, b.name)
@@ -46,10 +41,6 @@ function sortEntries(entries: FileEntry[], sort: Sort): FileEntry[] {
 const message = (e: unknown) => (e as Error)?.message || 'Unknown error';
 const statusOf = (e: unknown) => (e instanceof ApiError ? e.status : 0);
 
-/**
- * The marker that ends the hub's path to this room's folder, to place an absolute path a bot wrote ("C:\…\projects\
- * equilife\docs\a.md") inside it. Null when the folder has no such name.
- */
 function markerOf(l: FileListing): string | null {
   if (l.folder === 'project' && l.projectSlug) return '/projects/' + l.projectSlug + '/';
   if (l.folder === 'room') return '/rooms/' + l.roomId + '/';
@@ -62,7 +53,6 @@ export function FilesPanel({ inline }: { inline: boolean }) {
   const device = useStore((s) => s.device);
   const ref = useRef<HTMLElement>(null);
 
-  // Closing with focus inside (Escape, the X): back to the button that opened it rather than lost on <body>.
   useEffect(() => () => {
     requestAnimationFrame(() => {
       if (!document.activeElement || document.activeElement === document.body) document.querySelector<HTMLElement>('[data-files-toggle]')?.focus();
@@ -82,7 +72,6 @@ export function FilesPanel({ inline }: { inline: boolean }) {
           <PairedNotice />
         </>
       ) : (
-        // Keyed: another chat is another folder, with its own place and selection.
         <Browser key={room.id} room={room} inline={inline} />
       )}
     </aside>
@@ -115,7 +104,7 @@ function Notice({ icon, title, children, action }: { icon: ReactNode; title: str
   );
 }
 
-/** A paired phone is refused every file route (403), on purpose: files can hold anything, and phones get lost. */
+/** A paired phone is refused every file route on purpose: files can hold anything, and phones get lost. */
 function PairedNotice() {
   return (
     <Notice icon={<Lock size={28} aria-hidden />} title="Files open in the desktop app">
@@ -141,7 +130,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   const [view, setViewState] = useState<View>(() => readPref(VIEW_KEY, isView, 'grid'));
-  // A transition: redrawing 2,000 items must not freeze the toggle that asked for it.
   const setView = (v: View) => { writePref(VIEW_KEY, v); startTransition(() => setViewState(v)); };
   const [sort, setSortState] = useState<Sort>(() => readPref(SORT_KEY, isSort, { key: 'name', dir: 1 }));
   const setSort = (key: SortKey) => {
@@ -153,7 +141,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
   const [active, setActive] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ entry: FileEntry; x: number; y: number } | null>(null);
-  // The last menu stays rendered through its close, so its close handler still knows which item it was for.
   const lastMenu = useRef(menu);
   if (menu) lastMenu.current = menu;
   const shownMenu = menu ?? lastMenu.current;
@@ -176,16 +163,12 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     folderInput.current = el;
     if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', ''); }
   }, []);
-  /** What to focus once the next listing is in: a name, the first entry, or nothing (a background refresh). */
   const focusNext = useRef<string | null>('\u0000first');
-  /** A file to preview (or an absolute path to place) once its folder has loaded, from a link. */
   const pendingFile = useRef<string | null>(target?.file ?? null);
   const busy = useRef(false);
   const hintId = useId();
 
-  // ---- loading ----
   useEffect(() => {
-    // Offline, the request would only fail; the reconnect asks again.
     if (!connected) return;
     let alive = true;
     api.files.list(roomId, path).then((listing) => {
@@ -196,7 +179,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
       if (alive) setError({ path, status: statusOf(e), message: message(e) });
     });
     return () => { alive = false; };
-    // `connected`: a reconnect may have missed a files.changed, so the folder is asked again.
   }, [roomId, path, rev, nonce, connected]);
 
   const loading = !error && (!data || data.path !== path);
@@ -204,7 +186,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
   const listing = data?.path === path ? data.listing : null;
   const entries = useMemo(() => sortEntries(listing?.entries ?? [], sort), [listing, sort]);
   const files = useMemo(() => entries.filter((e) => e.kind === 'file'), [entries]);
-  // Which folder has been drawn in full. Until then only the first FIRST_PAINT items are.
   const [allFor, setAllFor] = useState<string | null>(null);
   useEffect(() => {
     if (listing && allFor !== path) startTransition(() => setAllFor(path));
@@ -224,7 +205,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
   }, []);
   const goUp = useCallback(() => { if (path) navigate(parentPath(path), baseName(path)); }, [path, navigate]);
 
-  // A link clicked while the panel is open (or the one that opened it).
   const seq = target?.seq ?? 0;
   useEffect(() => {
     if (!seq || !target) return;
@@ -232,7 +212,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     if (target.path !== path) navigate(target.path);
     else setPreview(null);
     reload();
-    // Only a new link counts; `path` moving on its own must not send the panel back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seq]);
 
@@ -243,7 +222,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     setActive(list[n].name);
     const el = listRef.current?.querySelector<HTMLElement>('[data-idx="' + n + '"]');
     if (el) el.focus();
-    // Past what is drawn yet (End, early on in a big folder): draw the rest now, then focus.
     else { setAllFor(pathRef.current); requestAnimationFrame(() => listRef.current?.querySelector<HTMLElement>('[data-idx="' + n + '"]')?.focus()); }
   }, []);
   const focusName = useCallback((name: string | null) => {
@@ -251,7 +229,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     requestAnimationFrame(() => (i >= 0 ? focusIndex(i) : listRef.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus()));
   }, [focusIndex]);
 
-  // After a listing comes in: focus where the user was headed, then any file a link pointed at.
   useLayoutEffect(() => {
     if (!listing) return;
     const want = focusNext.current;
@@ -280,7 +257,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     else { setActive(hit.name); setPreview(hit.name); }
   }, [listing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- actions ----
   const openEntry = useCallback((e: FileEntry) => {
     if (e.kind === 'dir') navigate(joinPath(path, e.name));
     else { setActive(e.name); setPreview(e.name); }
@@ -372,10 +348,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     reload();
   }, [roomId, path, toast, reload]);
 
-  /**
-   * A folder (or a drop with folders in it): one question up front for anything already there, then each file in
-   * turn with its folders made on the way, then the empty folders. Cancel stops before the next file.
-   */
   const uploadTree = useCallback(async (gather: () => Gathered | Promise<Gathered>) => {
     if (busy.current) return toast('Wait for the upload in progress to finish.');
     busy.current = true;
@@ -437,7 +409,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
           await api.files.uploadFile(roomId, joinPath(into, dir), f.file, replace, true, name);
           sent++;
         } catch (err) {
-          // Already there though the check missed it (another case, a race): what "skip" would have done.
           skipped.push({ rel: f.rel, why: statusOf(err) === 409 ? 'already there' : message(err) });
         }
       }
@@ -462,7 +433,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     }
   }, [roomId, path, toast, reload, askExisting]);
 
-  // ---- keyboard ----
   const cols = () => {
     const items = listRef.current?.children;
     if (!items?.length || view === 'list') return 1;
@@ -502,7 +472,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     e.preventDefault();
     if (next >= 0 && next < len) focusIndex(next);
   };
-  // Backspace and Alt+Up go up a folder from anywhere in the panel, except a field (and a dialog in a portal).
   const onPanelKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
     if (!e.currentTarget.contains(t) || t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable) return;
@@ -513,7 +482,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     }
   };
 
-  // ---- drag and drop ----
   const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
   const onDragOver = (e: React.DragEvent) => {
     if (!hasFiles(e) || shownError) return;
@@ -534,7 +502,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
     } else void upload(Array.from(e.dataTransfer.files));
   };
 
-  // ---- view ----
   const rootLabel = room.kind === 'dm' ? (botById(bots, room.memberIds[0])?.name ?? room.name) : room.name;
   const kindLabel = !listing ? undefined
     : listing.folder === 'project' ? 'Project folder' + (listing.projectSlug ? ' · ' + listing.projectSlug : '')
@@ -627,7 +594,6 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
 
       {(listing || uploading) && (
         <div className="relative flex shrink-0 items-center gap-2 border-t border-line px-4 py-1.5 text-hint text-muted">
-          {/* Still, no transition: it moves one file at a time. */}
           {uploading?.cancellable && uploading.n > 0 && (
             <span aria-hidden className="absolute left-0 top-[-1px] h-0.5 bg-accent" style={{ width: (uploading.i / uploading.n) * 100 + '%' }} />
           )}
@@ -658,8 +624,7 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
           <MenuContent
             align="start"
             aria-label={'Actions for ' + shownMenu.entry.name}
-            // The chosen action runs once the menu has let go of focus, so a dialog it opens keeps the focus it
-            // takes. With no action (Escape, a click outside), focus goes back to the item.
+            // Runs once the menu has let go of focus, so a dialog it opens keeps the focus it takes.
             onCloseAutoFocus={(e) => {
               e.preventDefault();
               const run = afterMenu.current;
@@ -709,16 +674,10 @@ function Browser({ room, inline }: { room: Room; inline: boolean }) {
 type ExistingChoice = 'replace' | 'skip' | 'cancel';
 interface Skipped { rel: string; why: string }
 
-/** "a, b, c and 4 more" */
 function listSome(names: string[], n: number): string {
   return names.length <= n ? names.join(', ') : names.slice(0, n).join(', ') + ' and ' + (names.length - n) + ' more';
 }
 
-/**
- * Which of `rels` (relative to `into`) are already files there. Walks only the folders the upload shares with what
- * is on the hub: a folder that isn't there yet has nothing in it to clash with. A listing that fails counts as no
- * clash; the upload's own 409 is the backstop.
- */
 async function existingIn(roomId: string, into: string, rels: string[], stop: () => boolean): Promise<string[]> {
   const tree = new Map<string, { files: Set<string>; dirs: Set<string> }>();
   const node = (d: string) => {
@@ -748,7 +707,6 @@ async function existingIn(roomId: string, into: string, rels: string[], stop: ()
   return out;
 }
 
-/** Asked once for a whole folder upload, not once per file. Cancel comes first, so a stray Enter sends nothing. */
 function ExistingDialog({ clash, where, onAnswer }: { clash: string[]; where: string; onAnswer: (c: ExistingChoice) => void }) {
   const one = clash.length === 1;
   return (
@@ -772,7 +730,6 @@ function ExistingDialog({ clash, where, onAnswer }: { clash: string[]; where: st
   );
 }
 
-/** What a folder upload left behind, and why: over 25 MB, a name the hub can't store, a failure. */
 function SkippedDialog({ where, skipped, sent, onClose }: { where: string; skipped: Skipped[]; sent: number; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }} title={skipped.length === 1 ? "1 item wasn't uploaded" : skipped.length.toLocaleString() + " items weren't uploaded"}>
@@ -817,13 +774,11 @@ function ViewButton({ on, label, onClick, children }: { on: boolean; label: stri
   );
 }
 
-/** Room, then each folder. Deep paths keep the first and the last two, with the rest behind one "…". */
 function Breadcrumbs({ rootLabel, path, onGo }: { rootLabel: string; path: string; onGo: (p: string, focus?: string | null) => void }) {
   const segs = path ? path.split('/') : [];
   const crumbs = [{ label: rootLabel, path: '' }, ...segs.map((s, i) => ({ label: s, path: segs.slice(0, i + 1).join('/') }))];
   const hidden = crumbs.length > 4 ? crumbs.slice(1, -2) : [];
   const shown = hidden.length ? [crumbs[0], null, ...crumbs.slice(-2)] : crumbs;
-  // Going up lands on the folder you came out of.
   const childOf = (p: string) => { const rest = path.slice(p ? p.length + 1 : 0); return rest.split('/')[0] || null; };
   return (
     <nav aria-label="Folder path" className="min-w-0 flex-1">
@@ -888,10 +843,6 @@ function ListHeader({ sort, onSort }: { sort: Sort; onSort: (k: SortKey) => void
   );
 }
 
-/**
- * One file or folder. Memoised, with stable handlers, so moving focus re-renders two items and not two thousand.
- * The tile itself is the roving tab stop; its "more" button is for the pointer (the keyboard has Shift+F10).
- */
 const Item = memo(function Item({ entry, idx, view, tabbable, onOpen, onMenu }: {
   entry: FileEntry; idx: number; view: View; tabbable: boolean;
   onOpen: (e: FileEntry) => void; onMenu: (e: FileEntry, at: { x: number; y: number }) => void;
@@ -955,7 +906,6 @@ const Item = memo(function Item({ entry, idx, view, tabbable, onOpen, onMenu }: 
 });
 
 function Skeleton({ view }: { view: View }) {
-  // Still, not pulsing: motion here is kept to the app's three effects.
   return (
     <div role="status" aria-label="Loading files" className={cn(view === 'grid' ? 'grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-1 px-2 pt-1' : 'flex flex-col gap-1 px-2 pt-1')}>
       {Array.from({ length: view === 'grid' ? 8 : 7 }, (_, i) => view === 'grid' ? (
@@ -973,7 +923,6 @@ function Skeleton({ view }: { view: View }) {
   );
 }
 
-/** New folder, or rename. The name is checked as it is typed; the hub has the last word (a race, a 409). */
 function NameDialog({ naming, taken, onSubmit, onClose }: {
   naming: Naming;
   taken: FileEntry[];
@@ -993,8 +942,7 @@ function NameDialog({ naming, taken, onSubmit, onClose }: {
     : clash ? 'Something here already has that name.' : '';
   const shownError = problem || serverError;
 
-  // A file's name is selected up to its extension, so typing replaces the name and keeps the type. On the first
-  // focus, a frame later: the dialog's own autofocus selects the whole field right after focusing it.
+  // A frame later: the dialog's own autofocus selects the whole field right after focusing it.
   const selected = useRef(false);
   const preselect = () => {
     if (selected.current) return;
@@ -1027,7 +975,6 @@ function NameDialog({ naming, taken, onSubmit, onClose }: {
           maxLength={255}
           spellCheck={false}
           autoComplete="off"
-          // Else the dialog focuses its first button, the close X in the title row.
           autoFocus
           onFocus={preselect}
           onChange={(e) => { setName(e.target.value); setServerError(''); }}

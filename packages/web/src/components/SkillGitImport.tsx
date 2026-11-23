@@ -1,8 +1,3 @@
-/**
- * Skills tab (P7): import skills from a git repo (a local "marketplace") or a folder on the hub's computer.
- * Every imported skill lands in the pool as pending review, so nothing reaches a bot until it is approved
- * in the list below this form.
- */
 import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';

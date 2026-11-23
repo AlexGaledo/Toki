@@ -6,7 +6,6 @@ import { Avatar, cn } from './ui';
 
 const TILE = 'flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 pb-1.5 pt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
-/** The owner's main bots, large and always in reach, above the bot list. A paired phone can open them but not change them. */
 export function Podium({ bots, statusOf, activeBotId, unreadOf, onOpen, canEdit }: {
   bots: Bot[];
   statusOf: (botId: string) => BotStatus;

@@ -8,12 +8,10 @@ import { useStore } from '../../store';
 import { Avatar, Button, Dialog, Field, Input, Label, Select, confirmAction } from '../ui';
 import { BotIconPicker } from './BotIconPicker';
 
-/** Starting a group chat, and everything about one later: its name, its picture and its bots. */
 export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () => void }) {
   const bots = useStore((s) => s.bots);
   const toast = useStore((s) => s.toast);
   const setActiveRoom = useStore((s) => s.setActiveRoom);
-  // A bot can change the room while this is open, through add_to_room or remove_from_room.
   const latest = useStore((s) => s.rooms.find((r) => r.id === room?.id));
   const { statusOf } = useBotStatus();
   const [name, setName] = useState(room?.name ?? '');
@@ -30,7 +28,6 @@ export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () =
   const save = async () => {
     setBusy(true);
     try {
-      // Only what this dialog changed, on top of the room as it is now, so a bot's change meanwhile survives.
       const base = room?.memberIds ?? [];
       const now = latest?.memberIds ?? base;
       const memberIds = [...now.filter((id) => members.includes(id) || !base.includes(id)), ...members.filter((id) => !base.includes(id) && !now.includes(id))];
@@ -47,7 +44,6 @@ export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () =
       await api.rooms.remove(room.id);
       onClose();
     } catch (e) {
-      // The dialog stays open so the failure is visible next to the button that caused it.
       toast("Couldn't delete the group chat: " + (e as Error).message, true);
     } finally { setBusy(false); }
   };
@@ -64,7 +60,6 @@ export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () =
             <li key={b.id} className="flex min-h-9 items-center gap-2 rounded-sm bg-card px-2 py-1 text-ui">
               <span aria-hidden><Avatar bot={b} size={24} /></span>
               <span className="min-w-0 flex-1">
-                {/* The handle drops under the name on a narrow window instead of either being cut off. */}
                 <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                   <span className="min-w-0 [overflow-wrap:anywhere]">{b.name}</span>
                   <span className="min-w-0 text-hint text-muted [overflow-wrap:anywhere]">@{b.handle}</span>

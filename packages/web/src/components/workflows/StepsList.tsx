@@ -1,12 +1,9 @@
-// The Steps view: an ordered list, always available, and the accessible and phone view of the same graph the canvas
-// draws. Rows are the shared StepCard; a finished step's output folds out under it.
 import { Plus } from 'lucide-react';
 import type { WorkflowNode, WorkflowStepResult } from '@pocketrocket/shared';
 import { Button, Menu, MenuContent, MenuItem } from '../ui';
 import { describeStep, type StepContext } from '../../lib/workflows';
 import { StepCard, StepMenu, type StepOps } from './StepCard';
 
-/** What a step produced in the run being viewed: its output, the notes you steered in, and a send-back. */
 export function StepOutput({ result }: { result: WorkflowStepResult }) {
   const steers = result.steers ?? [];
   if (!result.output && !steers.length && !result.sentBackNote) return null;

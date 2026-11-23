@@ -1,7 +1,3 @@
-/**
- * Settings › Reports. What bots said when a site stopped them (a captcha, a login, a block), newest first. Resolve a
- * report once you have dealt with it, or dismiss one that does not matter. Nothing here leaves this computer.
- */
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Flag, Undo2, X } from 'lucide-react';
 import { useStore, botById } from '../../store';

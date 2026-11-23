@@ -1,6 +1,4 @@
-// Bridge P6: move a mirrored PC session to the VPS (same conversation) and pull it back. Same approval rule as the
-// other PC actions: the click in a password-signed-in browser plus the PC's own Run/Refuse dialog. Presentational
-// pieces (MoveRows, VpsComposer, MoveSummary) take plain props so every disabled reason renders in a test.
+// Approval is the click in a password-signed-in browser plus the PC's own Run/Refuse dialog.
 import { useEffect, useId, useState } from 'react';
 import { CloudUpload, CornerDownLeft, GitBranch, Loader2, Send } from 'lucide-react';
 import { useStore } from '../store';
@@ -20,15 +18,10 @@ export function MoveBadge({ s }: { s: object }) {
   return b ? <Badge tone={b.tone}>{b.label}</Badge> : null;
 }
 
-// ---- Move to VPS ----
-
 export interface MoveRowsProps {
   links: PcSessionLink[];
-  /** project slug -> its repo list; a project missing here has not loaded or is gone. */
   repos: Record<string, ProjectRepo[] | undefined>;
-  /** PC offline / not signed in, or null. */
   pcBlocked: string | null;
-  /** Rooms that could own the VPS turns. More than one shows a picker. */
   rooms: Array<{ id: string; name: string }>;
   room: string;
   onRoom: (id: string) => void;
@@ -87,7 +80,6 @@ function JobStatus({ job, onOpenLog }: { job: PcJobWithMove; onOpenLog?: () => v
   );
 }
 
-/** Panel under the transcript of a session that still lives on the PC. */
 export function MovePanel({ sessionId, links, pcBlocked, onOpenLog }: { sessionId: string; links: PcSessionLink[]; pcBlocked: string | null; onOpenLog?: () => void }) {
   const rooms = useStore((s) => s.rooms);
   const [repos, setRepos] = useState<Record<string, ProjectRepo[] | undefined>>({});
@@ -100,7 +92,6 @@ export function MovePanel({ sessionId, links, pcBlocked, onOpenLog }: { sessionI
     for (const slug of slugs.split('\n').filter(Boolean)) {
       api.projects.repos(slug).then((f) => alive && setRepos((c) => ({ ...c, [slug]: f.repos })), () => alive && setRepos((c) => ({ ...c, [slug]: [] })));
     }
-    // The room belongs to the first linked project; a move across projects uses that one's chat.
     api.projects.list().then((l) => alive && setProject(l.find((p) => p.slug === slugs.split('\n')[0])), () => undefined);
     return () => { alive = false; };
   }, [slugs]);
@@ -125,12 +116,9 @@ export function MovePanel({ sessionId, links, pcBlocked, onOpenLog }: { sessionI
   );
 }
 
-// ---- Continue on VPS / Pull back ----
-
 export interface VpsComposerProps {
   move: PcSessionMove;
   signedIn: boolean;
-  /** PC offline / not signed in (for Pull back), or null. */
   pcBlocked: string | null;
   prompt: string;
   onPrompt: (v: string) => void;
@@ -141,7 +129,6 @@ export interface VpsComposerProps {
   pulling?: boolean;
 }
 
-/** One turn at a time: the box locks while a turn runs and the status line says so. */
 export function VpsComposer(p: VpsComposerProps) {
   const id = useId();
   const sendWhy = continueBlockedReason(p.move, p.signedIn);
@@ -187,7 +174,6 @@ export function VpsComposer(p: VpsComposerProps) {
   );
 }
 
-/** The panel for a session that is on the VPS (or on its way). `onChanged` refetches the session header. */
 export function VpsPanel({ sessionId, move, signedIn, pcBlocked, onChanged, onOpenLog }: {
   sessionId: string; move: PcSessionMove; signedIn: boolean; pcBlocked: string | null; onChanged: () => void; onOpenLog?: () => void;
 }) {
@@ -226,9 +212,8 @@ export function VpsPanel({ sessionId, move, signedIn, pcBlocked, onChanged, onOp
   );
 }
 
-// ---- job log ----
-
-/** What a move or pull job did, per repo. Plain text only: the PC's report is untrusted. */
+/** Plain text only: the PC's report is untrusted. */
+/** Plain text only: the PC's report is untrusted. */
 export function MoveSummary({ j }: { j: PcJobWithMove }) {
   const pull = (j.mode as string) === 'pull';
   const r = pull ? pullResultOf(j) : moveResultOf(j);

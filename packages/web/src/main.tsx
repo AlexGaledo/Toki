@@ -12,10 +12,7 @@ import '@fontsource-variable/geist-mono/wght.css';
 import '@fontsource-variable/nunito/wght.css';
 import './index.css';
 
-// P9: a phone that opened `#pair=<code>` from the QR trades it for a device token before the first connect.
-// U1: a bot pop-out window shows one bot's chat instead of the whole app.
 const popout = currentPopout();
-// The "New layout" toggle: picks up `?layout=preview` and keeps <html data-layout> in step (lib/layout.ts).
 initLayout();
 
 void pairFromHash().finally(() => {
@@ -27,7 +24,7 @@ void pairFromHash().finally(() => {
   );
 });
 
-// P9: installable PWA. The worker caches the app shell only (see public/sw.js) — never messages or API data.
+// The worker caches the app shell only (public/sw.js), never messages or API data.
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined);

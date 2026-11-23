@@ -1,7 +1,3 @@
-// New layout: a project's Map tab (docs/specs/toki-ui.md, W7/W8). It reads map.json through the hub and shows one
-// of: loading, no map yet, a bot drawing it, no map made, a map that could not be read, or the map itself (canvas or
-// list). Nothing is faked: the canvas only ever draws what the hub returned, and "drawing" only shows while the bot
-// that was asked has a turn running in this room.
 import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Map as MapIcon, RefreshCw } from 'lucide-react';
 import type { Bot, Room } from '@pocketrocket/shared';
@@ -19,12 +15,10 @@ import { ToolButtonShell } from './ToolButtonShell';
 
 const ProjectMap = lazy(() => importChunk(() => import('./ProjectMap')));
 
-/** Narrower than this, the map is read-only and opens as the list. */
 const NARROW = 640;
 const PROMPT_INSET = 64;
 const CHIPS_INSET = 36;
 
-/** The width of an element, kept up to date. */
 function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number | null] {
   const ref = useRef<T>(null);
   const [w, setW] = useState<number | null>(null);
@@ -40,7 +34,6 @@ function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number |
   return [ref, w];
 }
 
-/** The bot the prompt bar talks to: the room's coordinator, else its first member that is not paused. */
 export function useMapLead(room: Room): Bot | null {
   const bots = useStore((s) => s.bots);
   const { statusOf } = useBotStatus();
@@ -181,7 +174,6 @@ function Centre({ children }: { children: ReactNode }) {
   return <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-canvas">{children}</div>;
 }
 
-/** If the canvas chunk cannot load, the list still shows the map. */
 class MapBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }

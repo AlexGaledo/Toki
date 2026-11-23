@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { Bot, FailoverCard, ProvidersResponse, Room } from '@pocketrocket/shared';
 
-// Server rendering reads a Zustand store's initial state, so the card's store is a plain object the test fills in.
+// Server rendering reads a Zustand store's initial state, so the store is a plain object the test fills in.
 let state: Record<string, unknown> = {};
 vi.mock('../store', () => ({
   useStore: (sel: (s: Record<string, unknown>) => unknown) => sel(state),

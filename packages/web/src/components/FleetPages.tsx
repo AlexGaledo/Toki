@@ -1,6 +1,3 @@
-// The fleet pages: Automations and Usage across every bot. They cover the chat in the main pane; the chat stays
-// mounted behind them, so a draft and the scroll position are still there on the way back. RoutinesSection is also
-// the Automations tab of the Bot page, filtered to that bot.
 import { useEffect, useState, type ReactNode } from 'react';
 import { History, Play, Plus, Trash2 } from 'lucide-react';
 import { MODELS, type CauseKind, type ProviderId, type Routine, type RoutineRun, type UsageGroup, type UsageRow } from '@pocketrocket/shared';
@@ -14,10 +11,8 @@ import { TriggersSection } from './TriggersSection';
 import { WorkflowsSection } from './workflows/WorkflowsSection';
 import { PageHeader, useNewPages } from './PageHeader';
 
-/** New layout: long names wrap instead of being cut off (a bot, a chat, a schedule). The classic layout truncates. */
 const clip = (fresh: boolean) => (fresh ? 'break-words' : 'truncate');
 
-/** The scrolling column under a page's header, as wide as the chat column. */
 export function PageBody({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-6">
@@ -44,14 +39,12 @@ export function UsagePage() {
   );
 }
 
-/** P3: a routine is edited as a preset plus a time; raw cron lives under "Advanced". Times read in settings.timezone. */
 type RoutineForm = { open: boolean; id?: string; botId: string; roomId: string; name: string; prompt: string } & ScheduleParts;
 
 const PRESET_LABEL: Record<SchedulePreset, string> = {
   once: 'Once', daily: 'Every day', weekdays: 'Weekdays', weekly: 'Every week', monthly: 'Every month', yearly: 'Every year', custom: 'Custom (cron)',
 };
 
-/** An instant as the clock reads in `tz`: "2 Nov 2026, 09:00". */
 function fmtIn(ms: number, tz: string) {
   return new Date(ms).toLocaleString(undefined, { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 }
@@ -60,7 +53,6 @@ function scheduleLabel(r: Routine, tz: string) {
   return r.onceAt !== null ? 'Once, ' + fmtIn(r.onceAt, tz) : describeCron(r.cron);
 }
 
-/** Every bot's schedules, or one bot's when `botId` is set (which also starts a new schedule on that bot). */
 export function RoutinesSection({ botId }: { botId: string | null }) {
   const fresh = useNewPages();
   const bots = useStore((s) => s.bots);
@@ -80,7 +72,6 @@ export function RoutinesSection({ botId }: { botId: string | null }) {
   const [form, setForm] = useState<RoutineForm>(blank);
   const set = (patch: Partial<RoutineForm>) => setForm((f) => ({ ...f, ...patch }));
 
-  // Refetch on routines.changed / routine.fired (a bot scheduled something, a run started), and any open history.
   useEffect(() => {
     void api.routines.list().then(setAll);
     for (const id of Object.keys(runs)) if (runs[id]) void api.routines.runs(id).then((x) => setRuns((r) => ({ ...r, [id]: x })));
@@ -282,10 +273,6 @@ function UsageSection() {
 
 type UsageSplitData = { byModel: UsageGroup[]; byCause: UsageGroup[]; byProvider: UsageGroup[] };
 
-/**
- * Spec 01 P0-5: how close each plan window is to its limit, from the hub's in-memory list (it only hears about a
- * window when the provider reports one). Left out for a provider signed in with an API key, which has no plan.
- */
 function PlanLimits() {
   const limits = useLimits();
   const providers = useStore((s) => s.providers);
@@ -314,7 +301,6 @@ function PlanLimits() {
   );
 }
 
-// ---------- P8: usage by model and by cause ----------
 const CAUSE_LABEL: Record<CauseKind, string> = {
   user: 'Your messages',
   bot: 'Passed between bots',
@@ -326,15 +312,10 @@ const CAUSE_LABEL: Record<CauseKind, string> = {
   workflow: 'Workflows',
 };
 
-/**
- * Where the spend went: which models ran, and what started the turns. Routines, triggers and auto-memory get
- * their own rows so automation cost is visible next to chat cost. '' is spend recorded before the hub kept this.
- */
 function UsageSplit({ split }: { split: UsageSplitData }) {
   const fresh = useNewPages();
   const providers = useStore((s) => s.providers);
   const providerLabel = (k: string) => (!k ? 'Not recorded' : (providers?.providers.find((p) => p.id === k)?.label ?? k));
-  // Spend on a subscription login is what the same work would cost on an API key, not a bill, so its row says so.
   const isEstimate = (k: string) => providers?.providers.find((p) => p.id === k)?.check.auth === 'subscription';
   const modelLabel = (id: string) =>
     !id ? 'Not recorded' : (providers?.providers.flatMap((p) => p.models).find((m) => m.id === id)?.label ?? MODELS.find((m) => m.id === id)?.label ?? id);
@@ -361,7 +342,6 @@ function UsageSplit({ split }: { split: UsageSplitData }) {
   };
   return (
     <>
-      {/* Claude alone is the common case: one row (plus rows from before v0.5) would only repeat the total. */}
       {(split.byProvider.filter((g) => g.key).length > 1 || split.byProvider.some((g) => g.key && g.key !== 'claude')) && section('By provider', split.byProvider, providerLabel, false, isEstimate)}
       {section('By model', split.byModel, modelLabel, true)}
       {section('By what started it', split.byCause, causeLabel, false)}

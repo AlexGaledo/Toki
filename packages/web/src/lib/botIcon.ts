@@ -8,13 +8,11 @@ const ICONS: Record<BotIconKey, LucideIcon> = {
   bot: Bot, cpu: Cpu, compass: Compass, wrench: Wrench, pen: Pen, smile: Smile, brain: Brain, shield: Shield, radar: Radar, anchor: Anchor,
   atom: Atom, feather: Feather, hammer: Hammer, map: MapIcon, orbit: Orbit, hexagon: Hexagon,
   search: Search, terminal: Terminal, globe: Globe, sparkles: Sparkles, palette: Palette, rocket: Rocket, database: Database,
-  // Characters draw themselves (botCharacter.tsx). These only stand in where a bare glyph is all that fits.
   'blob-ember': Smile, 'blob-bloom': Smile, 'blob-cloud': Smile, 'blob-pebble': Smile, 'blob-clover': Smile, 'blob-star': Smile, 'blob-bean': Smile, 'blob-drop': Smile, 'blob-gem': Smile, 'blob-spike': Smile,
 };
 
-/** Picked from for a bot with no icon. Leaves out glyphs that already mean something else here: tool chips, Settings, the brand. */
 const DERIVED: readonly BotIconKey[] = ['bot', 'cpu', 'compass', 'wrench', 'pen', 'smile', 'brain', 'shield', 'radar', 'anchor', 'atom', 'feather', 'hammer', 'map', 'orbit', 'hexagon'];
-const TINTS = 8; // --tint-1 to --tint-8 in index.css
+const TINTS = 8;
 
 export function fnv1a(s: string) {
   let h = 0x811c9dc5;
@@ -22,10 +20,8 @@ export function fnv1a(s: string) {
   return h >>> 0;
 }
 
-/** Any value that is not a key falls through to the default glyph, so an emoji still in the data never renders. */
 export const iconGlyph = (key: unknown): LucideIcon => (isBotIconKey(key) ? ICONS[key] : Bot);
 
-/** The same bot always gets the same glyph and tint, whatever it is renamed to. */
 export function botIcon(bot: { id: string; avatar: string }) {
   const h = fnv1a(bot.id);
   return {

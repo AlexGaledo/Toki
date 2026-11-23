@@ -8,7 +8,6 @@ function memoryStorage(init: Record<string, string> = {}): Storage {
   };
 }
 
-/** A fresh store in a window of `width`, with the new layout on or off. */
 async function boot(width: number, toki: boolean, stored: Record<string, string> = {}) {
   vi.resetModules();
   vi.stubGlobal('localStorage', memoryStorage({ 'pocketrocket.layout': toki ? 'toki' : 'classic', ...stored }));
@@ -62,7 +61,6 @@ describe('the overview in the store (new layout)', () => {
     store = await boot(390, true);
     store.getState().openFiles();
     store.getState().closePanel();
-    // Closed, and the next open is the overview rather than the files again.
     expect([store.getState().panelOpen, store.getState().panelKind]).toEqual([false, 'overview']);
   });
 

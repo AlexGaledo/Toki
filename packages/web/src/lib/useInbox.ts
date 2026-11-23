@@ -3,7 +3,6 @@ import { useStore } from '../store';
 import { selectInbox, type InboxItem } from './inbox';
 import { useWorkflows } from './workflows';
 
-/** The Needs you inbox, recomputed when any of its sources change. */
 export function useInbox(): InboxItem[] {
   const openApprovals = useStore((s) => s.openApprovals);
   const messages = useStore((s) => s.messages);

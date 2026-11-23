@@ -5,25 +5,17 @@ import { useStore } from '../store';
 import { Button, Input, cn } from './ui';
 import { useNewLayout } from '../lib/newLayout';
 
-/**
- * The hub always requires a token. When it rejects the one this page holds (lib/ws.ts has confirmed a real
- * 401, not a hub that is down or rate-limiting), this small centered panel asks for it instead of leaving
- * the app stuck on "Connecting to the hub".
- */
 export function TokenPrompt() {
   const [needsToken, setNeedsToken] = useState(getNeedsToken());
-  // New layout: the dialogs' surface (panel colour and dialog radius) instead of a card.
   const fresh = useNewLayout();
   const [value, setValue] = useState('');
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Null until the hub answers. With a password set, sign-in is the main way in and the token the fallback.
   const [passwordSet, setPasswordSet] = useState<boolean | null>(null);
   const [choice, setChoice] = useState<'password' | 'code' | null>(null);
   useEffect(() => subscribeAuthFailure(() => setNeedsToken(getNeedsToken())), []);
   useEffect(() => {
     if (!needsToken) return;
-    // A hub that is restarting or rate limiting says nothing about the password, so keep asking.
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     const load = () => {
@@ -43,7 +35,6 @@ export function TokenPrompt() {
   }, [needsToken]);
 
   if (!needsToken) return null;
-  // P9: a phone has no hub token to paste; it pairs.
   const pairingTrouble = wasUnpaired() || !!getPairError();
   const signIn = passwordSet === true && (choice ? choice === 'password' : !pairingTrouble);
   const pairing = pairingTrouble && !signIn;
@@ -70,14 +61,11 @@ export function TokenPrompt() {
     }
   };
 
-  // The token is tried before it is kept: the panel stays up saying "Checking…", and a wrong one gets an
-  // answer here instead of closing the panel only for it to pop back a few seconds later.
   const submit = async () => {
     const t = value.trim();
     if (!t || checking) return;
     setChecking(true);
     setError(null);
-    // P9: an 8-character pairing code (ABCD-EFGH) from the desktop's Settings › Devices pairs this browser.
     const code = t.replace(/[\s-]/g, '').toUpperCase();
     if (/^[A-HJ-NP-Z2-9]{8}$/.test(code)) {
       const ok = await redeemPairingCode(code);

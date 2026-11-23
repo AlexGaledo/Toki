@@ -1,7 +1,4 @@
-// The limit card (spec 01 §4.7, P3-2): a bot hit its provider's usage limit and has a backup. The owner may continue the
-// request once on the backup, with approvals on, or wait for the reset. Person-only like the workflow approval card: the
-// hub refuses a bot, a cta button and chat text, so only these buttons answer it. It shows in the chat it belongs to
-// and in Needs you. Nothing switches on its own: a card nobody answers turns quiet at the reset.
+// Person-only: the hub refuses a bot, a cta button and chat text, so only these buttons answer it.
 import { useEffect, useState } from 'react';
 import { Gauge } from 'lucide-react';
 import type { FailoverCard } from '@pocketrocket/shared';
@@ -12,7 +9,6 @@ import { useLimits } from '../lib/useLimits';
 import { backupModelLabel, cardsForRoom, continueBlocker, providerLabel } from '../lib/failover';
 import { ActionCard, ActionCardActions, ActionCardHeader, Button } from './ui';
 
-/** Re-renders once when `at` passes (the card's expiry), with no ticking while it waits. */
 function useNowUntil(at: number): number {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -49,8 +45,6 @@ export function FailoverCardView({ card, className }: { card: FailoverCard; clas
       await api.failover.decide(card.id, decision);
       dropCard(card.id);
     } catch (e) {
-      // 409: answered elsewhere, expired, backup changed or limited, bot left. The hub's words say which; the fresh
-      // state then drops or keeps the card.
       setError((e as Error).message);
       setBusy(false);
       if (e instanceof ApiError && e.status === 409) void fetchFailover();
@@ -58,7 +52,6 @@ export function FailoverCardView({ card, className }: { card: FailoverCard; clas
   };
 
   if (expired) {
-    // The hub posts its own note and drops the card at its next sweep; until then it reads as settled, not waiting.
     return (
       <ActionCard tone="quiet" role="group" aria-label={name + ': not continued'} className={className ?? 'w-full max-w-[640px]'}>
         <p className="flex items-center gap-2 px-4 py-3 text-ui text-muted">
@@ -95,7 +88,6 @@ export function FailoverCardView({ card, className }: { card: FailoverCard; clas
   );
 }
 
-/** Open limit cards for one chat, above the composer. Nothing renders when there are none. */
 export function FailoverCardsForRoom({ roomId }: { roomId: string }) {
   const cards = useStore((s) => s.failover.cards);
   const mine = cardsForRoom(cards, roomId);

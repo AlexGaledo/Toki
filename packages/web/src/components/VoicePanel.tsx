@@ -1,8 +1,3 @@
-/**
- * Bot page, Memory tab, below memory.md (P7): the bot's voice.md (short style notes that ride every prompt, 1 KB),
- * the style notes AutoMemory proposed for it (each waits for Approve / Dismiss), and how many notes the bot
- * keeps in its notes/ folder (searched on demand, never in the prompt).
- */
 import { useEffect, useRef, useState } from 'react';
 import { Check, Save, X } from 'lucide-react';
 import type { VoiceProposal } from '@pocketrocket/shared';
@@ -10,7 +5,6 @@ import { useStore } from '../store';
 import { api } from '../lib/api';
 import { Button, Label, Textarea } from './ui';
 
-/** Matches MAX_VOICE_BYTES on the hub; shown so the cap is not a surprise. */
 const VOICE_LIMIT = 1024;
 
 export function VoicePanel({ botId }: { botId: string }) {
@@ -28,7 +22,6 @@ export function VoicePanel({ botId }: { botId: string }) {
   useEffect(() => {
     api.voice.get(botId).then((r) => {
       setProposals(r.proposals);
-      // Never overwrite what the user is typing; the proposals list still refreshes.
       if (!dirtyRef.current) setText(r.text);
     }).catch(() => undefined);
     api.notes(botId).then((n) => setNotes(n.length)).catch(() => setNotes(null));

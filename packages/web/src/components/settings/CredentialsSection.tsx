@@ -1,9 +1,4 @@
-/**
- * Settings › Logins. Saved logins a bot can type into a page with `fill_credential`. A login is a name, the exact
- * site it belongs to, a username and a secret. The secret is write-only: it is sent to the hub when you save and is
- * never shown again (the field starts empty when you edit; leave it empty to keep the one saved). Every use asks you
- * on a card first, and only from a browser signed in with your password.
- */
+/** The secret is write-only: sent to the hub on save and never shown again. */
 import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { CredentialInfo } from '@pocketrocket/shared';

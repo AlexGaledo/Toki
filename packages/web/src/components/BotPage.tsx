@@ -1,5 +1,3 @@
-// The Bot page: one bot's memory and voice, skills, automations and computer. It takes over the main pane, so
-// these get a whole column instead of a 340px tab, and the right side stays the screen only.
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Check, MessageSquare, Plus, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react';
 import type { Bot, ComputerStatus, Skill } from '@pocketrocket/shared';
@@ -30,7 +28,6 @@ export function BotPage({ botId, tab }: { botId: string; tab: BotTab }) {
   const { statusOf } = useBotStatus();
   const backup = useStore((s) => activeFor(s.failover.active, botId, Date.now()));
   const providers = useStore((s) => s.providers);
-  // P4-2: the header's context meter is the bot's one-on-one chat; fetch it here, as that chat may not be loaded.
   const dmId = rooms.find((r) => r.kind === 'dm' && r.memberIds[0] === botId)?.id;
   const loadContext = useStore((s) => s.loadContext);
   const fresh = useNewPages();
@@ -65,8 +62,6 @@ export function BotPage({ botId, tab }: { botId: string; tab: BotTab }) {
   const chat = dm && <Button size="sm" variant="ghost" title="Open chat" aria-label={'Open chat with ' + bot.name} onClick={() => { closePage(); setActiveRoom(dm.id); }}><MessageSquare size={14} aria-hidden /><span className="@max-[480px]:hidden">Chat</span></Button>;
   const settings = !device && <Button size="sm" variant="ghost" title="Bot settings" aria-label={bot.name + ' settings'} onClick={() => openDialog({ kind: 'bot', bot })}><Settings2 size={14} aria-hidden /><span className="@max-[480px]:hidden">Settings</span></Button>;
   if (fresh) {
-    // New layout: the shared page header, with the bot's face and status ring before the name and the tabs as an
-    // underline strip under it, lined up with the page column. Same buttons, same order.
     return (
       <Tabs value={tab} onValueChange={onTab} className="flex min-h-0 flex-1 flex-col">
         <PageHeader
@@ -119,7 +114,6 @@ export function BotPage({ botId, tab }: { botId: string; tab: BotTab }) {
 
 const gbText = (b: number) => (b / 1024 ** 3).toFixed(1) + ' GB';
 
-/** What is true of the computer whether or not anyone is looking at it. The screen itself stays on the right. */
 function ComputerTab({ bot }: { bot: Bot }) {
   const toast = useStore((s) => s.toast);
   const [c, setC] = useState<ComputerStatus | null>(null);
@@ -134,7 +128,6 @@ function ComputerTab({ bot }: { bot: Bot }) {
     try {
       setC(await api.computers.keepAwake(bot.id, on));
     } catch (e) {
-      // The hub's answer says what to do next, and it belongs beside the switch.
       if (e instanceof ApiError && e.status === 409) setRefused(e.message);
       else toast("Couldn't change Always on: " + (e as Error).message, true);
     }
@@ -173,14 +166,12 @@ function ComputerTab({ bot }: { bot: Bot }) {
 function MemoryTab({ botId }: { botId: string }) {
   const live = useStore((s) => s.memory[botId]);
   const toast = useStore((s) => s.toast);
-  // Where "this chat" is for the reset: the open chat if the bot is in it, otherwise the bot's own DM.
   const room = useStore((s) => {
     const open = selectActiveRoom(s);
     return open?.memberIds.includes(botId) ? open : s.rooms.find((r) => r.kind === 'dm' && r.memberIds[0] === botId) ?? null;
   });
   const [text, setText] = useState('');
   const [dirty, setDirty] = useState(false);
-  // The cap (8 KB on the hub) and when auto-memory last wrote; refetched whenever memory.md changes.
   const [limit, setLimit] = useState<number | null>(null);
   const [autoSavedAt, setAutoSavedAt] = useState<number | null>(null);
   useEffect(() => {
@@ -195,7 +186,6 @@ function MemoryTab({ botId }: { botId: string }) {
   }, [botId, live]);
   const bytes = new TextEncoder().encode(text).length;
   const save = async () => {
-    // On failure the edit stays dirty, so nothing the user typed is lost and Save stays available.
     try {
       await api.bots.setMemory(botId, text);
       setDirty(false);
@@ -208,7 +198,6 @@ function MemoryTab({ botId }: { botId: string }) {
     if (!room) return;
     if (!(await confirmAction({ title: 'Reset chat context?', body: 'The bot forgets this chat. Its memory stays.', confirmLabel: 'Reset' }))) return;
     await api.bots.resetSession(botId, room.id);
-    // The session row is gone, so the context meter empties too.
     void useStore.getState().loadContext(room.id);
     toast('Chat context reset');
   };
@@ -229,7 +218,6 @@ function MemoryTab({ botId }: { botId: string }) {
 
 function SkillsTab({ botId }: { botId: string }) {
   const toast = useStore((s) => s.toast);
-  // P6: refetch when a version is proposed or decided (also from another window or a reflection pass).
   const skillsRev = useStore((s) => s.skillsRev);
   const bots = useStore((s) => s.bots);
   const [pool, setPool] = useState<Skill[]>([]);
@@ -259,7 +247,6 @@ function SkillsTab({ botId }: { botId: string }) {
     try {
       await api.bots.setSkills(botId, [...next]);
     } catch (e) {
-      // The checkbox flipped optimistically; put it back so it matches what the hub actually has.
       setAssigned(prev);
       toast("Couldn't update skills: " + (e as Error).message, true);
     }
@@ -335,14 +322,12 @@ function SkillsTab({ botId }: { botId: string }) {
         ))}
         {!pool.length && <li><EmptyState title="No skills yet" className="py-4">Import or create one.</EmptyState></li>}
       </ul>
-      {/* P6: opt-in post-run reflection for this bot */}
       <ReflectionSetting botId={botId} />
 
       {view && (
         <div className="rounded-lg bg-card2/60 p-2">
           <div className="mb-1 flex items-center justify-between text-hint"><span className="font-medium">{view.name}/SKILL.md</span><Button size="sm" variant="ghost" onClick={() => setView(null)}>Close</Button></div>
           <pre className="max-h-80 overflow-auto whitespace-pre-wrap font-mono text-hint text-muted">{view.markdown}</pre>
-          {/* P6: versions with a diff, Approve / Reject, and corrections */}
           <SkillVersionsPanel skill={view} onChanged={async () => { await load(); setView(await api.skills.get(view.id)); }} />
         </div>
       )}
