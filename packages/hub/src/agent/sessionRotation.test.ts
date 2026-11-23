@@ -208,6 +208,9 @@ describe('the token brake', () => {
     expect(s.provider.seen).toHaveLength(1);
     expect(s.provider.seen[0].cacheReadBudget).toBe(TURN_CACHE_READ_CAP);
     expect(r.ok).toBe(false);
+    // The step limit's error stays, so the router is told the brake did it and does not resume this session.
+    expect(r.error).toMatch(/^error_max_turns/);
+    expect(r.braked).toBe(true);
     expect(s.notes().some((t) => t.includes('stopped instead of continuing') && t.includes('cached tokens'))).toBe(true);
   });
 
@@ -216,5 +219,12 @@ describe('the token brake', () => {
     await s.turn();
     expect(s.provider.seen).toHaveLength(2);
     expect(s.provider.seen[1].cacheReadBudget).toBe(TURN_CACHE_READ_CAP - 1_000_000);
+  });
+
+  it('a turn the step limit alone stopped is not marked as braked', async () => {
+    const s = setup([{ error: 'error_max_turns' }]);
+    const r = await s.turn();
+    expect(r.error).toMatch(/^error_max_turns/);
+    expect(r.braked).toBeUndefined();
   });
 });

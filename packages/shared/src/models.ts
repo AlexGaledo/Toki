@@ -3,6 +3,7 @@ export const MAX_ROOM_BOTS = 20;
 
 import type { Approvals, ProviderId } from './providers.js';
 import type { TriggerPayload } from './triggers.js';
+import type { MessageVerification } from './protocol.js';
 
 export type BotState = 'idle' | 'thinking' | 'working' | 'waiting' | 'blocked' | 'done' | 'error';
 
@@ -256,6 +257,8 @@ export interface FormPayload {
 export interface CtaButton { label: string; say?: string; href?: string }
 /** On a `text` message: up to {@link MAX_CTA_BUTTONS} buttons under it. */
 export interface CtaPayload { cta: CtaButton[] }
+/** On a bot's final `text` message of a turn (B1): the hub could not see the change checked. Merged into any other payload. */
+export interface VerificationPayload { verification: MessageVerification }
 
 /**
  * Steering (02 Phase 1). What a person's message does when it reaches a bot that is busy in that room:
@@ -291,7 +294,7 @@ export interface Message {
   authorId: string | null; // bot id for bots, user id for people, null for system
   kind: MessageKind;
   text: string;
-  payload: ToolPayload | ApprovalPayload | HandoffPayload | HandoffResultPayload | RoutinePayload | WorkflowPayload | TriggerPayload | TakeoverPayload | TurnFailurePayload | FormPayload | CtaPayload | DeliveryPayload | null;
+  payload: ToolPayload | ApprovalPayload | HandoffPayload | HandoffResultPayload | RoutinePayload | WorkflowPayload | TriggerPayload | TakeoverPayload | TurnFailurePayload | FormPayload | CtaPayload | DeliveryPayload | VerificationPayload | null;
   causeId: string | null;
   hop: number;
   turnId: string | null;

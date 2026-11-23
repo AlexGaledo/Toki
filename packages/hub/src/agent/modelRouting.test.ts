@@ -121,8 +121,8 @@ describe('BotRunner routes auto bots per turn', () => {
     await s.turn();
     expect(s.provider.seen).toHaveLength(1 + MAX_TURN_CONTINUATIONS);
     expect(new Set(s.provider.seen.map((c) => c.model))).toEqual(new Set(['claude-sonnet-5']));
-    // Each continuation gets what is left: 2, then 1.5, then 1 ... for as many as MAX_TURN_CONTINUATIONS allows (1 now).
-    expect(s.provider.seen.map((c) => c.maxBudgetUsd)).toEqual([2, 1.5, 1].slice(0, 1 + MAX_TURN_CONTINUATIONS));
+    // Each continuation gets what is left: 2, then 1.5, then 1 ... for as many as MAX_TURN_CONTINUATIONS allows (3 now).
+    expect(s.provider.seen.map((c) => c.maxBudgetUsd)).toEqual([2, 1.5, 1, 0.5].slice(0, 1 + MAX_TURN_CONTINUATIONS));
   });
 
   it('records what the opt-in classifier cost against the same cause', async () => {

@@ -12,6 +12,19 @@ DIR="${2:-/home/pocketrocket/pocketrocket}"
 APP_USER="pocketrocket"
 cd "$(dirname "$0")/.."
 
+if [ "${DEPLOY_ANY_TREE:-0}" != "1" ]; then
+  git fetch -q origin main
+  if [ -n "$(git status --porcelain)" ] || [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    echo "deploy.sh ships this folder as it is on disk, so it must be a clean checkout of origin/main." >&2
+    echo "  HEAD:        $(git rev-parse --short HEAD) ($(git rev-parse --abbrev-ref HEAD))" >&2
+    echo "  origin/main: $(git rev-parse --short origin/main)" >&2
+    echo "Run it from a clean worktree instead:" >&2
+    echo "  git worktree add --detach ../toki-deploy origin/main && cd ../toki-deploy && bash scripts/deploy.sh $HOST" >&2
+    echo "(DEPLOY_ANY_TREE=1 skips this check, e.g. for a deliberate hotfix test.)" >&2
+    exit 1
+  fi
+fi
+
 echo "==> legacy migration check on $HOST (claudebot -> pocketrocket rename)"
 ssh "$HOST" '
   if [ -d /root/claudebot ] && [ ! -d /root/pocketrocket ]; then
