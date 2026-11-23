@@ -116,3 +116,32 @@ A1 → A2 → A3 (one PR each), then B1 + B4, then A6, then the rest. A1–A3 ar
 ## 5. Open questions for the owner
 - Merge policy: she lets agents automerge once checks are strong. Toki stays human-merge for now. Revisit after A1–A6?
 - B1 "unverified" labelling: a soft label, or block the bot from reporting done?
+
+## 6. Revised plan and status (2026-11-24)
+
+The plan was reviewed before work started and changed:
+- **Added A0:** turn the owner's prose corrections into checks first.
+- **Lint tool:** ESLint bulk suppressions replace oxlint, since oxlint has no built-in ratchet.
+- **A3 after A4:** prose is cut only once a check exists.
+- **A7 dropped:** stricter TypeScript costs too much.
+- **B1 is mechanical:** edits with no later test, build or screenshot.
+- **Other projects deferred:** C waits until the Toki template is proven.
+- **No license issue:** pstack is MIT, so it is adapted with credit.
+
+| Item | PR | State |
+|---|---|---|
+| A0 deploy/CHANGELOG/line-ending guards | #224 | merged |
+| B4 prove-it skill | #225 | merged |
+| A4 rule tests | #226 | merged |
+| Cut-off fix + B1 unverified label | #227 | merged |
+| A1+A2 ESLint ratchet + boundaries | #228 | merged |
+| B2 propose_rule + B3 prompt cut (10.5k → 8.8k chars) | #229 | merged |
+| A6 control-toki + verify-toki + feature map, and the sidebar click-freeze it found | #231 | merged |
+| A3 AGENTS.md rule → enforcer table, agent notes 4,163 → 979 words | #233 | merged |
+| Recorder Chromium test (flaky nav, retry + diagnostics) | #230, #232 | merged; root cause open |
+| A5 comment cleanup, per package | in progress | |
+| A8 formal verification, C other projects | later | |
+
+Owner decisions still open:
+- B1 stays a label, not a block.
+- Agents do not merge their own PRs.
