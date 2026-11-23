@@ -30,6 +30,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Repo guards (line endings, CHANGELOG)
+        run: node --test scripts/repo-guards.test.mjs
+
+      - name: CHANGELOG released sections are append-only
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "${{ github.base_ref }}"
+          git show FETCH_HEAD:CHANGELOG.md > "$RUNNER_TEMP/changelog-base.md"
+          node scripts/changelog-guard.mjs "$RUNNER_TEMP/changelog-base.md" CHANGELOG.md
+
       - name: Check version sync
         run: node scripts/version.mjs --check
 
