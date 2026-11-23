@@ -14,12 +14,6 @@ import { EMPTY_USAGE, type TurnContext, type TurnOutcome, type TurnSink } from '
 import { SWITCH_SEED_LEAD, switchNote } from '../services/SessionRotation.js';
 import { BotRunner, type TurnResult } from './BotRunner.js';
 
-/** M6 (spec 01 P1-2, P1-4, P1-7): a provider per bot, through BotRunner and the real registry. */
-
-/**
- * The placeholder adapter (providers/stub.ts) with a turn that waits to be released or stopped, so two turns can be
- * held open at once and Stop can be aimed at one of them.
- */
 class HeldProvider extends StubProvider {
   started: TurnContext[] = [];
   interrupted: string[] = [];
@@ -42,7 +36,6 @@ class HeldProvider extends StubProvider {
     done({ ok: false, error: 'interrupted' });
     return true;
   }
-  /** Ends every turn still open, successfully. */
   finish() {
     for (const [id, done] of [...this.open]) {
       this.open.delete(id);
@@ -87,7 +80,7 @@ function setup() {
 describe('M6: each bot runs on its own provider (P1-2)', () => {
   it('two bots on two providers run at the same time, and Stop reaches only the provider running that turn', async () => {
     const s = setup();
-    const ada = s.mk('Ada', 'ada', null); // follows the default (Claude)
+    const ada = s.mk('Ada', 'ada', null);
     const cy = s.mk('Cy', 'cy', 'codex');
     const adaTurn = s.turn(ada.bot, ada.room);
     const cyTurn = s.turn(cy.bot, cy.room);
@@ -95,7 +88,6 @@ describe('M6: each bot runs on its own provider (P1-2)', () => {
     expect(s.claude.started[0].bot.id).toBe(ada.bot.id);
     expect(s.codex.started[0].bot.id).toBe(cy.bot.id);
 
-    // Stop Cy's turn: only Codex is asked, and Ada's Claude turn keeps running.
     expect(s.runner.interrupt(s.codex.started[0].turnId, 'owner')).toBe(true);
     expect(s.codex.interrupted).toEqual([s.codex.started[0].turnId]);
     expect(s.claude.interrupted).toEqual([]);
@@ -103,12 +95,10 @@ describe('M6: each bot runs on its own provider (P1-2)', () => {
     expect(cyResult.stoppedBy).toBe('owner');
     expect(s.runner.isActive(s.claude.started[0].turnId)).toBe(true);
 
-    // A turn id no provider is running stops nothing (it used to fall through to the default provider).
     expect(s.runner.interrupt('no-such-turn')).toBe(false);
 
     s.claude.finish();
     expect((await adaTurn).ok).toBe(true);
-    // Usage rows name the provider that ran each turn.
     expect(s.repos.usageBy('provider').map((g) => g.key).sort()).toEqual(['claude', 'codex']);
   });
 
@@ -121,7 +111,6 @@ describe('M6: each bot runs on its own provider (P1-2)', () => {
     expect(s.repos.usageBy('provider')).toEqual([expect.objectContaining({ key: 'codex', costUsd: 0, turns: 1 })]);
     expect(s.repos.usageBy('model').map((g) => g.key)).toEqual(['gemini-3.1-pro']);
 
-    // Negative: a run that died before any answer (not accounted, nothing reported) leaves no row.
     next = { ok: false, error: 'agy exited with code 3', costUsd: 0, usage: { ...EMPTY_USAGE }, durationMs: 1 };
     await s.turn(cy.bot, cy.room);
     expect(s.repos.usageTotals({ botId: cy.bot.id }).turns).toBe(1);
@@ -164,7 +153,6 @@ describe('M6: changing a bot\'s provider keeps the agent (P1-4)', () => {
     const say = (text: string) => s.repos.insertMessage({ roomId: room.id, authorType: 'user', authorId: null, kind: 'text', text, payload: null, causeId: null, hop: 0, turnId: null });
     say('Plan the launch report.');
 
-    // Turn 1 on Claude: a session is stored for Claude.
     let t = s.turn(bot, room);
     await s.until(() => s.claude.started.length === 1);
     s.claude.finish();
@@ -174,7 +162,6 @@ describe('M6: changing a bot\'s provider keeps the agent (P1-4)', () => {
     expect(s.repos.getSession(bot.id, room.id)).toMatchObject({ provider: 'claude', sdkSessionId: 'claude-session-1' });
     const promptOnClaude = s.claude.started[0].systemPrompt;
 
-    // The owner moves Ada to Codex. Its next turn cannot resume Claude's session: it starts over, seeded.
     s.repos.updateBot(bot.id, { provider: 'codex' });
     t = s.turn(bot, room);
     await s.until(() => s.codex.started.length === 1);
@@ -184,7 +171,6 @@ describe('M6: changing a bot\'s provider keeps the agent (P1-4)', () => {
     expect(onCodex.input).toContain('<earlier_context>');
     expect(onCodex.input).toContain(SWITCH_SEED_LEAD);
     expect(onCodex.input).toContain('Ship it on Friday.');
-    // Memory and identity carry over unchanged.
     expect(onCodex.systemPrompt).toContain('Ada writes reports.');
     expect(promptOnClaude).toContain('Ada writes reports.');
     s.codex.finish();
@@ -192,7 +178,6 @@ describe('M6: changing a bot\'s provider keeps the agent (P1-4)', () => {
     expect(s.notes(room.id)).toContain(switchNote('Ada', 'Codex'));
     expect(switchNote('Ada', 'Codex')).toBe('Ada now runs on Codex; earlier context carried over as a summary.');
 
-    // The next Codex turn resumes Codex's own session, with no new note.
     t = s.turn(bot, room);
     await s.until(() => s.codex.started.length === 2);
     expect(s.codex.started[1].resumeToken).toBe('codex-session-1');
@@ -200,7 +185,6 @@ describe('M6: changing a bot\'s provider keeps the agent (P1-4)', () => {
     s.codex.finish();
     await t;
 
-    // Back to Claude: a fresh, seeded session again, not the old Claude one (its cost baseline is gone).
     s.repos.updateBot(bot.id, { provider: null });
     t = s.turn(bot, room);
     await s.until(() => s.claude.started.length === 2);
@@ -219,7 +203,6 @@ describe('M6: the rotation summary is a Claude pass (P1-6)', () => {
     s.runner.summarize = async () => { calls++; return { ok: true, text: 'x', usage: { ...EMPTY_USAGE }, costUsd: 0 } as never; };
     s.runner.claudeReady = () => false;
     const { bot, room } = s.mk('Ada', 'ada', null);
-    // Enough seen messages that a summary would be written for the ones older than the replayed window.
     let last = 0;
     for (let i = 0; i < 40; i++) last = s.repos.insertMessage({ roomId: room.id, authorType: 'user', authorId: null, kind: 'text', text: 'msg ' + i, payload: null, causeId: null, hop: 0, turnId: null }).seq;
     s.repos.saveSession(bot.id, room.id, { lastSeenSeq: last, provider: 'claude', sdkSessionId: 'old' });
@@ -230,7 +213,6 @@ describe('M6: the rotation summary is a Claude pass (P1-6)', () => {
     s.codex.finish();
     await t;
     expect(calls).toBe(0);
-    // Ready again: the same path writes the summary.
     s.runner.claudeReady = () => true;
     s.repos.updateBot(bot.id, { provider: null });
     const t2 = s.turn(bot, room);
@@ -260,7 +242,6 @@ describe('M6: skills as text for providers other than Claude (P1-7)', () => {
     s.codex.finish();
     await t;
 
-    // The owner assigns another skill mid-session: the resumed session keeps the prompt it started with.
     const more = s.repos.upsertSkill({ name: 'another', description: 'Another skill', path: '/x/another', source: 'authored', reviewStatus: 'approved', createdByBot: null });
     s.repos.setBotSkills(bot.id, [skill.id, more.id]);
     t = s.turn(bot, room);

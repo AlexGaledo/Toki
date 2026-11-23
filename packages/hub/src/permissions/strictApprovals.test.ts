@@ -14,12 +14,6 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import { BotRunner, type TurnRequest, type TurnResult } from '../agent/BotRunner.js';
 import { RoomRouter } from '../rooms/RoomRouter.js';
 
-/**
- * Decision Q6 (docs/specs/decisions.md): a turn started by a routine (and, from P5, a trigger) goes through
- * approvals even when the hub runs in bypass mode. Nobody is watching a 3 a.m. routine, so "the user is in
- * charge" cannot stand in for the cards.
- */
-
 const until = async (cond: () => boolean) => {
   for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 5));
   expect(cond()).toBe(true);
@@ -136,7 +130,7 @@ describe('RoomRouter marks every turn on a non-user thread strict', () => {
     } as unknown as BotRunner;
 
     router.onUserMessage(room.id, 'hello');
-    await until(() => reqs.length === 2); // ann, then bob from ann's mention
+    await until(() => reqs.length === 2);
     expect(reqs.map((r) => r.strictApprovals)).toEqual([false, false]);
 
     router.fireRoutine(room, a, '[Routine "x"] go', { routineId: 'r', runId: 'run', name: 'x' });

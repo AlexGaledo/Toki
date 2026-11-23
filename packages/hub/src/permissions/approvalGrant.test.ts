@@ -4,12 +4,7 @@ import { Repos } from '../db/repos.js';
 import { PermissionBroker, GRANT_TTL_MS } from './PermissionBroker.js';
 import { events } from '../events.js';
 
-/**
- * Audit 2026-09-09, B10: `request_approval` returned a bare boolean, so nothing tied the "yes" to what the
- * card actually showed. It now returns an approvalId naming a recorded grant. The binding is advisory —
- * Codex and Grok run their own tool loop and the hub cannot force them — which is why the tool description
- * says so and why this suite asserts the record exists rather than that it is enforced.
- */
+/** The grant binding is advisory: Codex and Grok run their own tool loop and the hub cannot force them. */
 
 function setup() {
   const repos = new Repos(new Db(':memory:'));
@@ -46,7 +41,6 @@ describe('request_approval grants', () => {
       command: 'rm -rf /tmp/build',
       paths: ['/tmp/build'],
     });
-    // Ten minutes, matching the approval card's own timeout.
     expect(grant.expiresAt).toBeGreaterThan(Date.now());
     expect(grant.expiresAt).toBeLessThanOrEqual(Date.now() + GRANT_TTL_MS);
   });
@@ -70,7 +64,6 @@ describe('request_approval grants', () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + GRANT_TTL_MS + 1);
     expect(s.broker.getGrant(r.approvalId!)).toBeNull();
     vi.restoreAllMocks();
-    // Once expired it stays gone, not resurrected by the clock going back.
     expect(s.broker.getGrant(r.approvalId!)).toBeNull();
   });
 

@@ -12,12 +12,6 @@ import { RoomRouter } from '../rooms/RoomRouter.js';
 import { events } from '../events.js';
 import { createHubTools, type ToolCtx } from './botTools.js';
 
-/**
- * Workflows 3.4: `create_workflow` / `update_workflow` are fleet changes (a workflow is autonomous future spend), so
- * both show the owner an approval card first and change nothing when it is declined; `list_workflows` is silent.
- * No workflow tool can answer a workflow approval card or touch settings.
- */
-
 type Answer = 'allow' | 'deny';
 
 function setup(answer: Answer) {
@@ -140,7 +134,7 @@ describe('workflow bot tools', () => {
     const listed = (await s.tool('list_workflows').handler({})).content[0] as { text: string };
     s.off();
     expect(listed.text).toContain('W id=');
-    expect(s.cards.map((c) => c.toolName)).toEqual(['create_workflow']); // the list and the failed updates raised no card
+    expect(s.cards.map((c) => c.toolName)).toEqual(['create_workflow']);
   });
 
   it('decide() lets the gated tools through to raise their own card, and the list through silently', async () => {

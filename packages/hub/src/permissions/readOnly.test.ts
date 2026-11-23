@@ -4,10 +4,6 @@ import { Repos } from '../db/repos.js';
 import { PermissionBroker } from './PermissionBroker.js';
 import { events } from '../events.js';
 
-/**
- * The 'read-only' approvals setting: a write is refused outright, with no card raised at all — unlike 'ask'
- * (which would raise one) and unlike 'bypass' (which would allow it).
- */
 function setup() {
   const repos = new Repos(new Db(':memory:'));
   const bot = repos.createBot({ name: 'Codey', handle: 'codey', title: '', description: 'x', avatar: '🤖', model: 'm', allowedTools: ['Bash'], maxBudgetUsd: 2 });

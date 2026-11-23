@@ -2,7 +2,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-// Capture the options the Claude provider hands the SDK, and end the turn at once.
 const sdk = vi.hoisted(() => ({ options: [] as Record<string, unknown>[] }));
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@anthropic-ai/claude-agent-sdk')>()),
@@ -21,10 +20,6 @@ import type { TurnContext } from './types.js';
 import type { OutsideMcpServer } from '../services/outsideMcp.js';
 import { HUB_KEYS_MESSAGE } from '../permissions/secretFiles.js';
 
-/**
- * Outside MCP servers reach the SDK as stdio or http, and the ones with `approve` set get a PreToolUse card in
- * bypass mode too. The secret-file guard is installed in every mode.
- */
 type Hook = { matcher: string; hooks: ((i: unknown) => Promise<{ hookSpecificOutput?: { permissionDecision: string; permissionDecisionReason: string } }>)[] };
 
 const servers: OutsideMcpServer[] = [

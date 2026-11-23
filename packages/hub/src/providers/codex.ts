@@ -64,8 +64,6 @@ export const CODEX_HINT =
 const VERSION_TIMEOUT_MS = 3000;
 const LOGIN_TIMEOUT_MS = 5000;
 
-// ---------------------------------------------------------------- process helpers
-
 /**
  * Node refuses to spawn a `.cmd`/`.bat` directly since 20.12 (and `shell: true` would re-quote our args),
  * so route those through cmd.exe ourselves. A `.mjs`/`.js` path runs under this Node — that is how the
@@ -88,7 +86,6 @@ export interface RunResult {
   stderr: string;
 }
 
-/** Run the CLI once and collect its output; never rejects. Shared with the ACP adapter (providers/acp/client.ts). */
 export function run(exe: string, args: string[], timeoutMs: number): Promise<RunResult> {
   return new Promise((resolve) => {
     const { command, argv } = spawnTarget(exe, args);
@@ -158,17 +155,15 @@ export async function findCodexExe(): Promise<string | null> {
   return [...hits].sort((a, b) => rank(a) - rank(b))[0];
 }
 
-// ---------------------------------------------------------------- argv
-
 export interface CodexArgsInput {
   workspaceDir: string;
   botHome: string;
   model: string;
   mcpUrl: string;
   resumeToken: string | null;
-  /** The bot has no Bash: drop the sandbox to read-only so it cannot shell out at all. */
+  /** No Bash: a read-only sandbox, so it cannot shell out at all. */
   readOnly: boolean;
-  /** Approvals bypassed: `--sandbox danger-full-access` (unless readOnly, which still wins). */
+  /** readOnly still wins over bypass. */
   fullAccess?: boolean;
 }
 
@@ -195,13 +190,11 @@ export function buildCodexArgs(i: CodexArgsInput): string[] {
     '-c',
     'mcp_servers.pocketrocket.bearer_token_env_var="POCKETROCKET_MCP_TOKEN"',
   );
-  // Only meaningful under workspace-write; the bot's private home lives outside the shared workspace.
   if (!i.readOnly && !i.fullAccess) args.push('-c', 'sandbox_workspace_write.writable_roots=[' + JSON.stringify(i.botHome) + ']');
-  args.push('-'); // read the prompt from stdin
+  args.push('-');
   return args;
 }
 
-/** Fresh thread: the whole system prompt. Resume: one line of context, the thread already has the rules. */
 export function buildCodexPrompt(ctx: Pick<TurnContext, 'systemPrompt' | 'input' | 'resumeToken' | 'bot'>): string {
   if (!ctx.resumeToken) return ctx.systemPrompt + '\n\n---\n\n' + ctx.input;
   return (
@@ -220,16 +213,9 @@ export function parseAuth(loginOk: boolean, loginOutput: string, hasApiKey: bool
   return hasApiKey ? 'apiKey' : 'none';
 }
 
-// ---------------------------------------------------------------- provider
-
 export interface CodexProviderOptions {
-  /** Absolute path to the CLI (or a `.mjs` script). Tests inject a fake; production auto-detects. */
   exe?: string;
   secrets?: Pick<SecretsStore, 'get'>;
-  /**
-   * Extra variables to add to the child's (allowlisted) environment. Only the test harness uses it, to
-   * hand the fake CLI its FAKE_CODEX_* knobs — the allowlist deliberately drops anything unrecognised.
-   */
   env?: NodeJS.ProcessEnv;
 }
 
@@ -237,7 +223,6 @@ export class CodexProvider implements AgentProvider {
   readonly id = 'codex' as const;
   readonly label = CODEX_INFO.label;
   readonly info = CODEX_INFO;
-  /** In-flight children, so interrupt()/abort can tree-kill them. `killed` distinguishes a stop from a crash. */
   private active = new Map<string, { child: ChildProcess; killed: boolean }>();
   private secrets: Pick<SecretsStore, 'get'>;
 
@@ -306,8 +291,7 @@ export class CodexProvider implements AgentProvider {
       fullAccess: !!ctx.bypassPermissions,
     });
 
-    // Allowlisted env only (audit 2026-09-09, B7): OPENAI_API_KEY, CODEX_HOME and the per-turn MCP token,
-    // never the hub token and never another provider's key.
+    // Allowlisted env only: OPENAI_API_KEY, CODEX_HOME and the per-turn MCP token, never the hub token or another key.
     const apiKey = this.secrets.get('OPENAI_API_KEY');
     const env = childEnv('codex', {
       POCKETROCKET_MCP_TOKEN: ctx.mcp.token,
@@ -349,7 +333,6 @@ export class CodexProvider implements AgentProvider {
       child.stdout?.setEncoding('utf8');
       child.stdout?.on('data', (chunk: string) => {
         parser.push(chunk);
-        // Usage only lands on turn.completed, so this is the earliest a budget breach can be seen.
         if (!budgetKilled && ctx.maxBudgetUsd > 0 && cost() > ctx.maxBudgetUsd) {
           budgetKilled = true;
           killTree(child);
@@ -362,7 +345,7 @@ export class CodexProvider implements AgentProvider {
       });
 
       const prompt = buildCodexPrompt(ctx);
-      child.stdin?.on('error', () => undefined); // the CLI may exit before reading the prompt
+      child.stdin?.on('error', () => undefined);
       child.stdin?.end(prompt);
 
       const code = await new Promise<number | null>((resolve) => {
@@ -377,7 +360,6 @@ export class CodexProvider implements AgentProvider {
       const costUsd = cost();
       const usage = {
         costUsd,
-        // OpenAI counts cache reads inside input_tokens; the hub shows them as separate columns.
         inputTokens: Math.max(0, parser.usage.inputTokens - parser.usage.cachedInputTokens),
         outputTokens: parser.usage.outputTokens,
         cacheReadTokens: parser.usage.cachedInputTokens,

@@ -22,7 +22,6 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** Tool names the hub registers with a string literal: `hubTool('name', ...)`. Integration tools pass a variable. */
 function registeredInSource(): Set<string> {
   const found = new Set<string>();
   for (const f of sourceFiles(SRC)) {
@@ -31,7 +30,6 @@ function registeredInSource(): Set<string> {
   return found;
 }
 
-/** The public Claude-project connector is its own MCP server with its own token; it is not a `pocketrocket` tool. */
 const NOT_ON_THE_POCKETROCKET_SERVER = new Set(['save_project_context']);
 
 describe('hub tool registry (B3)', () => {

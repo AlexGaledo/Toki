@@ -18,7 +18,6 @@ export const GROK_INFO: ProviderStaticInfo = {
   maturity: 'untested',
 };
 
-/** Fallback list (docs.x.ai/docs/models). `models()` prefers whatever the installed CLI reports. */
 export const GROK_MODELS: ModelInfo[] = [
   { id: 'grok-4.6', label: 'Grok 4.6', note: 'strongest, default', default: true },
   { id: 'grok-4.5', label: 'Grok 4.5', note: 'previous flagship' },
@@ -39,10 +38,8 @@ export interface Probe {
   error?: string;
 }
 
-/** Seams for the tests: no real `grok` binary exists on CI, and spawning one would be slow anyway. */
 export interface GrokDeps {
   spawn?: typeof spawn;
-  /** Runs a short `grok <args>` probe (`--version`, `models`). */
   probe?: (exe: string, args: string[], env: NodeJS.ProcessEnv) => Promise<Probe>;
   exe?: string;
   home?: string;
@@ -72,7 +69,6 @@ export class GrokProvider implements AgentProvider {
   readonly info = GROK_INFO;
   private active = new Map<string, ChildProcess>();
   private modelCache: { at: number; models: ModelInfo[] } | null = null;
-  /** Last `grok --version` seen by check(); reported on GET /api/health. */
   private cliVersion: string | undefined;
   lastInit: ProviderInit = {};
 
@@ -174,7 +170,7 @@ export class GrokProvider implements AgentProvider {
       maxTurns: ctx.maxTurns,
       resumeToken: ctx.resumeToken,
       allowedBuiltins: ctx.allowedBuiltins,
-      // Approvals bypassed: no filesystem sandbox (the --deny rules for tools the bot lacks still apply).
+      // Bypass drops the filesystem sandbox, but the --deny rules for tools the bot lacks still apply.
       ...(ctx.bypassPermissions ? { sandbox: null } : {}),
     });
 
@@ -223,7 +219,6 @@ export class GrokProvider implements AgentProvider {
           const e = ev as Extract<GrokEvent, { type: 'tool_call' }>;
           const id = e.toolCallId ?? 'grok-tool-' + state.toolIds.size;
           state.toolIds.add(id);
-          // Text before a tool call is a complete assistant block; post it now so the chip lands after it.
           flushText();
           sink.onToolUse(id, e.toolName ?? e.title ?? 'tool', e.rawInput ?? {});
           sink.onState('working');
@@ -238,7 +233,6 @@ export class GrokProvider implements AgentProvider {
           return;
         }
         case 'usage': {
-          // One per model response: a natural assistant-message boundary, and the budget checkpoint.
           const t = tokensFrom((ev as { usage?: GrokUsageBlock }).usage);
           state.running.inputTokens += t.inputTokens;
           state.running.outputTokens += t.outputTokens;
@@ -262,7 +256,6 @@ export class GrokProvider implements AgentProvider {
           const e = ev as Extract<GrokEvent, { type: 'end' }>;
           if (e.sessionId) state.sessionId = e.sessionId;
           if (e.usage) state.final = e.usage;
-          // Omitted (not zero) when cost was partial or unreported; then the local estimate stands in.
           if (typeof e.total_cost_usd === 'number') state.reportedCost = e.total_cost_usd;
           return;
         }
@@ -301,8 +294,6 @@ export class GrokProvider implements AgentProvider {
 
     if (state.sessionId) sink.onSession(state.sessionId);
 
-    // `end.usage` is the authoritative total; the summed per-response lines are the fallback when the process
-    // died before it (interrupt, crash, budget stop).
     const usedFinal = state.final ? tokensFrom(state.final) : state.running;
     const costUsd = state.reportedCost ?? estimateCostUsd(ctx.model, usedFinal);
     const durationMs = Date.now() - started;

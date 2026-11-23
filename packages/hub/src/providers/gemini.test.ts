@@ -12,8 +12,6 @@ import { AGY_TESTED, GEMINI_INFO, GEMINI_MODELS, agyResetMs, agySettingsPath, ag
 import { unattendedRefusal } from './unattended.js';
 import type { Bot } from '@pocketrocket/shared';
 
-/** P2-2: the Gemini preset (`agy acp`). Untested against a real agy; these pin the contract the owner's live test checks. */
-
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FAKE = path.resolve(HERE, '..', '..', 'test-fixtures', 'acp', 'fake-acp-agent.mjs');
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(HERE, '__fixtures__', 'gemini', 'limit-quota.synthetic.json'), 'utf8')) as Record<
@@ -88,7 +86,6 @@ describe('reported auth', () => {
     expect(parseGeminiAuth({ _meta: { authType: 'something-new' } })).toEqual({ auth: 'unknown', method: 'something-new' });
     expect(parseGeminiAuth({})).toEqual({ auth: 'unknown' });
     expect(parseGeminiAuth(null)).toEqual({ auth: 'unknown' });
-    // A key in the store is not a report: nothing here reads the environment.
     expect(parseGeminiAuth({ _meta: { model: 'gemini-3-pro' } })).toEqual({ auth: 'unknown' });
   });
 });

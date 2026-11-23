@@ -35,7 +35,6 @@ export type GrokEvent =
     }
   | { type: string; [k: string]: unknown };
 
-/** Splits a chunked stdout stream into whole lines and parses each as JSON. Junk lines are dropped. */
 export class NdjsonParser {
   private buf = '';
 
@@ -52,7 +51,6 @@ export class NdjsonParser {
     return out;
   }
 
-  /** Whatever is left when the process exits without a trailing newline. */
   flush(): GrokEvent[] {
     const rest = this.buf;
     this.buf = '';
@@ -82,7 +80,6 @@ export function tokensFrom(u: GrokUsageBlock | undefined): TokenCounts {
   };
 }
 
-/** `tool_call_update.rawOutput`/`content` is free-form; render it for the tool chip. */
 export function renderToolOutput(ev: { rawOutput?: unknown; content?: unknown }): string {
   const v = ev.rawOutput ?? ev.content;
   if (v === undefined || v === null) return '';

@@ -118,7 +118,6 @@ describe('a repo\'s protected branches (repos.json)', () => {
     expect(d('git push fork staging')).toBeNull();
     expect(d('git push https://github.com/someone/fork staging')).toBeNull();
     expect(defaultBranchPushDenied('git push origin staging', '/repo', info)).toBeNull();
-    // main is still protected with or without the list
     expect(d('git push origin main')).not.toBeNull();
   });
 });

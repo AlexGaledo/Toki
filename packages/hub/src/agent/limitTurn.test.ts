@@ -13,8 +13,6 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import { resetTime } from './turnFailure.js';
 import { BotRunner } from './BotRunner.js';
 
-/** M5 (spec 01 P0-1..P0-4) through BotRunner: the limit note, the hold, and the usage row's model. */
-
 class ScriptedProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Claude';
@@ -56,10 +54,8 @@ describe('a turn that ends on a provider limit', () => {
     expect(r.ok).toBe(false);
     expect(r.finalText).toBe('');
     const [note] = s.notes();
-    // M8: no backup set, so no card: the note points at the bot's settings instead.
     expect(note.text).toBe('Ada turn ended: Claude 5-hour limit reached, resets ' + resetTime(resetsAt) + ". Set a backup in Ada's settings to continue on another provider next time.");
     expect(note.payload).toEqual({ turnFailure: 'external', setBackup: true });
-    // The router reads these to decide on a failover card.
     expect(r.limit).toEqual({ kind: 'usage', window: 'five_hour', resetsAt });
     expect(r.provider).toBe('claude');
     expect(s.repos.listMessages(s.room.id, { limit: 50 }).filter((m) => m.authorType === 'bot')).toEqual([]);

@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
-// Capture the options the Claude provider hands the SDK, and end the turn at once.
 const sdk = vi.hoisted(() => ({ options: [] as Record<string, unknown>[] }));
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@anthropic-ai/claude-agent-sdk')>()),
@@ -83,7 +82,6 @@ describe('rm always asks', () => {
     'cat <(rm a.txt)',
   ])('%s', (cmd) => {
     expect(gate(cmd)).not.toBeNull();
-    // The hook's ask lands in the broker: it must hold there too, and approval rules must not cover it.
     expect(classifyBash(cmd, [ws])).toMatchObject({ verdict: 'ask', danger: true });
   });
 

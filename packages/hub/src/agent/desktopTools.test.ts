@@ -5,11 +5,6 @@ import { desktopTools, DESKTOP_TOOL_NAMES } from './desktopTools.js';
 import { WORKSPACE_DIR } from '../config.js';
 import type { ToolOutput } from '../providers/types.js';
 
-/**
- * Audit 2026-09-09, B14: `desktop_launch` allowlisted `xfce4-terminal`, and `desktop_type`/`desktop_key`
- * then drove it — arbitrary command execution that never reaches bashRules or an approval card.
- */
-
 const launch = () => desktopTools().find((t) => t.name === 'desktop_launch')!;
 const message = (o: ToolOutput) => o.content.map((c) => ('text' in c ? c.text : '')).join(' ');
 
@@ -43,8 +38,6 @@ describe('desktop_launch', () => {
     fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
     const f = path.join(WORKSPACE_DIR, 'desktop-launch-probe.txt');
     fs.writeFileSync(f, 'hello');
-    // On a machine with no xdotool/scrot the spawn or screenshot fails, but the guard must not be what
-    // rejects it: the allowlist and path check are the thing under test.
     const out = await launch().handler({ command: 'mousepad desktop-launch-probe.txt' });
     expect(message(out)).not.toContain('Terminals and shells are not launchable');
     expect(message(out)).not.toContain('inside the workspace');

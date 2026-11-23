@@ -3,10 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-/**
- * P1 task 1.3: "Bot A's clicks never land on Bot B's screen". Every xdotool/scrot call carries the DISPLAY and
- * XAUTHORITY of the computer the tools were built for, never the hub's own.
- */
 const calls: Array<{ cmd: string; display?: string; xauth?: string }> = [];
 vi.mock('node:child_process', async (orig) => {
   const real = await orig<typeof import('node:child_process')>();

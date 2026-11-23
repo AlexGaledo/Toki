@@ -13,12 +13,6 @@ import type { PassOutcome } from '../services/AutoMemory.js';
 import { BotRunner } from './BotRunner.js';
 import { ROTATE_CONTEXT_TOKENS, ROTATE_IDLE_MS, ROTATE_SEED_MESSAGES, TURN_CACHE_READ_CAP } from '../config.js';
 
-/**
- * Token efficiency in the runner: sessions rotate instead of growing forever (legacy rows once, on their next turn),
- * the SDK's cumulative cost is turned into a per-run baseline, the system prompt keeps the memory a session started
- * with, and a turn that has read too many cached tokens is not continued.
- */
-
 type Step = Partial<TurnOutcome> & { cacheRead?: number };
 
 class ScriptedProvider implements AgentProvider {
@@ -62,7 +56,6 @@ function setup(script: Step[], providerId: ProviderId = 'claude') {
     summaries.push(prompt);
     return { ok: true, text: '- the user wants the report in French', usage: { ...EMPTY_USAGE, costUsd: 0.001, inputTokens: 900, outputTokens: 40 } };
   };
-  /** n conversation messages the bot has already seen. */
   const history = (n: number) => {
     for (let i = 1; i <= n; i++) {
       repos.insertMessage({ roomId: room.id, authorType: i % 2 ? 'user' : 'bot', authorId: i % 2 ? null : bot.id, kind: 'text', text: 'line ' + i, payload: null, causeId: null, hop: 0, turnId: null });
@@ -80,7 +73,6 @@ describe('legacy sessions (no context size recorded) rotate once, on their next 
     const s = setup([{ ok: true, costUsd: 0.4, sessionCostUsd: 0.4, contextTokens: 9000 }]);
     s.history(4);
     s.resumeFrom('legacy-200k');
-    // A pre-migration row: context_tokens and cost_total are NULL.
     expect(s.repos.getSessionState(s.bot.id, s.room.id)).toMatchObject({ contextTokens: null, costTotal: null });
 
     await s.turn();
@@ -92,12 +84,9 @@ describe('legacy sessions (no context size recorded) rotate once, on their next 
     expect(ctx.input).toContain('line 4');
     expect(ctx.input.endsWith('new question')).toBe(true);
     expect(s.notes().some((t) => t.includes('starting a fresh session to save tokens'))).toBe(true);
-    // Few messages: the seed already holds them all, so no summary call is spent.
     expect(s.summaries).toHaveLength(0);
-    // The fresh session's numbers are stored, so the next turn resumes it.
     expect(s.repos.getSessionState(s.bot.id, s.room.id)).toMatchObject({ costTotal: 0.4, contextTokens: 9000 });
     expect(s.repos.getSession(s.bot.id, s.room.id, 'claude').sdkSessionId).toBe('new-1');
-    // Only the turn's own cost was recorded.
     expect(s.repos.usageTotals({ botId: s.bot.id }).costUsd).toBeCloseTo(0.4);
   });
 
@@ -151,7 +140,6 @@ describe('measured sessions rotate on size and on a cold cache', () => {
     await s.turn();
 
     expect(s.provider.seen[0].resumeToken).toBeNull();
-    // The summary pass sees the previous summary and only the messages the seed will not replay.
     expect(s.summaries).toHaveLength(1);
     expect(s.summaries[0]).toContain('- old fact');
     expect(s.summaries[0]).toContain('line 5');
@@ -161,7 +149,6 @@ describe('measured sessions rotate on size and on a cold cache', () => {
     expect(input).toContain('line ' + (ROTATE_SEED_MESSAGES + 5));
     expect(input).not.toMatch(/\]: line 5\n/);
     expect(s.repos.getSessionState(s.bot.id, s.room.id).summary).toBe('- the user wants the report in French');
-    // The pass is billed to the bot, outside the thread's cause.
     expect(s.repos.usageTotals({ botId: s.bot.id }).costUsd).toBeCloseTo(0.001);
   });
 
@@ -184,16 +171,15 @@ describe('the system prompt keeps the memory its session started with', () => {
   it('reuses the snapshot on a warm resume and refreshes it on a fresh session', async () => {
     const s = setup([{ ok: true, contextTokens: 1000 }]);
     s.memory.write(s.bot.id, 'MEMORY-ONE');
-    await s.turn(); // fresh session: snapshot taken
+    await s.turn();
     expect(s.provider.seen[0].systemPrompt).toContain('MEMORY-ONE');
 
     s.memory.write(s.bot.id, 'MEMORY-TWO');
-    await s.turn(); // resumed, warm: same bytes as before
+    await s.turn();
     expect(s.provider.seen[1].resumeToken).toBe('new-1');
     expect(s.provider.seen[1].systemPrompt).toContain('MEMORY-ONE');
     expect(s.provider.seen[1].systemPrompt).not.toContain('MEMORY-TWO');
 
-    // The cache has gone cold anyway (but the session is small, so it is resumed): the new memory is picked up.
     s.repos.saveSessionState(s.bot.id, s.room.id, { contextAt: Date.now() - ROTATE_IDLE_MS - 1000 });
     await s.turn();
     expect(s.provider.seen[2].resumeToken).toBe('new-1');
@@ -208,7 +194,6 @@ describe('the token brake', () => {
     expect(s.provider.seen).toHaveLength(1);
     expect(s.provider.seen[0].cacheReadBudget).toBe(TURN_CACHE_READ_CAP);
     expect(r.ok).toBe(false);
-    // The step limit's error stays, so the router is told the brake did it and does not resume this session.
     expect(r.error).toMatch(/^error_max_turns/);
     expect(r.braked).toBe(true);
     expect(s.notes().some((t) => t.includes('stopped instead of continuing') && t.includes('cached tokens'))).toBe(true);

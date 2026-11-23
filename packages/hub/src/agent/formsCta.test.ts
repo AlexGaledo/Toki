@@ -78,11 +78,11 @@ describe('request_form caps and injection', () => {
     if (!f.ok) throw new Error(f.error);
     const fields = f.value.fields;
     expect(validateAnswers(fields, { domain: 'a.com', plan: 'pro' }).ok).toBe(true);
-    expect(validateAnswers(fields, { plan: 'pro' }).ok).toBe(false); // required missing
-    expect(validateAnswers(fields, { domain: 'a.com', plan: 'gold' }).ok).toBe(false); // not a choice
-    expect(validateAnswers(fields, { domain: 'a.com', plan: 'pro', extra: 'x' }).ok).toBe(false); // unknown id
-    expect(validateAnswers(fields, { domain: 'a.com', plan: 'pro', live: 'yes' }).ok).toBe(false); // wrong type
-    expect(validateAnswers(fields, { domain: 'x'.repeat(201), plan: 'pro' }).ok).toBe(false); // over the cap
+    expect(validateAnswers(fields, { plan: 'pro' }).ok).toBe(false);
+    expect(validateAnswers(fields, { domain: 'a.com', plan: 'gold' }).ok).toBe(false);
+    expect(validateAnswers(fields, { domain: 'a.com', plan: 'pro', extra: 'x' }).ok).toBe(false);
+    expect(validateAnswers(fields, { domain: 'a.com', plan: 'pro', live: 'yes' }).ok).toBe(false);
+    expect(validateAnswers(fields, { domain: 'x'.repeat(201), plan: 'pro' }).ok).toBe(false);
   });
   it('the wire schema caps the number of answers', () => {
     const answers = Object.fromEntries(Array.from({ length: 9 }, (_, i) => ['k' + i, 'v']));
@@ -98,7 +98,7 @@ describe('request_form rate limit', () => {
     for (let i = 1; i < 5; i++) expect(s.forms.rateLimited(s.bot.id, i * 1000)).toBe(false);
     expect(s.forms.rateLimited(s.bot.id, 10_000)).toBe(true);
     expect(s.forms.rateLimited('other-bot', 10_000)).toBe(false);
-    expect(s.forms.rateLimited(s.bot.id, 60 * 60_000 + 1)).toBe(false); // the first one aged out
+    expect(s.forms.rateLimited(s.bot.id, 60 * 60_000 + 1)).toBe(false);
   });
   it('the tool refuses the 6th form without posting a card', async () => {
     const s = setup(5);

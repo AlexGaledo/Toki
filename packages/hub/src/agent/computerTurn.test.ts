@@ -18,20 +18,15 @@ import { causeCostCap, spendCapsOff } from '../config.js';
 import { BotRunner } from './BotRunner.js';
 import { SHARED_BROWSER_NOTE, SHARED_TAB_NOTE } from './desktopTools.js';
 
-/** P1 task 1.3: each bot's turn is wired to its own computer (CDP endpoint, prompt, roots). */
-
 class RecordingProvider implements AgentProvider {
   readonly id = 'claude' as const;
   readonly label = 'Recording';
   readonly info = { id: 'claude' as ProviderId, label: 'Recording', blurb: '', authModes: [], secretKeys: [], permissions: 'full' as const, maturity: 'verified' as const };
   seen: TurnContext[] = [];
   onRun: () => void = () => undefined;
-  /** The turn calls a browser tool, which is what starts a computer. What the gate answered is kept per turn. */
   usesBrowser = true;
   gate: (string | null | undefined)[] = [];
-  /** Keeps the next turn open until this settles, so another can overlap it. */
   hold: Promise<void> | null = null;
-  /** What the browser call returns, when the test wants one. */
   toolResult: { output: string; isError: boolean } | null = null;
   async models(): Promise<ModelInfo[]> { return []; }
   modelsSync(): ModelInfo[] { return []; }
@@ -157,7 +152,6 @@ describe('turns on per-bot computers', () => {
     await s.run(a);
     expect(s.sys.active.size).toBe(0);
     expect(s.computers.status(a.bot.id).state).toBe('asleep');
-    // The tools are still offered, pointed at the computer it would start.
     expect(s.provider.seen[0].cdpUrl).toBe('http://127.0.0.1:9401');
     expect(s.provider.seen[0].allowedBuiltins).toContain('Browser');
     expect(s.computers.turnsOn(a.bot.id)).toBe(0);
@@ -195,7 +189,6 @@ describe('turns on per-bot computers', () => {
     s.provider.runTurn = async (ctx, sink) => {
       if (++n === 2) {
         answers.push(await ctx.computerGate!('mcp__browser__browser_navigate'));
-        // Listing tabs is not owning one: the next navigate is still refused.
         answers.push(await ctx.computerGate!('mcp__browser__browser_tabs', { action: 'list' }));
         answers.push(await ctx.computerGate!('mcp__browser__browser_navigate'));
         answers.push(await ctx.computerGate!('mcp__browser__browser_tabs', { action: 'new' }));
@@ -225,13 +218,13 @@ describe('turns on per-bot computers', () => {
     s.provider.runTurn = async (ctx, sink) => {
       if (++n === 2) {
         const g = ctx.computerGate!;
-        answers.push(await g(tabs, { action: 'close' })); // no tab of its own yet: this would close the first chat's
+        answers.push(await g(tabs, { action: 'close' }));
         answers.push(await g(tabs, { action: 'new' }));
         answers.push(await g(tabs, { action: 'close', index: 1 }));
         answers.push(await g(tabs, { action: 'select', index: 0 }));
         answers.push(await g(nav));
         answers.push(await g(tabs, { action: 'close' }));
-        answers.push(await g(nav)); // the browser tool now sits on a neighbour's tab
+        answers.push(await g(nav));
       }
       return original(ctx, sink);
     };
@@ -258,7 +251,6 @@ describe('turns on per-bot computers', () => {
     const s = setup({ maxRunning: 1 });
     const a = s.mk('alpha', ['Browser']);
     const b = s.mk('beta', ['Read', 'Browser', 'Desktop']);
-    // Alpha's turn is in flight when beta asks: the only running computer is busy, so beta gets none.
     let inner: Promise<unknown> = Promise.resolve();
     s.provider.onRun = () => { s.provider.onRun = () => undefined; inner = s.run(b); };
     await s.run(a);

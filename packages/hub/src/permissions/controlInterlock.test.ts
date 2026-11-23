@@ -3,7 +3,6 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-// Capture the options the Claude provider hands the SDK, and end the turn at once.
 const sdk = vi.hoisted(() => ({ options: [] as Record<string, unknown>[] }));
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@anthropic-ai/claude-agent-sdk')>()),
@@ -28,11 +27,6 @@ import { hubTool } from '../agent/botTools.js';
 import { createHub, type Hub } from '../hub.js';
 import { USER_HAS_CONTROL } from '../services/ComputerControl.js';
 
-/**
- * P2 2.2: while the user has control of a bot's computer, its desktop and Browser tools refuse. The check is a
- * safety interlock, not an approval, so it holds when approvals are bypassed too, at every layer a call passes.
- */
-
 describe('which tools the interlock covers', () => {
   it('covers Playwright MCP and the desktop tools, under either naming, and nothing else', () => {
     for (const t of ['mcp__browser__browser_click', 'mcp__browser__browser_navigate', 'desktop_click', 'mcp__pocketrocket__desktop_screenshot']) {
@@ -51,7 +45,6 @@ describe('desktop tool handlers', () => {
       expect(out.isError).toBe(true);
       expect(JSON.stringify(out.content)).toContain('taken control');
     }
-    // Back to the agent: the guard lets calls through to the real handler (which then fails: no X here).
     blocked = null;
     const shot = await tools.find((t) => t.name === 'desktop_scroll')!.handler({ x: 1, y: 1, direction: 'up' });
     expect(JSON.stringify(shot.content)).not.toContain('taken control');
