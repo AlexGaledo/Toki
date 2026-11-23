@@ -105,7 +105,7 @@ describe('pr-backend.md: "register additive migrations in your phase\'s block wi
       .split('\n')
       .map((l, i) => ({ l, i }))
       .filter(({ l }) => DESTRUCTIVE.test(l))
-      .map(({ l, i }) => `migrations.ts: ${l.trim()}`);
+      .map(({ l, i }) => `migrations.ts:${i + 1}: ${l.trim()}`);
     expect(hits, `${hits.join('\n')}\n${FIX}`).toEqual([]);
   });
 

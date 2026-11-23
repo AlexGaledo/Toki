@@ -1,0 +1,711 @@
+{
+  "packages/hub/src/agent/BotRunner.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/agent/escalateTool.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/account.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "packages/hub/src/api/auth.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/botProvider.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/cc.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 6
+    }
+  },
+  "packages/hub/src/api/cc.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/contextImport.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/contextMeter.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/credentials.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "packages/hub/src/api/devices.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 6
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/failover.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/files.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/mcpServers.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "packages/hub/src/api/media.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/pc-runner.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "packages/hub/src/api/pcApproval.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "packages/hub/src/api/pcPersona.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "packages/hub/src/api/pcRunner.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/pcSessions.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 9
+    }
+  },
+  "packages/hub/src/api/projectMap.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/projectRepos.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/projects.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/queueRest.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/rest.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/roomEdit.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/sandbox.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/screenSession.test.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/sessionMove.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "packages/hub/src/api/takeover.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/teach.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/teach.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/telegram.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/workflows.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/api/workflows.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 6
+    }
+  },
+  "packages/hub/src/config.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/db/failoverRepo.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 6
+    }
+  },
+  "packages/hub/src/db/integrationRepo.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/hubToken.test.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/integrations/tools.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/permissions/PermissionBroker.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/permissions/deleteGate.ts": {
+    "@typescript-eslint/no-unused-expressions": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/providers/acp/permissions.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/providers/cliRetention.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "packages/hub/src/providers/opencode/cli.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/providers/opencode/events.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/providers/stub.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/rooms/RoomRouter.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/rooms/attachments.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "packages/hub/src/rooms/fileAttachments.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/rooms/ownerRefs.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/rooms/untrusted.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/AccountService.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 7
+    }
+  },
+  "packages/hub/src/services/BotReports.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/MediaStore.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/MemoryService.ts": {
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "packages/hub/src/services/ProjectService.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/Recorder.ts": {
+    "no-useless-assignment": {
+      "count": 4
+    }
+  },
+  "packages/hub/src/services/RoutineScheduler.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/SessionCompact.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/SessionMoves.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/SkillReflection.ts": {
+    "no-restricted-properties": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/SkillService.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "no-irregular-whitespace": {
+      "count": 2
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/Training.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/Training.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "packages/hub/src/services/WorkflowRunner.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/git.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/orphanBotDirs.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/outsideMcpStore.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "packages/hub/src/services/screenOpen.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "packages/shared/src/cards.ts": {
+    "no-control-regex": {
+      "count": 4
+    },
+    "no-irregular-whitespace": {
+      "count": 4
+    },
+    "no-misleading-character-class": {
+      "count": 3
+    }
+  },
+  "packages/shared/src/files.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "packages/shared/src/projectRepos.ts": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/App.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/BotPage.tsx": {
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "packages/web/src/components/Cards.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/ChatHeader.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/ChatPane.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 4
+    },
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/refs": {
+      "count": 5
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    }
+  },
+  "packages/web/src/components/ComputerControl.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/FailoverCard.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/FleetPages.tsx": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/Markdown.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "packages/web/src/components/Onboarding.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/PcSessionsPage.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    },
+    "react-hooks/refs": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "packages/web/src/components/ProfileMenu.tsx": {
+    "react-hooks/refs": {
+      "count": 9
+    }
+  },
+  "packages/web/src/components/QueueChips.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/RightPanel.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 5
+    }
+  },
+  "packages/web/src/components/Sidebar.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/SkillVersions.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/TeachControls.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/TokenPrompt.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/TriggersSection.tsx": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/VoicePanel.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/dialogs/BotDialog.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    },
+    "react-hooks/static-components": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/dialogs/BotFileDialogs.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/dialogs/SearchDialog.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/files/FilePreview.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/files/FilesPanel.tsx": {
+    "@eslint-community/eslint-comments/require-description": {
+      "count": 2
+    },
+    "no-useless-assignment": {
+      "count": 1
+    },
+    "react-hooks/refs": {
+      "count": 16
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/map/ProjectMap.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/overview/OverviewPanel.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/settings/AccountSection.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/settings/BotsSection.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "packages/web/src/components/settings/ConnectionStatus.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/settings/DevicesSection.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/settings/IntegrationsSection.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 4
+    }
+  },
+  "packages/web/src/components/settings/KnowledgeSection.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/settings/SecuritySection.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/settings/TelegramCard.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    },
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/settings/parts.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/ui.tsx": {
+    "react-hooks/refs": {
+      "count": 5
+    }
+  },
+  "packages/web/src/components/workflows/RunPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/components/workflows/WorkflowPage.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/web/src/lib/attach.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/web/src/lib/mapLayout.test.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "packages/web/src/lib/saveBlob.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/web/src/lib/useLimits.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/web/src/lib/useProject.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/web/src/lib/ws.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "packages/web/src/store.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    },
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  }
+}

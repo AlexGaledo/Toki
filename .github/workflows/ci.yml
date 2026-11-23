@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Ratchet: violations frozen in eslint-suppressions.json pass, new ones fail, and so do stale suppressions
+      # (run `pnpm lint:prune` after fixing one). scripts/lint-rules.test.mjs, run by `pnpm test` below, proves
+      # each custom rule still fires with its message.
+      - name: Lint
+        run: pnpm lint
+
       - name: Repo guards (line endings, CHANGELOG)
         run: node --test scripts/repo-guards.test.mjs
 
