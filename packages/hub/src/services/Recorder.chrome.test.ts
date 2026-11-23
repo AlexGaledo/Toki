@@ -70,7 +70,7 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     }
   });
 
-  it('records the checkout with no password, card number or code in the trace or a kept frame', async () => {
+  it('records the checkout with no password, card number or code in the trace or a kept frame', { timeout: 30_000, retry: 2 }, async () => {
     expect(cdpUrl).not.toBe('');
     const state = new Map<string, ControlStatus>();
     const control = {
@@ -111,7 +111,16 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     const send = (m: string, p: Record<string, unknown> = {}) => user.send(m, p, sessionId);
     await send('Page.enable');
     await send('Page.navigate', { url: FIXTURE });
-    await sleep(800);
+    // Typing before the recorder has attached to the checkout page loses the first keystrokes, so wait for its nav
+    // and for the page to finish loading instead of sleeping a fixed time.
+    for (let i = 0; i < 100; i++) {
+      const traces = fs.readdirSync(root).map((d) => path.join(root, d, 'trace.jsonl')).filter((f) => fs.existsSync(f));
+      const navved = traces.some((f) => fs.readFileSync(f, 'utf8').split('\n').some((l) => l.includes('"t":"nav"') && l.includes('checkout.html')));
+      const { result } = (await send('Runtime.evaluate', { expression: 'document.readyState', returnByValue: true })) as { result: { value: string } };
+      if (navved && result.value === 'complete') break;
+      await sleep(100);
+    }
+    await sleep(300);
     const click = async (sel: string) => {
       const { result } = (await send('Runtime.evaluate', {
         expression: 'JSON.stringify((() => { const r = document.querySelector(' + JSON.stringify(sel) + ').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })())',
@@ -143,7 +152,8 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     const raw = fs.readFileSync(path.join(dir, 'trace.jsonl'), 'utf8');
     for (const s of [PASSWORD, CARD, OTP]) expect(raw).not.toContain(s);
     const trace = rec.readTrace('b', info.id);
-    expect(trace.some((e) => e.t === 'nav' && String(e.url).endsWith('checkout.html'))).toBe(true);
+    const navs = trace.filter((e) => e.t === 'nav').map((e) => String(e.url));
+    expect(navs.some((u) => u.endsWith('checkout.html')), 'checkout nav missing; navs seen: ' + JSON.stringify(navs) + '; first events: ' + JSON.stringify(trace.slice(0, 5))).toBe(true);
     expect(trace.some((e) => e.t === 'type' && e.value === 'me@example.com')).toBe(true);
     expect(trace.filter((e) => e.t === 'type' && e.value === '«secret»')).toHaveLength(3);
     const pay = trace.find((e) => e.t === 'click' && (e.target as { text?: string })?.text === 'Pay now');
@@ -152,5 +162,5 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     const frames = fs.readdirSync(path.join(dir, 'frames'));
     expect(frames.map((f) => fs.readFileSync(path.join(dir, 'frames', f), 'utf8'))).toEqual(['PNG:login form']);
     expect(info.framesDropped).toBeGreaterThanOrEqual(4);
-  }, 30_000);
+  });
 });

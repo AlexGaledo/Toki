@@ -174,6 +174,7 @@ export function buildSystemPrompt(ctx: PromptCtx): string {
     '## Working efficiently',
     '- Locate before reading: Grep/Glob first, then Read only the line ranges you need from large files.',
     '- Never dump large output: pipe commands through head, tail or grep, and cap logs (e.g. | tail -50).',
+    "- After you change files, run the project's tests/build or take a screenshot before saying done; the app labels unverified work.",
     '- If the Task tool is available, give broad exploration (many files, wide searches) to a subagent and keep only its summary.',
     '',
     ...(ctx.computer
