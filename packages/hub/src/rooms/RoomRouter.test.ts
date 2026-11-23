@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Db } from '../db/db.js';
 import { Repos } from '../db/repos.js';
 import { UsageTracker } from '../services/UsageTracker.js';
-import { CAUSE_COST_CAP_USD, MAX_HOPS } from '../config.js';
+import { CAUSE_COST_CAP_USD, CUTOFF_RETRIES, MAX_HOPS } from '../config.js';
 import type { BotRunner, TurnRequest, TurnResult } from '../agent/BotRunner.js';
 import { BACKLOG_MAX_BYTES, BACKLOG_MAX_MESSAGES, RoomRouter, capBacklog } from './RoomRouter.js';
 
@@ -238,7 +238,7 @@ describe('RoomRouter per-turn context (kept out of the cached system prompt)', (
 });
 
 describe('RoomRouter cut-off turns', () => {
-  it('continues a cut-off bot in a fresh session, then hands the job to the coordinator', async () => {
+  it('continues a bot the token brake cut off in a fresh session, then hands the job to the coordinator', async () => {
     const { repos, router, bot } = setup();
     const lead = bot('lead');
     const dev = bot('dev');
@@ -262,6 +262,50 @@ describe('RoomRouter cut-off turns', () => {
     const leadTurn = reqs.find((r) => r.bot.id === lead.id)!;
     expect(leadTurn.injected).toContain('@dev was cut off 3 times');
     expect(leadTurn.causeId).toBe(devTurns[0].causeId);
+    const notes = repos.listMessages(room.id).filter((m) => m.kind === 'system').map((m) => m.text);
+    expect(notes).toContain('@dev stopped at the token limit and goes again (1/' + CUTOFF_RETRIES + ').');
+  });
+
+  it('resumes the same session when the step limit (not the brake) cut a bot off', async () => {
+    const { repos, router, bot } = setup();
+    const dev = bot('dev');
+    const room = repos.createRoom({ kind: 'dm', name: 'd', memberIds: [dev.id], coordinatorBotId: null });
+    const reqs: TurnRequest[] = [];
+    router.runner = {
+      runTurn: async (req: TurnRequest): Promise<TurnResult> => {
+        reqs.push(req);
+        return reqs.length === 1
+          ? { ok: false, turnId: 't', finalText: '', costUsd: 0, error: 'error_max_turns: Reached maximum number of turns (100)' }
+          : { ok: true, turnId: 't', finalText: 'done', costUsd: 0 };
+      },
+    } as unknown as BotRunner;
+    router.onUserMessage(room.id, 'build the page');
+    await until(() => reqs.length === 2);
+    // No freshSession: BotRunner resumes unless the context itself is too large or unmeasured (rotationReason).
+    expect(reqs[1].freshSession).toBeUndefined();
+    expect(reqs[1].injected).toContain('ran out of steps');
+    expect(reqs[1].injected).not.toContain('fresh session');
+    const notes = repos.listMessages(room.id).filter((m) => m.kind === 'system').map((m) => m.text);
+    expect(notes).toContain('@dev ran out of steps and keeps going (1/' + CUTOFF_RETRIES + ').');
+    expect(notes.some((t) => t.includes('fresh session'))).toBe(false);
+  });
+
+  it('starts fresh after a step-limit cut when the token brake stopped a continuation', async () => {
+    const { repos, router, bot } = setup();
+    const dev = bot('dev');
+    const room = repos.createRoom({ kind: 'dm', name: 'd', memberIds: [dev.id], coordinatorBotId: null });
+    const reqs: TurnRequest[] = [];
+    router.runner = {
+      runTurn: async (req: TurnRequest): Promise<TurnResult> => {
+        reqs.push(req);
+        return reqs.length === 1
+          ? { ok: false, turnId: 't', finalText: '', costUsd: 0, error: 'error_max_turns', braked: true }
+          : { ok: true, turnId: 't', finalText: 'done', costUsd: 0 };
+      },
+    } as unknown as BotRunner;
+    router.onUserMessage(room.id, 'build the page');
+    await until(() => reqs.length === 2);
+    expect(reqs[1].freshSession).toBe(true);
   });
 
   it('leaves other failures alone', async () => {

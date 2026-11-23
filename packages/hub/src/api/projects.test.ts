@@ -220,12 +220,13 @@ describe('the dev team template', () => {
     const { repos, projects } = withSources();
     const shipping = repos.listSkills().find((s) => s.name === 'safe-shipping')!;
     const map = repos.listSkills().find((s) => s.name === 'project-map')!;
+    const prove = repos.listSkills().find((s) => s.name === 'prove-it')!;
     const debug = repos.upsertSkill({ name: 'debugging', description: '', path: '/x/debugging', source: 'authored', reviewStatus: 'approved', createdByBot: null });
     const source = repos.getBotByHandle(DEV_TEAM_TEMPLATE.roles[0].source)!;
     repos.setBotSkills(source.id, [shipping.id, debug.id]);
     const { bots } = projects.create({ name: 'Shop', team: true });
-    expect(repos.botSkillIds(bots[0].id).slice().sort()).toEqual([shipping.id, debug.id, map.id].sort());
-    expect(repos.botSkillIds(bots[1].id).slice().sort()).toEqual([shipping.id, map.id].sort());
+    expect(repos.botSkillIds(bots[0].id).slice().sort()).toEqual([shipping.id, debug.id, map.id, prove.id].sort());
+    expect(repos.botSkillIds(bots[1].id).slice().sort()).toEqual([shipping.id, map.id, prove.id].sort());
   });
   it('records the template in the project folder, and keeps a file already there', () => {
     const { projects } = withSources();

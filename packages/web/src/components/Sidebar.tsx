@@ -208,7 +208,7 @@ export function Sidebar() {
         <div className="flex shrink-0 items-center gap-2 pr-1.5">
           <Tooltip content="Search every chat"><button className={ROUND} aria-label="Search every chat" onClick={() => openDialog({ kind: 'search' })}><Search size={16} /></button></Tooltip>
           {!device && (
-            <Menu.Root>
+            <Menu.Root modal={false}>
               <Menu.Trigger className={ROUND} title="New" aria-label="New"><Plus size={17} /></Menu.Trigger>
               <Menu.Portal>
                 <MenuContent align="end">
