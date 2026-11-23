@@ -1,3 +1,4 @@
+/** A device never holds the hub token; the hub refuses everything a device may not do. */
 import { useCallback, useEffect, useState } from 'react';
 import { BellRing, RefreshCw, Smartphone } from 'lucide-react';
 import { useStore } from '../../store';

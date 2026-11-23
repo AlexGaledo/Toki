@@ -159,7 +159,9 @@ interface State {
   failover: FailoverState;
   account: AccountState;
   helloReceived: boolean;
+  /** A paired device: the hub refuses settings, bot/room edits, integrations and approval rules. */
   device: boolean;
+  /** Only a socket with a password session may allow a sign-in-required card. */
   signedIn: boolean;
   approvalErrors: Record<string, string>;
   formErrors: Record<string, { message: string; at: number }>;

@@ -1,3 +1,4 @@
+/** Every credential stays in the hub's encrypted vault; this page only sees whether one is stored. */
 import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import type { IntegrationInfo, IntegrationProvider, IntegrationsState, OAuthAppStatus, PendingConnect } from '@pocketrocket/shared';

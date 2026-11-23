@@ -1,3 +1,4 @@
+// The hub never stores PC paths.
 import type { PcJobView } from './pcRun';
 
 import type { PcSessionLink, PcSyncJobInfo, PcSyncResult, ProjectRepo, ProjectReposFile, RepoSyncMode } from '@pocketrocket/shared';

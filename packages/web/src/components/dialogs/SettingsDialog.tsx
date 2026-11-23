@@ -51,6 +51,7 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: 'about', label: 'About', icon: Info },
 ];
 
+/** What a paired phone sees: the hub refuses a device's settings writes, secrets, account and integrations. */
 const DEVICE_SECTIONS: readonly SectionId[] = ['devices', 'appearance', 'about'];
 
 const SIDE_NAV_QUERY = '(min-width: 640px)';

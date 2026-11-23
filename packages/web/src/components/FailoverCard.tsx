@@ -1,3 +1,4 @@
+// Person-only: the hub refuses a bot, a cta button and chat text, so only these buttons answer it.
 import { useEffect, useState } from 'react';
 import { Gauge } from 'lucide-react';
 import type { FailoverCard } from '@pocketrocket/shared';

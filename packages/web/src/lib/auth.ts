@@ -48,6 +48,7 @@ function emit() {
 }
 
 export function reportAuthFailure(): void {
+  // A refused device token has been revoked: drop it.
   if (!hasHubToken() && getDeviceToken()) {
     clearDeviceToken();
     unpaired = true;
@@ -77,6 +78,7 @@ export function setToken(token: string): void {
   clearAuthFailure();
 }
 
+// The device token is kept in localStorage, never in a URL.
 const DEVICE_KEY = 'pocketrocket.deviceToken';
 let unpaired = false;
 let pairError: string | null = null;

@@ -1,3 +1,4 @@
+/** Job output is redacted and capped by the hub, and rendered as plain text. */
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronRight, KeyRound, Power, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { MachineInfo, MachinePolicy, PcRunnerStatus } from '@pocketrocket/shared';
@@ -37,6 +38,7 @@ export function PcRunnerSection({ onOpenSecurity }: { onOpenSecurity: () => void
   const [statusError, setStatusError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<PcJobView[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
+  // Jobs can only be allowed from a password-signed-in browser.
   const [passwordSet, setPasswordSet] = useState<boolean | null>(null);
   useEffect(() => {
     api.auth.status().then((r) => setPasswordSet(r.passwordSet), () => undefined);

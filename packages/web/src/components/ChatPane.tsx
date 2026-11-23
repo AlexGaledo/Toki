@@ -534,6 +534,7 @@ function ApprovalCard({ m }: { m: Message }) {
   const [always, setAlways] = useState<'closed' | 'open' | 'saved'>('closed');
   const pending = p.status === 'pending';
   const device = useStore((s) => s.device);
+  // A PC job: only a browser signed in with the owner's password may allow it; anyone may deny it.
   const signedIn = useStore((s) => s.signedIn);
   const needsSignIn = !!p.signInRequired && !signedIn;
   const refused = useStore((s) => s.approvalErrors[p.approvalId]);
@@ -570,6 +571,7 @@ function ApprovalCard({ m }: { m: Message }) {
           {needsSignIn
             ? <SignInToApprove />
             : <Button size="sm" variant="primary" className="touch-target" onClick={() => { setAnswered(true); decide(p.approvalId, 'allow'); }}>{handoff ? 'Send it' : proposal ? 'Add it' : 'Allow once'}</Button>}
+          {/* A paired device answers once; the hub refuses a standing grant from one. */}
           {!device && !yesOrNo && !once && !p.danger && !needsSignIn && always === 'closed' && <Button size="sm" className="touch-target" onClick={() => setAlways('open')}>Always allow…</Button>}
           <Button size="sm" variant={yesOrNo ? 'outline' : 'danger'} className="touch-target" onClick={() => decide(p.approvalId, 'deny')}>{handoff ? 'Keep it here' : proposal ? 'Leave it out' : 'Deny'}</Button>
           {always === 'open' && <AlwaysAllow p={p} botName={botById(bots, m.authorId)?.name ?? 'this bot'} onCancel={() => setAlways('closed')} onSaved={() => setAlways('saved')} />}

@@ -1,3 +1,4 @@
+// The file never carries secrets, logins, approval rules, tool permissions or paths; imported skills wait for approval.
 import { useRef, useState } from 'react';
 import { Download, FileUp, Upload } from 'lucide-react';
 import { BotExportSchema, MAX_BOT_EXPORT_BYTES, type Bot, type BotExport, type BotImportResult } from '@pocketrocket/shared';

@@ -1,3 +1,4 @@
+/** The hub never sends a saved key back, only whether one is set. */
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import type { SecretsStatus } from '@pocketrocket/shared';
 import { api } from '../../lib/api';

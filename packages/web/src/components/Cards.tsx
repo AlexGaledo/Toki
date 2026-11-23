@@ -8,6 +8,7 @@ import { displayFields } from '../lib/cardFields';
 import { useToki } from '../lib/useProject';
 import { ActionCard, ActionCardHeader, Badge, Button, Field, Input, Label, Select, Textarea } from './ui';
 
+/* Everything the bot wrote is untrusted: drawn as plain text, never markdown or HTML, after being cleaned again here. */
 const STATUS_LABEL: Record<FormPayload['status'], string | null> = {
   pending: null, submitted: 'Sent', cancelled: 'Cancelled', timeout: 'No answer in time', expired: 'No longer waiting',
 };

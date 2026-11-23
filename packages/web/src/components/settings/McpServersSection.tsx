@@ -1,3 +1,4 @@
+/** Tokens and env values are write-only; a command server needs a password-signed-in browser. */
 import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Plug, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useStore } from '../../store';

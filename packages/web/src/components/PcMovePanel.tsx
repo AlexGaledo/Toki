@@ -1,3 +1,4 @@
+// Approval is the click in a password-signed-in browser plus the PC's own Run/Refuse dialog.
 import { useEffect, useId, useState } from 'react';
 import { CloudUpload, CornerDownLeft, GitBranch, Loader2, Send } from 'lucide-react';
 import { useStore } from '../store';
@@ -211,6 +212,7 @@ export function VpsPanel({ sessionId, move, signedIn, pcBlocked, onChanged, onOp
   );
 }
 
+/** Plain text only: the PC's report is untrusted. */
 /** Plain text only: the PC's report is untrusted. */
 export function MoveSummary({ j }: { j: PcJobWithMove }) {
   const pull = (j.mode as string) === 'pull';

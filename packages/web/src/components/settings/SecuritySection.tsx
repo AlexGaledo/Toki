@@ -1,3 +1,4 @@
+/** The server token cannot change a password: that always needs the current one. */
 import { useCallback, useEffect, useState } from 'react';
 import type { AuditEntry, SandboxStatus, UserSessionInfo } from '@pocketrocket/shared';
 import { api, ApiError } from '../../lib/api';
@@ -28,6 +29,7 @@ function browserName(ua: string | null): string {
 
 const when = (t: number) => new Date(t).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
+/** Refused (409) when the sandbox cannot run, so the switch never claims protection that is not there. */
 function SandboxGroup() {
   const on = useStore((s) => s.settings.sandbox) === 'on';
   const updateSettings = useStore((s) => s.updateSettings);

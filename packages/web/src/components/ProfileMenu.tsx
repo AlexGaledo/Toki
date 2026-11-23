@@ -80,6 +80,7 @@ export function ProfileMenu({ onNavigate }: { onNavigate: () => void }) {
       </Menu.Trigger>
       <Menu.Portal>
         <MenuContent side="top" align="start" onCloseAutoFocus={runPending} className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[210px]">
+          {/* A paired phone sees the picture but cannot change it (PUT /api/settings is refused). */}
           {!device && <MenuItem onSelect={act(() => openDialog({ kind: 'profile' }))}><UserRound size={16} aria-hidden />Edit profile</MenuItem>}
           <MenuItem onSelect={act(() => { onNavigate(); openPage({ kind: 'automations' }); })}><CalendarClock size={16} aria-hidden />Automations</MenuItem>
           <MenuItem onSelect={act(() => { onNavigate(); openPage({ kind: 'usage' }); })}><BarChart3 size={16} aria-hidden />Usage</MenuItem>

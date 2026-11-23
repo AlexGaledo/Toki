@@ -14,6 +14,7 @@ const LINKS: { href: string; label: string }[] = [
 ];
 
 export function AboutSection({ health }: { health: HealthResponse | null }) {
+  // Health answers without the hub token, so account and home path stay off it.
   const claudeCheck = useStore((s) => s.providers?.providers.find((p) => p.id === 'claude')?.check);
   const signedIn = claudeCheck?.ok ? claudeCheck : undefined;
   const how = signedIn ? authPhrase(signedIn) : null;

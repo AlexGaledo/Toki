@@ -546,6 +546,7 @@ export function SectionLabel({ children, count, aside, as: Tag = 'div', id, clas
   );
 }
 
+/** Plain text only, never a link. */
 export function Chip({ children, label, leading, onRemove, className }: {
   children: React.ReactNode;
   label?: string;

@@ -1,3 +1,4 @@
+/** Only a password-signed-in browser may allow; the hub token and a paired phone may still deny. */
 import { useEffect, useRef, useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { api, ApiError } from '../lib/api';

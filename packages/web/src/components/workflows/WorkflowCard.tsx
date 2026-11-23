@@ -1,3 +1,4 @@
+// Only these buttons answer it: the hub refuses a bot, a cta button and chat text.
 import { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import type { WorkflowApprovalCard } from '@pocketrocket/shared';

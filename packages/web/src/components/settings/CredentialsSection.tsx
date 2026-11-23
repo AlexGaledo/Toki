@@ -1,3 +1,4 @@
+/** The secret is write-only: sent to the hub on save and never shown again. */
 import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { CredentialInfo } from '@pocketrocket/shared';

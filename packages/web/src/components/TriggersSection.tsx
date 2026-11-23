@@ -8,6 +8,7 @@ import { useStore, botById, selectActiveRoom } from '../store';
 import { api } from '../lib/api';
 import { Button, Input, Label, Select, Textarea, Tooltip, cn, confirmAction, fmtUsd } from './ui';
 
+/** Trigger turns always ask before acting, even with approvals bypassed. */
 type Form = {
   open: boolean; id?: string; name: string; source: TriggerSource | ''; filter: Record<string, string>;
   botId: string; roomId: string; prompt: string; maxPerHour: number; budgetUsd: number; enabled: boolean;

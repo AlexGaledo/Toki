@@ -20,6 +20,7 @@ export function layoutToMigrate(setting: LayoutSetting): Layout | null {
   return (setting ?? 'auto') === 'auto' && getItem(LAYOUT_KEY) === 'classic' ? 'classic' : null;
 }
 
+/** The hash, which holds the token, is never read here. */
 export function asksForPreview(search: string): boolean {
   return new URLSearchParams(search).get('layout') === 'preview';
 }

@@ -104,6 +104,7 @@ function Notice({ icon, title, children, action }: { icon: ReactNode; title: str
   );
 }
 
+/** A paired phone is refused every file route on purpose: files can hold anything, and phones get lost. */
 function PairedNotice() {
   return (
     <Notice icon={<Lock size={28} aria-hidden />} title="Files open in the desktop app">

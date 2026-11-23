@@ -1,3 +1,4 @@
+// Approving is never offered here: Review opens the chat's own card.
 import { useEffect, useState } from 'react';
 import { ArrowRight, Bot as BotIcon, CheckCheck, ClipboardList, Gauge, Hash, Inbox, Monitor, PanelRightClose, PanelRightOpen, ShieldQuestion, Sparkles, Workflow as WorkflowIcon, X } from 'lucide-react';
 import type { ApprovalPayload, Bot, Room } from '@pocketrocket/shared';

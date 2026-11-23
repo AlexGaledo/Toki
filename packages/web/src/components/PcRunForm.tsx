@@ -1,3 +1,4 @@
+// The click is the approval; the hub's 403 / 409 are the real gate.
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Play } from 'lucide-react';
 import type { PcRunnerStatus } from '@pocketrocket/shared';

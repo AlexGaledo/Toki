@@ -16,7 +16,9 @@ export interface InboxItem {
   approvalId?: string;
   workflowCard?: WorkflowApprovalCard;
   failoverCard?: FailoverCard;
+  /** Context for the row, never a consent surface. */
   approval?: Pick<ApprovalPayload, 'toolName' | 'toolInput'>;
+  /** Allowing is never offered here: it goes through the full card. */
   canDeny?: boolean;
 }
 

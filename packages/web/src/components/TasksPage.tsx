@@ -1,3 +1,4 @@
+// A task never grants an approval or changes a setting.
 import { useCallback, useEffect, useState } from 'react';
 import { ListChecks, Plus } from 'lucide-react';
 import { TASK_STATUSES, type Task, type TaskStatus } from '@pocketrocket/shared';

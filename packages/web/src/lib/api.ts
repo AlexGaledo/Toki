@@ -71,6 +71,7 @@ export interface BotReportRow {
   id: string; botId: string; roomId: string | null; kind: 'captcha' | 'login' | 'blocked' | 'other'; site: string; reason: string;
   status: 'pending' | 'resolved' | 'dismissed'; createdAt: number;
 }
+/** Tokens and env values are never in it, only whether they are set. */
 export interface McpServerRow {
   name: string; kind: 'http' | 'stdio' | 'invalid'; status: 'configured' | 'invalid'; problems: string[];
   url?: string; urlHasQuery?: boolean; tokenSet?: boolean; command?: string; args?: string[]; argsMasked?: boolean; envKeys?: string[];
@@ -212,6 +213,7 @@ export const api = {
     setMemory: (id: string, text: string) => req<{ ok: true }>('PUT', '/api/bots/' + id + '/memory', { text }),
     skills: (id: string) => req<string[]>('GET', '/api/bots/' + id + '/skills'),
     setSkills: (id: string, skillIds: string[]) => req<{ ok: true }>('PUT', '/api/bots/' + id + '/skills', { skillIds }),
+    /** Never holds secrets, paths or permissions. */
     export: (id: string, includeMemory: boolean) => req<BotExportResult>('GET', '/api/bots/' + id + '/export' + (includeMemory ? '?memory=1' : '')),
     import: (file: unknown, includeMemory: boolean) => req<BotImportResult>('POST', '/api/bots/import' + (includeMemory ? '?memory=1' : ''), file),
     resetSession: (id: string, roomId: string) => req<{ ok: true }>('POST', '/api/bots/' + id + '/reset-session', { roomId }),
@@ -263,6 +265,7 @@ export const api = {
     cancel: (runId: string) => req<WorkflowRunSummary>('POST', '/api/workflow-runs/' + runId + '/cancel'),
     retry: (runId: string) => req<WorkflowRunSummary>('POST', '/api/workflow-runs/' + runId + '/retry'),
     cards: () => req<WorkflowApprovalCard[]>('GET', '/api/workflow-cards'),
+    /** Person-only: the hub refuses a bot, the PC runner, a cta button and chat text. */
     decide: (runId: string, d: WorkflowDecision) => req<WorkflowRunSummary>('POST', '/api/workflow-runs/' + runId + '/decision', d),
   },
   usage: (q: { botId?: string; roomId?: string } = {}) => {
@@ -310,6 +313,7 @@ export const api = {
   },
   notes: (botId: string) => req<{ name: string; bytes: number; mtime: number }[]>('GET', '/api/bots/' + botId + '/notes'),
   importSkillsFromGit: (url: string) => req<SkillGitImportResult>('POST', '/api/skills/import-git', { url }),
+  // The hub keeps every credential; these answers never carry one.
   integrations: {
     get: () => req<IntegrationsState>('GET', '/api/integrations'),
     setApp: (p: IntegrationProvider, app: OAuthAppInput) => req<OAuthAppStatus>('PUT', '/api/integrations/apps/' + p, app),
@@ -333,8 +337,10 @@ export const api = {
   pcRunner: {
     status: () => req<PcRunnerStatus>('GET', '/api/pc-runner'),
     jobs: (limit = 50) => req<PcJobView[]>('GET', '/api/pc-runner/jobs?limit=' + limit),
+    /** The click in a password-signed-in browser is the approval: 403 otherwise. */
     start: (body: PcJobRequest) => req<PcJobView>('POST', '/api/pc-runner/jobs', body),
     job: (id: string) => req<PcJobView>('GET', '/api/pc-runner/jobs/' + encodeURIComponent(id)),
+    /** Shown once and never stored here. */
     mintToken: () => req<{ token: string }>('POST', '/api/pc-runner/token', {}),
     turnOff: () => req<{ ok: true; cancelled: number }>('DELETE', '/api/pc-runner'),
     machines: () => req<MachineInfo[]>('GET', '/api/pc-runner/machines'),
@@ -347,6 +353,7 @@ export const api = {
     remove: (id: string) => req<{ ok: true }>('DELETE', '/api/pc-sessions/' + encodeURIComponent(id)),
     continue: (id: string, body: { prompt: string }) => req<{ ok: true }>('POST', '/api/pc-sessions/' + encodeURIComponent(id) + '/continue', body),
   },
+  // The secret is write-only: it is sent here and never comes back.
   credentials: {
     list: () => req<{ credentials: CredentialInfo[] }>('GET', '/api/credentials'),
     create: (c: Omit<CredentialCreate, 'username'> & { username?: string }) => req<CredentialInfo>('POST', '/api/credentials', c),
@@ -355,10 +362,12 @@ export const api = {
   },
   devices: {
     list:() => req<{ devices: DeviceInfo[]; current: string | null }>('GET', '/api/devices'),
+    // The answer carries a one-time code, never the hub token.
     pairing: () => req<PairingCode>('POST', '/api/devices/pairing', {}),
     rename: (id: string, name: string) => req<DeviceInfo>('PATCH', '/api/devices/' + encodeURIComponent(id), { name }),
     revoke: (id: string) => req<{ ok: true }>('DELETE', '/api/devices/' + encodeURIComponent(id)),
   },
+  // Owner only; the hub never sends the token back.
   telegram: {
     get: () => req<TelegramState>('GET', '/api/telegram'),
     setToken: (token: string) => req<TelegramState>('PUT', '/api/telegram/token', { token }),
@@ -412,6 +421,7 @@ export const api = {
   },
 };
 
+/** Never its token or hash. */
 export interface DeviceInfo {
   id: string;
   name: string;

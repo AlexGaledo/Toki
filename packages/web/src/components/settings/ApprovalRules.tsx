@@ -1,3 +1,4 @@
+/** Only the user creates and revokes rules; no bot can write one, and integration writes never become rules. */
 import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { ApprovalPolicy } from '@pocketrocket/shared';

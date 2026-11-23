@@ -1,3 +1,4 @@
+/** The hub keeps the bot token; /api/telegram never returns it. */
 export interface TelegramState {
   configured: boolean;
   botUsername: string | null;

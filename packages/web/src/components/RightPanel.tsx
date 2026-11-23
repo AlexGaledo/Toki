@@ -66,6 +66,7 @@ function ScreenPane(props: PaneProps) {
     return () => { alive = false; };
   }, [bot.id]);
   if (perBot === null) return size === 'glance' ? null : <div className="px-3 py-2 text-hint text-muted">Checking…</div>;
+  // Keyed by scope, so one bot's ticket and viewer never carry over to the next bot's screen.
   return <Viewer key={perBot ? bot.id : 'shared'} perBot={perBot} {...props} />;
 }
 
