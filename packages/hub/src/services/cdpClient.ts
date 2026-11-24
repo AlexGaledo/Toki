@@ -57,9 +57,21 @@ export function connectCdp(wsUrl: string): Promise<CdpConnection> {
   });
 }
 
+const VERSION_ATTEMPTS = 3;
+
 export async function browserWsUrl(cdpUrl: string, fetchJson: (url: string) => Promise<unknown> = defaultFetchJson): Promise<string> {
   const base = new URL(cdpUrl);
-  const info = (await fetchJson(new URL('/json/version', base).toString())) as { webSocketDebuggerUrl?: string };
+  const versionUrl = new URL('/json/version', base).toString();
+  let info: { webSocketDebuggerUrl?: string } | undefined;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      info = (await fetchJson(versionUrl)) as { webSocketDebuggerUrl?: string };
+      break;
+    } catch (e) {
+      // A busy or just-started browser can take longer than one timeout to answer; a refused connection fails at once.
+      if ((e as Error).name !== 'AbortError' || attempt >= VERSION_ATTEMPTS) throw e;
+    }
+  }
   if (!info?.webSocketDebuggerUrl) throw new Error('No DevTools endpoint at ' + base.origin);
   const ws = new URL(info.webSocketDebuggerUrl);
   // Chromium answers with the host it was asked on; pin it to the configured loopback host and port anyway.
