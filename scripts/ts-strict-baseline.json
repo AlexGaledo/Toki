@@ -97,7 +97,7 @@
   "hub:src/permissions/knowledgeReadOnly.test.ts": 12,
   "hub:src/permissions/messages.test.ts": 3,
   "hub:src/permissions/messages.ts": 1,
-  "hub:src/permissions/outsideMcpApproval.test.ts": 4,
+  "hub:src/permissions/outsideMcpApproval.test.ts": 2,
   "hub:src/permissions/parking.test.ts": 8,
   "hub:src/permissions/projectGuard.ts": 3,
   "hub:src/permissions/secretFiles.ts": 6,
