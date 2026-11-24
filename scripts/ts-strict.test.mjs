@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compare, countErrors } from './ts-strict.mjs';
+import { compare, countErrors, setupProblem } from './ts-strict.mjs';
+
+test('a tsc that did not run, or missing dependencies, is a failure, not zero errors', () => {
+  assert.match(setupProblem("Error: Cannot find module 'C:/x/node_modules/typescript/bin/tsc'", 1), /tsc did not run/);
+  assert.match(setupProblem("src/a.ts(1,1): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.", 2), /TS2307/);
+  assert.equal(setupProblem("src/a.ts(3,5): error TS2532: Object is possibly 'undefined'.", 2), null);
+  assert.equal(setupProblem('', 0), null);
+});
 
 test('counts errors per file and normalises Windows paths', () => {
   const out = [
