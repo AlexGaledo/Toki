@@ -1,0 +1,37 @@
+# (f1) One headless job per run: blender.exe --background --factory-startup --python f1_job.py -- <out>
+# (f1_job.py builds a scene, saves the .blend, renders 512x512 with EEVEE; Blender 5.2.2 LTS)
+## run 1 (first EEVEE run on this PC: shader compile)
+SPIKE engines: ['BLENDER_EEVEE']
+SPIKE eevee id: BLENDER_EEVEE
+SPIKE saved ...\toki-spike\f1\f1_scene.blend 116646 bytes
+SPIKE render seconds: 27.25
+SPIKE png ...\toki-spike\f1\f1_render.png 165682
+SPIKE gpu: NVIDIA Corporation | NVIDIA GeForce RTX 3050 Laptop GPU/PCIe/SSE2 | OPENGL
+SPIKE script seconds: 27.27
+exit=0 wall-clock seconds=31.44
+## run 2 (same job, warm shader cache)
+SPIKE render seconds: 3.49
+SPIKE png ...\toki-spike\f1b\f1_render.png 165683
+SPIKE script seconds: 3.51
+exit=0 wall-clock seconds=7.11
+## no-op job: blender.exe --background --factory-startup --python-expr "import bpy; print('SPIKE noop')"
+no-op job wall-clock seconds=4.75
+
+# (f2) Persistent headless MCP socket: blender.exe -b --factory-startup -P f2_server.py -- 9877 240
+# then: node f2_client.mjs 9877 <out>   (real MCP server: uvx mcp-for-blender==2.3.1, BLENDER_PORT=9877)
+## client run 1 (uvx resolving the pinned version for the first time)
+connected in 21.88s
+get_scene_info 0.08s isError=false: Scene 'Scene' | 1 camera, 1 light, 1 mesh | active Cube ...
+execute_blender_code 0.01s isError=false: Code executed successfully: monkey 4
+execute_blender_code 0.02s isError=false: Code executed successfully: objects ['Camera', 'Cube', 'Light', 'Suzanne']
+look 5.38s isError=false: [image image/png 92171 bytes] | Through camera 'Camera'. ... Quick render with BLENDER_EEVEE at 16 samples, 2.9s
+look 0.19s isError=false: [image image/png 22570 bytes] | Through camera 'Camera'. ...            (shading solid)
+look 0.34s isError=false: [image image/png 202007 bytes] | Quick render with BLENDER_EEVEE at 16 samples, 0.2s   (default args)
+## client run 2 (same server, warm)
+connected in 2.85s
+get_scene_info 0.02s isError=false
+execute_blender_code 0.02s isError=false: Code executed successfully: monkey 5
+execute_blender_code 0.02s isError=false: Code executed successfully: objects ['Camera', 'Cube', 'Light', 'Suzanne', 'Suzanne.001']
+look 0.51s isError=false: [image image/png 92171 bytes -> f2-look-camera-rendered.png] (rendered, camera)
+look 0.06s isError=false: [image image/png 22570 bytes -> f2-look-camera-solid.png]    (solid, camera)
+look 0.34s isError=false: [image image/png 202007 bytes -> f2-look-default.png]       (default: viewport mode, no window)

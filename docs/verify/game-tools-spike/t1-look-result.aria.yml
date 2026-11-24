@@ -1,0 +1,93 @@
+# url=http://127.0.0.1:17837/ title="Toki"
+- complementary:
+  - button "Hide bots"
+  - button "Search every chat"
+  - button "New"
+  - button "Needs you"
+  - button "Tasks"
+  - button "PC sessions"
+  - region "Rooms":
+    - heading "Rooms" [level=2]
+    - region "game-spike":
+      - button "game-spike bots" [expanded]
+      - button "game-spike"
+      - list:
+        - listitem:
+          - button "Spike · Idle Spike Blender has a 2×2×2m cube centered at origin; camera view rendered. No Roblox Studio instances connected.":
+            - img "Spike · Idle"
+            - text: Spike Blender has a 2×2×2m cube centered at origin; camera view rendered. No Roblox Studio instances connected.
+  - button "Bots bots" [expanded]
+  - text: Bots
+  - region "Podium":
+    - list:
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+    - button "Edit podium"
+  - list:
+    - listitem:
+      - button "Toki Support · Idle Toki Support @pocketrocket-support":
+        - img "Toki Support · Idle"
+        - text: Toki Support @pocketrocket-support
+    - listitem:
+      - button "Data Engineer · Idle Data Engineer @data-engineer":
+        - img "Data Engineer · Idle"
+        - text: Data Engineer @data-engineer
+  - button "Menu for Verifier. Online": Verifier Online
+  - button "Pair a phone"
+- separator "Resize sidebar"
+- main:
+  - button "game-spike"
+  - text: "@spike"
+  - button "Open Spike's page":
+    - img "Spike · Idle"
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - paragraph: "Make exactly these 3 tool calls, nothing else, then reply in one short line: 1) blender get_scene_info 2) blender look with mode camera and max_size 384 3) roblox-studio list_roblox_studios"
+  - text: 03:14 PM
+  - img "Spike"
+  - text: Spike 03:14 PM
+  - button "Worked · 1 step"
+  - img "Spike"
+  - text: "Spike 03:14 PM Needs your OK mcp__blender__get_scene_info Allowed once mcp__blender__get_scene_info requires approval {}"
+  - img "Spike"
+  - text: Spike 03:14 PM
+  - button "Worked · 2 steps · continued" [expanded]
+  - list:
+    - listitem:
+      - button "Look" [expanded]
+      - text: "mcp__blender__look done Input { \"mode\": \"camera\", \"max_size\": 384 } Output [image] [Image: source: C:\\Users\\alex\\.claude\\projects\\C--Users-alex-AppData-Local-Temp-toki-spike-run-data-workspace\\92e752ff-6bf5-4756-b024-aab26e737144\\tool-results\\mcp-blender-blob-1795504695902-t13vfx.png] Through camera 'Camera'. Framed 1 objects, 2 x 2 x 2 m across, centred at [0.0, 0.0, 0.0]. Quick render with BLENDER_EEVEE at 16 samples, 4.1s; a final render is cleaner."
+    - listitem:
+      - button "List roblox studios"
+  - img "Spike"
+  - text: "Spike 03:17 PM Needs your OK mcp__blender__look Allowed once mcp__blender__look requires approval { \"mode\": \"camera\", \"max_size\": 384 } Needs your OK mcp__roblox-studio__list_roblox_studios Allowed once mcp__roblox-studio__list_roblox_studios requires approval {}"
+  - img "Spike"
+  - text: Spike 03:18 PM
+  - paragraph: Blender has a 2×2×2m cube centered at origin; camera view rendered. No Roblox Studio instances connected.
+  - text: "Haiku 4.5 . Model choice: Set on the bot"
+  - 'textbox "Message #game-spike"':
+    - /placeholder: "@mention a bot"
+  - button "Attach files"
+  - 'button "Permission level for all bots: Approval"': Approval
+  - status
+  - 'button "Model for this chat: Haiku"': Haiku
+  - button "Send" [disabled]
+- separator "Resize overview"
+- complementary "Overview":
+  - heading "Needs you" [level=2]
+  - button "Fold overview to icons"
+  - region "Needs you":
+    - paragraph: All caught up.
+  - region "Bots":
+    - heading "Bots" [level=2]
+    - text: "1"
+    - list:
+      - listitem:
+        - button "Spike · Idle Spike Game tools spike":
+          - img "Spike · Idle"
+          - text: Spike Game tools spike
+- status
