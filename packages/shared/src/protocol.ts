@@ -155,6 +155,7 @@ export const RoomInputSchema = z.object({
   name: z.string().min(1).max(60),
   memberIds: z.array(z.string()).min(1).max(MAX_ROOM_BOTS),
   coordinatorBotId: z.string().nullable().default(null),
+  leadMode: z.boolean().optional(),
   avatar: AvatarSchema.optional(),
 });
 export type RoomInput = z.infer<typeof RoomInputSchema>;

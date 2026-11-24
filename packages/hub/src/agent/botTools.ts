@@ -304,6 +304,11 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
       if (!target) {
         return err('Unknown bot "' + a.to_bot + '". Members: ' + (others().map((b) => '@' + b.handle).join(', ') || 'none'));
       }
+      const room = ctx.repos.getRoom(ctx.room.id) ?? ctx.room;
+      if (room.kind === 'group' && room.leadMode && room.coordinatorBotId && room.coordinatorBotId !== ctx.bot.id && target.id !== room.coordinatorBotId) {
+        const lead = ctx.members.find((m) => m.id === room.coordinatorBotId);
+        return err('This room is run by @' + (lead?.handle ?? 'the lead') + ': only the lead hands out work. Report back to the lead and say who should take it.');
+      }
       const payload: HandoffPayload = { fromBotId: ctx.bot.id, toBotId: target.id, task: a.task, context: a.context };
       const body = '@' + target.handle + ' handoff from @' + ctx.bot.handle + ': ' + a.task + (a.context ? '\n\nContext: ' + a.context : '');
       post('handoff', body, payload);
@@ -343,7 +348,20 @@ export function createHubTools(ctx: ToolCtx): HubTool[] {
     },
   );
 
-  const readMemory = hubTool('read_memory', 'Read your current memory.md.', {}, async () => text(ctx.memory.read(ctx.bot.id) || '(empty)'), { readOnly: true });
+  const readMemory = hubTool(
+    'read_memory',
+    "Read your current memory.md. The lead of a room in lead mode can pass `bot` to read a room member's memory.",
+    { bot: z.string().optional().describe('@handle of a room member (lead of a lead-mode room only)') },
+    async (a) => {
+      if (!a.bot) return text(ctx.memory.read(ctx.bot.id) || '(empty)');
+      const room = ctx.repos.getRoom(ctx.room.id) ?? ctx.room;
+      if (!room.leadMode || room.coordinatorBotId !== ctx.bot.id) return err("Only the lead of a room in lead mode can read another bot's memory.");
+      const target = findBot(a.bot);
+      if (!target) return err('No bot "' + a.bot + '" in this room.');
+      return text(ctx.memory.read(target.id) || '(empty)');
+    },
+    { readOnly: true },
+  );
 
   const saveSkill = hubTool(
     'save_skill',

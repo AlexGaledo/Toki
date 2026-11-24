@@ -331,3 +331,32 @@ describe('M6: provider per bot in the bot tools (P1-3, P1-7)', () => {
     }
   });
 });
+
+describe('lead mode tools', () => {
+  const group = (leadIsScout: boolean) => {
+    const s = setup();
+    const mk = (h: string) => s.repos.createBot({ name: h, handle: h, title: '', description: 'x', avatar: '', model: 'claude-sonnet-5', allowedTools: [], maxBudgetUsd: 1 });
+    const bob = mk('bob');
+    const cat = mk('cat');
+    const room = s.repos.createRoom({ kind: 'group', name: 'g', memberIds: [s.bot.id, bob.id, cat.id], coordinatorBotId: leadIsScout ? s.bot.id : bob.id, leadMode: true });
+    const tools = createHubTools({ ...s.ctx, room, members: [s.bot, bob, cat], dispatchFromBot: (t) => t.map((b) => b.handle) });
+    const run = async (name: string, input: Record<string, unknown>) => {
+      const out = await byName(tools, name).handler(input);
+      return { error: !!out.isError, text: (out.content[0] as { text: string }).text };
+    };
+    return { ...s, run };
+  };
+
+  it("lets the lead read a member's memory, and no one else", async () => {
+    expect((await group(true).run('read_memory', { bot: 'bob' })).error).toBe(false);
+    expect(await group(false).run('read_memory', { bot: 'cat' })).toMatchObject({ error: true, text: expect.stringMatching(/Only the lead/) });
+    expect((await group(false).run('read_memory', {})).error).toBe(false);
+  });
+
+  it('lets a worker hand work only back to the lead', async () => {
+    const g = group(false);
+    expect(await g.run('handoff', { to_bot: 'cat', task: 'review it' })).toMatchObject({ error: true, text: expect.stringMatching(/only the lead hands out work/) });
+    expect(await g.run('handoff', { to_bot: 'bob', task: 'done, cat should review' })).toMatchObject({ error: false });
+    expect((await group(true).run('handoff', { to_bot: 'cat', task: 'review it' })).error).toBe(false);
+  });
+});

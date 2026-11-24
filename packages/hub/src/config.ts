@@ -171,7 +171,9 @@ export const CAUSE_COST_CAP_USD = causeCostCap();
 export const MAX_TURNS_PER_QUERY = Number(process.env.MAX_TURNS_PER_QUERY ?? 100);
 export const MAX_TURN_CONTINUATIONS = Number(process.env.MAX_TURN_CONTINUATIONS ?? 3);
 export const CUTOFF_RETRIES = Number(process.env.CUTOFF_RETRIES ?? 2);
-export const ROTATE_CONTEXT_TOKENS = Number(process.env.ROTATE_CONTEXT_TOKENS ?? 120_000);
+// 0 = off: a bot keeps its whole session and the provider compacts it near the window. Set a token count to rotate
+// (fresh session + summary) past that size, or after ROTATE_IDLE_MS idle above ROTATE_IDLE_MIN_TOKENS.
+export const ROTATE_CONTEXT_TOKENS = Number(process.env.ROTATE_CONTEXT_TOKENS ?? 0);
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
 export const ROTATE_IDLE_MS = Number(process.env.ROTATE_IDLE_MS ?? 30 * 60 * 1000);
 export const ROTATE_IDLE_MIN_TOKENS = Number(process.env.ROTATE_IDLE_MIN_TOKENS ?? 40_000);

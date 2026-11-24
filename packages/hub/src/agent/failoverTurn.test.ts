@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, type ModelInfo, type ProviderId, type ServerEvent } from '@pocketrocket/shared';
 import { events } from '../events.js';
 import { Db } from '../db/db.js';
@@ -13,6 +13,9 @@ import { StubProvider } from '../providers/stub.js';
 import { createProviders } from '../providers/registry.js';
 import { EMPTY_USAGE, type TurnContext, type TurnOutcome, type TurnSink } from '../providers/types.js';
 import { BotRunner } from './BotRunner.js';
+
+// Rotation is off by default; these tests cover it switched on at the old 120k default.
+vi.mock('../config.js', async (orig) => ({ ...(await orig<typeof import('../config.js')>()), ROTATE_CONTEXT_TOKENS: 120_000 }));
 
 class Scripted extends StubProvider {
   started: TurnContext[] = [];

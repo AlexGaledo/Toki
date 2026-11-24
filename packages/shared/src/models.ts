@@ -131,6 +131,8 @@ export interface Room {
   name: string;
   memberIds: string[];
   coordinatorBotId: string | null;
+  /** The coordinator runs the room: only it hears the owner and wakes others; workers see only what is addressed to them. */
+  leadMode?: boolean;
   createdAt: number;
   avatar?: string;
   chatModel?: string | null;

@@ -34,7 +34,7 @@ describe('GET /api/rooms/:id/context', () => {
     hub.repos.saveSessionState(b.id, room.id, { contextTokens: 0, contextAt: Date.now() });
     const r = await get('/api/rooms/' + room.id + '/context');
     expect(r.status).toBe(200);
-    expect(r.json).toEqual({ [a.id]: { contextTokens: 84_000, window: 1_000_000, rotateAt: 120_000 } });
+    expect(r.json).toEqual({ [a.id]: { contextTokens: 84_000, window: 1_000_000, rotateAt: null } });
   });
 
   it('skips a session written by a provider this hub does not run', async () => {
