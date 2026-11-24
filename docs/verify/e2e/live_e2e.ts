@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- one-off verify drivers: they read whatever JSON the live hub replies with */
 /**
  * Live end-to-end proof: a real bot turn in a game room drives Toki's headless Blender, and the look-back image lands
  * on the tool message. Hub only (no Vite, no browser) to fit the PC's free RAM; D2 already proves the UI renders it.

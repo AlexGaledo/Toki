@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- one-off verify drivers: they read whatever JSON the live hub replies with */
 /**
  * S2 items 2-5 with Roblox Studio already open on a temp place: one real Haiku turn by the game room's builder under
  * `ask`, cards answered the way the web answers them (WebSocket `approval.decide` on /ws, the hub token as the web

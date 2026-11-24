@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- one-off verify drivers: they read whatever JSON the live hub replies with */
 /**
  * S2 item 1: Toki's `studio-mcp-setting` step on the owner's REAL AssistantSettings file, with Studio closed.
  * The throwaway hub's GameTools gets no `env` override, so it reads `process.env.LOCALAPPDATA` (services/gameTools.ts

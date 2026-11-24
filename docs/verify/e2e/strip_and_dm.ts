@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, no-useless-assignment -- one-off verify drivers: they read whatever JSON the live hub replies with */
 /**
  * Live status events + non-game room check. Based on live_e2e.ts: a real bot turn in a game room drives Toki's headless Blender, and the look-back image lands
  * on the tool message. Hub only (no Vite, no browser) to fit the PC's free RAM; D2 already proves the UI renders it.

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- one-off verify drivers: they read whatever JSON the live hub replies with */
 /**
  * S2: a `multi_edit` card from a real Studio turn. Roblox Studio must already be open on a temp place. Like
  * `../../s2/s2_turn.ts`: a throwaway in-process hub on a random loopback port, a fresh data dir under %TEMP%,
