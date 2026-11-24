@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MAX_ATTACHMENT_IMAGE_BYTES, type ModelInfo, type ProviderCheck, type ProviderId, type Room, type ServerEvent, type ToolPayload } from '@pocketrocket/shared';
 import { Db } from '../db/db.js';
 import { Repos } from '../db/repos.js';
@@ -181,7 +181,9 @@ describe('which servers get look-backs', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-lookback-store-'));
     dirs.push(dir);
     const media = new MediaStore(dir);
+    const put = vi.spyOn(media, 'put');
     expect(storeLookBack(media, { mediaType: 'image/png', data: 'A'.repeat(Math.ceil(MAX_ATTACHMENT_IMAGE_BYTES / 3) * 4 + 8) })).toBeNull();
+    expect(put).not.toHaveBeenCalled();
     expect(fs.existsSync(dir) ? fs.readdirSync(dir) : []).toEqual([]);
   });
 });

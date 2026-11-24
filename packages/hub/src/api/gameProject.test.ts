@@ -1,10 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import http from 'node:http';
+import { PassThrough } from 'node:stream';
 import path from 'node:path';
 import type { GameToolsStatus } from '@pocketrocket/shared';
 import { createHub, type Hub } from '../hub.js';
 import { Db } from '../db/db.js';
+import { Repos } from '../db/repos.js';
+import { MemoryService } from '../services/MemoryService.js';
+import { ProjectService } from '../services/ProjectService.js';
+import { createProjectsApi } from './projects.js';
+import { setPrincipal } from './guard.js';
 import { listAudit } from '../services/AuditLog.js';
 import { GAME_TEAM_TEMPLATE } from '../services/devTeamTemplate.js';
 import { runGit } from '../services/git.js';
@@ -112,5 +118,30 @@ describe('studioForGameRoom', () => {
     // Studio closed is fine: the recipe starts mcp.bat when a turn mounts it.
     expect(await studioForGameRoom({ tools: { status: status('not-running'), mcpBat: 'C:\\x\\mcp.bat' }, store, db }, 'room-1', actor)).toBe('added');
     expect(store.list().find((s) => s.name === STUDIO_SERVER)?.rooms).toEqual(['room-1']);
+  });
+});
+
+describe('NEGATIVE: only the hub token sets up Studio for a new game room (defence behind the pipeline)', () => {
+  it('a paired device or the runner reaching the handler still gets the project, but no Studio recipe', async () => {
+    const repos = new Repos(new Db(':memory:'));
+    const root = fs.mkdtempSync(path.join(pc.root, 'direct-'));
+    const projects = new ProjectService({ db: repos.db, repos, memory: new MemoryService(), root, git: async () => '' });
+    for (const role of GAME_TEAM_TEMPLATE.roles) {
+      repos.createBot({ name: role.source, handle: role.source, title: '', description: 'x', avatar: '', model: 'm', allowedTools: [], maxBudgetUsd: 1 });
+    }
+    for (const name of GAME_TEAM_TEMPLATE.skills) repos.upsertSkill({ name, description: '', path: '/x/' + name, source: 'authored', reviewStatus: 'approved', createdByBot: null });
+    const calls: string[] = [];
+    const handler = createProjectsApi({ projects, repos, db: repos.db, studioForRoom: async (roomId) => { calls.push(roomId); return 'added'; } });
+    const principals: Parameters<typeof setPrincipal>[1][] = [{ kind: 'device', deviceId: 'phone' }, { kind: 'runner' }];
+    for (const [i, p] of principals.entries()) {
+      const req = Object.assign(new PassThrough(), { method: 'POST', url: '/api/projects', headers: {}, socket: { remoteAddress: '127.0.0.1' } }) as unknown as http.IncomingMessage;
+      setPrincipal(req, p);
+      let body = '';
+      const res = { writeHead: () => undefined, end: (b: string) => { body = b; } } as unknown as http.ServerResponse;
+      (req as unknown as PassThrough).end(JSON.stringify({ name: 'Direct ' + i, template: 'game' }));
+      expect(await handler(req, res)).toBe(true);
+      expect(JSON.parse(body).setup.studio, p.kind).toBe('failed');
+    }
+    expect(calls).toEqual([]);
   });
 });
