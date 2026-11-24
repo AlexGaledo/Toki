@@ -1,0 +1,16 @@
+multi_edit card mutations, 2026-11-24T23:46:21+08:00. Run 1 had 9 of 11: mutant 3 (every -> some) survived because the bad list held only one,
+non-text, edit; the test now mixes a good and a bad edit. Mutant 10 had a script escaping bug (text not found). Run 2:
+
+mutant 1 CAUGHT  outsideMcp.ts: never names edits | Tests  1 failed | 11 passed (12)
+mutant 2 CAUGHT  outsideMcp.ts: an empty edits list names edits | Tests  1 failed | 11 passed (12)
+mutant 3 CAUGHT  outsideMcp.ts: one text edit is enough | Tests  1 failed | 11 passed (12)
+mutant 4 CAUGHT  outsideMcp.ts: new_string type not checked | Tests  1 failed | 11 passed (12)
+mutant 5 CAUGHT  outsideMcp.ts: names the wrong field | Tests  1 failed | 11 passed (12)
+mutant 6 CAUGHT  approvalCode.ts: edits not turned into code | Tests  2 failed | 6 passed (8)
+mutant 7 CAUGHT  approvalCode.ts: an empty list shows an empty code area | Tests  1 failed | 7 passed (8)
+mutant 8 CAUGHT  approvalCode.ts: new_string type not checked | Tests  1 failed | 7 passed (8)
+mutant 9 CAUGHT  approvalCode.ts: replace_all hidden | Tests  1 failed | 7 passed (8)
+mutant 10 CAUGHT  approvalCode.ts: empty old_string shows a "- " line | Tests  1 failed | 7 passed (8)
+mutant 11 CAUGHT  approvalCode.ts: new before old | Tests  1 failed | 7 passed (8)
+
+11 of 11 caught

@@ -1,0 +1,23 @@
+# Attempt 1 (no Haiku turn used): ECONNRESET on the message POST, 8 s after the room POST. Node 26's http.globalAgent keeps
+# sockets alive and reused one the hub had closed (its keep-alive timeout is 5 s). The run's finally block deleted the temp
+# bot and DM, all 4 writes on 7788. Fixed in the driver with agent:false (a new connection per call), then attempt 2 ran.
+15:50:53.529 # I3: a PC bot turn through a loss of the server link
+15:50:53.530 window before: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+15:50:53.546 PC hub token read from the 7788 page only (never printed). approvals=ask
+15:50:53.551 PC hub before: bots=1 rooms=1
+15:50:53.561 WRITE POST 127.0.0.1:7788/api/bots -> 200
+15:50:53.562 temp bot @i3-temp-counter model=claude-haiku-4-5-20251001
+15:50:53.569 WRITE POST 127.0.0.1:7788/api/rooms -> 200
+15:50:56.482 window on the server after 2.9 s: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server#<fragment>
+15:51:01.962 tunnel ssh pids: [19504]; 7790 listeners: 127.0.0.1:7790 pid=19504
+15:51:01.972 WRITE DELETE 127.0.0.1:7788/api/rooms/GMgGYYgWzi -> 200
+15:51:01.981 WRITE DELETE 127.0.0.1:7788/api/bots/a-tPDD5GCl -> 200
+15:51:01.987 PC hub after cleanup: bots=1 rooms=1 handle exists=false
+15:51:01.987 ## every write this run made (4):
+15:51:01.987   POST http://127.0.0.1:7788/api/bots -> 200
+15:51:01.987   POST http://127.0.0.1:7788/api/rooms -> 200
+15:51:01.987   DELETE http://127.0.0.1:7788/api/rooms/GMgGYYgWzi -> 200
+15:51:01.987   DELETE http://127.0.0.1:7788/api/bots/a-tPDD5GCl -> 200
+15:51:01.987 writes not to 127.0.0.1:7788: 0
+15:51:01.987 window at the end: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server; elapsed 9 s
+15:51:01.988 ERROR read ECONNRESET

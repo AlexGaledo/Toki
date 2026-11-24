@@ -1,0 +1,39 @@
+﻿00:02:42.902 # I4 on a clean folder, installer sha256 8550d4e07a45a944c17c6ac9730edd8d8a3f28473ec0599e3025b6bfebc54d87
+00:02:42.915 owner's install: C:\Users\alex\AppData\Local\PocketRocket, PocketRocket.exe sha256 EA47CFE5A106582F...
+00:02:42.939 before: uninstall key: InstallLocation="C:\Users\alex\AppData\Local\PocketRocket" UninstallString="C:\Users\alex\AppData\Local\PocketRocket\uninstall.exe" DisplayVersion=0.5.4 | manufacturer default: C:\Users\alex\AppData\Local\PocketRocket
+00:02:42.970 new folder: C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app exists before install: False
+00:04:17.797 installer exit code 0
+00:04:17.808 after install: uninstall key: InstallLocation="C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app" UninstallString="C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app\uninstall.exe" DisplayVersion=0.5.4 | manufacturer default: C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app
+00:04:19.329 installed: 7235 files, 170.9 MB
+00:04:19.333 hub\resources\blender present: True
+00:04:19.377   requirements.txt 56552 B sha256 feb0091e1037... source feb0091e1037... equal=True
+00:04:19.402   toki_blender_server.py 8533 B sha256 87bfd17efac9... source 87bfd17efac9... equal=True
+00:04:19.404 hub\package.json next to hub.mjs (so HUB_DIR is this folder): True / True
+00:04:19.437 owner's PocketRocket.exe unchanged: True
+00:04:21.154 hub started: pid 13300 C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app\node.exe C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app\hub\hub.mjs on 127.0.0.1:7821
+00:04:24.415 GET /api/health -> 200 {"ok":true,"provider":"claude","version":"0.5.4","approvals":"ask","approvalsLocked":false}
+00:04:26.701 listener: 127.0.0.1:7821 owned by pid 13300 (C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app\node.exe)
+00:04:29.941 GET /api/game-tools -> blender.reason=found uv.reason=system studio.reason=no-mcp-bat
+00:04:29.969 GET / (the bundled web) -> 200, 1300 B, has <title>: True
+00:04:30.015 hub stopped (pid 13300)
+00:04:30.056   hub: Toki hub v0.5.4 · node 24.22.3 · provider claude · data C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\data · http://127.0.0.1:7821
+00:04:30.057   hub: [pocketrocket] workspace: C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\data\workspace  (token required)
+00:04:30.058   hub: [pocketrocket] open: http://127.0.0.1:7821/  (sign in with the token from POCKETROCKET_TOKEN)
+00:04:30.059   hub: ◇ injected env (0) from .env
+00:04:30.060   hub: [workspace-web] not serving the workspace on 127.0.0.1:7789: listen EADDRINUSE: address already in use 127.0.0.1:7789
+00:04:45.770 uninstaller exit code 0
+00:04:45.868 after uninstall: uninstall key: (absent) | manufacturer default: C:\Users\alex\AppData\Local\Temp\toki-i4-clean-0d74b9c3\app
+00:04:45.911 temp folder removed: True
+(the script then stopped: reg.exe writes "The operation completed successfully." to stderr, and ErrorActionPreference=Stop
+ turned that into an error after the first import. The uninstall key had been imported; the manufacturer key was then
+ imported by hand, and everything was checked:)
+manufacturer import: The operation completed successfully.  rc=0
+uninstall key: InstallLocation="%USERPROFILE%\AppData\Local\PocketRocket" UninstallString="%USERPROFILE%\AppData\Local\PocketRocket\uninstall.exe" DisplayVersion=0.5.4 EstimatedSize=175029 MainBinaryName=PocketRocket.exe
+manufacturer default: %USERPROFILE%\AppData\Local\PocketRocket
+uninstall key equals backup: True        (reg export compared by sha256 with the export taken before the run)
+manufacturer key equals backup: True
+owner exe sha256 unchanged: True; uninstall.exe present: True
+shortcut Programs -> %USERPROFILE%\AppData\Local\PocketRocket\PocketRocket.exe
+shortcut Desktop -> %USERPROFILE%\AppData\Local\PocketRocket\PocketRocket.exe
+PocketRocket uninstall entries: 1
+temp leftovers: 0

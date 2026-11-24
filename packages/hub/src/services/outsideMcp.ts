@@ -57,9 +57,17 @@ export function outsideTooLarge(shown: Record<string, unknown>): string | null {
 }
 
 const CODE_TOOLS = new Set(['execute_blender_code', 'execute_luau']);
-/** The input field the card shows as code, for tools whose input is a script. */
-export function outsideCodeField(tool: string, input: Record<string, unknown>): 'code' | undefined {
-  return CODE_TOOLS.has(tool) && typeof input.code === 'string' ? 'code' : undefined;
+const isTextEdit = (e: unknown): boolean =>
+  !!e && typeof e === 'object' && typeof (e as { old_string?: unknown }).old_string === 'string'
+  && typeof (e as { new_string?: unknown }).new_string === 'string';
+/**
+ * The input field the card shows as code, for tools whose input is a script. Studio's `multi_edit` keeps its code in
+ * `edits: [{old_string, new_string}]` (its tools/list schema), which the web shows as old and new lines.
+ */
+export function outsideCodeField(tool: string, input: Record<string, unknown>): 'code' | 'edits' | undefined {
+  if (CODE_TOOLS.has(tool)) return typeof input.code === 'string' ? 'code' : undefined;
+  if (tool === 'multi_edit' && Array.isArray(input.edits) && input.edits.length > 0 && input.edits.every(isTextEdit)) return 'edits';
+  return undefined;
 }
 
 /** Owner rule: Toki's Blender is headless, so no `bpy.ops.wm.*` UI operators. A text check, not a wall. */

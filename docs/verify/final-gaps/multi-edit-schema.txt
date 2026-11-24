@@ -1,0 +1,222 @@
+Studio's own MCP schema for multi_edit, read 2026-11-24T23:47:06+08:00 by starting StudioMCP.exe (version-8d7a1009c17e4ff8) over stdio
+and sending initialize + tools/list (scripts/studio_tools_list.mjs). Studio was not open; nothing was called.
+
+server: {"name":"RobloxStudio","version":"1.0.0"}
+tools (41): upload_image, open_cloud_invoke, search_game_tree, script_search, save_place, get_roblox_skill, subagent, multi_edit, list_plugin_actions, submit_feedback, get_console_output, user_mouse_input, auto_setup_avatar, store_image, http_get, character_navigation, list_roblox_studios, screen_capture, script_read, execute_luau, inspect_instance, script_grep, get_studio_state, segment_mesh, generate_scene, open_plugin, wait_job_finished, generate_procedural_model, generate_animation, generate_texture, list_roblox_skills, create_skill, generate_material, generate_avatar, start_stop_play, user_keyboard_input, video_capture, generate_mesh, search_asset, edit_skill, insert_asset
+
+## script_search
+Fast script search based on fuzzy matching against script names.
+Use if you know part of the script name but don't know where it's located exactly.
+Response will be capped to 10 results.
+Make your query more specific if need to filter results further.
+Note: Pattern matching is not supported such as asterisk (*) or question mark (?) wildcards.
+
+{
+  "properties": {
+    "keywords": {
+      "description": "The comma-separated keywords string to search for in the game's scripts. Each keyword is case-insensitive.",
+      "type": "string"
+    },
+    "studio_id": {
+      "description": "Selects Roblox Studio instance, use the list_roblox_studios tool to get available instances",
+      "type": "string"
+    }
+  },
+  "required": [
+    "keywords",
+    "studio_id"
+  ],
+  "type": "object"
+}
+
+## multi_edit
+Makes multiple edits to a single script in one operation. More efficient than multiple single edits.
+Can also create new scripts if the path doesn't exist (will need to specify className).
+
+Example Call (correct):
+- Args: {"file_path":"ReplicatedStorage.Platformer.Constants","edits":[{"old_string":"JUMP_COOLDOWN = 0.15","new_string":"JUMP_COOLDOWN = 0.3"}]}
+
+Path Format:
+- Use dot notation like "game.ServerScriptService.MyScript"
+
+Creating New Scripts:
+- If the script doesn't exist, it will be created using the provided className
+- className is required when creating new scripts
+- First edit with empty old_string ("") sets the initial content
+- Subsequent edits work normally on the created content
+
+Before Using:
+- Read or search file to understand existing script contents
+- For new scripts, provide className and start with empty old_string to set initial content
+
+Important Notes:
+- All edits are applied in sequence, in the order provided
+- Each edit operates on the result of the previous edit
+- All edits must be valid for the operation to succeed - atomic operation
+- Plan edits carefully to avoid conflicts between sequential operations
+
+Critical Requirements:
+- old_string must match script contents exactly (including whitespace)
+- old_string and new_string must be different
+- className required only when creating new scripts
+- For new files: first edit can have empty old_string to set initial content
+
+When Making Edits:
+- Ensure all edits result in correct, runnable code
+- Don't leave code in a broken state
+- Use replace_all for renaming variables across the entire script
+
+{
+  "properties": {
+    "className": {
+      "description": "The class name of the script to create (e.g., 'Script', 'LocalScript', 'ModuleScript'). Required only when creating new scripts, leave empty if script already exists.",
+      "type": "string"
+    },
+    "datamodel_type": {
+      "description": "The target datamodel to operate on, the tool can only be performed in those datamodel types. call get_studio_state to get current available datamodel types. if the target datamodel is not available in current mode, consider using start_stop_play to switch to the desired mode and then use the tools. This is a required argument.",
+      "enum": [
+        "Edit"
+      ],
+      "type": "string"
+    },
+    "edits": {
+      "description": "An array of edit operations. For new scripts, first edit can have empty old_string to set initial content.",
+      "items": {
+        "properties": {
+          "new_string": {
+            "description": "The text to replace it with (must be different from old_string)",
+            "type": "string"
+          },
+          "old_string": {
+            "description": "The text to replace (must match exactly). Use empty string for new script initial content.",
+            "type": "string"
+          },
+          "replace_all": {
+            "description": "Replace all occurrences of old_string (optional, defaults to false)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "file_path": {
+      "description": "The dot-notation path of the script (e.g., 'game.ServerScriptService.MyScript'). Will be created if it doesn't exist.",
+      "type": "string"
+    },
+    "studio_id": {
+      "description": "Selects Roblox Studio instance, use the list_roblox_studios tool to get available instances",
+      "type": "string"
+    }
+  },
+  "required": [
+    "file_path",
+    "edits",
+    "datamodel_type",
+    "studio_id"
+  ],
+  "type": "object"
+}
+
+## script_read
+Reads a script from the Roblox workspace. The output will be returned with line numbers in format: LINE_NUMBER→LINE_CONTENT.
+When using this tool to gather information, ensure you gather the COMPLETE context to fulfill the user's request.
+
+Usage:
+- This tool reads the entire script by default to provide complete context
+- You can read multiple scripts in parallel for efficiency
+- If you need to find specific symbols across multiple scripts, use the grep search tool
+- Avoid re-reading the same script unless the script may have changed since the last read
+- For very large scripts (thousands of lines), consider using grep_search to locate specific functions or patterns first
+
+Path Format:
+- The path needs to be a full path, with no wildcard matching
+- Use dot notation like "game.ServerScriptService.MyScript"
+- Script must already exist (use `file_search` or `grep_search` to find the script path first)
+- Will only read existing scripts, never creates new ones
+
+{
+  "properties": {
+    "end_line_one_indexed_inclusive": {
+      "description": "The one-indexed line number to end reading at (inclusive). Required if should_read_entire_file is false.",
+      "type": "integer"
+    },
+    "should_read_entire_file": {
+      "description": "Whether to read the entire script. Defaults to true. Must be set to false when providing a line range.",
+      "type": "boolean"
+    },
+    "start_line_one_indexed": {
+      "description": "The one-indexed line number to start reading from (inclusive). Required if should_read_entire_file is false.",
+      "type": "integer"
+    },
+    "studio_id": {
+      "description": "Selects Roblox Studio instance, use the list_roblox_studios tool to get available instances",
+      "type": "string"
+    },
+    "target_file": {
+      "description": "The dot-notation path of the script to read (e.g., 'game.ServerScriptService.MyScript')",
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_file",
+    "studio_id"
+  ],
+  "type": "object"
+}
+
+## script_grep
+Runs a search for a string pattern over all script contents in the game. To avoid overwhelming output, the results are capped at 50 matches.
+{
+  "properties": {
+    "query": {
+      "description": "The string or Luau pattern to search for.",
+      "type": "string"
+    },
+    "studio_id": {
+      "description": "Selects Roblox Studio instance, use the list_roblox_studios tool to get available instances",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query",
+    "studio_id"
+  ],
+  "type": "object"
+}
+
+## edit_skill
+Edit an existing user skill. Can update the name, description, and/or body. Only user-created skills can be edited.
+{
+  "properties": {
+    "new_description": {
+      "description": "New one-line description for the skill. Omit to keep current description.",
+      "type": "string"
+    },
+    "new_name": {
+      "description": "New name for the skill. Lowercase letters, numbers, underscores, dashes only. Cannot start with 'rbx-'. Omit to keep current name.",
+      "type": "string"
+    },
+    "new_skill_body": {
+      "description": "New markdown body content for the skill. This replaces the entire body. Omit to keep current body.",
+      "type": "string"
+    },
+    "skill_name": {
+      "description": "The current name of the skill to edit.",
+      "type": "string"
+    },
+    "studio_id": {
+      "description": "Selects Roblox Studio instance, use the list_roblox_studios tool to get available instances",
+      "type": "string"
+    }
+  },
+  "required": [
+    "skill_name",
+    "studio_id"
+  ],
+  "type": "object"
+}

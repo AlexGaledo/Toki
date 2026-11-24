@@ -24,7 +24,7 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | Task | What | Commit(s) | Proof type | Evidence | Status |
 |---|---|---|---|---|---|
 | S1 | Spike: game tools on the owner's PC | 0840b6f | live | `docs/verify/game-tools-spike.md`, `game-tools-spike/` | approved |
-| S2 | Studio steps with Studio open | none (verification only, no bug found) | live (real AssistantSettings, real Studio, one Haiku turn under ask; installed app) | `s2/` (`README.md`, `flip.txt`, `flip-files.txt`, `turn.txt`, `cards.json`, `screen.png`, `resolver.txt`, `cleanup.txt`), `real-setup/s2-open-studio.txt` | approved with gaps (items 1-6 pass; `multi_edit` not exercised) |
+| S2 | Studio steps with Studio open | final-gaps commit (`multi_edit` card shows its edits as code) | live (real AssistantSettings, real Studio, one Haiku turn under ask; installed app; Studio's own `tools/list` schema), fail-then-pass, mutation (11/11) | `s2/` (`README.md`, `flip.txt`, `flip-files.txt`, `turn.txt`, `cards.json`, `screen.png`, `resolver.txt`, `cleanup.txt`), `real-setup/s2-open-studio.txt`, `final-gaps/multi-edit-*` | approved with gaps (items 1-6 pass; the `multi_edit` card now shows `edits[].old_string/new_string` as code, proven against Studio's declared schema; a card from a real Studio turn was not captured, because Studio was not launched with 2.5 GB RAM free) |
 | B1 | Detection (Blender, uv, Blender MCP tools, Studio) | fcbe5d8 | fail-then-pass, mutation, live | `phase1-backend/` (`live-status.txt`, `mutations.txt`, `fail-then-pass.txt`) | approved (the Studio "open" state was seen live in `s2/turn.txt`) |
 | B2 | Game tools routes, hub token only, audited | e632778, daa692e | fail-then-pass, mutation, live | `phase1-backend/` | approved |
 | B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved (bypass live in `e2e/`; "Always allow" under ask live in `s2/turn.txt`) |
@@ -39,9 +39,9 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | B12 | Toki's headless Blender | d3f3517, ca43f26 (hub dir) | fail-then-pass, mutation, live | `b12/` (`live-run.txt`, `b12-look-rendered.png`, `mutations.txt`) | approved (live bot turn through the mount in `e2e/`) |
 | I1 | "Open Studio" only | 477db49 | mutation, live (installed app) | `phase1-infra/i1-mutations.txt`, `i1-cargo.txt`, `real-setup/s2-open-studio.txt` | approved (real launch: no arguments, outside Toki's job, survives quit, one Studio per 10 s) |
 | I2 | PC hub always runs; server tunnel on 7790 | 39afb96 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `cargo.txt`, `real-setup/check1-old-config.txt`, `check4-port-busy.txt`, `check5b-quit-and-start.txt` | approved (all 46 phase3-infra mutants run: 45 caught, 1 informational and harmless) |
-| I3 | Stub refresh, 30 s loss, host requests, Open folder | 0fe6cc0, c6fe9b2 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `stub-schema.txt`, `real-setup/check2-*`, `check3-loss.txt`, `check5a-*`, `check6-open-folder.txt` | approved with gaps (no PC bot turn during the loss test; mutants as I2, all run) |
-| I4 | Ship the Blender server script and requirements | d4a4b0d | fail-then-pass, live (installed NSIS build) | `phase1-infra/i4-bundle.txt`, `i4-fail-then-pass.txt`, `real-setup/README.md` ("I4") | approved with gaps (installed over 0.5.4, not on a clean machine) |
-| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020; ui-gaps commit (two keyboard fixes) | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/`, `ui-gaps/` | approved with gaps (every state now rendered in `ui-gaps/`: crashing with Open log and Try again pressed, another Blender (real), not installed, the Studio states; the server state through the `platform` seam, not on the real server's page. Open Studio is live in `real-setup/s2-open-studio.txt`) |
+| I3 | Stub refresh, 30 s loss, host requests, Open folder | 0fe6cc0, c6fe9b2 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `stub-schema.txt`, `real-setup/check2-*`, `check3-loss.txt`, `check5a-*`, `check6-open-folder.txt`, `final-gaps/i3-pc-turn-through-loss.txt` | approved (a PC bot's Haiku turn ran a 40 s Bash through the tunnel kill and replied 36.9 s after it, with the window back on the PC in 0.8 s and every write on 7788; mutants as I2, all run) |
+| I4 | Ship the Blender server script and requirements | d4a4b0d | fail-then-pass, live (installed NSIS build; silent install into a new empty folder) | `phase1-infra/i4-bundle.txt`, `i4-fail-then-pass.txt`, `real-setup/README.md` ("I4"), `final-gaps/i4-clean-folder.txt` | approved (in a new empty folder `hub/resources/blender/` matches the source and the hub starts there on its own `node.exe`; a second, clean PC was not used) |
+| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020; ui-gaps commit (two keyboard fixes) | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/`, `ui-gaps/` | approved with gaps (every state now rendered in `ui-gaps/`: crashing with Open log and Try again pressed, another Blender (real), not installed, the Studio states; the server state through the `platform` seam only. The real server's page was not captured: blocked in `final-gaps/README.md` (the owner was using Toki and RAM was 0.9 to 1.25 GB free); `final-gaps/scripts/d1_server_page.mjs` is ready. Open Studio is live in `real-setup/s2-open-studio.txt`) |
 | D2 | Look-back thumbnails | c98e388, 222a003, 9970651 | fail-then-pass, mutation, verify-toki, live | `phase2-ui/d2/`, `ui-gaps/run2/d2/` | approved (a live Haiku turn's `look`, rendered as a thumbnail and opened in the lightbox in the browser) |
 | D3 | Template picker, Open folder | b04029c, b3a92ac | fail-then-pass, mutation, verify-toki | `phase2-ui/d3/`, `phase3-ui/d4/settings-projects-*` | approved |
 | D4 | Host tags, Server project prompt, Back to this PC | 8cc8868, fe19e50 | fail-then-pass, mutation, verify-toki, live (installed app) | `phase3-ui/d4/`, `real-setup/check7-d4.txt` | approved |
@@ -59,15 +59,22 @@ Items 1 to 5 passed live on 2026-11-24 (`s2/README.md`): the setting flip on the
 Studio start; the `execute_luau` card showed `codeField: "code"` and "Always allow" let the second call run with no card
 under Ask; `screen_capture` became an `img:` look-back; `save_place` saved; detection read "ready" with Studio open and the
 fix refused with 409 `studio-running`. The desktop resolver finds this PC's exe (read, not launched). Still open:
-1. A `multi_edit` card from a real turn. The bot never called it, and its card is not code-formatted (`outsideCodeField`
-   knows only `execute_luau` and `execute_blender_code`; no real `multi_edit` input has been seen yet).
+1. A `multi_edit` card from a real Studio turn. Its input shape is now known from Studio's own `tools/list`
+   (`edits: [{old_string, new_string, replace_all?}]`, `final-gaps/multi-edit-schema.txt`), and the card shows those
+   edits as code (old lines `- `, new lines `+ `), fail-then-pass and 11/11 mutants (`final-gaps/README.md` item 1).
+   Studio was not launched on 2026-11-24: 2.5 GB RAM was free with the owner's Roblox Player holding 5 GB, under the
+   4 GB headroom rule. Rerun `s2/s2_turn.ts` with a prompt that creates a Script and changes a line with `multi_edit`.
 Item 6, **Open Studio** in the installed app, passed on 2026-11-24 (`real-setup/s2-open-studio.txt`).
 
 **Desktop tunnel and two hosts** (`phase3-infra/README.md` "Verify on the owner's machine", `phase3-ui/README.md`)
 All seven passed on 2026-11-24 in the installed build against the real server (`real-setup/README.md`). Still open:
-1. A PC bot turn kept running through a loss. The loss itself passed, but the PC hub had no bots, so no turn ran.
-2. The tray menu itself was not clicked. Its **Open your server** and the page's `?openhost=server` both call
-   `server::connect(Open::Home)`, and the page call was used.
+1. ~~A PC bot turn kept running through a loss.~~ Done in `final-gaps/i3-pc-turn-through-loss.txt`: the tunnel ssh was
+   killed 6 s into a Haiku bot's 40 s Bash. The window was back on the PC in 0.8 s, the Bash printed 1 to 20, the bot
+   replied 36.9 s after the kill, and all 6 writes went to 7788 (none to the server, checked on the server too).
+2. The tray menu itself was not clicked: **blocked** (`final-gaps/tray-click.txt`). Native IUIAutomation reaches the
+   Toki icon in the Windows 11 overflow flyout, but four synthesized right clicks never opened its menu (the flyout
+   closes within about 1 s when opened through UIA, and the display is scaled 125%). Its **Open your server** and the
+   page's `?openhost=server` both call `server::connect(Open::Home)`, and the page call was used live in I3.
 
 **Blender and the game room from a real bot turn** (`phase2-backend/README.md`, `phase2-ui/README.md`)
 1. ~~A live look-back.~~ Done in `e2e/`: a real Haiku turn called `look` and the image was attached to the tool message. The browser rendering is covered by D2.
@@ -79,12 +86,17 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
    `ui-gaps/run2/d2/live-lookback.aria.yml`: the strip read "Blender working" during the live turn.
 
 **Install and UI states** (`phase1-infra/README.md`, `phase1-ui/README.md`, `phase2-ui/README.md`)
-1. The NSIS installer on a clean machine. An install over 0.5.4 has `hub/resources/blender/` byte for byte
-   (`real-setup/README.md`, "I4").
+1. ~~The NSIS installer on a clean machine~~, done on a clean folder (`final-gaps/i4-clean-folder.txt`):
+   `/S /NS /D=<new empty %TEMP% folder>` put `hub/resources/blender/` there, byte for byte the source. That folder's
+   own `node.exe hub\hub.mjs` answered on a spare port (health, `GET /api/game-tools`, the bundled web). The test install
+   was then removed and the owner's registration restored byte-identical. A second, clean PC (no WebView2, no system
+   Node) was not used. Before this, an install over 0.5.4 had the same files (`real-setup/README.md`, "I4").
 2. ~~The UI states this PC could not show~~: done in `ui-gaps/` (2026-11-24). A crashing Blender (real BlenderHost
    exits of a crash stub) with **Open log** and **Try again** both pressed; another Blender (a real headless one);
    Blender not installed (fake Program Files); the Studio states (fake process row). The server hub's "not supported"
-   was shown through `createHub`'s `platform` seam on this PC, not on the real server's page.
+   was shown through `createHub`'s `platform` seam on this PC. **Still open:** the same state on the real server's page
+   through 7790. It was blocked on 2026-11-24 because the owner was using Toki and RAM was at 0.9 to 1.25 GB free;
+   `final-gaps/scripts/d1_server_page.mjs` captures it (private shots to `evidence-private`, redacted ARIA to the repo).
 3. ~~A keyboard Tab walk~~: done in `ui-gaps/run1/a11y/`, default and classic layouts. It found two bugs, both fixed
    with tests: Shift+Tab stuck on the selected Settings section, and focus dropping to the page after a fix button.
 
@@ -115,6 +127,10 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
   `safe-shipping` is a built-in skill and `@lead-engineer` is made on demand with the first game project
   (`fresh-game/fail-then-pass.txt`). Dev team on a fresh install still needs `@software-engineer` and
   `@quality-engineer` (pr-backend; not part of this spec).
+- The hub also tries to serve the workspace on 127.0.0.1:7789, which on the owner's PC is the PC runner's tunnel. It logs
+  `EADDRINUSE` and carries on (`final-gaps/README.md` item 4). This was seen, not changed (pr-backend).
+- The Toki tray icon sits in the Windows 11 overflow by default, which makes the tray menu hard to reach for people and
+  for UIA (`final-gaps/tray-click.txt`) (pr-infra; owner's call).
 - Settings' **Check again** does not refresh the room strip; the strip waits for `game-tools.changed` or window focus.
   The strip offers **Fix in Settings** for "Another Blender running", where Settings has no step. On a server hub,
   Game tools still says "Game tools run code as you on this PC" (pr-design-system).

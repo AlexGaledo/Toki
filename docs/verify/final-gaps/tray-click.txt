@@ -1,0 +1,42 @@
+# Item 3: the real tray menu's "Open your server", through Windows UI Automation. 2026-11-24, 23:53 to 23:59 (+08:00).
+# Result: BLOCKED. UIA reached the icon but the menu was never opened, so "Open your server" was never invoked.
+# Toki was the installed build with the WebView2 debug port (for watching the window URL); the window was on the PC hub
+# (7788) with no tunnel. Windows 11 build 26300, display scaled 125% (1920x1080 physical, 1536x864 logical).
+
+## 1. System.Windows.Automation (PowerShell, scripts/tray_uia.ps1 -Find)
+The managed client sees Shell_TrayWnd as three Win32 panes and stops (also with TreeWalker.RawViewWalker):
+  Pane class=TrayNotifyWnd / Pane class=ReBarWindow32 / Pane class=MSTaskSwWClass name='Running applications'
+-> "Toki tray icon: NOT FOUND through UIA". The taskbar's buttons live in a XAML island it does not cross.
+
+## 2. Native IUIAutomation (COM, python + comtypes, scripts/tray_uia.py)
+From the desktop root it stops at the same panes. From the island's own HWND it works:
+  FindWindowEx(Shell_TrayWnd, 'Windows.UI.Composition.DesktopWindowContentBridge') -> ElementFromHandle -> FindAll(Button)
+  21 buttons: Start, Task View, the pinned apps, 'PocketRocket - 1 running window', 'Show Hidden Icons', Network, Volume, Clock ...
+The Toki icon is not on the taskbar itself. Invoking 'Show Hidden Icons' (InvokePattern) opens the overflow flyout
+(class TopLevelWindowForOverflowXamlIsland), whose bridge lists: ' Claude', 'Roblox', 'Toki'.
+-> found: name='Toki' in TopLevelWindowForOverflowXamlIsland, rect=(1219,678)-(1259,718) (DPI-unaware, logical px).
+
+## 3. Opening its menu (show_menu_on_left_click(false), so it needs a right click), 4 tries
+a. 23:55:23 The flyout had been closed again by the find step, so the icon's box was empty (0,0)-(0,0); one right click
+   went to (0,0). No menu; Escape. (Fixed: open the flyout whenever the icon's box is empty.)
+b. 23:56:09 Box (1219,678)-(1259,718) logical, but SetCursorPos from a DPI-unaware process on a 125% display put the
+   right click elsewhere (a 'DragVisualWnd' appeared, no #32768 menu). Escape.
+c. 23:57:16 / 23:58:30 Per-monitor-DPI-aware: the box read (1524,848)-(1696,1020), 172 px wide, with GetClickablePoint at
+   its corner (1525,849); then, DPI-unaware with SetPhysicalCursorPos at centre x 1.25, the box read 138 px wide while the
+   flyout was still animating open. The click landed at physical (1610,934): no Toki menu (#32768) appeared; Escape.
+d. 23:59:11 Waiting for the same box (<= 60 px) on two reads 80 ms apart: the flyout closed by itself first (box back to
+   0,0 within about 1 s of opening, as also seen in a separate read-only probe), so no click was sent.
+Stopped there: every try moves the owner's real mouse while he may be using the PC (the cursor was on another monitor at
+x=-779 between tries), and a miss lands on a neighbour icon ('Claude', 'Roblox').
+
+## What would make it work (not done)
+- Click only after the overflow flyout finishes opening, keeping it open (it closes within ~1 s when opened through UIA
+  from a background process), or pin Toki's icon to the taskbar first (an owner setting, not changed here).
+- Or keyboard: Win+B to focus the notification area, then arrows and Shift+F10. Also moves the owner's focus.
+
+## What is proven without the click
+The tray item and the page call run the same code: lib.rs on_menu_event "open_server" =>
+server::connect(app, tray_state, server::Open::Home), the same call as the page's '/?openhost=server'. That call was
+used live in i3-pc-turn-through-loss.txt (window on 7790 after 0.3 s, tunnel ssh -L 127.0.0.1:7790:127.0.0.1:7788).
+The Toki window's URL never changed during these tries (the CDP watcher stayed on 127.0.0.1:7788), so nothing was
+invoked by mistake.

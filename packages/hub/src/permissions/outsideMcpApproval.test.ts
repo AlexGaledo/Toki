@@ -147,6 +147,21 @@ describe('outside-tool cards show code', () => {
     expect(first(a.cards).once).toBeUndefined();
   });
 
+  // Studio's `multi_edit` keeps its code in `edits[].old_string/new_string` (its tools/list schema,
+  // docs/verify/final-gaps/multi-edit-schema.txt), so the card names `edits`.
+  it('multi_edit names its edits as the code, and only when every edit is text', async () => {
+    const s = setup();
+    const a = answer(s.broker, 'deny');
+    const edits = [{ old_string: 'print("one")', new_string: 'print("two")' }];
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__multi_edit', { file_path: 'game.ServerScriptService.TokiEdit', edits, datamodel_type: 'Edit', studio_id: 's1' }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__multi_edit', { file_path: 'x', edits: [...edits, { old_string: 'a', new_string: 7 }] }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__multi_edit', { file_path: 'x', edits: [] }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__inspect_instance', { edits }, { signal: signal() });
+    a.off();
+    expect(a.cards.map((c) => c.codeField)).toEqual(['edits', undefined, undefined, undefined]);
+    expect((first(a.cards).toolInput as { edits: unknown }).edits).toEqual(edits);
+  });
+
   it('names no code field for other tools, or when code is not a string', async () => {
     const s = setup();
     const a = answer(s.broker, 'deny');
