@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GameToolsStatus } from '@pocketrocket/shared';
+import { useStore } from '../store';
 import { api } from './api';
 
 /** I1: the desktop shell launches Studio from this exact URL; the page gets no answer, so status is re-read after. */
@@ -8,11 +9,26 @@ export function openStudio(): void {
 }
 
 /**
- * `GET /api/game-tools`, re-read when the window regains focus (Studio or Blender change outside Toki) and, with
- * `everyMs`, on a timer: there is no WS event for it.
+ * When to re-read `GET /api/game-tools`: on the hub's `game-tools.changed` event (Toki's own Blender and the fixes)
+ * and when the window regains focus (Studio or another Blender changed outside Toki). There is no timer: each read
+ * runs a tasklist on the hub.
  */
-export function useGameTools(opts: { enabled?: boolean; everyMs?: number } = {}) {
-  const { enabled = true, everyMs } = opts;
+export function watchGameTools(
+  reload: () => void,
+  deps: { onRev: (fn: () => void) => () => void; focus: Pick<Window, 'addEventListener' | 'removeEventListener'> },
+): () => void {
+  const off = deps.onRev(reload);
+  deps.focus.addEventListener('focus', reload);
+  return () => {
+    off();
+    deps.focus.removeEventListener('focus', reload);
+  };
+}
+
+const onGameToolsRev = (fn: () => void) => useStore.subscribe((s, prev) => { if (s.gameToolsRev !== prev.gameToolsRev) fn(); });
+
+export function useGameTools(opts: { enabled?: boolean } = {}) {
+  const { enabled = true } = opts;
   const [status, setStatus] = useState<GameToolsStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reload = useCallback(() => {
@@ -21,12 +37,7 @@ export function useGameTools(opts: { enabled?: boolean; everyMs?: number } = {})
   useEffect(() => {
     if (!enabled) return;
     reload();
-    window.addEventListener('focus', reload);
-    const timer = everyMs ? setInterval(() => { if (document.visibilityState === 'visible') reload(); }, everyMs) : null;
-    return () => {
-      window.removeEventListener('focus', reload);
-      if (timer) clearInterval(timer);
-    };
-  }, [enabled, everyMs, reload]);
+    return watchGameTools(reload, { onRev: onGameToolsRev, focus: window });
+  }, [enabled, reload]);
   return { status, error, reload, set: setStatus };
 }

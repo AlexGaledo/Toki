@@ -174,6 +174,8 @@ interface State {
   recorder: Record<string, RecorderStatus>;
   skillsRev: number;
   pcRunnerRev: number;
+  /** Bumped by `game-tools.changed`: Settings › Game tools, the room strip and the template picker re-read. */
+  gameToolsRev: number;
   pcSessionFocus: string | null;
   trainingRev: Record<string, number>;
   tasksRev: Record<string, number>;
@@ -301,6 +303,7 @@ export const useStore = create<State>((set, get) => ({
   recorder: {},
   skillsRev: 0,
   pcRunnerRev: 0,
+  gameToolsRev: 0,
   pcSessionFocus: null,
   trainingRev: {},
   tasksRev: {},
@@ -591,6 +594,9 @@ export const useStore = create<State>((set, get) => ({
         return;
       case 'pc-runner.changed':
         set({ pcRunnerRev: s.pcRunnerRev + 1 });
+        return;
+      case 'game-tools.changed':
+        set({ gameToolsRev: s.gameToolsRev + 1 });
         return;
       case 'files.changed': {
         const key = filesRevKey(ev.roomId, ev.path);

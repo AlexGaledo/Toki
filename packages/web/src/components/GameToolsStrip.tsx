@@ -6,15 +6,15 @@ import { projectOfRoom } from '../lib/projects';
 import { openStudio, useGameTools } from '../lib/useGameTools';
 import { Badge, Button } from './ui';
 
-/** The status is read every 30 s while a game room is open: nothing pushes it, and each read is one tasklist. */
-const REFRESH_MS = 30_000;
-
-/** A game room's compact line (spec §2 UI): "Blender idle 3 min · Studio not open [Open Studio]". */
+/**
+ * A game room's compact line (spec §2 UI): "Blender idle 3 min · Studio not open [Open Studio]". Re-read on
+ * `game-tools.changed` and window focus, never on a timer.
+ */
 export function GameToolsStrip({ room }: { room: Room }) {
   const device = useStore((s) => s.device);
   const game = useStore((s) => projectOfRoom(s.projects, room.id)?.kind === 'game');
   const openDialog = useStore((s) => s.openDialog);
-  const { status } = useGameTools({ enabled: game && !device, everyMs: REFRESH_MS });
+  const { status } = useGameTools({ enabled: game && !device });
   const strip = game && !device && status ? gameStrip(status) : null;
   if (!strip || !status) return null;
   const launcher = desktopCan('studio') && status.studio.reason === 'not-running';
