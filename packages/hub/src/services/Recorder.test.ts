@@ -8,6 +8,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type { ComputerControl, ControlStatus } from '@pocketrocket/shared';
 import { Recorder, RecorderError, scrubUrl, type RecorderDeps, scrubTitle, urlHasSecret } from './Recorder.js';
 import { PAGE_SCRIPT, RECORDER_BINDING, RECORDER_WORLD, isSecretField } from './recorderPage.js';
+import { connectCdp } from './cdpClient.js';
 import type { ComputerEndpoint } from './ComputerManager.js';
 import { events } from '../events.js';
 
@@ -191,6 +192,17 @@ describe('Recorder: start and stop', () => {
     expect(info?.error).toMatch(/Browser not recorded/);
     const windows = rec.readTrace('bot1', info!.id).filter((e) => e.t === 'window');
     expect(windows).toEqual([expect.objectContaining({ title: 'Terminal - bash' })]);
+  });
+  it('says so when a browser tab could not be attached, instead of recording nothing silently', async () => {
+    const { rec } = recorder({
+      connect: async (url) => {
+        const real = await connectCdp(url);
+        return { ...real, send: (m, p, sid) => (m === 'Target.attachToTarget' ? Promise.reject(new Error('CDP Target.attachToTarget timed out')) : real.send(m, p, sid)) };
+      },
+    });
+    await rec.start('bot1');
+    const info = await rec.stop('bot1');
+    expect(info?.error).toBe('A browser tab was not recorded: CDP Target.attachToTarget timed out');
   });
 });
 
