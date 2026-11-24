@@ -94,6 +94,10 @@ export const api = {
     update: (roomId: string, id: string, patch: { status?: TaskStatus; assigneeBotId?: string | null; title?: string }) =>
       req<Task>('PATCH', '/api/rooms/' + encodeURIComponent(roomId) + '/tasks/' + encodeURIComponent(id), patch),
   },
+  verification: {
+    answer: (messageId: string, resolved: 'asked' | 'accepted') =>
+      req<{ ok: true; resolved: 'asked' | 'accepted' }>('POST', '/api/messages/' + encodeURIComponent(messageId) + '/verification', { resolved }),
+  },
   botReports: {
     list: () => req<BotReportRow[]>('GET', '/api/bot-reports'),
     set: (id: string, status: BotReportRow['status']) => req<BotReportRow>('PATCH', '/api/bot-reports/' + encodeURIComponent(id), { status }),

@@ -4,8 +4,8 @@ import { actorOf, recordAudit } from '../services/AuditLog.js';
 import { z } from 'zod';
 import {
   BotInputSchema, MaintenanceHoldInputSchema, QueueCancelInputSchema, QueueEditInputSchema, QueuePauseInputSchema, QueueSendNowInputSchema, RoomInputSchema, RoomMessageInputSchema, RoomModelInputSchema, RoutineInputSchema, RoutingInputSchema, SecretsPatchSchema, SettingsPatchSchema,
-  AUTO_MODEL, CLAUDE_SLASH_COMMANDS, TASK_STATUSES, TOKI_SLASH_COMMANDS, isMediaRef, mediaHash,
-  type BotInput, type BusyInfo, type ContextUsage, type HealthInfo, type ProviderId, type Room, type SlashCommandInfo, type TaskStatus, type UsageResponse,
+  AUTO_MODEL, CLAUDE_SLASH_COMMANDS, TASK_STATUSES, TOKI_SLASH_COMMANDS, VerificationAnswerInputSchema, isMediaRef, mediaHash, proveItRequest,
+  type BotInput, type Message, type MessageVerification, type BusyInfo, type ContextUsage, type HealthInfo, type ProviderId, type Room, type SlashCommandInfo, type TaskStatus, type UsageResponse,
 } from '@pocketrocket/shared';
 import { modelFor, repointBotModel } from '../services/SettingsStore.js';
 import net from 'node:net';
@@ -433,6 +433,19 @@ export function createRest(deps: RestDeps) {
   add('POST', '/api/rooms/:id/messages', ({ params, body }) => {
     const { text, mode } = parse(RoomMessageInputSchema, body);
     return router.onUserMessage(params.id, text, undefined, undefined, mode);
+  });
+  add('POST', '/api/messages/:id/verification', ({ params, body }) => {
+    const { resolved } = parse(VerificationAnswerInputSchema, body);
+    const msg = need(repos.getMessage(params.id ?? ''), 'Message');
+    const payload = (msg.payload ?? {}) as { verification?: MessageVerification };
+    if (!payload.verification) throw new HttpError(400, 'This reply has nothing to verify');
+    if (payload.verification.resolved) throw new HttpError(409, 'Already answered');
+    const next = { ...payload, verification: { ...payload.verification, resolved } } as Message['payload'];
+    repos.updateMessage(msg.id, { payload: next });
+    events.emitEvent({ type: 'message.update', id: msg.id, roomId: msg.roomId, patch: { payload: next } });
+    const bot = msg.authorId ? repos.getBot(msg.authorId) : undefined;
+    if (resolved === 'asked' && bot) router.onUserMessage(msg.roomId, proveItRequest(bot.handle));
+    return { ok: true, resolved };
   });
   const queueFail = <T>(fn: () => T): T => {
     try { return fn(); } catch (e) { if (e instanceof QueueError) throw new HttpError(e.status, e.message); throw e; }

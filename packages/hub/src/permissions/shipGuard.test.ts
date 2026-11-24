@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { defaultBranchPushDenied, type GitInfo } from './shipGuard.js';
+import { defaultBranchPushDenied, type GitInfo, type PrChecks } from './shipGuard.js';
 
 const on = (branch: string | null, remoteDefault: string | null = null): GitInfo => ({ currentBranch: () => branch, defaultBranch: () => remoteDefault });
 const denied = (cmd: string, info: GitInfo = on('feature')) => defaultBranchPushDenied(cmd, '/repo', info);
@@ -47,9 +47,51 @@ describe('pushing to the default branch', () => {
 });
 
 describe('merging a pull request', () => {
-  it('is left to the owner', () => {
-    expect(denied('gh pr merge 12 --squash')).toMatch(/left to the owner/);
-    expect(denied('gh pr create --fill')).toBeNull();
+  const checks = (state: PrChecks, seen: string[][] = [], files: string[] | null = ['src/a.ts']): GitInfo =>
+    ({ ...on('feature'), prChecks: (_dir, args) => { seen.push([...args]); return state; }, prFiles: () => files });
+
+  it('reads the checks of exactly the pull request merged, however the repo is written', () => {
+    const seen: string[][] = [];
+    for (const cmd of ['gh pr merge 3 -R me/app', 'gh pr merge 3 --repo=me/app', 'gh pr merge 3 -Rme/app', 'gh pr merge 3 -R=me/app']) {
+      expect(denied(cmd, checks('pass', seen)), cmd).toBeNull();
+    }
+    expect(seen).toEqual(Array(4).fill(['3', '--repo', 'me/app']));
+  });
+  it('refuses spellings and flags it does not know, two pull requests, and environment overrides', () => {
+    for (const cmd of [
+      'gh pr merge 3 --admin=true', 'gh pr merge 3 --admin', 'gh pr merge 3 --unknown', 'gh pr merge 3 4',
+      'GH_REPO=other/app gh pr merge 3', 'gh -R other/app pr merge 3', 'bash -c "gh pr merge 3"',
+      'gh pr merge', 'gh pr merge 3 -b "a; b"', 'gh pr merge $(echo 3)', 'gh pr merge 3 & gh pr merge 4', '{ gh pr merge 3; }',
+      'cd ../other && gh pr merge 3', 'echo `gh pr merge 3`', 'gh pr merge 3\nrm -rf x', '/usr/bin/gh pr merge 3',
+      'gh api -X PUT repos/me/app/pulls/3/merge', 'g"h" pr merge 3', "gh 'pr' merge 3", 'g\\h p\\r merge 3', 'GH PR MERGE 3', 'gh alias set m "pr merge --admin"', "g$'h' pr merge 3", 'G=gh; $G pr merge 3', '$(echo gh) pr merge 3', 'gh api graphql -F query=@q.graphql', 'gh api graphql --input q.json','gh api -X PUT repos/me/app/pulls/3/m"erge"', "gh api graphql -f query='mutation { mergePullRequest(input: {}) { clientMutationId } }'",
+    ]) expect(denied(cmd, checks('pass')), cmd).not.toBeNull();
+  });
+  it('refuses a merge after a push or commit in the same command', () => {
+    expect(denied('git push origin feature && gh pr merge 3', checks('pass'))).toMatch(/whole command/);
+    expect(denied('git commit -am x; gh pr merge 3', checks('pass'))).toMatch(/whole command/);
+  });
+  it('refuses a pull request that changes CI, or whose changes cannot be read', () => {
+    expect(denied('gh pr merge 3', checks('pass', [], ['src/a.ts', '.github/workflows/ci.yml']))).toMatch(/changes CI/);
+    expect(denied('gh pr merge 3', checks('pass', [], null))).toMatch(/Could not read what/);
+  });
+
+  it('is allowed once its checks pass, asking gh about the same pull request and repo', () => {
+    const seen: string[][] = [];
+    expect(denied('gh pr merge 12 --squash --delete-branch', checks('pass', seen))).toBeNull();
+    expect(denied('gh pr merge -R me/app --merge 7', checks('pass', seen))).toBeNull();
+    expect(seen).toEqual([['12'], ['7', '--repo', 'me/app']]);
+  });
+  it('is refused while checks run, after they fail, without any, or when gh cannot tell', () => {
+    expect(denied('gh pr merge 12', checks('pending'))).toMatch(/still running/);
+    expect(denied('gh pr merge 12', checks('fail'))).toMatch(/failed/);
+    expect(denied('gh pr merge 12', checks('none'))).toMatch(/no checks/);
+    expect(denied('gh pr merge 12', checks('unknown'))).toMatch(/Could not read/);
+  });
+  it('never skips branch protection with --admin', () => {
+    expect(denied('gh pr merge 12 --admin', checks('pass'))).toMatch(/--admin/);
+  });
+  it('leaves other gh pr commands alone', () => {
+    expect(denied('gh pr create --fill', checks('fail'))).toBeNull();
   });
 });
 

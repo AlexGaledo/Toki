@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, ClipboardList, Gauge, Hand, Inbox, Monitor, Sparkles, ShieldQuestion, Workflow as WorkflowIcon } from 'lucide-react';
+import { ArrowRight, ClipboardList, Gauge, Hand, Inbox, Monitor, Sparkles, ShieldQuestion, TestTubeDiagonal, Workflow as WorkflowIcon } from 'lucide-react';
 import { useStore, botById } from '../store';
 import { fmtAge, type InboxItem } from '../lib/inbox';
 import { cardWords } from '../lib/approvalWords';
@@ -14,7 +14,7 @@ import { FailoverCardView } from './FailoverCard';
 import { NeedsYouDock } from './ChatPane';
 import { useToki } from '../lib/useProject';
 
-const KIND_ICON = { approval: ShieldQuestion, takeover: Monitor, skill: Sparkles, form: ClipboardList, workflow: WorkflowIcon, failover: Gauge } as const;
+const KIND_ICON = { approval: ShieldQuestion, takeover: Monitor, skill: Sparkles, form: ClipboardList, workflow: WorkflowIcon, failover: Gauge, verify: TestTubeDiagonal } as const;
 
 export function InboxPage() {
   const items = useInbox();

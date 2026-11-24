@@ -1,6 +1,6 @@
 // Approving is never offered here: Review opens the chat's own card.
 import { useEffect, useState } from 'react';
-import { ArrowRight, Bot as BotIcon, CheckCheck, ClipboardList, Gauge, Hash, Inbox, Monitor, PanelRightClose, PanelRightOpen, ShieldQuestion, Sparkles, Workflow as WorkflowIcon, X } from 'lucide-react';
+import { ArrowRight, Bot as BotIcon, CheckCheck, ClipboardList, Gauge, Hash, Inbox, Monitor, PanelRightClose, PanelRightOpen, ShieldQuestion, Sparkles, TestTubeDiagonal, Workflow as WorkflowIcon, X } from 'lucide-react';
 import type { ApprovalPayload, Bot, Room } from '@pocketrocket/shared';
 import { useStore, botById, selectActiveRoom } from '../../store';
 import { fmtAge, type InboxItem } from '../../lib/inbox';
@@ -22,7 +22,7 @@ const PANES: { id: Pane; label: string; icon: React.ReactNode }[] = [
   { id: 'done', label: 'Done', icon: <CheckCheck size={17} aria-hidden /> },
 ];
 
-const KIND_ICON = { approval: ShieldQuestion, takeover: Monitor, skill: Sparkles, form: ClipboardList, workflow: WorkflowIcon, failover: Gauge } as const;
+const KIND_ICON = { approval: ShieldQuestion, takeover: Monitor, skill: Sparkles, form: ClipboardList, workflow: WorkflowIcon, failover: Gauge, verify: TestTubeDiagonal } as const;
 
 export function OverviewPanel({ inline }: { inline: boolean }) {
   const room = useStore(selectActiveRoom);
