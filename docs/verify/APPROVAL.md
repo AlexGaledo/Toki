@@ -68,19 +68,13 @@ fix refused with 409 `studio-running`. The desktop resolver finds this PC's exe 
 Item 6, **Open Studio** in the installed app, passed on 2026-11-24 (`real-setup/s2-open-studio.txt`).
 
 **Desktop tunnel and two hosts** (`phase3-infra/README.md` "Verify on the owner's machine", `phase3-ui/README.md`)
-All seven passed on 2026-11-24 in the installed build against the real server (`real-setup/README.md`). Still open:
+All seven passed on 2026-11-24 in the installed build against the real server (`real-setup/README.md`). The two follow-ups are done:
 1. ~~A PC bot turn kept running through a loss.~~ Done in `final-gaps/i3-pc-turn-through-loss.txt`: the tunnel ssh was
    killed 6 s into a Haiku bot's 40 s Bash. The window was back on the PC in 0.8 s, the Bash printed 1 to 20, the bot
    replied 36.9 s after the kill, and all 6 writes went to 7788 (none to the server, checked on the server too).
-2. The tray menu itself was not clicked: **blocked** (`final-gaps/tray-click.txt`). Native IUIAutomation reaches the
-   Toki icon in the Windows 11 overflow flyout, but four synthesized right clicks never opened its menu (the flyout
-   closes within about 1 s when opened through UIA, and the display is scaled 125%). Its **Open your server** and the
-   page's `?openhost=server` both call `server::connect(Open::Home)`, and the page call was used live in I3.
-   - **2026-11-25, still blocked, not tried** (`final-gaps/README.md` run 2). A mouse-free route is now ready:
-     `final-gaps/scripts/tray_postmessage.ps1`. It posts tray-icon's own `WM_USER_TRAYICON` (6002) with
-     `WM_RBUTTONUP` to Toki's `tray_icon_app` window, then invokes the menu item through UIA `InvokePattern`.
-   - It was not run, because the owner had quit Toki and was in a game in the foreground (input 0 s before). Toki
-     was not relaunched over the game.
+2. ~~The tray menu itself~~: done on 2026-11-25 on the installed app. Toki's real tray menu was opened and its
+   **Open your server** item picked (by its own WM_COMMAND, no mouse input): the tunnel listened on 127.0.0.1:7790 in
+   0.5 s and the window moved to the server hub (`final-gaps/tray-open-server.txt`).
 
 **Blender and the game room from a real bot turn** (`phase2-backend/README.md`, `phase2-ui/README.md`)
 1. ~~A live look-back.~~ Done in `e2e/`: a real Haiku turn called `look` and the image was attached to the tool message. The browser rendering is covered by D2.
@@ -136,8 +130,9 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
   `@quality-engineer` (pr-backend; not part of this spec).
 - The hub also tries to serve the workspace on 127.0.0.1:7789, which on the owner's PC is the PC runner's tunnel. It logs
   `EADDRINUSE` and carries on (`final-gaps/README.md` item 4). This was seen, not changed (pr-backend).
-- The Toki tray icon sits in the Windows 11 overflow by default, which makes the tray menu hard to reach for people and
-  for UIA (`final-gaps/tray-click.txt`) (pr-infra; owner's call).
+- The Toki tray icon sits in the Windows 11 overflow by default, and the owner's own right-clicks there did not show
+  him the menu on 2026-11-25 (it opens at the cursor; on a two-monitor PC it may show off to one side). Consider a
+  window-level "Open your server" too (pr-infra; owner's call).
 - Settings' **Check again** does not refresh the room strip; the strip waits for `game-tools.changed` or window focus.
   The strip offers **Fix in Settings** for "Another Blender running", where Settings has no step. On a server hub,
   Game tools still says "Game tools run code as you on this PC" (pr-design-system).

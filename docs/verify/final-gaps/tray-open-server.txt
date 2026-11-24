@@ -1,0 +1,31 @@
+# I2: the real tray menu's "Open your server" on the owner's installed Toki (pid 412), 2026-11-25 01:08-01:09.
+# The tray_postmessage.ps1 run (UIA) opened Toki's real tray menu (#32768 after 142 ms) but UIA read no items.
+# tray_menu_command.ps1 then read the menu itself and sent the pick. The mouse was never moved.
+
+01:08:54.032 tray window 18613812
+01:08:54.191 menu open, HMENU 249696429, 16 items
+  [0] id=1000 'Show Toki'
+  [1] id=1001 'Full screen on or off (Alt+Enter)'
+  [2] id=1002 'Connection settings'
+  [3] id=1003 'Server terminal (Alt+T)'
+  [4] id=1004 'Open your server'
+  [5] id=1005 'Reload'
+  [7] id=1006 'Open data folder'
+  [8] id=1007 'Open hub log'
+  [10] id=1008 'Check for updates'
+  [11] id=1009 'About Toki'
+  [13] id=1010 'Keep running when window closes'
+  [15] id=1011 'Quit'
+01:08:54.561 sent WM_COMMAND id=1004 ('Open your server') to the tray window
+01:08:55.110 7790 listening after 0.5 s: TCP    127.0.0.1:7790         0.0.0.0:0              LISTENING       14752
+
+# Before: window URL http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server, no 7790 listener.
+# After (01:09:05):
+window URL (UIA document value): http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server#<fragment>
+7790 listeners: 127.0.0.1:7790 pid 14752 (ssh), loopback only
+ssh.exe parent=412 (Toki) ... -N -T -L 127.0.0.1:7790:127.0.0.1:7788 -- crm-agency
+
+# Result: pass. The real tray menu holds "Open your server", and its pick opens the tunnel on 127.0.0.1:7790 and moves
+# the window to the server hub. The owner's own clicks before this did not open the menu for him; the menu opens at the
+# cursor (here on his left monitor, -1200,675), so a menu shown off-screen or a left click (which only shows the
+# window) is the likely cause. Logged as a follow-up, not a code fault found.
