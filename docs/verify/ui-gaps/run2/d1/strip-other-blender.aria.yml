@@ -1,0 +1,123 @@
+# url=http://127.0.0.1:11071/ title="Toki"
+- complementary:
+  - button "Hide bots"
+  - button "Search every chat"
+  - button "New"
+  - button "Needs you"
+  - button "Tasks"
+  - button "PC sessions"
+  - region "Projects":
+    - heading "Projects" [level=2]
+    - list:
+      - listitem:
+        - button "Cube Test bots" [expanded]
+        - button "Cube Test"
+        - list:
+          - listitem:
+            - button "Cube Test"
+          - listitem:
+            - button "Blender Artist · Idle Blender Artist @cube-test-artist":
+              - img "Blender Artist · Idle"
+              - text: Blender Artist @cube-test-artist
+          - listitem:
+            - button "Roblox Builder · Idle Roblox Builder @cube-test-builder":
+              - img "Roblox Builder · Idle"
+              - text: Roblox Builder @cube-test-builder
+          - listitem:
+            - button "Lead Engineer · Idle Lead Engineer @cube-test-lead":
+              - img "Lead Engineer · Idle"
+              - text: Lead Engineer @cube-test-lead
+  - button "Bots bots" [expanded]
+  - text: Bots
+  - region "Podium":
+    - list:
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+    - button "Edit podium"
+  - list:
+    - listitem:
+      - button "Toki Support · Idle Toki Support @pocketrocket-support":
+        - img "Toki Support · Idle"
+        - text: Toki Support @pocketrocket-support
+    - listitem:
+      - button "Data Engineer · Idle Data Engineer @data-engineer":
+        - img "Data Engineer · Idle"
+        - text: Data Engineer @data-engineer
+    - listitem:
+      - button "Lead Engineer · Idle Lead Engineer @lead-engineer":
+        - img "Lead Engineer · Idle"
+        - text: Lead Engineer @lead-engineer
+    - listitem:
+      - button "Roblox Builder · Idle Roblox Builder @roblox-builder":
+        - img "Roblox Builder · Idle"
+        - text: Roblox Builder @roblox-builder
+    - listitem:
+      - button "Blender Artist · Idle Blender Artist @blender-artist":
+        - img "Blender Artist · Idle"
+        - text: Blender Artist @blender-artist
+  - button "Menu for Verifier. Online": Verifier Online
+  - button "Pair a phone"
+- separator "Resize sidebar"
+- main:
+  - heading "Cube Test" [level=1]
+  - text: No plan yet
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Map"
+    - tab "Tasks"
+  - button "Cube Test"
+  - button "Open Blender Artist's page":
+    - img "Blender Artist · Idle"
+  - button "Open Roblox Builder's page":
+    - img "Roblox Builder · Idle"
+  - button "Open Lead Engineer's page":
+    - img "Lead Engineer · Idle"
+  - text: coordinator @cube-test-lead
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - tabpanel "Chat":
+    - group "Game tools":
+      - text: Another Blender running Studio not open (unverified)
+      - button "Fix in Settings"
+    - text: Nothing here yet
+    - paragraph: Say hi whenever you're ready.
+    - 'textbox "Message #Cube Test"':
+      - /placeholder: Message @bot or the room…
+    - button "Attach files"
+    - 'button "Permission level for all bots: Approval"': Approval
+    - status
+    - 'button "Model for this chat: Auto"': Auto
+    - button "Send" [disabled]
+- separator "Resize overview"
+- complementary "Cube Test overview":
+  - heading "Needs you" [level=2]
+  - button "Fold overview to icons"
+  - region "Needs you":
+    - paragraph: All caught up.
+  - region "Bots":
+    - heading "Bots" [level=2]
+    - text: "3"
+    - list:
+      - listitem:
+        - button "Blender Artist · Idle Blender Artist Cube Test":
+          - img "Blender Artist · Idle"
+          - text: Blender Artist Cube Test
+      - listitem:
+        - button "Roblox Builder · Idle Roblox Builder Cube Test":
+          - img "Roblox Builder · Idle"
+          - text: Roblox Builder Cube Test
+      - listitem:
+        - button "Lead Engineer · Idle Lead Engineer Cube Test":
+          - img "Lead Engineer · Idle"
+          - text: Lead Engineer Cube Test
+  - region "More about this project":
+    - group "More":
+      - button "Next"
+      - button "Rooms"
+      - button "Done"
+- status

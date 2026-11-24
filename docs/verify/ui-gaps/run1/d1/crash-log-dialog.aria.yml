@@ -1,0 +1,7 @@
+# url=http://127.0.0.1:21337/ title="Toki" dialogs=["Blender crash log"]
+- status
+- dialog "Blender crash log":
+  - heading "Blender crash log" [level=2]
+  - button "Close"
+  - paragraph: The last start's output. Secrets are hidden.
+  - text: "exit code 3 Read prefs: (factory startup) crash stub: args 520 chars EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)"

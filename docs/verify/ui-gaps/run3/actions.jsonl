@@ -1,0 +1,12 @@
+{"at":"2026-11-24T15:28:53.862Z","cmd":"launch","web":"vite","onboarding":false,"ports":{"hub":56081,"workspace":56082,"web":56083,"cdp":56084}}
+{"at":"2026-11-24T15:29:00.723Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:56083/ title=\"Toki\""}
+{"at":"2026-11-24T15:29:02.112Z","cmd":"click","role":"menuitem","name":"Settings","after":"url=http://127.0.0.1:56083/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:29:03.627Z","cmd":"click","role":"tab","name":"Game tools","after":"url=http://127.0.0.1:56083/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:29:04.581Z","cmd":"wait","what":"text \"Not supported here\"","gone":false}
+{"at":"2026-11-24T15:29:05.657Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run3\\evidence\\20261124-232829\\d1\\server-not-supported-light.aria.yml"}
+{"at":"2026-11-24T15:29:06.846Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run3\\evidence\\20261124-232829\\d1\\server-not-supported-light.png"}
+{"at":"2026-11-24T15:29:07.223Z","cmd":"api","method":"GET","path":"/api/game-tools","status":200}
+{"at":"2026-11-24T15:29:15.025Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:56083/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:29:16.038Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run3\\evidence\\20261124-232829\\p1\\server-picker.aria.yml"}
+{"at":"2026-11-24T15:29:19.390Z","cmd":"click","role":"tab","name":"Game tools","after":"url=http://127.0.0.1:56083/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:30:18.670Z","cmd":"stop","keepData":false}

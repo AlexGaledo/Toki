@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { GameToolFix, GameToolsStatus } from '@pocketrocket/shared';
 import { GAME_TOOL_FIXES } from '@pocketrocket/shared';
-import { canRunFix, gameStrip, gameToolRows, runFix } from './gameTools';
+import { FIX_ROW, canRunFix, gameStrip, gameToolRows, keepFocusInRow, rowHeadingId, runFix } from './gameTools';
 
 /** This PC's live status (docs/verify/phase1-backend/live-status.txt), with overrides. */
 type Over = { supported?: boolean } & { [K in Exclude<keyof GameToolsStatus, 'supported'>]?: Partial<GameToolsStatus[K]> };
@@ -119,5 +119,47 @@ describe('gameStrip', () => {
 
   it('hides on a hub that is not a Windows PC', () => {
     expect(gameStrip({ ...status(), supported: false })).toBeNull();
+  });
+});
+
+describe('keepFocusInRow: a finished or working fix button never leaves focus on <body>', () => {
+  const doc = (active: unknown) => {
+    const body = { tag: 'body' };
+    const focused: string[] = [];
+    const d = {
+      body,
+      activeElement: active === 'body' ? body : active,
+      getElementById: (id: string) => ({ focus: () => void focused.push(id) }),
+    };
+    return { d, focused };
+  };
+
+  it('moves focus from <body> to the heading of the row the step belongs to', () => {
+    for (const step of GAME_TOOL_FIXES) {
+      const { d, focused } = doc('body');
+      expect(keepFocusInRow(d, step)).toBe(true);
+      expect(focused).toEqual([rowHeadingId(FIX_ROW[step])]);
+    }
+    expect(FIX_ROW).toEqual({ 'install-uv': 'uv', 'install-blender-mcp': 'blenderMcp', 'blender-reset': 'blender', 'studio-mcp-setting': 'studio' });
+    expect(rowHeadingId('blender')).toBe('game-tool-name-blender');
+  });
+
+  it('also when focus is still on the disabled or removed button', () => {
+    for (const el of [null, { isConnected: false }, { isConnected: true, disabled: true }]) {
+      const { d, focused } = doc(el);
+      expect(keepFocusInRow(d, 'blender-reset')).toBe(true);
+      expect(focused).toEqual(['game-tool-name-blender']);
+    }
+  });
+
+  it('leaves focus alone when it is on a live control (the user moved on)', () => {
+    const { d, focused } = doc({ isConnected: true, disabled: false });
+    expect(keepFocusInRow(d, 'install-uv')).toBe(false);
+    expect(focused).toEqual([]);
+  });
+
+  it('does nothing when the row is gone', () => {
+    const { d } = doc('body');
+    expect(keepFocusInRow({ ...d, getElementById: () => null }, 'install-uv')).toBe(false);
   });
 });

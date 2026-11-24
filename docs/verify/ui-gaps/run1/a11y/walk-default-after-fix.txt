@@ -1,0 +1,27 @@
+# After the fix, default layout, Blender crashing (Open log + Try again shown). tab_walk.mjs "tab:Game tools" output.
+# Tab from tab:Game tools
+ 0  dialog  tab "Game tools"  NO-RING   (start: focused by script, not by key, so no :focus-visible yet)
+ 1  panel   button "Check again"
+ 2  panel   button "Show the full Blender path"
+ 3  panel   button "Copy the full Blender path"
+ 4  panel   button "Open log"
+ 5  panel   button "Try again"
+ 6  panel   button "Show the full uv path"
+ 7  panel   button "Copy the full uv path"
+ 8  dialog  button "Close"
+ 9  dialog  tab "Game tools"
+# Shift+Tab from tab:Game tools
+ 0  dialog  tab "Game tools"
+ 1  dialog  button "Close"
+ 2  panel   button "Copy the full uv path"
+ 3  panel   button "Show the full uv path"
+ 4  panel   button "Try again"
+ 5  panel   button "Open log"
+ 6  panel   button "Copy the full Blender path"
+ 7  panel   button "Show the full Blender path"
+ 8  panel   button "Check again"
+ 9  dialog  tab "Game tools"
+# Keyboard into the log dialog (peval, same run)
+Tab to "Open log", Enter -> focus: button "Close" in dialog "Blender crash log"
+Tab -> pre (the log, tabIndex 0); Tab -> Close; Tab -> pre; Shift+Tab -> Close (focus stays inside the log dialog)
+Escape -> focus back on button "Open log", dialog "Settings" still open

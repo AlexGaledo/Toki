@@ -33,10 +33,13 @@ Usage: ${SELF} <command> [args] [--flags]
 
 Lifecycle
   launch [--onboarding] [--keep-routines] [--web vite|dist] [--headed] [--browser <exe>] [--root <dir>]
+         [--hub-entry <file.ts>]
                         Start hub + web + Chromium on free loopback ports with a fresh data dir under
                         os.tmpdir(). Returns once the UI is signed in and usable. --onboarding keeps the
                         first-run setup (default: marked done via PUT /api/settings so the app is usable).
                         Seeded routines are paused unless --keep-routines (a run must not spend quota).
+                        --hub-entry runs a .ts entry inside this repo in place of packages/hub/src/index.ts
+                        (a verify script that passes createHub's test seams); same env, ports and data dir.
   doctor                Read-only: pids alive, ports answer, hub data dir is ours, auth enforced,
                         page loaded and signed in. Exit 1 on any FAIL.
   stop [--keep-data]    Stop only what launch started, delete the run's data and browser profile,
@@ -116,7 +119,10 @@ export function freePort() {
 }
 
 /** `n` distinct free ports, none in `avoid` (the defaults a real hub uses, so a dev hub never collides). */
-export async function pickFreePorts(n, avoid = [7788, 7789, 5173, 9222]) {
+/** The real hub (7788), its workspace web (7789), the desktop's server tunnel (7790), vite and CDP defaults. */
+export const AVOID_PORTS = [7788, 7789, 7790, 5173, 9222];
+
+export async function pickFreePorts(n, avoid = AVOID_PORTS) {
   const out = new Set();
   for (let tries = 0; out.size < n; tries++) {
     if (tries > n * 20) throw new Error('could not find ' + n + ' free ports');
@@ -184,6 +190,16 @@ export function buildHubEnv(base, { dataDir, port, workspacePort, token, webDist
   });
   if (webDist) env.POCKETROCKET_WEB_DIST = webDist;
   return env;
+}
+
+/** The hub entry a launch runs: index.ts, or a `.ts` file inside this repo (never outside it). */
+export function resolveHubEntry(file, repoRoot = REPO_ROOT) {
+  const def = path.join(repoRoot, 'packages', 'hub', 'src', 'index.ts');
+  if (!file) return def;
+  const p = path.resolve(repoRoot, file);
+  if (!inside(p, repoRoot) || !/\.ts$/.test(p)) throw new Error('--hub-entry must be a .ts file inside ' + repoRoot);
+  if (!fs.existsSync(p)) throw new Error('--hub-entry not found: ' + p);
+  return p;
 }
 
 /** `yyyymmdd-hhmmss` in local time, safe for a folder name. */
@@ -451,7 +467,9 @@ async function cmdLaunch(root, flags) {
   const tsxCli = path.join(HUB_DIR, 'node_modules', 'tsx', 'dist', 'cli.mjs');
   if (!fs.existsSync(tsxCli)) throw new Error('tsx missing; run pnpm install first');
   const env = buildHubEnv(process.env, { dataDir, port: hubPort, workspacePort, token, webDist, dotenvPath: path.join(P.run, 'no.env') });
-  s.pids.hub = startDetached(process.execPath, [tsxCli, path.join(HUB_DIR, 'src', 'index.ts')], { cwd: HUB_DIR, env, log: path.join(P.logs, 'hub.log') });
+  const hubEntry = resolveHubEntry(flags['hub-entry']);
+  if (flags['hub-entry']) console.log('hub entry ' + path.relative(REPO_ROOT, hubEntry));
+  s.pids.hub = startDetached(process.execPath, [tsxCli, hubEntry], { cwd: HUB_DIR, env, log: path.join(P.logs, 'hub.log') });
   writeState(root, s);
   console.log('hub      pid ' + s.pids.hub + '  ' + hubUrl + '  data ' + dataDir);
 

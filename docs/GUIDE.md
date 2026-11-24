@@ -127,13 +127,14 @@ with the same revoke step.
 ## Make games with Blender and Studio
 
 A game project gives you a team that models in Blender and builds in Roblox Studio while you
-watch and steer in chat. This works on a Windows PC hub only; a server hub shows "Game tools run
-on a Windows PC hub only."
+watch and steer in chat. This works on a Windows PC hub only. On a server hub, Settings › Game tools
+says "Game tools work on the hub that runs on your Windows PC. This hub can't use them.", each item
+reads "Not supported here", and **Game team** is disabled.
 
 ### Set up: Settings › Game tools
 
-Settings › Game tools lists four things, each with its status in words, its version, and at most
-one button:
+Settings › Game tools lists four things, each with its status in words, its version, and the
+button for its next step, if there is one (a crashing Blender has two: **Open log** and **Try again**):
 
 | Item | What it needs | The button |
 |---|---|---|
@@ -152,7 +153,8 @@ one button:
 ### Make a game project
 
 Settings › Projects › new project, **Team: Game team**. Game team stays disabled, and says why, until
-Blender and the Blender MCP tools are ready. It makes:
+Blender and the Blender MCP tools are ready. The template also uses the bot @lead-engineer and the
+skill safe-shipping; if either is missing, **Create project** says which. It makes:
 
 - A group chat with a lead (cloned from @lead-engineer), a builder (from @roblox-builder) and an
   artist (from @blender-artist). The two new bots are created with your first game project.
@@ -166,8 +168,9 @@ Blender and the Blender MCP tools are ready. It makes:
   change, keep text copies of changed Studio scripts in `studio/`, and play-test before
   `save_place`.
 
-The game chat shows a one-line strip, for example "Blender stopped · Studio not open", with a
-button for the next step.
+The game chat shows a one-line strip, for example "Blender stopped · Studio not open (unverified)",
+with a button for the next step: **Fix in Settings** when something needs fixing, and **Open Studio**
+in the desktop app.
 
 ### Toki's Blender runs headless
 
@@ -222,8 +225,8 @@ Toki on it) is optional. It is a second host next to the PC, not a separate mode
 - **Connecting.** The tray's **Open your server** opens an SSH tunnel to it on `127.0.0.1:7790`.
   The PC hub keeps 7788. The app reads the server hub's own token over SSH, so you get no token
   prompt. Losing the tunnel never stops the hub on this PC.
-- **Old setups.** A saved "Server over SSH" setup loads as this PC plus that server.
-  Settings › Connection reads "This PC and a server over SSH".
+- **Old setups.** A saved "Server over SSH" setup loads as this PC plus that server. The tray's
+  **Connection settings** page shows it as "This PC and a server over SSH".
 - **One project list.** When the server connects, and every 5 minutes after, the app copies the
   names of its projects to the PC hub. These are names only, at most 500, and nothing is sent to the
   server. Once a server is known, every project shows a tag in words: **This PC** or **Server**.

@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   parseArgs, pickFreePorts, freePort, assertThrowawayRoot, defaultRoot, buildHubEnv, evidencePath,
-  redactToken, redactSecrets, unmangleMsysPath, parseScope, stamp,
+  redactToken, redactSecrets, unmangleMsysPath, parseScope, stamp, resolveHubEntry, REPO_ROOT,
 } from './control-toki.mjs';
 
 test('parseArgs: command, positionals, valued and boolean flags', () => {
@@ -32,7 +32,7 @@ test('pickFreePorts: distinct, bindable on loopback, avoids the dev defaults', a
   assert.equal(ports.length, 4);
   assert.equal(new Set(ports).size, 4);
   for (const p of ports) {
-    assert.ok(![7788, 7789, 5173, 9222].includes(p));
+    assert.ok(![7788, 7789, 7790, 5173, 9222].includes(p));
     await new Promise((resolve, reject) => {
       const s = net.createServer().once('error', reject);
       s.listen(p, '127.0.0.1', () => s.close(resolve));
@@ -108,4 +108,19 @@ test('unmangleMsysPath: undoes Git Bash path conversion only', () => {
   assert.equal(unmangleMsysPath('C:/Program Files/Git/'), '/');
   assert.equal(unmangleMsysPath('/api/rooms'), '/api/rooms');
   assert.equal(unmangleMsysPath('C:/Users/me/shot.png'), 'C:/Users/me/shot.png');
+});
+
+test('AVOID_PORTS: the real hub, workspace, server tunnel (7790), vite and CDP defaults', async () => {
+  assert.deepEqual(await pickFreePorts(0), []);
+  const { AVOID_PORTS } = await import('./control-toki.mjs');
+  for (const p of [7788, 7789, 7790, 5173, 9222]) assert.ok(AVOID_PORTS.includes(p), String(p));
+});
+
+test('resolveHubEntry: index.ts by default; only an existing .ts inside the repo', () => {
+  assert.equal(resolveHubEntry(undefined), path.join(REPO_ROOT, 'packages', 'hub', 'src', 'index.ts'));
+  assert.equal(resolveHubEntry('scripts/../packages/hub/src/index.ts'), path.join(REPO_ROOT, 'packages', 'hub', 'src', 'index.ts'));
+  assert.throws(() => resolveHubEntry(path.join(os.tmpdir(), 'evil.ts')), /inside/);
+  assert.throws(() => resolveHubEntry('../outside.ts'), /inside/);
+  assert.throws(() => resolveHubEntry('scripts/control-toki.mjs'), /\.ts file/);
+  assert.throws(() => resolveHubEntry('packages/hub/src/missing-entry.ts'), /not found/);
 });

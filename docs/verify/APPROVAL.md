@@ -29,24 +29,24 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | B2 | Game tools routes, hub token only, audited | e632778, daa692e | fail-then-pass, mutation, live | `phase1-backend/` | approved |
 | B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved (bypass live in `e2e/`; "Always allow" under ask live in `s2/turn.txt`) |
 | B4 | Card input as an object, with `codeField` | b4d4875, 28517d0 | fail-then-pass, mutation, verify-toki | `b3-b4/fail-then-pass.txt`, `b3-b4/mutations.txt`, `phase1-ui/d1/strip-and-d5-card.aria.yml` | approved (the normal-card path with `codeField` live in `s2/cards.json`) |
-| B5 | Status checks from BlenderHost and Studio, crash log | 074b918 | fail-then-pass, mutation, live | `phase1-backend/` | approved with gaps (Studio states) |
+| B5 | Status checks from BlenderHost and Studio, crash log | 074b918 | fail-then-pass, mutation, live, verify-toki | `phase1-backend/`, `ui-gaps/run1/` (crash log from real stub exits), `ui-gaps/run2/d1/` (real other Blender) | approved (Studio open, closed and "Close Roblox Studio first" rendered in `ui-gaps/run1/d1/` with a fake process row through `createHub`'s `processes` seam; Studio "ready" was read live in `s2/turn.txt`) |
 | B6 | Install uv, the pinned Blender MCP tools, Studio's MCP setting | 196b4ce | fail-then-pass, mutation, live | `phase1-backend/live-install.txt` | approved (the Studio setting step ran on the real file in `s2/flip-files.txt`) |
 | B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand) | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt` | approved |
 | B8 | blender-loop and studio-loop skills | d608323, see e2e | fail-then-pass, live A/B 3x3 | `phase2-backend/fail-then-pass.txt`, `e2e/ab-skill.txt` | approved (the A/B found the skill alone 1/3; the fix makes the checkpoint structural, then 6/6) |
 | B9 | Look-backs from the SDK tool result | 4041481, bd45584 | fail-then-pass, mutation, live | `phase2-backend/`, `e2e/` | approved |
 | B10 | Server project stubs, host tags | 5c06ec3 | fail-then-pass, mutation (27/27), live | `phase3-backend/live-stubs.txt`, `mutations.txt` | approved |
-| B11 | Shared-subscription note | 1847740, 113bb0c, 54f4194 (web), 82e2afc (web test) | fail-then-pass, mutation, live, verify-toki | `phase3-backend/live-stubs.txt`, `phase3-backend/mutations.txt` (mutants 21-23 and the B11 section), `phase3-ui/d4/usage-note-*` | approved with gaps (10 of 12 mutants caught; the 2 survivors are the Usage page's effect and JSX wiring, which the web's DOM-less vitest cannot reach; the verify-toki usage shots predate 82e2afc's 4-line refactor and were not retaken) |
+| B11 | Shared-subscription note | 1847740, 113bb0c, 54f4194 (web), 82e2afc (web test) | fail-then-pass, mutation, live, verify-toki | `phase3-backend/live-stubs.txt`, `phase3-backend/mutations.txt` (mutants 21-23 and the B11 section), `phase3-ui/d4/usage-note-*`, `ui-gaps/run2/b11/` | approved (10 of 12 mutants caught; the 2 survivors are the Usage page's effect and JSX wiring, which the web's DOM-less vitest cannot reach; they are covered by the verify-toki shots retaken after 82e2afc, which show the same note line in the same place) |
 | B12 | Toki's headless Blender | d3f3517, ca43f26 (hub dir) | fail-then-pass, mutation, live | `b12/` (`live-run.txt`, `b12-look-rendered.png`, `mutations.txt`) | approved (live bot turn through the mount in `e2e/`) |
 | I1 | "Open Studio" only | 477db49 | mutation, live (installed app) | `phase1-infra/i1-mutations.txt`, `i1-cargo.txt`, `real-setup/s2-open-studio.txt` | approved (real launch: no arguments, outside Toki's job, survives quit, one Studio per 10 s) |
 | I2 | PC hub always runs; server tunnel on 7790 | 39afb96 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `cargo.txt`, `real-setup/check1-old-config.txt`, `check4-port-busy.txt`, `check5b-quit-and-start.txt` | approved (all 46 phase3-infra mutants run: 45 caught, 1 informational and harmless) |
 | I3 | Stub refresh, 30 s loss, host requests, Open folder | 0fe6cc0, c6fe9b2 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `stub-schema.txt`, `real-setup/check2-*`, `check3-loss.txt`, `check5a-*`, `check6-open-folder.txt` | approved with gaps (no PC bot turn during the loss test; mutants as I2, all run) |
 | I4 | Ship the Blender server script and requirements | d4a4b0d | fail-then-pass, live (installed NSIS build) | `phase1-infra/i4-bundle.txt`, `i4-fail-then-pass.txt`, `real-setup/README.md` ("I4") | approved with gaps (installed over 0.5.4, not on a clean machine) |
-| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020 | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/` | approved with gaps (crash, other-Blender and Studio-open states are unit-tested only; Open Studio not live) |
-| D2 | Look-back thumbnails | c98e388, 222a003, 9970651 | fail-then-pass, mutation, verify-toki | `phase2-ui/d2/` | approved with gaps (the look-back was seeded, not from a live turn) |
+| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020; ui-gaps commit (two keyboard fixes) | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/`, `ui-gaps/` | approved with gaps (every state now rendered in `ui-gaps/`: crashing with Open log and Try again pressed, another Blender (real), not installed, the Studio states; the server state through the `platform` seam, not on the real server's page. Open Studio is live in `real-setup/s2-open-studio.txt`) |
+| D2 | Look-back thumbnails | c98e388, 222a003, 9970651 | fail-then-pass, mutation, verify-toki, live | `phase2-ui/d2/`, `ui-gaps/run2/d2/` | approved (a live Haiku turn's `look`, rendered as a thumbnail and opened in the lightbox in the browser) |
 | D3 | Template picker, Open folder | b04029c, b3a92ac | fail-then-pass, mutation, verify-toki | `phase2-ui/d3/`, `phase3-ui/d4/settings-projects-*` | approved |
 | D4 | Host tags, Server project prompt, Back to this PC | 8cc8868, fe19e50 | fail-then-pass, mutation, verify-toki, live (installed app) | `phase3-ui/d4/`, `real-setup/check7-d4.txt` | approved |
 | D5 | Code on approval cards | 7b239e6 | fail-then-pass, mutation, verify-toki | `phase1-ui/d5/` | approved |
-| P1 | Guide, CHANGELOG, this ledger | this commit | none (docs) | `docs/GUIDE.md` ("Make games with Blender and Studio", "This PC and your server"), `CHANGELOG.md` [Unreleased] | approved with gaps (the guide is checked against the code and the READMEs, not walked through in the app) |
+| P1 | Guide, CHANGELOG, this ledger | ui-gaps commit (5 guide fixes) | verify-toki walk | `docs/GUIDE.md` ("Make games with Blender and Studio", "This PC and your server"), `CHANGELOG.md` [Unreleased], `ui-gaps/README.md` ("P1") | approved with gaps (walked in the app; desktop-only steps cited from `real-setup/`; a fresh install can't make a Game team without `@lead-engineer` and `safe-shipping`, now stated in the guide and handed to pr-backend) |
 | R1 | Real-setup run: installed build, real server, real Studio | this commit (hub-stopped hint fix) | live, fail-then-pass | `real-setup/README.md` | approved (one copy bug found and fixed; findings listed there) |
 
 ## Still to verify live
@@ -75,21 +75,22 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
    live in `e2e/strip-and-dm.txt`.
 3. ~~The skills' A/B trap test.~~ Done in `e2e/ab-skill.txt` (blender-loop; studio-loop waits for S2). Before the fix: with the skill 1/3, without 0/3, so it failed. Fixed structurally (save after every Blender command batch, plus a checkpoint pre-commit hook that stages `art/*.blend`). After the fix: 3/3 with and 3/3 without.
 4. ~~The room strip updating live~~: the hub sends `game-tools.changed` live on start, ready and stop
-   (`e2e/strip-and-dm.txt`), and the strip's re-read on that event is unit-tested. Not driven in a browser.
+   (`e2e/strip-and-dm.txt`), and the strip's re-read on that event is unit-tested. Seen in a browser in
+   `ui-gaps/run2/d2/live-lookback.aria.yml`: the strip read "Blender working" during the live turn.
 
 **Install and UI states** (`phase1-infra/README.md`, `phase1-ui/README.md`, `phase2-ui/README.md`)
 1. The NSIS installer on a clean machine. An install over 0.5.4 has `hub/resources/blender/` byte for byte
    (`real-setup/README.md`, "I4").
-2. The UI states this PC could not show:
-   - a crashing Blender with **Open log** and **Try again**;
-   - another Blender running;
-   - a VPS hub showing "not supported";
-   - Blender not installed.
-3. A keyboard Tab walk through Settings › Game tools, and the classic layout.
+2. ~~The UI states this PC could not show~~: done in `ui-gaps/` (2026-11-24). A crashing Blender (real BlenderHost
+   exits of a crash stub) with **Open log** and **Try again** both pressed; another Blender (a real headless one);
+   Blender not installed (fake Program Files); the Studio states (fake process row). The server hub's "not supported"
+   was shown through `createHub`'s `platform` seam on this PC, not on the real server's page.
+3. ~~A keyboard Tab walk~~: done in `ui-gaps/run1/a11y/`, default and classic layouts. It found two bugs, both fixed
+   with tests: Shift+Tab stuck on the selected Settings section, and focus dropping to the page after a fix button.
 
 ## Unfinished proofs (not live, but incomplete)
 
-- **B11 mutations:** done. Its hub mutants were 21 to 23 of phase3-backend (caught). The rest of B11 (`RemoteProjects.known`, the tracker reaching the route, the Usage page) was mutated with `phase3-backend/scripts/b11_mutations.py`: 4 of 4 hub mutants caught. The web had no unit test, so 82e2afc added `SubscriptionNote` and `FleetPages.usageNote.test.tsx`, which catch 3 of the 5 web mutants (note hidden, a non-string shown, HTML rendered). The 2 survivors are the effect and the JSX wiring in `UsageSection`: no DOM in the web's vitest, so only the verify-toki usage shots cover them, and those were taken before the 4-line refactor in 82e2afc.
+- **B11 mutations:** done. Its hub mutants were 21 to 23 of phase3-backend (caught). The rest of B11 (`RemoteProjects.known`, the tracker reaching the route, the Usage page) was mutated with `phase3-backend/scripts/b11_mutations.py`: 4 of 4 hub mutants caught. The web had no unit test, so 82e2afc added `SubscriptionNote` and `FleetPages.usageNote.test.tsx`, which catch 3 of the 5 web mutants (note hidden, a non-string shown, HTML rendered). The 2 survivors are the effect and the JSX wiring in `UsageSection`: no DOM in the web's vitest, so only the verify-toki usage shots cover them; they were retaken after 82e2afc in `ui-gaps/run2/b11/` and match.
 - **phase3-backend mutations:** done. Mutants 13 to 27 were rerun after the memory stop and all 15 were caught, so all 27 are caught (`phase3-backend/mutations.txt`).
 - **phase3-infra mutations:** done. The 35 left after the time cap were run with `--targeted` (each mutant's named tests only), and all 34 with named tests were caught. Mutant 38 (an 8 s health-check timeout) fails no test, and should not: the 30 s loss test uses the real timeout and still holds. So 45 of 45 are caught, plus 1 harmless (`phase3-infra/mutations.txt`).
 - **B3 and B4:** done. The first pass caught 37 of 44 mutants. Six of the survivors were real gaps, and each now has a test (28517d0). The seventh survivor makes no difference that matters: it would also hide known secrets on hub and browser tool cards. The rerun caught mutants 1 to 31 before it stopped for low memory, and mutants 32 to 44 were then rerun: 32 to 43 caught, 44 the harmless one again. So 43 of 44, plus 1 harmless (`b3-b4/mutations.txt`).
@@ -110,3 +111,8 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
   "Pick your first helper" step. The server is one click away, but is no longer what opens (owner's call).
 - `phase3-infra/README.md` step 5 says "tray, Restart hub". There is no such tray item: it is the splash's Retry once the
   hub is down.
+- A fresh install has no `@lead-engineer` or `safe-shipping`, so Game team and Dev team fail at **Create project**, and
+  the picker does not disable them for it (pr-backend; `ui-gaps/README.md`).
+- Settings' **Check again** does not refresh the room strip; the strip waits for `game-tools.changed` or window focus.
+  The strip offers **Fix in Settings** for "Another Blender running", where Settings has no step. On a server hub,
+  Game tools still says "Game tools run code as you on this PC" (pr-design-system).

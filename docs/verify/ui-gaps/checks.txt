@@ -1,0 +1,19 @@
+# checks, 2026-11-24T23:30:45+08:00 (no pnpm -r build or full pnpm test: RAM rule, another agent runs cargo)
+## web: tsc --noEmit
+tsc: 0 errors
+## web: vitest (whole suite)
+ Test Files  1 failed | 55 passed (56)
+      Tests  425 passed | 5 skipped (430)
+  (first run: one file's 5 tests were skipped after its setup failed, while cargo ran next door; the output was not
+   kept. Three reruns right after: "Test Files  56 passed (56)", "Tests  430 passed (430)". Treated as a load flake,
+   not proven to be one.)
+## pnpm ts-strict
+ok: 1493 frozen strict-TS errors, none new
+## eslint on the changed files
+eslint: clean
+## node --test scripts/control-toki.test.mjs scripts/repo-guards.test.mjs scripts/lint-rules.test.mjs scripts/contrast.test.mjs scripts/token-parity.test.mjs
+ℹ tests 36
+ℹ pass 36
+ℹ fail 0
+## driver fail-then-pass: AVOID_PORTS without 7790
+with 7790 removed: AVOID_PORTS test fails (pass 11, fail 1); restored: pass 12, fail 0 (run 2026-11-24 ~23:00)

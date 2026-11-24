@@ -1,0 +1,25 @@
+# fail-then-pass, 2026-11-24T23:07:58+08:00. From packages/web: npx vitest run <tests>
+
+## 1. Settings focus trap: SettingsDialog.tsx as committed (unchanged since 0c2c6cc), new test
+     × has one Close button, and it comes before the section tabs in the DOM 13ms
+     × keeps that Close button visible at every width 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ 352, 16434 ] to have a length of 1 but got 2
+AssertionError: expected [ 'sm:hidden' ] to deeply equal ArrayContaining{…}
+      Tests  2 failed (2)
+
+## 1. with the fix
+      Tests  2 passed (2)
+
+## 2. keepFocusInRow: gameTools.ts as committed (helper missing), new tests
+     × moves focus from <body> to the heading of the row the step belongs to 4ms
+     × also when focus is still on the disabled or removed button 1ms
+     × leaves focus alone when it is on a live control (the user moved on) 1ms
+     × does nothing when the row is gone 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+TypeError: keepFocusInRow is not a function
+TypeError: keepFocusInRow is not a function
+TypeError: keepFocusInRow is not a function
+
+## 2. with the fix
+      Tests  18 passed (18)

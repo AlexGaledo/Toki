@@ -28,7 +28,7 @@ What `launch` does, so you never have to:
 
 **Ready means usable**, not "a port answers": launch returns only after `/api/health` is 200, vite serves `<div id="root">`, the tab has no sign-in dialog and no "Connecting to the hub" card, and the sidebar's `New` button is visible. It prints `ready url=... title="Toki"`.
 
-Options: `--web dist` serves the built UI from the hub instead of vite (run `pnpm --filter @pocketrocket/web build` first); `--headed` shows the window; `--browser <exe>` picks a Chromium.
+Options: `--web dist` serves the built UI from the hub instead of vite (run `pnpm --filter @pocketrocket/web build` first); `--headed` shows the window; `--browser <exe>` picks a Chromium. `--hub-entry <file.ts>` runs a `.ts` entry inside the repo in place of `packages/hub/src/index.ts`, for a script that passes `createHub`'s test seams (example: `docs/verify/ui-gaps/scripts/hub_entry.ts`). Ports never include 7788, 7789 or 7790.
 
 Browser: the driver uses the repo's own playwright-core (hub → `@playwright/mcp` → `playwright-core`) only to connect over CDP. It runs, in order: `--browser`, `TOKI_VERIFY_BROWSER`, playwright's pinned Chromium, the newest `ms-playwright/chromium-*`, then system Chrome or Edge. If none: `node scripts/control-toki.mjs install-browser`.
 

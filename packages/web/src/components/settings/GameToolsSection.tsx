@@ -1,12 +1,12 @@
 /** Settings › Game tools (spec toki-local-first-gamedev §2, D1): Blender, uv, the Blender MCP tools and Roblox Studio. */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExternalLink, FileText, RefreshCw } from 'lucide-react';
 import type { GameToolFix, GameToolFixResult, GameToolsStatus } from '@pocketrocket/shared';
 import { useStore } from '../../store';
 import { api, ApiError } from '../../lib/api';
 import { desktopCan } from '../../lib/auth';
 import { openStudio, useGameTools } from '../../lib/useGameTools';
-import { fixConfirm, fixResultText, gameToolRows, runFix, type GameToolRow, type GameTone } from '../../lib/gameTools';
+import { fixConfirm, fixResultText, gameToolRows, keepFocusInRow, rowHeadingId, runFix, type GameToolRow, type GameTone } from '../../lib/gameTools';
 import { Badge, Banner, Button, Dialog, Skeleton, SkeletonGroup, confirmAction } from '../ui';
 import { Card, Group, Private, SectionHeader, shortPath } from './parts';
 
@@ -18,6 +18,16 @@ export function GameToolsSection() {
   const [busy, setBusy] = useState<GameToolFix | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [log, setLog] = useState<string | null | undefined>(undefined);
+  // The pressed fix button is disabled while it works and removed when done: keep keyboard focus in its row.
+  const lastStep = useRef<GameToolFix | null>(null);
+  useEffect(() => {
+    if (busy) lastStep.current = busy;
+    const step = lastStep.current;
+    if (!busy) lastStep.current = null;
+    if (!step) return;
+    const frame = requestAnimationFrame(() => keepFocusInRow(document, step));
+    return () => cancelAnimationFrame(frame);
+  }, [busy]);
 
   const fix = async (step: GameToolFix) => {
     if (!status || busy) return;
@@ -87,7 +97,7 @@ function ToolRow({ row: r, status, busy, onFix, onOpenLog }: { row: GameToolRow;
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className="text-ui font-semibold">{r.name}</h4>
+            <h4 id={rowHeadingId(r.id)} tabIndex={-1} className="rounded-sm text-ui font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">{r.name}</h4>
             <Badge tone={BADGE[r.tone]}>{r.status}</Badge>
             {r.unverified && <Badge>Unverified</Badge>}
             {r.version && <span className="font-mono text-hint text-muted">{r.version}</span>}

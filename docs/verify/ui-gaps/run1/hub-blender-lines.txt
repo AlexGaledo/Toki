@@ -1,0 +1,103 @@
+2:Toki hub v0.5.4 · node 26.3.0 · provider claude · data %USERPROFILE%\AppData\Local\Temp\toki-verify-ui-gaps-run1\run\data · http://127.0.0.1:21335
+3:[pocketrocket] workspace: %USERPROFILE%\AppData\Local\Temp\toki-verify-ui-gaps-run1\run\data\workspace  (token required)
+5:[ui-gaps] entry: platform=win32 fakePc=yes
+6:[blender] starting for crash-test on 127.0.0.1:36263 (pid 13884)
+7:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+8:[blender] unexpected exit for crash-test; last 3 lines:
+11:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+12:[ui-gaps] start 1: Blender stopped before it was ready (exit code 3). Try again.
+13:[blender] starting for crash-test on 127.0.0.1:36263 (pid 26760)
+14:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+15:[blender] unexpected exit for crash-test; last 3 lines:
+18:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+19:[ui-gaps] start 2: Blender stopped before it was ready (exit code 3). Try again.
+20:[blender] starting for crash-test on 127.0.0.1:36263 (pid 17596)
+21:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+22:[blender] unexpected exit for crash-test; last 3 lines:
+25:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+26:[ui-gaps] start 3: Blender stopped before it was ready (exit code 3). Try again.
+27:[blender] starting for crash-test on 127.0.0.1:36263 (pid 14980)
+28:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+29:[blender] unexpected exit for crash-test; last 3 lines:
+32:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+33:[ui-gaps] start 4: Blender stopped before it was ready (exit code 3). Try again.
+34:[blender] starting for crash-test on 127.0.0.1:36263 (pid 5228)
+35:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+36:[blender] unexpected exit for crash-test; last 3 lines:
+39:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+40:[ui-gaps] start 1: Blender stopped before it was ready (exit code 3). Try again.
+41:[blender] starting for crash-test on 127.0.0.1:36263 (pid 27596)
+42:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+43:[blender] unexpected exit for crash-test; last 3 lines:
+46:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+47:[ui-gaps] start 2: Blender stopped before it was ready (exit code 3). Try again.
+48:[blender] starting for crash-test on 127.0.0.1:36263 (pid 8484)
+49:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+50:[blender] unexpected exit for crash-test; last 3 lines:
+53:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+54:[ui-gaps] start 3: Blender stopped before it was ready (exit code 3). Try again.
+55:[blender] starting for crash-test on 127.0.0.1:36263 (pid 13448)
+56:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+57:[blender] unexpected exit for crash-test; last 3 lines:
+60:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+61:[ui-gaps] start 4: Blender stopped before it was ready (exit code 3). Try again.
+62:[blender] starting for crash-test on 127.0.0.1:36263 (pid 26552)
+63:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+64:[blender] unexpected exit for crash-test; last 3 lines:
+67:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+68:[ui-gaps] start 1: Blender stopped before it was ready (exit code 3). Try again.
+69:[blender] starting for crash-test on 127.0.0.1:36263 (pid 38124)
+70:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+71:[blender] unexpected exit for crash-test; last 3 lines:
+74:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+75:[ui-gaps] start 2: Blender stopped before it was ready (exit code 3). Try again.
+76:[blender] starting for crash-test on 127.0.0.1:36263 (pid 25888)
+77:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+78:[blender] unexpected exit for crash-test; last 3 lines:
+81:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+82:[ui-gaps] start 3: Blender stopped before it was ready (exit code 3). Try again.
+83:[blender] starting for crash-test on 127.0.0.1:36263 (pid 22724)
+84:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+85:[blender] unexpected exit for crash-test; last 3 lines:
+88:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+89:[ui-gaps] start 4: Blender stopped before it was ready (exit code 3). Try again.
+90:[blender] starting for crash-test on 127.0.0.1:36263 (pid 27288)
+91:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+92:[blender] unexpected exit for crash-test; last 3 lines:
+95:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+96:[ui-gaps] start 1: Blender stopped before it was ready (exit code 3). Try again.
+97:[blender] starting for crash-test on 127.0.0.1:36263 (pid 8184)
+98:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+99:[blender] unexpected exit for crash-test; last 3 lines:
+102:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+103:[ui-gaps] start 2: Blender stopped before it was ready (exit code 3). Try again.
+104:[blender] starting for crash-test on 127.0.0.1:36263 (pid 38224)
+105:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+106:[blender] unexpected exit for crash-test; last 3 lines:
+109:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+110:[ui-gaps] start 3: Blender stopped before it was ready (exit code 3). Try again.
+111:[blender] starting for crash-test on 127.0.0.1:36263 (pid 7072)
+112:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+113:[blender] unexpected exit for crash-test; last 3 lines:
+116:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+117:[ui-gaps] start 4: Blender stopped before it was ready (exit code 3). Try again.
+118:[blender] starting for crash-test on 127.0.0.1:36263 (pid 12892)
+119:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+120:[blender] unexpected exit for crash-test; last 3 lines:
+123:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+124:[ui-gaps] start 1: Blender stopped before it was ready (exit code 3). Try again.
+125:[blender] starting for crash-test on 127.0.0.1:36263 (pid 17908)
+126:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+127:[blender] unexpected exit for crash-test; last 3 lines:
+130:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+131:[ui-gaps] start 2: Blender stopped before it was ready (exit code 3). Try again.
+132:[blender] starting for crash-test on 127.0.0.1:36263 (pid 13240)
+133:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+134:[blender] unexpected exit for crash-test; last 3 lines:
+137:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+138:[ui-gaps] start 3: Blender stopped before it was ready (exit code 3). Try again.
+139:[blender] starting for crash-test on 127.0.0.1:36263 (pid 14160)
+140:[blender] stopped for crash-test (exit code 3) after 0 s; peak working set unknown
+141:[blender] unexpected exit for crash-test; last 3 lines:
+144:EXCEPTION_ACCESS_VIOLATION (simulated by the ui-gaps crash stub)
+145:[ui-gaps] start 4: Blender stopped before it was ready (exit code 3). Try again.

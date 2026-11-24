@@ -94,6 +94,9 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
 
   return (
     <DialogShell open onOpenChange={(o) => !o && onClose()} className="flex h-[min(680px,calc(100dvh-1.5rem))] w-[880px] flex-col overflow-hidden">
+      {/* First in the DOM at every width, so the focus trap's first stop is a real control. When the first stop was the
+          section tablist (Radix gives the list tabIndex 0), Shift+Tab from the active section never left it. */}
+      <div className="absolute right-4 top-4 z-10"><DialogCloseButton /></div>
       <TabsPrimitive.Root
         value={section}
         onValueChange={select}
@@ -101,9 +104,8 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
         className="flex min-h-0 flex-1 flex-col sm:flex-row"
       >
         <aside className="flex shrink-0 flex-col px-3 pt-4 sm:w-52 sm:border-r sm:border-line sm:bg-card2/30 sm:pb-3 sm:pt-6">
-          <div className="flex items-center justify-between px-2 pb-2 sm:pb-4">
+          <div className="flex items-center px-2 pb-2 max-sm:min-h-8 max-sm:pointer-coarse:min-h-10 sm:pb-4">
             <DialogTitle>Settings</DialogTitle>
-            <div className="sm:hidden"><DialogCloseButton /></div>
           </div>
           <TabsPrimitive.List aria-label="Settings sections" className="flex flex-wrap gap-1 py-1 sm:flex-col sm:flex-nowrap">
             {sections.map(({ id, label, icon: Icon }) => (
@@ -128,7 +130,6 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
         </aside>
 
         <div className="relative min-h-0 min-w-0 flex-1 border-t border-line sm:border-t-0">
-          <div className="absolute right-4 top-4 z-10 hidden sm:block"><DialogCloseButton /></div>
           <div className="h-full overflow-y-auto overscroll-contain">
             <TabsPrimitive.Content value="account" tabIndex={-1} className={PANEL}><AccountSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="security" tabIndex={-1} className={PANEL}><SecuritySection /></TabsPrimitive.Content>

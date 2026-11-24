@@ -1,0 +1,99 @@
+{"at":"2026-11-24T15:14:26.809Z","cmd":"launch","web":"vite","onboarding":false,"ports":{"hub":11069,"workspace":11070,"web":11071,"cdp":11072}}
+{"at":"2026-11-24T15:14:36.196Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:14:37.512Z","cmd":"click","role":"menuitem","name":"Settings","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:14:39.022Z","cmd":"click","role":"tab","name":"Game tools","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:14:42.011Z","cmd":"wait","what":"text \"Blender MCP tools\"","gone":false}
+{"at":"2026-11-24T15:14:43.211Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\setup-before.aria.yml"}
+{"at":"2026-11-24T15:14:44.618Z","cmd":"click","role":"button","name":"Install Blender tools","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:14:45.715Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\setup-confirm.aria.yml"}
+{"at":"2026-11-24T15:14:47.195Z","cmd":"click","role":"button","name":"Install","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:14:52.592Z","cmd":"wait","what":"text \"Blender tools installed\"","gone":false}
+{"at":"2026-11-24T15:14:53.681Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\setup-after.aria.yml"}
+{"at":"2026-11-24T15:14:55.241Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\setup-after-light.png"}
+{"at":"2026-11-24T15:15:02.665Z","cmd":"api","method":"GET","path":"/api/audit","status":200}
+{"at":"2026-11-24T15:15:03.992Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:15:05.088Z","cmd":"fill","role":"textbox","name":"Name","value":"Cube Test"}
+{"at":"2026-11-24T15:15:06.521Z","cmd":"click","role":"radio","name":"Game team","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:15:07.574Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\picker-fresh-hub.aria.yml"}
+{"at":"2026-11-24T15:15:13.320Z","cmd":"click","role":"button","name":"Create project","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:15:18.455Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\create-fresh-hub.aria.yml"}
+{"at":"2026-11-24T15:15:18.849Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T15:15:37.733Z","cmd":"api","method":"POST","path":"/api/bots","status":200}
+{"at":"2026-11-24T15:15:38.039Z","cmd":"api","method":"POST","path":"/api/skills","status":200}
+{"at":"2026-11-24T15:15:39.308Z","cmd":"click","role":"button","name":"Create project","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:15:40.557Z","cmd":"wait","what":"text \"Cube Test is set up\"","gone":false}
+{"at":"2026-11-24T15:15:41.782Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\created.aria.yml"}
+{"at":"2026-11-24T15:15:42.967Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\created-light.png"}
+{"at":"2026-11-24T15:15:43.380Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T15:15:49.900Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T15:15:54.907Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T15:16:05.210Z","cmd":"api","method":"GET","path":"/api/skills","status":200}
+{"at":"2026-11-24T15:16:26.352Z","cmd":"click","role":"button","name":"Done","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:16:27.940Z","cmd":"click","role":"tab","name":"Game tools","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:16:29.984Z","cmd":"click","role":"button","name":"Check again","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T15:16:31.053Z","cmd":"wait","what":"text \"Another Blender running\"","gone":false}
+{"at":"2026-11-24T15:16:32.170Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d1\\other-blender-light.aria.yml"}
+{"at":"2026-11-24T15:16:33.324Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d1\\other-blender-light.png"}
+{"at":"2026-11-24T15:16:34.635Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:16:35.530Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\snapshot-20261124-231635-26ae.aria.yml"}
+{"at":"2026-11-24T15:16:43.391Z","cmd":"click","role":"button","name":"Cube Test","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:16:44.272Z","cmd":"wait","what":"text \"Another Blender running\"","gone":false}
+{"at":"2026-11-24T15:16:45.194Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d1\\strip-other-blender.aria.yml"}
+{"at":"2026-11-24T15:16:46.265Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d1\\strip-other-blender-light.png"}
+{"at":"2026-11-24T15:16:48.654Z","cmd":"wait","what":"text \"Blender stopped\"","gone":false}
+{"at":"2026-11-24T15:16:49.599Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d1\\strip-after-kill.aria.yml"}
+{"at":"2026-11-24T15:16:57.076Z","cmd":"api","method":"PUT","path":"/api/settings","status":200}
+{"at":"2026-11-24T15:16:57.368Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T15:16:57.947Z","cmd":"api","method":"PATCH","path":"/api/bots/zDMWf9fQ40","status":200}
+{"at":"2026-11-24T15:16:58.280Z","cmd":"api","method":"PATCH","path":"/api/bots/BzzbPSQKFx","status":200}
+{"at":"2026-11-24T15:16:58.585Z","cmd":"api","method":"PATCH","path":"/api/bots/5ius8cRaBe","status":200}
+{"at":"2026-11-24T15:17:04.172Z","cmd":"fill","role":"textbox","name":"Message #Cube Test","value":"@cube-test-artist add a red cube and look at it"}
+{"at":"2026-11-24T15:17:05.364Z","cmd":"press","key":"Enter","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:17:15.231Z","cmd":"api","method":"GET","path":"/api/rooms/DL2TdtV_0S/messages?limit=20","status":200}
+{"at":"2026-11-24T15:17:15.676Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:20.954Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:26.062Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:31.310Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:36.456Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:41.626Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:47.275Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:52.185Z","cmd":"api","method":"GET","path":"/api/busy","status":200}
+{"at":"2026-11-24T15:17:57.113Z","cmd":"api","method":"GET","path":"/api/rooms/DL2TdtV_0S/messages?limit=50","status":200}
+{"at":"2026-11-24T15:18:02.025Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d2\\live-lookback.aria.yml"}
+{"at":"2026-11-24T15:18:08.013Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d2\\live-lookback-light.png"}
+{"at":"2026-11-24T15:18:09.247Z","cmd":"click","role":"button","name":"Look-back from blender: look","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Look-back from blender: look\"]"}
+{"at":"2026-11-24T15:18:10.148Z","cmd":"wait","what":"dialog \"Look-back from blender: look\"","gone":false}
+{"at":"2026-11-24T15:18:11.191Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d2\\live-lightbox.aria.yml"}
+{"at":"2026-11-24T15:18:12.474Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d2\\live-lightbox-light.png"}
+{"at":"2026-11-24T15:18:13.738Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:18:14.550Z","cmd":"wait","what":"dialog \"Look-back from blender: look\"","gone":true}
+{"at":"2026-11-24T15:18:23.609Z","cmd":"click","role":"button","name":"Look-back from blender: look","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Look-back from blender: look\"]"}
+{"at":"2026-11-24T15:18:24.536Z","cmd":"wait","what":"dialog \"Look-back from blender: look\"","gone":false}
+{"at":"2026-11-24T15:18:25.617Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\snapshot-20261124-231825-7d75.aria.yml"}
+{"at":"2026-11-24T15:18:26.916Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\d2\\live-lightbox-light.png"}
+{"at":"2026-11-24T15:18:35.188Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:18:38.925Z","cmd":"api","method":"GET","path":"/api/usage","status":200}
+{"at":"2026-11-24T15:18:39.217Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T15:18:39.542Z","cmd":"api","method":"GET","path":"/api/usage","status":200}
+{"at":"2026-11-24T15:18:40.429Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\snapshot-20261124-231840-4c44.aria.yml"}
+{"at":"2026-11-24T15:18:52.212Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:18:53.410Z","cmd":"click","role":"menuitem","name":"Usage","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:18:54.216Z","cmd":"wait","what":"text \"same Claude subscription\"","gone":false}
+{"at":"2026-11-24T15:18:55.123Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\b11\\usage-note-light.aria.yml"}
+{"at":"2026-11-24T15:18:56.077Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\b11\\usage-note-light.png"}
+{"at":"2026-11-24T15:20:00.678Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T15:20:00.986Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T15:20:03.860Z","cmd":"goto","path":"/","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:20:05.088Z","cmd":"wait","what":"text \"Tower Climb\"","gone":false}
+{"at":"2026-11-24T15:20:06.257Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\server-tags.aria.yml"}
+{"at":"2026-11-24T15:20:07.339Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\server-tags-light.png"}
+{"at":"2026-11-24T15:20:12.283Z","cmd":"click","role":"button","name":"Tower Climb Server (offline)","after":"url=http://127.0.0.1:11071/ title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T15:20:13.901Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\server-project-browser.aria.yml"}
+{"at":"2026-11-24T15:20:15.407Z","cmd":"screenshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\server-project-browser-light.png"}
+{"at":"2026-11-24T15:20:17.651Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:11071/ title=\"Toki\""}
+{"at":"2026-11-24T15:20:24.592Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder,hosts,server","after":"url=http://127.0.0.1:11071/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T15:20:25.489Z","cmd":"wait","what":"text \"Tower Climb\"","gone":false}
+{"at":"2026-11-24T15:20:26.934Z","cmd":"click","role":"button","name":"Tower Climb Server (offline)","after":"url=http://127.0.0.1:11071/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T15:20:28.005Z","cmd":"snapshot","file":"%USERPROFILE%\\AppData\\Local\\Temp\\toki-verify-ui-gaps-run2\\evidence\\20261124-231355\\p1\\server-project-desktop-caps.aria.yml"}
+{"at":"2026-11-24T15:20:29.310Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:11071/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T15:28:07.820Z","cmd":"stop","keepData":false}

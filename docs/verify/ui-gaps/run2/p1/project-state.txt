@@ -1,0 +1,27 @@
+## project folder
+.
+..
+.git
+.gitignore
+TEMPLATE.md
+archive
+art
+current.md
+exports
+features
+places
+studio
+## git log
+fc2ee55 Start Cube Test from the game team template
+## bots in the project
+"handle": "cube-test-lead"
+"handle": "cube-test-builder"
+"handle": "cube-test-artist"
+## mcp recipe rooms
+## studio recipe (paths masked)
+{"roblox-studio":{"command":"<cmd.exe>","args":["/d","/c","<LOCALAPPDATA>\Roblox\mcp.bat"],"approve":"mode","rooms":["<the Cube Test room>"]}}
+## skills
+blender-loop project-map prove-it safe-shipping studio-loop
+## art after the turn and the idle stop
+-rw-r--r-- 1 <user>     0 23:15:38 .gitkeep
+-rw-r--r-- 1 <user> 76016 23:17:43 cube-test.blend

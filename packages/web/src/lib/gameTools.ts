@@ -161,6 +161,29 @@ export function gameStrip(s: GameToolsStatus): { blender: StripItem; studio: Str
   return { blender, studio, needsFix: [blender, word].some((i) => i.tone === 'bad' || i.tone === 'warn') };
 }
 
+/** The Settings row each fix step's button sits in. */
+export const FIX_ROW: Record<GameToolFix, GameToolRow['id']> = {
+  'install-uv': 'uv', 'install-blender-mcp': 'blenderMcp', 'blender-reset': 'blender', 'studio-mcp-setting': 'studio',
+};
+export const rowHeadingId = (id: GameToolRow['id']) => 'game-tool-name-' + id;
+
+type FocusDoc = { activeElement: unknown; body: unknown; getElementById(id: string): { focus(o?: FocusOptions): void } | null };
+
+/**
+ * A fix button is disabled while its step runs and is gone once the step is done, so keyboard focus drops to <body>.
+ * When it has, put it on that row's heading (tabIndex -1), so keyboard and screen reader users stay in the row.
+ * Focus anywhere else is left alone. True when it moved focus.
+ */
+export function keepFocusInRow(doc: FocusDoc, step: GameToolFix): boolean {
+  const a = doc.activeElement as { isConnected?: boolean; disabled?: boolean } | null;
+  const lost = !a || a === doc.body || a.isConnected === false || a.disabled === true;
+  if (!lost) return false;
+  const h = doc.getElementById(rowHeadingId(FIX_ROW[step]));
+  if (!h) return false;
+  h.focus({ preventScroll: true });
+  return true;
+}
+
 const NAME: Record<GameToolFix, string> = {
   'install-uv': 'uv', 'install-blender-mcp': 'Blender tools', 'blender-reset': 'Blender', 'studio-mcp-setting': 'Studio MCP',
 };
