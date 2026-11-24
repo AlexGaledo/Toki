@@ -1,8 +1,6 @@
 # Local-first Toki with Blender and Roblox Studio
 
-Status: draft spec, 2026-11-24. This is the third revision. The second added the owner's decisions, and this one
-reworks the spec around the S1 spike (`docs/verify/game-tools-spike.md`) and decision 7, headless Blender. Nothing here
-is built yet. Code facts were checked on `origin/main` (5fcf8a6), and PC facts on the owner's machine on 2026-11-24.
+Status: built on feat/gamedev-tools; see docs/verify/APPROVAL.md.
 
 Clean-room note: this spec describes OpenBot's *model* (`docs/specs/openbot-gaps/00-openbot-recon.md`) as a reference
 point. Nothing in it, or in the tasks it creates, may copy OpenBot code, identifiers, strings or assets
