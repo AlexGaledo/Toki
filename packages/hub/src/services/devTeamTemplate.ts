@@ -1,5 +1,5 @@
 export const DEV_TEAM_TEMPLATE = {
-  version: 3,
+  version: 4,
   roles: [
     { source: 'lead-engineer', suffix: 'lead', coordinator: true },
     { source: 'software-engineer', suffix: 'engineer', coordinator: false },
@@ -11,6 +11,7 @@ export const DEV_TEAM_TEMPLATE = {
     'Never commit to or push the default branch. Work on a branch and open a pull request for the owner to review.',
     'Back up before changing anything live, and ask before anything destructive or hard to undo.',
     'Say what you verified and what you did not. "It should work" is not a result.',
+    'Call each part of the product by the name in features/. When you add or change something a user can see or do, update its feature file in the same piece of work.',
   ],
 } as const;
 
@@ -38,3 +39,18 @@ export function templateRecord(projectName: string, today: string, skillsByHandl
     '',
   ].join('\n');
 }
+
+export const FEATURES_README = [
+  '# Feature map', '',
+  'One file per part of the product a user can see or use, so the owner and every bot call it by the same name.',
+  'Name files after the part (`checkout.md`, `sign-in.md`). Keep implementation details out.', '',
+  'Each file: an H1 with the name, one paragraph on what the user can do, then exactly these four sections:', '',
+  '## Sub-features', '',
+  'The smaller parts, by the names the screen shows.', '',
+  '## How to get to it (user POV)', '',
+  'The clicks or steps from a fresh start.', '',
+  '## How to prove it works', '',
+  'Preconditions, then each action with the command or steps and what you should see. This is the evidence to show before saying done.', '',
+  '## Gotchas', '',
+  'What surprised someone before: required data, slow parts, things that look broken but are not.', '',
+].join('\n');

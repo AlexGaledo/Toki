@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New built-in skill, prove-it, adapted from Lauren Tan's pstack: prove a task against the real thing before saying done, question the approach after two failed fixes, report only problems it reproduced.
 - When you correct a bot twice for the same thing, it can propose a rule (a command or folder it must not touch, and what to do instead). You approve the exact rule on a card; after that the hub refuses the action in every approval mode and tells the bot what to do instead.
 - The bots' instructions are about 16% shorter: text that only repeated what tools and approval cards already enforce is gone.
+- New projects get a `features/` folder: one file per part of the product, with the same four sections, so you and the bots call each part by one name and know how to prove it works. Project bots are told to keep it current.
+- When the recorder can't attach to a browser tab, the recording now says so instead of quietly missing that tab.
 
 ### Creating a bot or group chat no longer freezes the page
 
@@ -26,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/deploy.sh` refuses to deploy anything but a clean, current origin/main. CI refuses edits to released CHANGELOG sections and newly mixed line endings.
 - `scripts/control-toki.mjs` and the verify-toki skill run a throwaway Toki, drive the UI and keep screenshots as evidence.
 - AGENTS.md pairs each rule with the check that enforces it; the agent notes shrank from about 4,200 words to under 1,000.
+- The cut-off retry logic is model-checked with TLA+ in CI (`pnpm formal`), including a known-bad version that must fail.
 
 ### Connections are shared by every bot
 
