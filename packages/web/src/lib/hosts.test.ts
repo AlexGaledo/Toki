@@ -85,6 +85,7 @@ describe('the desktop calls (docs/verify/phase3-infra, "Exact web calls for D4")
     expect(desktopCall.openServerProject(ORIGIN, 'obby-run')).toBe(ORIGIN + '/?openproject=server:obby-run');
     expect(desktopCall.backToPc(ORIGIN)).toBe(ORIGIN + '/?openhost=pc');
     expect(desktopCall.openFolder(ORIGIN, 'a&token=x')).toBe(ORIGIN + '/?openfolder=a%26token%3Dx');
+    expect(desktopCall.openServerProject(ORIGIN, 'a&token=x')).toBe(ORIGIN + '/?openproject=server:a%26token%3Dx');
   });
 });
 

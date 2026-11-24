@@ -9,12 +9,12 @@ function memoryStorage(): Storage {
   };
 }
 
-async function boot(search: string) {
+async function boot(search: string, session: Storage = memoryStorage()) {
   vi.resetModules();
   vi.stubGlobal('location', { search, hash: '', pathname: '/' });
   vi.stubGlobal('history', { replaceState: () => undefined });
   vi.stubGlobal('localStorage', memoryStorage());
-  vi.stubGlobal('sessionStorage', memoryStorage());
+  vi.stubGlobal('sessionStorage', session);
   return import('./auth');
 }
 
@@ -31,5 +31,11 @@ describe('desktopHost', () => {
     expect((await boot('?desktop=1&caps=hosts')).desktopHost()).toBe('pc');
     expect((await boot('?desktop=1&caps=hosts&host=crm')).desktopHost()).toBe('pc');
     expect((await boot('?host=server')).desktopHost()).toBe('pc');
+  });
+
+  it('ignores a stale host key once the tab is not in desktop mode', async () => {
+    const session = memoryStorage();
+    session.setItem('pocketrocket.desktopHost', 'server');
+    expect((await boot('', session)).desktopHost()).toBe('pc');
   });
 });

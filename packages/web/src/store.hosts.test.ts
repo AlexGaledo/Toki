@@ -141,6 +141,14 @@ describe('opening a Server project', () => {
     expect(store.getState().serverPrompt?.phase).toBe('elsewhere');
   });
 
+  it('a prompt left asking never calls once the page has no hosts cap', async () => {
+    const store = await boot('?desktop=1&caps=localcopy');
+    store.setState({ serverPrompt: { stub: stub('obby-run', false), phase: 'ask' } });
+    store.getState().promptConnect();
+    expect(opened).toEqual([]);
+    expect(store.getState().serverPrompt?.phase).toBe('ask');
+  });
+
   it('caps without hosts (an older shell) count as outside', async () => {
     list = [stub('arena', true)];
     const store = await boot('?desktop=1&caps=localcopy,openfolder');
