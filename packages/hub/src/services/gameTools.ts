@@ -29,6 +29,7 @@ export const STUDIO_PROCESS = 'RobloxStudioBeta.exe';
 export const STUDIO_MENU_PATH = 'Open Roblox Studio, open the Assistant, open its settings, and turn on the MCP server option. Then restart Studio.';
 /** Written beside the pinned environment when its install finishes; detection trusts nothing without it. */
 export const INSTALL_MARKER = 'toki-install.json';
+export const CRASH_LOG_MAX = 64 * 1024;
 
 export interface RunResult { code: number | null; stdout: string; stderr: string }
 export type RunFn = (exe: string, args: string[], opts: { env: NodeJS.ProcessEnv; cwd?: string; timeoutMs: number }) => Promise<RunResult>;
@@ -47,7 +48,8 @@ export interface GameToolsDeps {
   processes?: () => Promise<ProcessRow[]>;
   /** `HKCU\...` value lookup. There is no registry write anywhere in game tools. */
   registry?: (key: string, value: string) => Promise<string | null>;
-  blender?: { status(): BlenderStatus };
+  /** Toki's own Blender: its state and its run folder (`last-crash.log`) come from here. */
+  blender?: { status(): BlenderStatus; runDir?: string };
   fetch?: typeof fetch;
   /** The hashed requirements file; defaults to `requirements.txt` beside Toki's Blender server script. */
   requirements?: string;
@@ -107,7 +109,16 @@ export class GameTools {
   get uvDir() { return path.join(this.toolsDir, 'uv', UV_VERSION); }
   get tokiUvExe() { return path.join(this.uvDir, 'uv.exe'); }
   get blenderMcp() { return blenderToolPaths(this.deps.dataDir, this.platform); }
-  get crashLogFile() { return path.join(this.deps.dataDir, 'run', 'blender', 'last-crash.log'); }
+  get crashLogFile() { return path.join(this.deps.blender?.runDir ?? path.join(this.deps.dataDir, 'run', 'blender'), 'last-crash.log'); }
+
+  /** "Open log": the last unexpected exit's tail as BlenderHost wrote it, at most 64 KB, or null. */
+  crashLog(): string | null {
+    try {
+      return this.fs.readFileSync(this.crashLogFile, 'utf8').slice(-CRASH_LOG_MAX);
+    } catch {
+      return null;
+    }
+  }
   get robloxDir() { return path.join(this.env.LOCALAPPDATA ?? '', 'Roblox'); }
   get studioSettingsDir() { return path.join(this.robloxDir, 'AssistantSettings'); }
   get mcpBat() { return path.join(this.robloxDir, 'mcp.bat'); }

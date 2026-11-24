@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { BlenderStatus } from './BlenderHost.js';
+import { BlenderHost, MAX_CRASHES, blenderToolPaths, type BlenderChild, type BlenderStatus } from './BlenderHost.js';
 import { GameTools, INSTALL_MARKER, STUDIO_PROCESS, UV_VERSION, parseTasklistAll, sha256, type ProcessRow } from './gameTools.js';
 import { SETTINGS, cleanupFixtures, fakeRun, fixturePc, installBlenderMcp, recordingFs } from './__fixtures__/gamePc.js';
 
@@ -171,5 +173,51 @@ describe('parseTasklistAll', () => {
   it('reads every row of tasklist /FO CSV /NH', () => {
     expect(parseTasklistAll('"System Idle Process","0","Services","0","8 K"\r\n"RobloxStudioBeta.exe","812","Console","1","900,000 K"\r\nINFO: x\r\n'))
       .toEqual([{ name: 'System Idle Process', pid: 0 }, { name: 'RobloxStudioBeta.exe', pid: 812 }]);
+  });
+});
+
+describe("B5: the Blender state comes from Toki's own BlenderHost", () => {
+  class FakeChild extends EventEmitter {
+    stdout = new PassThrough();
+    stderr = new PassThrough();
+    constructor(public pid: number) { super(); }
+    kill() { this.emit('exit', null); return true; }
+  }
+  const until = async (f: () => boolean) => { for (let i = 0; i < 200 && !f(); i++) await new Promise((r) => setImmediate(r)); };
+
+  it('shows starting with the project and port, then crashing past the cap with its log, and stopped after reset', async () => {
+    const pc = fixturePc();
+    const t = blenderToolPaths(pc.data, 'win32');
+    fs.mkdirSync(path.dirname(t.addon), { recursive: true });
+    fs.writeFileSync(t.addon, '# add-on');
+    const script = path.join(pc.root, 'toki_blender_server.py');
+    fs.writeFileSync(script, '# server');
+    const children: FakeChild[] = [];
+    const host = new BlenderHost({
+      dataDir: pc.data, platform: 'win32', exe: () => 'C:\\Blender\\blender.exe', script,
+      spawn: () => { const c = new FakeChild(5000 + children.length); children.push(c); return c as unknown as BlenderChild; },
+      listBlenders: async () => [], pickPort: async () => 50123, log: () => undefined,
+    });
+    const gt = new GameTools({ dataDir: pc.data, platform: 'win32', env: pc.env, run: fakeRun().run, processes: async () => [], registry: async () => null, blender: host });
+    const project = { slug: 'space-game', dir: path.join(pc.root, 'projects', 'space-game') };
+
+    for (let i = 1; i <= MAX_CRASHES + 1; i++) {
+      const ready = host.ensure(project);
+      await until(() => children.length === i);
+      if (i === 1) {
+        expect((await gt.status()).blenderProcess).toMatchObject({ state: 'starting', project: 'space-game', pid: 5000, port: 50123, crashes: 0, fix: null });
+      }
+      children[i - 1]!.stdout.write('Error: EXCEPTION_ACCESS_VIOLATION ' + i + '\n');
+      await new Promise((r) => setImmediate(r));
+      children[i - 1]!.emit('exit', 3221225477);
+      expect(await ready).toMatch(/stopped before it was ready/);
+    }
+    const s = (await gt.status()).blenderProcess;
+    expect(s).toMatchObject({ state: 'crashing', crashes: MAX_CRASHES + 1, crashLog: true, fix: 'blender-reset' });
+    expect(gt.crashLogFile).toBe(path.join(host.runDir, 'last-crash.log'));
+    expect(gt.crashLog()).toContain('EXCEPTION_ACCESS_VIOLATION ' + (MAX_CRASHES + 1));
+    expect(await host.ensure(project)).toMatch(/keeps crashing/);
+    host.resetCrashes();
+    expect((await gt.status()).blenderProcess).toMatchObject({ state: 'stopped', crashes: 0, crashLog: true, fix: null });
   });
 });

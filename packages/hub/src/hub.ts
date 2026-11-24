@@ -53,7 +53,7 @@ import { createIntegrationsApi } from './api/integrations.js';
 import { TelegramService } from './services/TelegramService.js';
 import { createTelegramApi } from './api/telegram.js';
 import { createMcpServersApi } from './api/mcpServers.js';
-import { createGameToolsApi } from './api/gameTools.js';
+import { STUDIO_SERVER, createGameToolsApi, studioCheckWord } from './api/gameTools.js';
 import { GameTools, type GameToolsDeps } from './services/gameTools.js';
 import { createCredentialsApi } from './api/credentials.js';
 import { CredentialStore } from './services/CredentialStore.js';
@@ -373,7 +373,7 @@ export function createHub(opts: HubOptions = {}): Hub {
   const contextRepo = new ContextRepo(db);
   const projects = new ProjectService({ db, repos, memory, root: opts.projectsDir ?? PROJECTS_DIR });
   runner.projects = projects;
-  const blender = new BlenderHost({ dataDir: DATA_DIR });
+  const blender = new BlenderHost({ dataDir: opts.gameTools?.dataDir ?? DATA_DIR });
   runner.blender = blender;
   const roomFiles = new RoomFiles({ projects, roomsDir: opts.roomsDir ?? ROOMS_DIR, dmDir: opts.dmFilesDir ?? botFilesDir });
   runner.roomFiles = roomFiles;
@@ -443,8 +443,11 @@ export function createHub(opts: HubOptions = {}): Hub {
   const offProjectBots = events.onEvent((ev) => { if (ev.type === 'bots.changed') projects.pruneMembers(ev.bots.map((b) => b.id)); });
   const projectsApi = createProjectsApi({ projects, repos, db });
   const mcpStore = new McpServerStore(opts.mcpServers?.file);
-  const mcpServersApi = createMcpServersApi({ store: mcpStore, db, fetch: opts.mcpServers?.fetch });
   const gameTools = new GameTools({ dataDir: DATA_DIR, ...opts.gameTools, blender });
+  const mcpServersApi = createMcpServersApi({
+    store: mcpStore, db, fetch: opts.mcpServers?.fetch,
+    runtimeCheck: async (name) => (name === STUDIO_SERVER ? studioCheckWord((await gameTools.status()).studio) : null),
+  });
   const gameToolsApi = createGameToolsApi({ tools: gameTools, blender, store: mcpStore, repos, db, env: opts.gameTools?.env });
   const credentials = new CredentialStore(db, opts.credentials);
   runner.credentials = credentials;

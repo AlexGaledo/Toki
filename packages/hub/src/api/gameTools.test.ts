@@ -229,3 +229,39 @@ describe('approval mode does not gate setup (owner decision 2)', () => {
     fetchGate = Promise.resolve();
   });
 });
+
+describe('B5: status checks', () => {
+  const cmd = path.join(pc.env.SystemRoot!, 'System32', 'cmd.exe');
+  const check = async () => (await request('POST', '/api/mcp-servers/' + STUDIO_SERVER + '/check')).json;
+
+  it('reports the Studio recipe with fixed words: setting-off, studio-not-open, then command-found', async () => {
+    fs.mkdirSync(path.dirname(cmd), { recursive: true });
+    fs.writeFileSync(cmd, '');
+    fs.writeFileSync(pc.settingsFile, SETTINGS);
+    expect(await check()).toMatchObject({ ok: false, result: 'setting-off' });
+    fs.writeFileSync(pc.settingsFile, SETTINGS.replace(/false\n    \}\n\}$/, 'true\n    }\n}'));
+    expect(await check()).toMatchObject({ ok: false, result: 'studio-not-open' });
+    procs = [{ name: STUDIO_PROCESS, pid: 812 }];
+    try {
+      expect(await check()).toMatchObject({ ok: true, result: 'command-found' });
+    } finally {
+      procs = [];
+    }
+    fs.rmSync(path.join(pc.roblox, 'mcp.bat'));
+    expect(await check()).toMatchObject({ ok: false, result: 'command-missing' });
+    fs.writeFileSync(path.join(pc.roblox, 'mcp.bat'), '@echo off\r\n');
+    fs.rmSync(cmd);
+    expect(await check()).toMatchObject({ ok: false, result: 'command-missing' });
+  });
+
+  it("serves BlenderHost's crash log for Open log, redacted, and null when there is none", async () => {
+    expect((await request('GET', '/api/game-tools/blender/crash-log')).json).toEqual({ log: null });
+    const file = path.join(pc.data, 'run', 'blender', 'last-crash.log');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'exit code 3221225477\nError: EXCEPTION_ACCESS_VIOLATION\nhub token ' + TOKEN + '\n');
+    const r = await request('GET', '/api/game-tools/blender/crash-log');
+    expect(r.json.log).toContain('EXCEPTION_ACCESS_VIOLATION');
+    expect(r.json.log).not.toContain(TOKEN);
+    expect((await request('GET', '/api/game-tools')).json.blenderProcess).toMatchObject({ state: 'stopped', crashLog: true });
+  });
+});

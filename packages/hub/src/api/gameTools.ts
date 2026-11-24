@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { z } from 'zod';
-import { GAME_TOOL_FIXES, type GameToolFix, type GameToolFixResult } from '@pocketrocket/shared';
+import { GAME_TOOL_FIXES, type GameToolFix, type GameToolFixResult, type GameToolsStudio } from '@pocketrocket/shared';
 import { readBody } from './body.js';
 import { principalOf } from './guard.js';
 import type { Db } from '../db/db.js';
@@ -9,7 +9,7 @@ import type { Repos } from '../db/repos.js';
 import { actorOf, recordAudit } from '../services/AuditLog.js';
 import type { FixOutcome, GameTools } from '../services/gameTools.js';
 import { McpStoreError, type McpServerStore, type McpServerView } from '../services/outsideMcpStore.js';
-import { logError } from '../providers/redact.js';
+import { logError, redact } from '../providers/redact.js';
 
 /** The Studio recipe's name in mcp-servers.json. */
 export const STUDIO_SERVER = 'roblox-studio';
@@ -18,6 +18,14 @@ export const STUDIO_READ_TOOLS = [
   'search_game_tree', 'script_search', 'script_read', 'script_grep', 'inspect_instance', 'get_console_output', 'get_studio_state',
   'screen_capture', 'list_roblox_studios', 'list_skills', 'skill', 'wait_job_finished', 'search_asset', 'http_get',
 ];
+
+/** B5: what a Studio recipe check adds once its command is found. Fixed words only. */
+export function studioCheckWord(s: GameToolsStudio): string | null {
+  if (s.reason === 'unsupported' || !s.mcpBat || !s.studioMcp) return 'command-missing';
+  if (s.setting === 'off') return 'setting-off';
+  if (!s.running) return 'studio-not-open';
+  return null;
+}
 
 // Strict: a field the route does not know is refused, so nothing in a request can become a command, argument or env.
 const FixBody = z.object({}).strict();
@@ -93,6 +101,10 @@ export function createGameToolsApi(deps: {
 
     try {
       if (method === 'GET' && parts.length === 0) return send(res, 200, await tools.status());
+      if (method === 'GET' && parts.length === 2 && parts[0] === 'blender' && parts[1] === 'crash-log') {
+        const log = tools.crashLog();
+        return send(res, 200, { log: log === null ? null : redact(log) });
+      }
 
       if (method === 'POST' && parts.length === 2 && parts[0] === 'fix') {
         const step = GAME_TOOL_FIXES.find((s) => s === parts[1]);
