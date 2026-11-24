@@ -1,8 +1,8 @@
 """B3 and B4 mutation run: outsideMcpStep, the outside PreToolUse hook, redactValue, codeField and the card paths.
 
-From packages/hub:  python -I ../../docs/verify/b3-b4/scripts/mutations.py
+From packages/hub:  python -I ../../docs/verify/b3-b4/scripts/mutations.py [first mutant number, default 1]
 Each guarded line is broken in turn, the B3/B4 tests run, and the file is restored byte for byte. A mutant is
-"caught" when vitest exits non-zero.
+"caught" when vitest exits non-zero. After each mutant `git diff --stat` must be empty, or the run stops.
 """
 import pathlib
 import subprocess
@@ -83,13 +83,15 @@ MUTANTS = [
     ("B4 normal card: hub tools treated as outside", PB, "/^mcp__(?!pocketrocket__|browser__)[a-z0-9_-]+?__(.+)$/", "/^mcp__[a-z0-9_-]+?__(.+)$/"),
 ]
 
+START = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+RUN = MUTANTS[START - 1:]
 caught = 0
-for name, rel, old, new in MUTANTS:
+for n, (name, rel, old, new) in enumerate(RUN, START):
     f = HUB / rel
     raw = f.read_bytes()
     src = raw.decode("utf8")
     if src.count(old) != 1:
-        print(f"SKIP  {name}: pattern found {src.count(old)} times", flush=True)
+        print(f"{n:>2} SKIP  {name}: pattern found {src.count(old)} times", flush=True)
         continue
     f.write_bytes(src.replace(old, new).encode("utf8"))
     try:
@@ -102,8 +104,11 @@ for name, rel, old, new in MUTANTS:
     out = (r.stdout + r.stderr).splitlines()
     summary = [l.strip() for l in out if l.strip().startswith("Tests ")]
     first_fail = next((l.strip()[len("FAIL  "):] for l in out if l.strip().startswith("FAIL  ") and " > " in l), "")
-    line = f"{'CAUGHT' if ok else 'SURVIVED'}  {name}  ({rel})  {summary[-1] if summary else ''}"
+    line = f"{n:>2} {'CAUGHT' if ok else 'SURVIVED'}  {name}  ({rel})  {summary[-1] if summary else ''}"
     if first_fail:
         line += f"\n        first: {first_fail}"
     print(line, flush=True)
-print(f"\n{caught} of {len(MUTANTS)} mutants caught")
+    dirty = subprocess.run(["git", "diff", "--stat"], cwd=HUB, capture_output=True, text=True).stdout.strip()
+    if dirty:
+        sys.exit(f"tree not clean after mutant {n}: {dirty}")
+print(f"\n{caught} of {len(RUN)} mutants caught (mutants {START} to {START + len(RUN) - 1} of {len(MUTANTS)}); git diff --stat clean after each")
