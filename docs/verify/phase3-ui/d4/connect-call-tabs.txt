@@ -1,0 +1,6 @@
+kept    /?desktop=1&caps=localcopy,openfolder,hosts,server
+closed  /?openproject=server:tower-climb
+kept    /?desktop=1&caps=localcopy,openfolder,hosts,server
+closed  /?openproject=server:tower-climb
+kept    /?desktop=1&caps=localcopy,openfolder,hosts,server
+closed  /?openproject=server:crm-sync

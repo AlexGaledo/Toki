@@ -1,0 +1,52 @@
+- button "Show bots"
+- main:
+  - heading "Arena" [level=1]
+  - text: No plan yet
+  - button "Project overview"
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Map"
+    - tab "Tasks"
+  - button "Arena"
+  - button "Open Quality Engineer's page":
+    - img "Quality Engineer · Idle"
+  - button "Open Lead Engineer's page":
+    - img "Lead Engineer · Idle"
+  - button "Open Software Engineer's page":
+    - img "Software Engineer · Idle"
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - tabpanel "Chat":
+    - text: Nothing here yet
+    - paragraph: Say hi whenever you're ready.
+    - 'textbox "Message #Arena"':
+      - /placeholder: Message @bot or the room…
+    - button "Attach files"
+    - 'button "Permission level for all bots: Approval"': Approval
+    - status
+    - 'button "Model for this chat: Auto"': Auto
+    - button "Send" [disabled]
+  - button "Back to chat"
+  - heading "Usage" [level=1]
+  - paragraph: All bots and chats
+  - region "Plan limits":
+    - heading "Plan limits" [level=2]
+    - paragraph: Nothing near a limit right now. A window shows here once Claude says it is filling up.
+  - paragraph: Your PC and your server both spend from the same Claude subscription, so its usage limits cover the bots on both.
+  - text: Estimated usage, all time ≈$0.00 API-price estimate. Subscription plans aren't charged this. 0 replies By bot
+  - list:
+    - listitem: Toki Support 0 replies $0.00
+    - listitem: Data Engineer 0 replies $0.00
+    - listitem: Lead Engineer 0 replies $0.00
+    - listitem: Software Engineer 0 replies $0.00
+    - listitem: Quality Engineer 0 replies $0.00
+    - listitem: Lead Engineer 0 replies $0.00
+    - listitem: Software Engineer 0 replies $0.00
+    - listitem: Quality Engineer 0 replies $0.00
+  - text: By chat
+  - list:
+    - listitem: Toki Support $0.00
+    - listitem: Data Engineer $0.00
+    - listitem: "# Arena $0.00"
+- status

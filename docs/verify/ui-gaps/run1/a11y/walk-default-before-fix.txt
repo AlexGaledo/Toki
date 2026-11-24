@@ -1,0 +1,19 @@
+# Before the fix (SettingsDialog.tsx as committed), default layout, Blender crashing. tab_walk.mjs output.
+# Tab from tab:Game tools
+ 0  dialog  tab "Game tools"
+ 1  dialog  button "Close"
+ 2  panel   button "Check again"
+ 3  panel   button "Show the full Blender path"
+ 4  panel   button "Copy the full Blender path"
+ 5  panel   button "Open log"
+ 6  panel   button "Try again"
+ 7  panel   button "Show the full uv path"
+ 8  panel   button "Copy the full uv path"
+ 9  dialog  tab "Game tools"
+# Shift+Tab from button:Check again  (25 presses; capped)
+ 0  panel   button "Check again"
+ 1  dialog  button "Close"
+ 2  dialog  tab "Game tools"
+ 3  dialog  tab "Game tools"
+ ...    (rows 4 to 25 identical: Shift+Tab never leaves the active section tab)
+25  dialog  tab "Game tools"

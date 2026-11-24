@@ -1,0 +1,5 @@
+gameProjectFresh.test.ts with builtinSkills.ts + SeedBots.ts reverted:
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed (3)
+with the fix:
+      Tests  3 passed (3)

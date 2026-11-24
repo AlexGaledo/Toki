@@ -1,0 +1,3 @@
+[blender] starting for cube-test on 127.0.0.1:8751 (pid 35280)
+[blender] ready for cube-test after 3.3 s
+[blender] stopped for cube-test (idle) after 618 s; peak working set 580 MB

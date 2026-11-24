@@ -1,0 +1,22 @@
+calls found: 20 in 1 transcripts
+2026-10-17T16:01:42  blender__execute_blender_code            input JSON   1390 chars
+2026-10-17T16:01:26  blender__execute_blender_code            input JSON    774 chars
+2026-10-17T16:01:11  blender__execute_blender_code            input JSON    401 chars
+2026-10-17T15:49:10  blender__execute_blender_code            input JSON   1286 chars
+2026-10-17T15:48:52  blender__execute_blender_code            input JSON    798 chars
+2026-10-17T15:48:39  blender__execute_blender_code            input JSON    263 chars
+2026-10-17T15:48:30  blender__execute_blender_code            input JSON    297 chars
+2026-10-17T15:33:15  blender__execute_blender_code            input JSON   1607 chars
+2026-10-17T15:32:46  blender__execute_blender_code            input JSON   1045 chars
+2026-10-17T15:32:24  blender__execute_blender_code            input JSON   1431 chars
+2026-10-17T15:32:11  blender__execute_blender_code            input JSON    213 chars
+2026-10-17T15:32:08  blender__execute_blender_code            input JSON    155 chars
+2026-10-17T15:31:55  blender__execute_blender_code            input JSON    213 chars
+2026-10-17T15:29:34  blender__execute_blender_code            input JSON    174 chars
+  blender__execute_blender_code            input JSON    774 chars
+  blender__execute_blender_code            input JSON    401 chars
+  blender__execute_blender_code            input JSON    263 chars
+  blender__execute_blender_code            input JSON   1045 chars
+  blender__execute_blender_code            input JSON    155 chars
+  blender__execute_blender_code            input JSON    174 chars
+min 155  median 401  p90 1431  max 1607  over 8000: 0  over 32000: 0

@@ -43,10 +43,12 @@ import type { FormBroker } from '../services/FormBroker.js';
 import { turnFailureNote } from './turnFailure.js';
 import { classifyVerification, type TurnToolCall } from './verification.js';
 import { outsideMcpFor, registerOutsideMcpSecrets, vpsMountable } from '../services/outsideMcp.js';
+import type { BlenderHost } from '../services/BlenderHost.js';
 import { loadKeyRegistry } from '../services/keyRegistry.js';
 import { computerToolGuard } from '../permissions/controlInterlock.js';
 import { decisionsWriteDenied, relIn, type FileRevisions, type FileRoot, type RevisionAuthor } from '../services/FileRevisions.js';
 import type { MediaStore } from '../services/MediaStore.js';
+import { isLookBackTool, lookBackServers, storeLookBack, stripCliImagePaths } from './lookBacks.js';
 import { AUTO_MEMORY_MODEL, runPass, type PassOutcome } from '../services/AutoMemory.js';
 import { buildSeed, buildSummaryPrompt, cleanSummary, contextUsage, readRoomNotes, rotationNote, rotationReason, SUMMARY_SYSTEM_PROMPT, SWITCH_SEED_LEAD, switchNote } from '../services/SessionRotation.js';
 import { RepeatFailureWatch, browserRefusal, brokenStart, escalationNote, type FailureKind } from './repeatFailure.js';
@@ -160,6 +162,7 @@ export class BotRunner {
   workflows?: WorkflowRunner;
   pcSessions?: PcSessions;
   sessionMoves?: SessionMoves;
+  blender?: BlenderHost;
   credentials?: CredentialStore;
   summarize: (prompt: string, systemPrompt: string) => Promise<PassOutcome> = runPass;
   repeatFailures = new RepeatFailureWatch();
@@ -478,9 +481,15 @@ export class BotRunner {
     const mcpToken = this.turns.registerTurn(tools, computerToolGuard(controlBlocked));
     // The per-turn MCP bearer travels in provider config and can surface in a stderr tail: scrub it until the turn ends.
     addSecret(mcpToken);
-    const outsideMcp = vpsMountable(outsideMcpFor(bot.handle, room), keyRegistry);
-    // Bearer tokens and stdio env values (the owner's API keys) are scrubbed from tool output, chat and logs.
-    registerOutsideMcpSecrets(outsideMcp);
+    // A game project's room gets Toki's own headless Blender as the `blender` server, in place of any file entry.
+    const gameProject = roomProject?.kind === 'game' && this.blender ? roomProject : undefined;
+    const blenderEntry = gameProject ? await this.blender!.mcpEntry() : null;
+    const fileMcp = vpsMountable(outsideMcpFor(bot.handle, room), keyRegistry).filter((s) => !blenderEntry || s.name !== 'blender');
+    // Bearer tokens and stdio env values (the owner's API keys) are scrubbed from tool output, chat and logs. The
+    // built-in entry holds no secret, and its 127.0.0.1 must not be scrubbed.
+    registerOutsideMcpSecrets(fileMcp);
+    const outsideMcp = blenderEntry ? [...fileMcp, blenderEntry] : fileMcp;
+    const lookBacks = lookBackServers({ game: !!gameProject, blender: blenderEntry, mounted: outsideMcp });
     const images = materializeImages(this.media, ATTACHMENTS_DIR, bot.id, req.images);
     const files = materializeFiles(this.media, ATTACHMENTS_DIR, bot.id, req.images);
     const ctx: TurnContext = {
@@ -522,6 +531,7 @@ export class BotRunner {
       allowedBuiltins: computerDown ? bot.allowedTools.filter((t) => t !== 'Browser' && t !== 'Desktop') : bot.allowedTools,
       bypassPermissions: bypass,
       strictApprovals: !!req.strictApprovals,
+      approvalsReadOnly: this.broker.readOnly,
       permission: async (name, input, extra) => {
         const r = await this.broker.decide(permCtx, name, input, { signal: ac.signal, blockedPath: extra?.blockedPath });
         return r.behavior === 'allow' ? 'allow' : 'deny';
@@ -579,6 +589,7 @@ export class BotRunner {
         const r = await this.broker.askOutsideMcp(permCtx, s.name, name.slice(('mcp__' + s.name + '__').length), input, ac.signal);
         return r.allowed ? null : r.message;
       },
+      ...(blenderEntry && gameProject ? { blenderEnsure: () => this.blender!.ensure(gameProject) } : {}),
       computerFilesDir: computer?.filesDir ?? undefined,
       controlGuard: controlBlocked,
       computerGate: computer ? async (name, input) => (await useComputer()) ?? browserTabRule(name, input) : undefined,
@@ -643,7 +654,7 @@ export class BotRunner {
         toolMsgIds.set(id, msg.id);
         events.emitEvent({ type: 'message.new', message: msg });
       },
-      onToolResult: (id, output, isError) => {
+      onToolResult: (id, output, isError, image) => {
         const msgId = toolMsgIds.get(id);
         if (!msgId) return;
         const cur = this.repos.getMessage(msgId);
@@ -652,9 +663,14 @@ export class BotRunner {
         const refused = browserRefusal(toolName, output);
         if (refused) this.noteFailure(bot, room, 'browser', refused, { causeId: req.causeId, hop: req.hop, turnId });
         else if (!isError && toolName.startsWith('mcp__browser__')) this.repeatFailures.clear(bot.id);
-        const payload: ToolPayload = { ...(cur.payload as ToolPayload), output: redact(output.slice(0, 20000)), isError, done: true };
-        this.repos.updateMessage(msgId, { payload });
-        events.emitEvent({ type: 'message.update', id: msgId, roomId: room.id, patch: { payload } });
+        // B9: a game tool's picture is kept as one attachment on this message; the CLI's file path leaves the text.
+        const lookBack = isLookBackTool(toolName, lookBacks);
+        const ref = lookBack && image && this.media ? storeLookBack(this.media, image) : null;
+        const shown = lookBack ? stripCliImagePaths(output) : output;
+        const payload: ToolPayload = { ...(cur.payload as ToolPayload), output: redact(shown.slice(0, 20000)), isError, done: true };
+        const patch = ref ? { payload, attachments: [ref] } : { payload };
+        this.repos.updateMessage(msgId, patch);
+        events.emitEvent({ type: 'message.update', id: msgId, roomId: room.id, patch });
       },
       onState: (s) => setState(s),
     };

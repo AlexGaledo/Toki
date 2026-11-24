@@ -1,0 +1,25 @@
+# S2 item 6: Open Studio from the installed app, 2026-11-24T22:34:20.3876148+08:00
+22:34:20.423 RobloxStudioBeta.exe running before: 0
+22:34:21.432 pressed Open Studio (Settings > Game tools)
+22:34:27.157 pressed Open Studio again, 6.6 s after the first
+22:34:42.758 RobloxStudioBeta.exe processes now: 1
+22:34:45.286   pid 27236 parent 27940 created 11/24/2026 22:34:21
+22:34:45.291   ExecutablePath: C:\Users\alex\AppData\Local\Roblox\Versions\version-8d7a1009c17e4ff8\RobloxStudioBeta.exe
+22:34:45.308   CommandLine: ["C:\Users\alex\AppData\Local\Roblox\Versions\version-8d7a1009c17e4ff8\RobloxStudioBeta.exe"]
+22:35:28.618 job check (tokijob.ps1: Toki's own job handles, duplicated read-only; the PC hub node is the control):
+22:35:29.325   Toki job handle 0x594
+22:35:29.359   pid 38472 in Toki job #1 = True (node)
+22:35:29.371   pid 27236 in Toki job #1 = False (RobloxStudioBeta)
+22:36:50.407 CloseMainWindow on RobloxStudioBeta 27236 (title: 'Roblox Studio')
+22:36:52.540 Studio exited: True (no force kill)
+RobloxStudioBeta.exe left: 0; blender.exe: 0; RobloxPlayerBeta (owner's, untouched): 3700
+(Studio's exit came after the quit-and-start in check5b-quit-and-start.txt:)
+22:35:45  Toki (27940) quit with CloseMainWindow while Studio 27236 ran; its PC hub and tunnel died with its job
+22:35:50  Studio 27236 still running and responding
+
+Result: pass on all four points.
+- One press started RobloxStudioBeta.exe from Versions\version-8d7a1009c17e4ff8 with no arguments (the command line is only the quoted exe).
+- It is not in Toki's job. The job check duplicates Toki's own job handle (0x594) read-only. In it: the PC hub node and the tunnel ssh (control). Not in it: Studio, Explorer and the owner's RobloxPlayerBeta. A plain IsProcessInJob(NULL) is true for every process on this Windows 11 PC, so it proves nothing.
+- Studio stayed open after Toki quit.
+- A second press 6.6 s later opened no second Studio. It was dropped silently by the 10 s gate (launch.rs COOLDOWN), with no toast.
+Closed only that Studio, with CloseMainWindow; no force kill.

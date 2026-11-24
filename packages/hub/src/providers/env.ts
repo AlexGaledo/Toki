@@ -60,3 +60,14 @@ export function childEnv(
   }
   return out;
 }
+
+/** Only the base names (no provider keys, no token, no PYTHONPATH), plus `extra`: for helper processes like Blender. */
+export function baseChildEnv(extra: NodeJS.ProcessEnv = {}, source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = {};
+  for (const [k, v] of Object.entries(source)) {
+    const low = k.toLowerCase();
+    if (typeof v !== 'string' || DENY.has(low)) continue;
+    if (BASE_NAMES.some((n) => n.toLowerCase() === low) || BASE_PREFIXES.some((p) => low.startsWith(p.toLowerCase()))) out[k] = v;
+  }
+  return { ...out, ...extra };
+}

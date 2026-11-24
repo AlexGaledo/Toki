@@ -44,6 +44,8 @@ export interface TurnContext {
   bypassPermissions?: boolean;
   /** Strict turn (routine, trigger, workflow step): approvals apply even under bypass. */
   strictApprovals?: boolean;
+  /** The hub's read-only approval mode, read per turn. */
+  approvalsReadOnly?: boolean;
   permission: (
     toolName: string,
     input: Record<string, unknown>,
@@ -80,6 +82,8 @@ export interface TurnContext {
   outsideMcp?: OutsideMcpServer[];
   /** Raises the owner's card, under bypass too. A string refuses the call. */
   outsideMcpGate?: (toolName: string, input: Record<string, unknown>) => Promise<string | null>;
+  /** Game rooms: starts (or reuses) the hub's headless Blender before a `blender` tool runs. A string refuses the call. */
+  blenderEnsure?: () => Promise<string | null>;
   computerFilesDir?: string;
   sandboxWritableDirs?: string[];
   /** Adapters must enforce it in bypass mode too; it is not an approval. */
@@ -88,12 +92,19 @@ export interface TurnContext {
   carriedSteers?: SteerInput[];
 }
 
+/** A base64 image block from a tool result (B9 look-backs). Never read from a file. */
+export interface ToolResultImage {
+  mediaType: string;
+  data: string;
+}
+
 export interface TurnSink {
   onSession(token: string): void;
   onDelta(text: string): void;
   onText(text: string): void;
   onToolUse(id: string, name: string, input: unknown): void;
-  onToolResult(id: string, output: string, isError: boolean): void;
+  /** `image`: the first image block of the result, as the SDK message carried it (Claude only). The runner decides whether to keep it. */
+  onToolResult(id: string, output: string, isError: boolean, image?: ToolResultImage): void;
   onState(s: 'thinking' | 'working'): void;
   onInit?(info: ProviderInit): void;
   onLimit?(report: LimitReport): void;

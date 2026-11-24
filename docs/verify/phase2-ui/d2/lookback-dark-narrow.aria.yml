@@ -1,0 +1,44 @@
+- button "Show bots"
+- main:
+  - heading "Obby Run" [level=1]
+  - text: No plan yet
+  - button "Needs you, 1"
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Map"
+    - tab "Tasks"
+  - button "Obby Run"
+  - button "Open Blender Artist's page":
+    - img "Blender Artist · Idle"
+  - button "Open Roblox Builder's page":
+    - img "Roblox Builder · Needs you"
+  - button "Open Lead Engineer's page":
+    - img "Lead Engineer · Idle"
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - tabpanel "Chat":
+    - group "Game tools": Blender stopped Studio not open (unverified)
+    - img "Blender Artist"
+    - text: Blender Artist 06:19 PM
+    - button "Worked · 2 steps"
+    - 'button "Look-back from blender: look"':
+      - 'img "Look-back from blender: look"'
+    - paragraph: The cube is in, lit from the left. Here is the camera view.
+    - img "Roblox Builder"
+    - text: Roblox Builder 06:19 PM Needs your OK mcp__roblox-studio__execute_luau Outside server "roblox-studio" tool "execute_luau"
+    - term: studio_id
+    - definition: studio-1
+    - region "code for execute_luau":
+      - code: "-- Add a finish pad at the end of the obby local pad = Instance.new(\"Part\") pad.Name = \"FinishPad\" pad.Size = Vector3.new(10, 1, 10) pad.Position = Vector3.new(130, 30, 0) pad.Anchored = true pad.BrickColor = BrickColor.new(\"Lime green\") pad.Parent = workspace print(\"finish pad added\")"
+    - button "Allow once"
+    - button "Deny"
+    - text: Asked every time.
+    - 'textbox "Message #Obby Run"':
+      - /placeholder: Message @bot or the room…
+    - button "Attach files"
+    - 'button "Permission level for all bots: Approval"': Approval
+    - status
+    - 'button "Model for this chat: Auto"': Auto
+    - button "Send" [disabled]
+- status

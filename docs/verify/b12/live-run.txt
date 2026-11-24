@@ -1,0 +1,81 @@
+   0.40s blender.exe before start: []
+   0.43s mcp entry: {"kind":"stdio","name":"blender","command":"<data>/tools/blender-mcp/2.3.1/Scripts/mcp-for-blender.exe","args":[],"env":{"BLENDER_HOST":"127.0.0.1","BLENDER_PORT":"33726","DISABLE_TELEMETRY":"true","APPDATA":"<data>\\tools\\blender-mcp\\home","XDG_CONFIG_HOME":"<data>\\tools\\blender-mcp\\home\\.config","BLENDERMCP_ADDONS_DIR":"<data>\\tools\\blender-mcp\\2.3.1\\Lib\\site-packages\\blender_mcp\\bundled"},"approve":"mode","readTools":["get_addon_status","get_scene_info","look","search_assets"],"needs":[]}
+   6.16s MCP server up while Blender is NOT running: 10 tools listed
+   6.55s [blender] starting for b12-proof on 127.0.0.1:33726 (pid 30984)
+  16.94s [blender] ready for b12-proof after 10.4 s
+  17.15s get_scene_info 0.21s isError=false: Scene 'Scene' | 1 camera, 1 light, 1 mesh | active Cube | selected Cube | mode OBJECT Showing 3 of 3 (name | type | location | size | hidden | children): Cube | mesh | at (0.0, 0.0, 0.0) | size 2.0x2.0x2.0 Light | light | at (4.08, 1.01, 5.9) Camera | camera | at (7.36, -6.93, 4.96)
+  17.22s listening on :9876: []
+  17.22s listening on :33726: ["TCP 127.0.0.1:33726 0.0.0.0:0 LISTENING 30984"]
+  17.25s execute_blender_code 0.03s isError=false: Code executed successfully: engine BLENDER_EEVEE saved to <data>\projects\b12-proof\art\b12-proof.blend 
+  21.61s look 4.35s isError=false: [image image/png 89207 bytes -> b12-look-rendered.png] | Through camera 'Camera'. Framed 2 objects, 3.4 x 2 x 2.2 m across, centred at [0.7, 0.0, 0.1]. Quick render with BLENDER_EEVEE at 16 samples, 2.4s; a final render is cleaner.
+  22.66s after the rendered look, windows of pid 30984: 19; visible: 0 ; hidden 'NVOGLDC invisible' ; hidden 'NVOGLDC invisible' ; hidden 'BlenderGLEW' ; hidden 'NVOGLDC invisible' ; hidden 'BlenderGLEW' ; hidden 'NVOGLDC invisible' ; hidden 'BlenderGLEW' ; hidden 'BlenderGLEW' ; hidden 'BlenderGLEW' ; hidden '__wglDummyWindowFodder' ; hidden 'NVOGLDC invisible' ; hidden 'BlenderGLEW' ; hidden 'Default IME' ; hidden 'Default IME' ; hidden 'Default IME' ; hidden 'Default IME' ; hidden 'Default IME' ; hidden 'Default IME' ; hidden 'Default IME'
+  22.68s execute_blender_code 0.02s isError=false: Code executed successfully: COUNTS {'scenes': 1, 'objects': 4, 'meshes': 2, 'materials': 3} ['Camera', 'Cube', 'Light', 'TokiCube'] MATERIALS [('Dots Stroke', 0, False), ('Material', 1, False), ('TokiRed', 1, False)] FAKE_USERS [] 
+  22.68s killing Toki's own Blender pid 30984 to simulate a crash
+  23.29s [blender] stopped for b12-proof (exit code 1) after 17 s; peak working set 590 MB
+  23.29s [blender] unexpected exit for b12-proof; last 30 lines:
+BlenderMCP addon registered
+Server thread started
+TOKI_READY 33726
+Connected to client: ('127.0.0.1', 33741)
+Client handler started
+Queued command: get_addon_info
+TOKI_RAM 216535040
+Executing handler for get_addon_info
+Handler execution complete
+TOKI_RAM 216653824
+Queued command: execute_code
+Executing handler for execute_code
+Handler execution complete
+TOKI_RAM 216764416
+Queued command: get_telemetry_consent
+Executing handler for get_telemetry_consent
+Handler execution complete
+TOKI_RAM 216969216
+Queued command: execute_code
+Executing handler for execute_code
+Handler execution complete
+TOKI_RAM 220823552
+Queued command: execute_code
+Executing handler for execute_code
+Handler execution complete
+TOKI_RAM 618221568
+Queued command: execute_code
+Executing handler for execute_code
+Handler execution complete
+TOKI_RAM 618221568
+  24.61s status after kill: {"state":"stopped","crashes":1,"crashLog":"exit code 1\nBlenderMCP addon registered\nServer thread started\nTOKI_READY 33726\nConnected to client: ('127.0.0.1',
+  25.00s [blender] starting for b12-proof on 127.0.0.1:33726 (pid 7000)
+  29.59s [blender] ready for b12-proof after 4.6 s
+  29.59s execute_blender_code 0.00s isError=false: Error executing code: Connection to Blender lost: [WinError 10054] An existing connection was forcibly closed by the remote host
+  29.59s first call after the restart errored; retrying once
+  29.79s execute_blender_code 0.20s isError=false: Code executed successfully: COUNTS {'scenes': 1, 'objects': 4, 'meshes': 2, 'materials': 2} ['Camera', 'Cube', 'Light', 'TokiCube'] MATERIALS [('Material', 1, False), ('TokiRed', 1, False)] FAKE_USERS ['Scene'] 
+  29.79s waiting for the idle stop
+  44.94s [blender] stopped for b12-proof (idle) after 20 s; peak working set 208 MB
+  45.25s idle-stopped: {"state":"stopped","crashes":1,"crashLog":"exit code 1\nBlenderMCP addon registered\nServer thread started\nTOKI_READY 33726\nConnected to client: ('127.0.0.1', 33741)\nClient handler started\nQueued 
+  45.25s saved file: <data>/projects/b12-proof/art/b12-proof.blend (76182 bytes)
+  49.11s reopened in a fresh -b process: COUNTS {'scenes': 1, 'objects': 4, 'meshes': 2, 'materials': 2} ['Camera', 'Cube', 'Light', 'TokiCube'] ; MATERIALS [('Material', 1, False), ('TokiRed', 1, False)] ; FAKE_USERS ['Scene']
+  52.72s factory scene, for reference: COUNTS {'scenes': 1, 'objects': 3, 'meshes': 1, 'materials': 2} ['Camera', 'Cube', 'Light'] ; MATERIALS [('Dots Stroke', 0, False), ('Material', 1, False)]
+  52.72s peak working set: script-reported 590 MB (first process, at kill), 208 MB (restarted process); tasklist-sampled max 587 MB
+  52.72s window titles tasklist saw for Toki's Blender: ["N/A","OleMainThreadWndName","BlenderGLEW","__wglDummyWindowFodder","NVOGLDC invisible"]
+  52.72s blender.exe after: []
+--- MCP server stderr lines about the Blender connection ---
+BlenderMCPServer - INFO - BlenderMCP server starting up
+BlenderMCPServer - INFO - Blender addon on disk is current (protocol 16).
+blender-mcp-telemetry - WARNING - Telemetry disabled via environment variable
+BlenderMCPServer - ERROR - Failed to connect to Blender: [WinError 10061] No connection could be made because the target machine actively refused it
+BlenderMCPServer - ERROR - Failed to connect to Blender
+BlenderMCPServer - WARNING - Could not connect to Blender on startup: Could not connect to Blender at 127.0.0.1:33726. Make sure Blender is open and the addon's server is started (3D Viewport sidebar \u2192 MCP for Blender \u2192 Connect to MCP server).
+BlenderMCPServer - WARNING - Make sure the Blender addon is running before using Blender resources or tools
+BlenderMCPServer - INFO - MCP client toki-b12-proof 0.0.0: extensions=[], apps=False, openai_forms=False
+BlenderMCPServer - INFO - Connected to Blender at 127.0.0.1:33726
+BlenderMCPServer - INFO - Created new persistent connection to Blender
+BlenderMCPServer - INFO - Sending command: get_addon_info with params: None
+BlenderMCPServer - INFO - Command sent, waiting for response...
+BlenderMCPServer - INFO - Received complete response (469 bytes)
+BlenderMCPServer - INFO - Received 469 bytes of data
+BlenderMCPServer - INFO - Response parsed, status: success
+BlenderMCPServer - INFO - Blender addon up to date (protocol 16, addon [2, 0], Blender 5.2.2 LTS)
+BlenderMCPServer - INFO - Sending command: execute_code with params: {'code': 'import json as _json\nARGS = _json.loads("{\\"query\\": null, \\"root\\": null, \\"limit\\": 20, \\"fields\\": [\\"location\\", \\"size\\", \\"children\\", \\"hidden\\"]}")\ndef _main():\n    import bpy, math\n    from mathutils import Vector\n\n    scene = bpy.context.scene\n    F = set(ARGS.get("fields") or ())\n    depsgraph = bpy.context.evaluated_depsgraph_get() if F & {"size", "ground"} else None\n    limit = max(1, min(int(ARGS.get("limit") or 20), 500))\n    query = (ARGS.get("query") or "").strip().lower()\n    root_name = ARGS.get("root")\n\n    def r(v):\n        return round(float(v), 2)\n\n    def bounds(obj):\n        if obj.type in {"EMPTY", "LIGHT", "CAMERA"}:\n            return None\n        try:\n            ev = obj.evaluated_get(depsgraph)\n            pts = [ev.matrix_world @ Vector(c) for c in ev.bound_box]\n        except Exception:\n            return None\n        lo = [min(p[i] for p in pts) for i in range(3)]\n        hi = [max(p[i] for p in pts) for i in range(3)]\n        return lo, hi\n\n    def line(obj, depth=0):\n        parts = [("  " * depth) + obj.name, obj.type.lower()]\n        if "location" in F:\n            loc = obj.matrix_world.translation\n            parts.append(f"at ({r(loc.x)}, {r(loc.y)}, {r(loc.z)})")\n        if "rotation" in F:\n            e = obj.matrix_world.to_euler()\n            parts.append(f"rot ({round(math.degrees(e.x))}, {round(math.degrees(e.y))}, {round(math.degrees(e.z))})")\n        if "scale" in F:\n            s = obj.matrix_world.to_scale()\n            parts.append(f"scale ({r(s.x)}, {r(s.y)}, {r(s.z)})")\n        b = bounds(obj) if F & {"size", "ground"} else None\n        if b and "size" in F:\n            parts.append(f"size {r(b[1][0] - b[0][0])}x{r(b[1][1] - b[0][1])}x{r(b[1][2] - b[0][2])}")\n        if b and "ground" in F:\n            if abs(b[0][2]) < 0.005:\n                parts.append("on ground")\n            elif b[0][2] < -0.005:\n                parts.append(f"below ground by {r(-b[0][2])}")\n            else:\n                parts.append(f"floating {r(b[0][2])}")\n        if "parent" in F and obj.parent:\n            parts.append(f"parent {obj.parent.name}")\n        if "details" in F:\n            if obj.type == "MESH":\n                parts.append(f"{len(obj.data.polygons)} faces")\n            elif obj.type == "ARMATURE":\n                parts.append(f"{len(obj.data.bones)} bones")\n            elif obj.type == "LIGHT":\n                parts.append(f"{obj.data.type.lower()} {r(obj.data.energy)}W")\n        if "materials" in F:\n            mats = [s.material.name for s in getattr(obj, "material_slots", []) if s.material]\n            if mats:\n                parts.append("mat " + ", ".join(mats[:3]) + ("..." if len(mats) > 3 else ""))\n        if "modifiers" in F and obj.modifiers:\n            parts.append("mods " + ", ".join(m.type.lower() for m in obj.modifiers))\n        if "animation" in F and obj.animation_data and obj.animation_data.action:\n            parts.append(f"anim {obj.animation_data.action.name}")\n        if "hidden" in F and (obj.hide_get() or obj.hide_render):\n            parts.append("hidden")\n        if "children" in F and obj.children:\n            parts.append(f"{len(obj.children)} children")\n        if "topology" in F and obj.type == "MESH":\n            parts.append(topology(obj))\n        if "weights" in F and obj.type == "MESH":\n            w = weights(obj)\n            if w:\n                parts.append(w)\n        return " | ".join(parts)\n\n    def topology(obj):\n        import bmesh\n        if obj.mode == "EDIT":\n            obj.update_from_editmode()\n        bm = bmesh.new()\n        try:\n            bm.from_mesh(obj.data)\n            sides = [len(f.verts) for f in bm.faces]\n            non_manifold = sum(1 for e in bm.edges if not e.is_manifold and not e.is_boundary)\n            boundary = sum(1 for e in bm.edges if e.is_boundary)\n            loose = sum(1 for v in bm.verts if not v.link_edges)\n            poles = sum(1 for v in bm.verts if len(v.link_edges) not in (0, 2, 4) and not v.is_boundary)\n        finally:\n            bm.free()\n        return (f"{sides.count(4)} quads, {sides.count(3)} tris, {sum(1 for n in sides if n > 4)} ngons; "\n                f"{non_manifold} non-manifold, {boundary} boundary edges, {loose} loose verts, {poles} poles")\n\n    def weights(obj):\n        arm = next((m.object for m in obj.modifiers if m.type == "ARMATURE" and m.object), None)\n        if arm is None:\n            return None\n        deform = {b.name for b in arm.data.bones if b.use_deform}\n        groups = {g.index for g in obj.vertex_groups if g.name in deform}\n        unweighted = sum(1 for v in obj.data.vertices if not any(g.group in groups and g.weight > 0 for g in v.groups))\n        missing = sorted(deform - {g.name for g in obj.vertex_groups})\n        return (f"{unweighted} of {len(obj.data.vertices)} verts unweighted by {arm.name}"\n                + (f"; deform bones with no group: {\', \'.join(missing[:10])}" + ("..." if len(missing) > 10 else "") if missing else ""))\n\n    lines = []\n    total = 0\n    if root_name:\n        root = bpy.data.objects.get(root_name)\n        if root is None:\n            return {"error": f"No object named {root_name!r}"}\n        def walk(obj, depth):\n            nonlocal total\n            total += 1\n            if len(lines) < limit:\n                lines.append(line(obj, depth))\n            for child in obj.children:\n                walk(child, depth + 1)\n        walk(root, 0)\n    else:\n        if query:\n            objs = [o for o in scene.objects if query in o.name.lower()]\n        else:\n            objs = [o for o in scene.objects if o.parent is None]\n        total = len(objs)\n        lines = [line(o) for o in objs[:limit]]\n\n    counts = {}\n    for o in scene.objects:\n        counts[o.type.lower()] = counts.get(o.type.lower(), 0) + 1\n\n    active = bpy.context.view_layer.objects.active\n    selected = [o.name for o in bpy.context.selected_objects]\n    header = {\n        "scene": scene.name,\n        "object_counts": counts,\n        "selected": selected[:5],\n        "selected_count": len(selected),\n        "active": active.name if active else None,\n        "mode": bpy.context.mode,\n    }\n    if "settings" in F:\n        world = scene.world\n        hdri = None\n        if world and world.use_nodes:\n            for n in world.node_tree.nodes:\n                if n.type == "TEX_ENVIRONMENT" and n.image:\n                    hdri = n.image.name\n        header["settings"] = {\n            "file": bpy.data.filepath or "(unsaved)",\n            "engine": scene.render.engine,\n            "frames": [scene.frame_start, scene.frame_end, scene.frame_current],\n            "fps": scene.render.fps,\n            "resolution": [scene.render.resolution_x, scene.render.resolution_y],\n            "camera": scene.camera.name if scene.camera else None,\n            "world_hdri": hdri,\n            "unit_scale": scene.unit_settings.scale_length,\n        }\n    return {"header": header, "lines": lines, "total": total, "shown": len(lines)}\nprint(\'__MCP_RESULT__\' + _json.dumps(_main()))\n'}
+BlenderMCPServer - INFO - Command sent, waiting for response...
+BlenderMCPServer - INFO - Received complete response (459 bytes)
+BlenderMCPServer - INFO - Received 459 bytes of data

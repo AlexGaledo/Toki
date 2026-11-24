@@ -14,6 +14,7 @@ import { MemoryService } from './services/MemoryService.js';
 import { SkillService } from './services/SkillService.js';
 import { ensureBuiltinSkills } from './services/builtinSkills.js';
 import { UsageTracker } from './services/UsageTracker.js';
+import { RemoteProjects } from './services/RemoteProjects.js';
 import { AutoMemory } from './services/AutoMemory.js';
 import { SettingsStore, installSettings } from './services/SettingsStore.js';
 import { SecretsStore } from './services/SecretsStore.js';
@@ -33,6 +34,7 @@ import { TurnRegistry, createMcpHandler, serveTools } from './mcp/httpServer.js'
 import { CONTEXT_CONNECTOR_PREFIX, contextConnectorTools, createContextApi } from './api/context.js';
 import { ContextRepo } from './db/contextRepo.js';
 import { ProjectService } from './services/ProjectService.js';
+import { BlenderHost } from './services/BlenderHost.js';
 import { createProjectsApi } from './api/projects.js';
 import { createRest } from './api/rest.js';
 import { createScreenOpener } from './services/screenOpen.js';
@@ -52,6 +54,8 @@ import { createIntegrationsApi } from './api/integrations.js';
 import { TelegramService } from './services/TelegramService.js';
 import { createTelegramApi } from './api/telegram.js';
 import { createMcpServersApi } from './api/mcpServers.js';
+import { STUDIO_SERVER, createGameToolsApi, studioCheckWord, studioForGameRoom } from './api/gameTools.js';
+import { GameTools, type GameToolsDeps } from './services/gameTools.js';
 import { createCredentialsApi } from './api/credentials.js';
 import { CredentialStore } from './services/CredentialStore.js';
 import { McpServerStore } from './services/outsideMcpStore.js';
@@ -69,7 +73,7 @@ import { createTriggersApi } from './api/triggers.js';
 import type { SocketFactory } from './services/SlackSocketMode.js';
 import { ALLOWED_HOSTS, ATTACHMENTS_DIR, PUSH_SUBJECT, VAPID_PATH } from './config.js';
 import { sweepAttachments } from './agent/attachments.js';
-import { seedDefaultBots } from './services/SeedBots.js';
+import { seedDefaultBots, seedGameBots } from './services/SeedBots.js';
 import { DEVICE_PAIR_PATH, deviceMayAccess, setPrincipal } from './api/guard.js';
 import { DevicesRepo } from './db/devices.js';
 import { DeviceService } from './services/DeviceService.js';
@@ -123,6 +127,8 @@ export interface HubOptions {
   training?: Partial<Pick<TrainingDeps, 'run' | 'exeExists' | 'claudeReady' | 'now' | 'timezone'>>;
   mediaDir?: string;
   mcpServers?: { file?: string; fetch?: typeof fetch };
+  /** Tests: a fixture PC for game tools detection and installs. */
+  gameTools?: Partial<Omit<GameToolsDeps, 'blender'>>;
   credentials?: { file?: string; keyFile?: string };
   pcRunner?: Partial<Omit<PcRunnerOptions, 'db'>>;
   pcBundleMaxBytes?: number;
@@ -195,10 +201,12 @@ export function createHub(opts: HubOptions = {}): Hub {
     models: (p) => providers.modelsSync(p),
     modelsAsync: (p) => providers.modelsAwaited(p),
   });
-  const usage = new UsageTracker(repos, { alertThresholdUsd: () => settings.get().spendAlertThresholdUsd });
+  const remoteProjects = new RemoteProjects({ db });
+  const usage = new UsageTracker(repos, { alertThresholdUsd: () => settings.get().spendAlertThresholdUsd, serverHostKnown: () => remoteProjects.known('server') });
   installSettings(settings);
   repos.renameOwner(settings.get().userName);
   if (opts.seedBots) {
+    // The game template's source bots are seeded by the first game project instead (ProjectService seedSources).
     const seeded = seedDefaultBots(repos, memory);
     if (seeded.length) console.log('created default bots: ' + seeded.map((b) => '@' + b.handle).join(', '));
   }
@@ -360,14 +368,23 @@ export function createHub(opts: HubOptions = {}): Hub {
   const rest = createRest({
     busy,
     stop: () => { setImmediate(() => void hub.stop('maintenance stop')); },
-    media, routineInUse: (id) => workflowRepo.forRoutine(id).length > 0,
+    media, usage, routineInUse: (id) => workflowRepo.forRoutine(id).length > 0,
     repos, memory, skills, scheduler, router, runner, settings, secrets, providers, screenSessions, account, knowledge, voice, computers, screenOpener, routing,
     viewOnly: (scope) => control.viewOnly(scope),
   });
   const handleMcp = createMcpHandler(turns);
   const contextRepo = new ContextRepo(db);
-  const projects = new ProjectService({ db, repos, memory, root: opts.projectsDir ?? PROJECTS_DIR });
+  const projects = new ProjectService({
+    db, repos, memory, root: opts.projectsDir ?? PROJECTS_DIR,
+    // Only a hub that seeds its own bots makes @roblox-builder and @blender-artist, and only for the first game project.
+    seedSources: opts.seedBots
+      ? (t) => (t.id === 'game' ? seedGameBots(repos, memory, { dataDir: opts.gameTools?.dataDir, platform: opts.gameTools?.platform }) : [])
+      : undefined,
+  });
   runner.projects = projects;
+  const gameToolsChanged = () => events.emitEvent({ type: 'game-tools.changed' });
+  const blender = new BlenderHost({ dataDir: opts.gameTools?.dataDir ?? DATA_DIR, onChange: gameToolsChanged });
+  runner.blender = blender;
   const roomFiles = new RoomFiles({ projects, roomsDir: opts.roomsDir ?? ROOMS_DIR, dmDir: opts.dmFilesDir ?? botFilesDir });
   runner.roomFiles = roomFiles;
   const revisions = new FileRevisions(repos.db);
@@ -434,8 +451,21 @@ export function createHub(opts: HubOptions = {}): Hub {
   const ccApi = createCcApi({ repos, roomFiles, revisions, router, projects, sessionMoves });
   projects.pruneMembers(repos.listBots().map((b) => b.id));
   const offProjectBots = events.onEvent((ev) => { if (ev.type === 'bots.changed') projects.pruneMembers(ev.bots.map((b) => b.id)); });
-  const projectsApi = createProjectsApi({ projects, repos, db });
-  const mcpServersApi = createMcpServersApi({ store: new McpServerStore(opts.mcpServers?.file), db, fetch: opts.mcpServers?.fetch });
+  const mcpStore = new McpServerStore(opts.mcpServers?.file);
+  const gameTools = new GameTools({ dataDir: DATA_DIR, ...opts.gameTools, blender });
+  const projectsApi = createProjectsApi({
+    projects, repos, db, remote: remoteProjects,
+    studioForRoom: async (roomId, actor) => {
+      const word = await studioForGameRoom({ tools: gameTools, store: mcpStore, db, env: opts.gameTools?.env }, roomId, actor);
+      if (word === 'added') gameToolsChanged();
+      return word;
+    },
+  });
+  const mcpServersApi = createMcpServersApi({
+    store: mcpStore, db, fetch: opts.mcpServers?.fetch,
+    runtimeCheck: async (name) => (name === STUDIO_SERVER ? studioCheckWord((await gameTools.status()).studio) : null),
+  });
+  const gameToolsApi = createGameToolsApi({ tools: gameTools, blender, store: mcpStore, repos, db, env: opts.gameTools?.env, onChange: gameToolsChanged });
   const credentials = new CredentialStore(db, opts.credentials);
   runner.credentials = credentials;
   const credentialsApi = createCredentialsApi({ store: credentials, db });
@@ -669,6 +699,7 @@ export function createHub(opts: HubOptions = {}): Hub {
       if (await projectsApi(req, res)) return;
       if (await filesApi(req, res)) return;
       if (await mcpServersApi(req, res)) return;
+      if (await gameToolsApi(req, res)) return;
       if (await credentialsApi(req, res)) return;
       if (await pcRunnerApi(req, res)) return;
       if (await ccApi(req, res)) return;
@@ -844,6 +875,8 @@ export function createHub(opts: HubOptions = {}): Hub {
       offSessionRevoke();
       router.freeze();
       runner.interruptAll();
+      // Saves the open scene first; kills only after the grace period.
+      await blender.shutdown();
       await providers.shutdown();
       for (const c of wss.clients) c.terminate();
       wss.close();

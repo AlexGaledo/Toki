@@ -1,0 +1,71 @@
+=== 8cc8868 D4: host tags, the Server project prompt, the project deep link and Back to this PC
+tests: src/components/settings/ProjectsSection.test.tsx src/lib/auth.host.test.ts src/lib/hosts.test.ts src/lib/projects.test.ts src/store.hosts.test.ts
+source put back: packages/web/src/components/App.tsx packages/web/src/components/PcMovePanel.tsx packages/web/src/components/Sidebar.tsx packages/web/src/components/dialogs/ServerProjectPrompt.tsx packages/web/src/components/settings/ProjectsSection.tsx packages/web/src/lib/api.ts packages/web/src/lib/auth.ts packages/web/src/lib/hosts.ts packages/web/src/lib/projects.ts packages/web/src/store.ts
+--- without the change
+     × is server only on the page the shell opened with host=server
+     × is pc on the PC hub page, for any other host value, and outside the desktop app
+     × passes the local list through, and keeps stubs apart
+     × is an empty list, never an error, when the hub refuses (a paired phone) or is older (404)
+     × ignores a body that is not a list
+     × keeps a stub whose slug clashes with a local project out of `projects`, and calls no /api/projects/:slug route for it
+     × splits a projects.changed event that carries the list, too
+     × connected, in the desktop app: the exact openproject call, no prompt
+     × offline: asks first; Connect makes the same call and works until hosts.changed reads it offline
+     × a hosts.changed that reads the server connected keeps it working (the shell navigates)
+     × outside the desktop app: the open-it-there note, and Connect never calls anything
+     × caps without hosts (an older shell) count as outside
+     × opens that project once the list arrives and strips only project from the URL
+     × never opens a stub of the same slug, and says so when the slug is not on this hub
+     × ignores a value that is not a slug
+     × has Open folder only with the openfolder cap
+     × shows its host tag in words
+     × is tagged Server, says it is offline, and has no folder, members or repos
+ FAIL  src/lib/hosts.test.ts [ src/lib/hosts.test.ts ]
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/store.hosts.test.ts > the mixed project list (a stub never reaches a slug route) > keeps a stub whose slug clashes with a local project out of `projects`, and calls no /api/projects/:slug route for it
+ FAIL  src/store.hosts.test.ts > the mixed project list (a stub never reaches a slug route) > splits a projects.changed event that carries the list, too
+ FAIL  src/store.hosts.test.ts > opening a Server project > connected, in the desktop app: the exact openproject call, no prompt
+ FAIL  src/store.hosts.test.ts > opening a Server project > offline: asks first; Connect makes the same call and works until hosts.changed reads it offline
+ FAIL  src/store.hosts.test.ts > opening a Server project > a hosts.changed that reads the server connected keeps it working (the shell navigates)
+ FAIL  src/store.hosts.test.ts > opening a Server project > outside the desktop app: the open-it-there note, and Connect never calls anything
+ FAIL  src/store.hosts.test.ts > opening a Server project > caps without hosts (an older shell) count as outside
+ FAIL  src/store.hosts.test.ts > the project=<slug> deep link > opens that project once the list arrives and strips only project from the URL
+ FAIL  src/store.hosts.test.ts > the project=<slug> deep link > never opens a stub of the same slug, and says so when the slug is not on this hub
+ FAIL  src/store.hosts.test.ts > the project=<slug> deep link > ignores a value that is not a slug
+ FAIL  src/lib/auth.host.test.ts > desktopHost > is server only on the page the shell opened with host=server
+ FAIL  src/lib/auth.host.test.ts > desktopHost > is pc on the PC hub page, for any other host value, and outside the desktop app
+ FAIL  src/lib/projects.test.ts > fetchProjects > passes the local list through, and keeps stubs apart
+ FAIL  src/lib/projects.test.ts > fetchProjects > is an empty list, never an error, when the hub refuses (a paired phone) or is older (404)
+ FAIL  src/lib/projects.test.ts > fetchProjects > ignores a body that is not a list
+ FAIL  src/components/settings/ProjectsSection.test.tsx > a PC project card > has Open folder only with the openfolder cap
+ FAIL  src/components/settings/ProjectsSection.test.tsx > a PC project card > shows its host tag in words
+ FAIL  src/components/settings/ProjectsSection.test.tsx > a Server project card > is tagged Server, says it is offline, and has no folder, members or repos
+ Test Files  5 failed (5)
+      Tests  18 failed | 2 passed (20)
+--- with the change
+ Test Files  5 passed (5)
+      Tests  41 passed (41)
+
+=== b3a92ac Open folder in Settings › Projects (D3 follow-up)
+tests: src/components/settings/ProjectsSection.test.tsx
+source put back: packages/web/src/components/settings/ProjectsSection.tsx
+--- without the change
+     × has Open folder only with the openfolder cap
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/settings/ProjectsSection.test.tsx > a PC project card > has Open folder only with the openfolder cap
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+--- with the change
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+
+=== 54f4194 B11 in the web: the shared-subscription note on the Usage page
+tests: 
+source put back: packages/web/src/components/FleetPages.tsx packages/web/src/lib/api.ts
+--- without the change
+ Test Files  54 passed (54)
+      Tests  419 passed (419)
+--- with the change
+ Test Files  54 passed (54)
+      Tests  419 passed (419)
+

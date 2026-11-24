@@ -1,0 +1,62 @@
+I4: the real hub bundle, before and after, 2026-11-24 (owner's PC, Windows 11). Paths relative to the repo.
+
+## before: scripts/build-hub.mjs as on HEAD daa692e (run as a temporary copy, scripts/_build-hub-head.mjs)
+[hub:bundle] typechecking the hub (tsc --noEmit)
+[hub:bundle] building the web UI (vite)
+[hub:bundle] marking the lockfile for an injected deploy
+[hub:bundle] deploying production dependencies from the lockfile
+[hub:bundle]   pruned vendored CLI claude-agent-sdk-win32-x64
+[hub:bundle] pruned 226 MB of vendored Claude CLI binaries
+[hub:bundle] bundling src/index.ts -> build/hub.mjs
+[hub:bundle] done: C:\Users\alex\Desktop\claude-grokbot-spec-gamedev\packages\hub\build
+[hub:bundle]   hub.mjs 1382 KB, web/index.html present: true, version 0.5.4
+exit=0
+
+find packages/hub/build -maxdepth 1; ls packages/hub/build/resources/blender
+packages/hub/build
+packages/hub/build/VERSION
+packages/hub/build/hub.mjs
+packages/hub/build/node_modules
+packages/hub/build/package.json
+packages/hub/build/web
+ls: cannot access 'packages/hub/build/resources/blender': No such file or directory
+
+## after: pnpm hub:bundle with the change
+[hub:bundle] typechecking the hub (tsc --noEmit)
+[hub:bundle] building the web UI (vite)
+[hub:bundle] marking the lockfile for an injected deploy
+[hub:bundle] deploying production dependencies from the lockfile
+[hub:bundle]   pruned vendored CLI claude-agent-sdk-win32-x64
+[hub:bundle] pruned 226 MB of vendored Claude CLI binaries
+[hub:bundle] bundling src/index.ts -> build/hub.mjs
+[hub:bundle]   resource resources\blender\toki_blender_server.py
+[hub:bundle]   resource resources\blender\requirements.txt
+[hub:bundle] done: C:\Users\alex\Desktop\claude-grokbot-spec-gamedev\packages\hub\build
+[hub:bundle]   hub.mjs 1382 KB, web/index.html present: true, version 0.5.4
+exit=0
+
+find packages/hub/build -maxdepth 1; ls packages/hub/build/resources/blender
+packages/hub/build
+packages/hub/build/VERSION
+packages/hub/build/hub.mjs
+packages/hub/build/node_modules
+packages/hub/build/package.json
+packages/hub/build/resources
+packages/hub/build/web
+requirements.txt
+toki_blender_server.py
+
+## sha256, source vs bundle
+feb0091e10379df8d1cfb95b703d0a8d126907f7cd365e31c0ed3ca23d7e6260 *packages/hub/resources/blender/requirements.txt
+73ea21543ddfe4335cbf16857ab2b31b1b8c4daad1d9d3b775fccc7803a875a7 *packages/hub/resources/blender/toki_blender_server.py
+feb0091e10379df8d1cfb95b703d0a8d126907f7cd365e31c0ed3ca23d7e6260 *packages/hub/build/resources/blender/requirements.txt
+73ea21543ddfe4335cbf16857ab2b31b1b8c4daad1d9d3b775fccc7803a875a7 *packages/hub/build/resources/blender/toki_blender_server.py
+
+## where the hub looks (resolveHubDir + blenderServerScript from packages/hub/src, POCKETROCKET_DATA = a temp dir, no hub started)
+desktop bundle (hub.mjs in build/): HUB_DIR=build script=build\resources\blender\toki_blender_server.py exists=true requirements exists=true
+dev / VPS source (src/): HUB_DIR=. script=resources\blender\toki_blender_server.py exists=true requirements exists=true
+VPS server bundle (dist/): HUB_DIR=. script=resources\blender\toki_blender_server.py exists=true requirements exists=true
+
+Tauri maps ../../hub/build/ to hub/ (tauri.conf.json bundle.resources), so the installed app has
+<install>/hub/resources/blender/{toki_blender_server.py,requirements.txt} and HUB_DIR = <install>/hub.
+Not run here: the NSIS build and an install on a clean machine (see README).

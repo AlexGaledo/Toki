@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, ClipboardList, Gauge, Hand, Inbox, Monitor, Sparkles, ShieldQuestion, TestTubeDiagonal, Workflow as WorkflowIcon } from 'lucide-react';
 import { useStore, botById } from '../store';
 import { fmtAge, type InboxItem } from '../lib/inbox';
-import { cardWords } from '../lib/approvalWords';
-import { fmtInput } from './WorkLine';
+import { approvalSummary } from '../lib/approvalWords';
 import { useInbox } from '../lib/useInbox';
 import { ActionCard, Avatar, Button, EmptyState, Skeleton, SkeletonGroup, cn } from './ui';
 import { PageBody } from './FleetPages';
@@ -109,8 +108,7 @@ function InboxRow({ item, now, fresh }: { item: InboxItem; now: number; fresh?: 
       setActiveRoom(item.roomId);
     } else if (skillBot) openPage({ kind: 'bot', botId: skillBot.id, tab: 'skills' });
   };
-  const words = item.approval ? cardWords(item.approval) : null;
-  const summary = item.approval ? (words ? words.main : fmtInput(item.approval.toolInput)).replace(/\s+/g, ' ').trim().slice(0, 160) : '';
+  const summary = item.approval ? approvalSummary(item.approval) : '';
   const canOpen = !!item.roomId || !!skillBot;
   const openLabel = item.kind === 'skill' ? 'Review' : 'Open';
 

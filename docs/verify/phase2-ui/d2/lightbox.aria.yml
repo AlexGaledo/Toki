@@ -1,0 +1,6 @@
+# url=http://127.0.0.1:11944/ title="(1) Toki" dialogs=["Look-back from blender: look"]
+- status
+- 'dialog "Look-back from blender: look"':
+  - 'heading "Look-back from blender: look" [level=2]'
+  - 'img "Look-back from blender: look"'
+  - button "Close"

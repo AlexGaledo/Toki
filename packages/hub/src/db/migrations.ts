@@ -788,3 +788,27 @@ registerMigrations([320, 329], [
   { version: 320, name: 'approval_policies.message', up: (db) => addColumnIfMissing(db, 'approval_policies', 'message', 'TEXT') },
   { version: 321, name: 'rooms.lead_mode', up: (db) => addColumnIfMissing(db, 'rooms', 'lead_mode', 'INTEGER NOT NULL DEFAULT 0') },
 ]);
+
+// Local-first game dev (spec toki-local-first-gamedev). B12: a 'game' project gets Toki's headless Blender.
+registerMigrations([330, 339], [
+  { version: 330, name: 'projects.kind', up: (db) => addColumnIfMissing(db, 'projects', 'kind', 'TEXT') },
+  // B10: names of projects on another host, written only by the desktop app with the hub token. Bots never read these.
+  {
+    version: 331,
+    name: 'remote_hosts',
+    up: (db) => {
+      db.exec(`CREATE TABLE IF NOT EXISTS remote_hosts (
+        host TEXT PRIMARY KEY,
+        connected INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      )`);
+      db.exec(`CREATE TABLE IF NOT EXISTS project_stubs (
+        host TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        name TEXT NOT NULL,
+        seen_at INTEGER NOT NULL,
+        PRIMARY KEY (host, slug)
+      )`);
+    },
+  },
+]);

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { childEnv } from './env.js';
+import { baseChildEnv, childEnv } from './env.js';
 import { addSecret, clearSecrets, logError, redact } from './redact.js';
 
 const SOURCE: NodeJS.ProcessEnv = {
@@ -171,5 +171,15 @@ describe('logError', () => {
       spy.mockRestore();
       clearSecrets();
     }
+  });
+});
+
+describe('baseChildEnv (helper processes such as Toki\'s Blender)', () => {
+  it('NEGATIVE: never passes the hub token, provider keys or a Python path, only the base names and extras', () => {
+    const env = baseChildEnv({ DISABLE_TELEMETRY: 'true' }, {
+      PATH: '/bin', SystemRoot: 'C:\\Windows', APPDATA: 'C:\\a', POCKETROCKET_TOKEN: 'hub', pocketrocket_token: 'hub2',
+      ANTHROPIC_API_KEY: 'sk', CLAUDE_CONFIG_DIR: 'c', OPENAI_API_KEY: 'o', PYTHONPATH: 'C:\\py', PYTHONHOME: 'C:\\ph',
+    });
+    expect(env).toEqual({ PATH: '/bin', SystemRoot: 'C:\\Windows', APPDATA: 'C:\\a', DISABLE_TELEMETRY: 'true' });
   });
 });

@@ -1,0 +1,17 @@
+GET /api/projects -> 200
+[
+  {
+    "slug": "obby-run",
+    "name": "Obby Run",
+    "dir": "C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\run\\data\\projects\\obby-run",
+    "memberIds": [
+      "95BDTGkiUh",
+      "U1fG7Ld3ZE",
+      "qqFIRLehai"
+    ],
+    "roomId": "OMTrzdcG8Q",
+    "templateVersion": 1,
+    "kind": "game",
+    "createdAt": 1795515469320
+  }
+]

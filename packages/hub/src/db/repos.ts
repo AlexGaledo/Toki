@@ -215,11 +215,12 @@ export class Repos {
       return msg;
     });
   }
-  updateMessage(id: string, patch: Partial<Pick<Message, 'text' | 'payload'>>): Message | undefined {
+  updateMessage(id: string, patch: Partial<Pick<Message, 'text' | 'payload' | 'attachments'>>): Message | undefined {
     const cur = this.getMessage(id);
     if (!cur) return undefined;
     const m = { ...cur, ...patch };
-    this.db.run('UPDATE messages SET text=?, payload=? WHERE id=?', m.text, m.payload ? JSON.stringify(m.payload) : null, id);
+    this.db.run('UPDATE messages SET text=?, payload=?, attachments=? WHERE id=?', m.text, m.payload ? JSON.stringify(m.payload) : null,
+      m.attachments?.length ? JSON.stringify(m.attachments) : null, id);
     return m;
   }
   markMessageCancelled(id: string): number {

@@ -1,0 +1,13 @@
+{"ok":true,"apiKeySource":"none","provider":"claude","version":"0.5.4","approvals":"bypass","approvalsLocked":false}
+MainPID=3829701
+NRestarts=0
+ActiveEnterTimestamp=Tue 2026-11-24 13:36:51 UTC
+0
+[pocketrocket] WARNING: permissions bypassed — bots run every shell/file/web action with no approval card (turn approvals back on in Settings)
+/dev/sda1        96G   84G   13G  88% /
+
+## Bots answering after the deploy (13:36:51 UTC = 21:36:51 +08:00), from the live DB read-only: kind + author only
+22:10:54 owner text -> @lead-bot tool x2, text; @worker-bot tool x9, text x2 (22:11:46)
+22:19:40 owner text -> @lead-bot tool x10, text (22:20:46)
+22:25:26 owner text -> @lead-bot tool, text (22:25:40)
+No error, crash or restart in the journal since the deploy (count 0, NRestarts=0).

@@ -1,0 +1,92 @@
+# url=http://127.0.0.1:17837/ title="(1) Toki"
+- complementary:
+  - button "Hide bots"
+  - button "Search every chat"
+  - button "New"
+  - button "Needs you 1 waiting"
+  - button "Tasks"
+  - button "PC sessions"
+  - region "Rooms":
+    - heading "Rooms" [level=2]
+    - region "game-spike":
+      - button "game-spike bots" [expanded]
+      - button "game-spike 1 needs you"
+      - list:
+        - listitem:
+          - button "Spike · Needs you Spike Needs you":
+            - img "Spike · Needs you"
+            - text: Spike Needs you
+  - button "Bots bots" [expanded]
+  - text: Bots
+  - region "Podium":
+    - list:
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+    - button "Edit podium"
+  - list:
+    - listitem:
+      - button "Toki Support · Idle Toki Support @pocketrocket-support":
+        - img "Toki Support · Idle"
+        - text: Toki Support @pocketrocket-support
+    - listitem:
+      - button "Data Engineer · Idle Data Engineer @data-engineer":
+        - img "Data Engineer · Idle"
+        - text: Data Engineer @data-engineer
+  - button "Menu for Verifier. Online": Verifier Online
+  - button "Pair a phone"
+- separator "Resize sidebar"
+- main:
+  - button "game-spike"
+  - text: "@spike1 needs you"
+  - button "Open Spike's page":
+    - img "Spike · Needs you"
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - paragraph: "Make exactly these 3 tool calls, nothing else, then reply in one short line: 1) blender get_scene_info 2) blender look with mode camera and max_size 384 3) roblox-studio list_roblox_studios"
+  - text: 03:14 PM
+  - img "Spike"
+  - text: Spike 03:14 PM
+  - button "Get scene info · step 1 · 3:23"
+  - img "Spike"
+  - text: "Spike 03:14 PM Needs your OK mcp__blender__get_scene_info mcp__blender__get_scene_info requires approval {}"
+  - button "Allow once"
+  - button "Always allow…"
+  - button "Deny"
+  - img "Spike"
+  - text: Spike 03:14 PM
+  - button "List roblox studios · step 2 · 3:23 · continued"
+  - 'textbox "Message #game-spike"':
+    - /placeholder: "@mention a bot"
+  - button "Attach files"
+  - 'button "Permission level for all bots: Approval"': Approval
+  - status
+  - 'button "Model for this chat: Haiku"': Haiku
+  - button "Stop all running bots in this room"
+  - button "Send" [disabled]
+- separator "Resize overview"
+- complementary "Overview":
+  - heading "Needs you" [level=2]
+  - text: 1 waiting
+  - button "Fold overview to icons"
+  - region "Needs you":
+    - list:
+      - listitem:
+        - text: Needs your OK mcp__blender__get_scene_info just now @spike
+        - paragraph: "{}"
+        - paragraph: mcp__blender__get_scene_info requires approval
+        - button "Review"
+        - button "Deny"
+  - region "Bots":
+    - heading "Bots" [level=2]
+    - text: "1"
+    - list:
+      - listitem:
+        - button "Spike · Needs you Spike Needs you":
+          - img "Spike · Needs you"
+          - text: Spike Needs you
+- status

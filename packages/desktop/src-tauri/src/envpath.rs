@@ -21,6 +21,19 @@ pub fn fresh_path() -> Option<OsString> {
     None
 }
 
+/// One string value under HKEY_CURRENT_USER, or None (not Windows, or no such value).
+pub fn user_registry_value(subkey: &str, value: &str) -> Option<OsString> {
+    #[cfg(windows)]
+    {
+        win::user_value(subkey, value)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (subkey, value);
+        None
+    }
+}
+
 /// Compare folders the way Windows does: case-insensitive, trailing separators ignored.
 fn key(dir: &std::path::Path) -> String {
     dir.to_string_lossy().trim_end_matches(['\\', '/']).to_lowercase()
@@ -59,11 +72,16 @@ mod win {
     };
 
     pub fn machine_path() -> Option<OsString> {
-        read(HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment")
+        read(HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment", "Path")
     }
 
     pub fn user_path() -> Option<OsString> {
-        read(HKEY_CURRENT_USER, "Environment")
+        read(HKEY_CURRENT_USER, "Environment", "Path")
+    }
+
+    /// One string value under HKEY_CURRENT_USER (read-only), e.g. Roblox Studio's `ContentFolder`.
+    pub fn user_value(subkey: &str, value: &str) -> Option<OsString> {
+        read(HKEY_CURRENT_USER, subkey, value)
     }
 
     fn wide(s: &str) -> Vec<u16> {
@@ -75,10 +93,10 @@ mod win {
         &buf[..buf.iter().position(|&c| c == 0).unwrap_or(buf.len())]
     }
 
-    /// `Path` under `subkey`, with `%VAR%` expanded when it is REG_EXPAND_SZ. Read-only.
-    fn read(root: HKEY, subkey: &str) -> Option<OsString> {
+    /// `value` under `subkey`, with `%VAR%` expanded when it is REG_EXPAND_SZ. Read-only.
+    fn read(root: HKEY, subkey: &str, value: &str) -> Option<OsString> {
         let subkey = wide(subkey);
-        let value = wide("Path");
+        let value = wide(value);
         let flags = RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_NOEXPAND;
         let mut buf: Vec<u16> = vec![0; 2048];
         // the value can grow between the two calls; a few tries, then give up

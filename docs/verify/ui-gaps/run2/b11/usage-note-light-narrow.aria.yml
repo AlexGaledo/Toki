@@ -1,0 +1,70 @@
+- button "Show bots"
+- main:
+  - heading "Cube Test" [level=1]
+  - text: No plan yet
+  - button "Project overview"
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Map"
+    - tab "Tasks"
+  - button "Cube Test"
+  - button "Open Blender Artist's page":
+    - img "Blender Artist · Idle"
+  - button "Open Roblox Builder's page":
+    - img "Roblox Builder · Idle"
+  - button "Open Lead Engineer's page":
+    - img "Lead Engineer · Idle"
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - tabpanel "Chat":
+    - group "Game tools": Blender working Studio not open (unverified)
+    - paragraph:
+      - strong: "@cube-test-artist"
+      - text: add a red cube and look at it
+    - text: 11:17 PM
+    - img "Blender Artist"
+    - text: Blender Artist 11:17 PM
+    - button "Worked for 25s · 7 steps · 1 retried"
+    - 'button "Look-back from blender: look"':
+      - 'img "Look-back from blender: look"'
+    - paragraph: Done! Added a red cube next to the original cube. The red cube is positioned at (4, 0, 0) with a bright red material. Scene saved.
+    - text: "Haiku 4.5 . Model choice: Set on the bot"
+    - 'textbox "Message #Cube Test"':
+      - /placeholder: Message @bot or the room…
+    - button "Attach files"
+    - 'button "Permission level for all bots: Full permission"': Full permission
+    - status
+    - 'button "Model for this chat: Haiku"': Haiku
+    - button "Send" [disabled]
+  - button "Back to chat"
+  - heading "Usage" [level=1]
+  - paragraph: All bots and chats
+  - region "Plan limits":
+    - heading "Plan limits" [level=2]
+    - list:
+      - listitem:
+        - meter "Claude weekly limit"
+  - paragraph: Your PC and your server both spend from the same Claude subscription, so its usage limits cover the bots on both.
+  - text: Estimated usage, all time ≈$0.17 API-price estimate. Subscription plans aren't charged this. 1 replies By bot
+  - list:
+    - listitem: Toki Support 0 replies $0.00
+    - listitem: Data Engineer 0 replies $0.00
+    - listitem: Lead Engineer 0 replies $0.00
+    - listitem: Roblox Builder 0 replies $0.00
+    - listitem: Blender Artist 0 replies $0.00
+    - listitem: Lead Engineer 0 replies $0.00
+    - listitem: Roblox Builder 0 replies $0.00
+    - listitem: Blender Artist 1 replies $0.17
+  - text: By chat
+  - list:
+    - listitem: Toki Support $0.00
+    - listitem: Data Engineer $0.00
+    - listitem: "# Cube Test $0.17"
+  - text: By model
+  - list:
+    - listitem: Haiku 4.5 1 replies 100% $0.17
+  - text: By what started it
+  - list:
+    - listitem: Your messages 1 replies 100% $0.17
+- status

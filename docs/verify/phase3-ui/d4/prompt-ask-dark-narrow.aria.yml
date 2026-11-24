@@ -1,0 +1,8 @@
+- button "Show bots"
+- status
+- dialog "CRM sync":
+  - heading "CRM sync" [level=2]
+  - paragraph: This project is on your server. Connect to open it.
+  - status
+  - button "Cancel"
+  - button "Connect"

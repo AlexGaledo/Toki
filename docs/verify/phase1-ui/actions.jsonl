@@ -1,0 +1,45 @@
+{"at":"2026-11-24T09:14:56.208Z","cmd":"launch","web":"vite","onboarding":false,"ports":{"hub":38984,"workspace":38985,"web":38986,"cdp":38987}}
+{"at":"2026-11-24T09:15:00.807Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T09:15:04.620Z","cmd":"api","method":"POST","path":"/api/projects","status":200}
+{"at":"2026-11-24T09:15:07.831Z","cmd":"api","method":"POST","path":"/api/rooms","status":200}
+{"at":"2026-11-24T09:15:11.777Z","cmd":"api","method":"PUT","path":"/api/projects/obby-run/room","status":200}
+{"at":"2026-11-24T09:15:19.602Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T09:15:22.004Z","cmd":"api","method":"GET","path":"/api/game-tools","status":200}
+{"at":"2026-11-24T09:15:26.719Z","cmd":"goto","path":"/","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\""}
+{"at":"2026-11-24T09:15:27.686Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\snapshot-20261124-171527-1efe.aria.yml"}
+{"at":"2026-11-24T09:15:33.149Z","cmd":"click","role":"button","name":"Obby Run 1 waiting on you","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\""}
+{"at":"2026-11-24T09:15:34.162Z","cmd":"wait","what":"group \"Game tools\"","gone":false}
+{"at":"2026-11-24T09:15:35.435Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d1\\strip-and-d5-card.aria.yml"}
+{"at":"2026-11-24T09:15:42.867Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d5\\card-luau-light.png"}
+{"at":"2026-11-24T09:15:53.060Z","cmd":"click","role":"button","name":"Fix in Settings","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:15:55.699Z","cmd":"wait","what":"heading \"Game tools\"","gone":false}
+{"at":"2026-11-24T09:15:57.921Z","cmd":"wait","what":"text \"Blender MCP tools\"","gone":false}
+{"at":"2026-11-24T09:15:58.694Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d1\\settings-light.aria.yml"}
+{"at":"2026-11-24T09:16:10.150Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d1\\settings-light.png"}
+{"at":"2026-11-24T09:16:12.197Z","cmd":"click","role":"button","name":"Install Blender tools","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\""}
+{"at":"2026-11-24T09:16:15.327Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d1\\confirm-install.aria.yml"}
+{"at":"2026-11-24T09:16:18.501Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d1\\confirm-install.png"}
+{"at":"2026-11-24T09:16:21.266Z","cmd":"click","role":"button","name":"Cancel","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:16:22.003Z","cmd":"api","method":"GET","path":"/api/audit","status":200}
+{"at":"2026-11-24T09:16:26.994Z","cmd":"api","method":"GET","path":"/api/audit","status":200}
+{"at":"2026-11-24T09:16:27.575Z","cmd":"api","method":"GET","path":"/api/audit","status":200}
+{"at":"2026-11-24T09:16:34.755Z","cmd":"click","role":"tab","name":"Appearance","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:16:37.018Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\snapshot-20261124-171636-808d.aria.yml"}
+{"at":"2026-11-24T09:16:43.030Z","cmd":"click","role":"button","name":"Dark","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:16:45.034Z","cmd":"click","role":"tab","name":"Game tools","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:16:47.495Z","cmd":"wait","what":"text \"Blender MCP tools\"","gone":false}
+{"at":"2026-11-24T09:16:49.185Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d1\\settings-dark.aria.yml"}
+{"at":"2026-11-24T09:16:51.835Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d1\\settings-dark.png"}
+{"at":"2026-11-24T09:17:13.234Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\""}
+{"at":"2026-11-24T09:17:14.612Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\d5\\card-luau-dark.png"}
+{"at":"2026-11-24T09:17:28.959Z","cmd":"click","role":"button","name":"Fix in Settings","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:17:31.835Z","cmd":"click","role":"tab","name":"Appearance","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:17:34.658Z","cmd":"click","role":"button","name":"Light","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:17:37.287Z","cmd":"click","role":"tab","name":"Game tools","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:17:39.940Z","cmd":"wait","what":"text \"Blender MCP tools\"","gone":false}
+{"at":"2026-11-24T09:17:53.117Z","cmd":"api","method":"POST","path":"/api/game-tools/studio/setup","status":200}
+{"at":"2026-11-24T09:17:55.416Z","cmd":"click","role":"tab","name":"Tools","after":"url=http://127.0.0.1:38986/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T09:17:56.435Z","cmd":"wait","what":"text \"roblox-studio\"","gone":false}
+{"at":"2026-11-24T09:17:58.679Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\b3\\tools-mode-label.aria.yml"}
+{"at":"2026-11-24T09:18:00.627Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-d1d5\\evidence\\20261124-171433\\b3\\tools-mode-label.png"}
+{"at":"2026-11-24T09:18:21.098Z","cmd":"stop","keepData":false}

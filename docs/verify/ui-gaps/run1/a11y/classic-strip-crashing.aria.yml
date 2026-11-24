@@ -1,0 +1,85 @@
+# url=http://127.0.0.1:21337/ title="Toki"
+- complementary:
+  - button "Hide bots"
+  - button "Search every chat"
+  - button "New"
+  - button "Needs you"
+  - button "Tasks"
+  - button "PC sessions"
+  - region "Podium":
+    - list:
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+    - button "Edit podium"
+  - button "Bots bots" [expanded]
+  - text: Bots
+  - list:
+    - listitem:
+      - button "Toki Support · Idle Toki Support · App help and improvements @pocketrocket-support":
+        - img "Toki Support · Idle"
+        - text: Toki Support · App help and improvements @pocketrocket-support
+    - listitem:
+      - button "Data Engineer · Idle Data Engineer · Keeps files clean and indexed @data-engineer":
+        - img "Data Engineer · Idle"
+        - text: Data Engineer · Keeps files clean and indexed @data-engineer
+    - listitem:
+      - button "Lead Engineer · Idle Lead Engineer · Leads the team @lead-engineer":
+        - img "Lead Engineer · Idle"
+        - text: Lead Engineer · Leads the team @lead-engineer
+    - listitem:
+      - button "Roblox Builder · Idle Roblox Builder · Builds the game in Roblox Studio @roblox-builder":
+        - img "Roblox Builder · Idle"
+        - text: Roblox Builder · Builds the game in Roblox Studio @roblox-builder
+    - listitem:
+      - button "Blender Artist · Idle Blender Artist · Models the game's art in Blender @blender-artist":
+        - img "Blender Artist · Idle"
+        - text: Blender Artist · Models the game's art in Blender @blender-artist
+  - region "Obby Run":
+    - button "Obby Run bots" [expanded]
+    - button "Obby Run"
+    - list:
+      - listitem:
+        - button "Roblox Builder · Idle Roblox Builder · Obby Run @obby-run-builder":
+          - img "Roblox Builder · Idle"
+          - text: Roblox Builder · Obby Run @obby-run-builder
+      - listitem:
+        - button "Lead Engineer · Idle Lead Engineer · Obby Run @obby-run-lead":
+          - img "Lead Engineer · Idle"
+          - text: Lead Engineer · Obby Run @obby-run-lead
+      - listitem:
+        - button "Blender Artist · Idle Blender Artist · Obby Run @obby-run-artist":
+          - img "Blender Artist · Idle"
+          - text: Blender Artist · Obby Run @obby-run-artist
+  - button "Menu for Verifier. Online": Verifier Online
+  - button "Pair a phone"
+- separator "Resize sidebar"
+- main:
+  - button "Obby Run"
+  - text: coordinator @obby-run-lead @obby-run-builder @obby-run-lead @obby-run-artist
+  - button "Open Roblox Builder's page":
+    - img "Roblox Builder · Idle"
+  - button "Open Lead Engineer's page":
+    - img "Lead Engineer · Idle"
+  - button "Open Blender Artist's page":
+    - img "Blender Artist · Idle"
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - group "Game tools":
+    - text: Blender keeps crashing Studio not open (unverified)
+    - button "Fix in Settings"
+  - text: Nothing here yet
+  - paragraph: Say hi whenever you're ready.
+  - 'textbox "Message #Obby Run"':
+    - /placeholder: Ask here, or @mention a bot
+  - button "Attach files"
+  - 'button "Permission level for all bots: Approval"': Approval
+  - status
+  - 'button "Model for this chat: Auto"': Auto
+  - button "Send" [disabled]
+- separator "Resize screen"
+- status

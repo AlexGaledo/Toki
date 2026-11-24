@@ -11,6 +11,7 @@ Read in `packages/hub/src/config.ts` and the provider adapters. Set them in `.en
 | `PORT` ★ | `7788` | Hub HTTP/WS port, always bound to `127.0.0.1`. |
 | `POCKETROCKET_DATA` ★ | `<repo>/data` | Data root: `pocketrocket.db`, `bots/`, `workspace/`, `skills/`, `secrets.json`, `account.json`, `integrations.json` + `vault.key` (§7), `grok-home/`. Desktop: `%APPDATA%\com.pocketrocket.app\data`. |
 | `POCKETROCKET_WEB_DIST` ★ | `<repo>/packages/web/dist` | Where the built web UI is served from. Desktop points it at the bundled `hub/web`. |
+| `POCKETROCKET_BLENDER_SERVER` | `<hub>/resources/blender/toki_blender_server.py` | Absolute path of the headless Blender's server script; its hashed `requirements.txt` is read from the same folder. The default works in every layout: `pnpm hub:bundle` copies `packages/hub/resources/` into the desktop bundle (`hub/resources/`), and source and VPS runs use `packages/hub/resources/`. A relative value is ignored. |
 | `POCKETROCKET_TOKEN` ★ | auto-generated when unset, stored in `<data>/hub-token` | Bearer token required on every `/api/*` route (except `GET /api/health`), `/ws`, and `/screen/*`. When unset, the hub reuses the token in `<data>/hub-token` (0600), minting and writing one the first time or whenever that file is missing or malformed. The value is never printed: startup output names the file (or this variable) and gives the URL without the token. Reuse is what keeps an already-open UI working across a restart. Desktop generates its own per-launch token in `local` mode and reads the remote one over SSH in `remote` mode. There is no unauthenticated mode. |
 | `POCKETROCKET_ROTATE_TOKEN` | unset | `1` = mint a brand-new hub token on every start instead of reusing `<data>/hub-token`. Tighter (a leaked token dies with the process) but every restart makes an already-open UI ask you to paste the new one. |
 | `POCKETROCKET_SUPABASE_URL` | unset (accounts off) | Supabase project URL for the optional Toki account (Settings → Account). No project is built into the source: accounts are enabled only when this and `POCKETROCKET_SUPABASE_KEY` are both set; otherwise the app runs signed out and `GET /api/account` reports `enabled: false`. The hub keeps the session in `<data>/account.json` (owner-only) and deletes it on sign-out. Release desktop builds pass in values baked from CI secrets (§1a); on a VPS set it in a systemd drop-in (`docs/SERVER.md`, "Accounts"). |
@@ -88,9 +89,10 @@ Keys: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`. `GET` returns only `
 
 | Key | Default | Notes |
 |---|---|---|
-| `mode` | `local` | `local` (app spawns the hub) · `remote` (`ssh -N -L` tunnel) · `attach` (hub already on the port). |
-| `sshHost` | `""` | Host alias from `~/.ssh/config` for `remote`. |
-| `port` | `7788` | Hub port for all modes. |
+| `mode` | `local` | `local` (app spawns the hub) · `attach` (hub already on the port). An older `remote` loads as `local` plus `server` (below): the PC hub on 7788, and the server tunnelled from 7790 to the hub port it used. |
+| `sshHost` | `""` | Mirrors `server.sshHost` (the Server terminal uses it). |
+| `port` | `7788` | This PC's hub port. |
+| `server` | unset | The optional second host: `{"sshHost": "<alias>", "localPort": 7790, "hubPort": 7788}`. Its tunnel (`ssh -N -L 127.0.0.1:<localPort>:127.0.0.1:<hubPort>`, BatchMode) opens only when asked and never replaces the PC hub. `localPort` must differ from `port`, and a port already in use is refused rather than shared. |
 | `hubDir` | unset | Dev override: run the hub from a repo checkout with `tsx` instead of the bundled `hub/hub.mjs`. **Debug builds only** — a released app ignores the key (it would be arbitrary code execution for anything that can write this file) and logs that it did. Set `POCKETROCKET_HUB_DIR` in the environment to point a released build at a checkout. |
 | `skippedUpdate` | unset | Written when you answer **Later** to an update: the automatic daily check does not notify about that version again (the tray item still offers it). |
 

@@ -1,0 +1,2 @@
+kept    /?desktop=1&caps=localcopy,openfolder,hosts,server
+closed  /?openfolder=wika

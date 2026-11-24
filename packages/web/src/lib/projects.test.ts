@@ -20,17 +20,19 @@ describe('projectOfRoom', () => {
 });
 
 describe('fetchProjects', () => {
-  it('passes the list through', async () => {
+  it('passes the local list through, and keeps stubs apart', async () => {
     const list = [project('wika', 'r1')];
-    expect(await fetchProjects(async () => list)).toBe(list);
+    expect(await fetchProjects(async () => list)).toEqual({ local: list, stubs: [] });
+    const stub = { host: 'server' as const, slug: 'wika', name: 'Wika on the server', seenAt: 1, connected: false };
+    expect(await fetchProjects(async () => [...list, stub])).toEqual({ local: list, stubs: [stub] });
   });
 
   it('is an empty list, never an error, when the hub refuses (a paired phone) or is older (404)', async () => {
-    expect(await fetchProjects(async () => { throw new Error('Forbidden'); })).toEqual([]);
-    expect(await fetchProjects(async () => { throw new Error('Not found'); })).toEqual([]);
+    expect(await fetchProjects(async () => { throw new Error('Forbidden'); })).toEqual({ local: [], stubs: [] });
+    expect(await fetchProjects(async () => { throw new Error('Not found'); })).toEqual({ local: [], stubs: [] });
   });
 
   it('ignores a body that is not a list', async () => {
-    expect(await fetchProjects(async () => ({ error: 'x' }) as unknown as ProjectInfo[])).toEqual([]);
+    expect(await fetchProjects(async () => ({ error: 'x' }) as unknown as ProjectInfo[])).toEqual({ local: [], stubs: [] });
   });
 });

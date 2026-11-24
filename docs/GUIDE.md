@@ -8,6 +8,8 @@ Setup itself is in the [README](../README.md).
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Concepts](#concepts)
+- [Make games with Blender and Studio](#make-games-with-blender-and-studio)
+- [This PC and your server](#this-pc-and-your-server)
 - [Permissions & safety](#permissions--safety)
 - [Configuration](#configuration)
 - [Roadmap](#roadmap)
@@ -121,6 +123,127 @@ Notifications on this device.
 To kill the token itself, message **@BotFather**, send `/revoke` and pick the bot; the old token
 stops working at once. `deploy/keys.sh inventory` lists Telegram among the keys it can disable,
 with the same revoke step.
+
+## Make games with Blender and Studio
+
+A game project gives you a team that models in Blender and builds in Roblox Studio while you
+watch and steer in chat. This works on a Windows PC hub only. On a server hub, Settings › Game tools
+says "Game tools work on the hub that runs on your Windows PC. This hub can't use them.", each item
+reads "Not supported here", and **Game team** is disabled.
+
+### Set up: Settings › Game tools
+
+Settings › Game tools lists four things, each with its status in words, its version, and the
+button for its next step, if there is one (a crashing Blender has two: **Open log** and **Try again**):
+
+| Item | What it needs | The button |
+|---|---|---|
+| **Blender** | Blender installed in `C:\Program Files\Blender Foundation\` | **Get Blender** (a link; Toki never installs Blender) |
+| **uv** | uv on your PATH, or Toki's own copy | **Install uv**: downloads the pinned uv 0.11.15 for Windows, checks it against a hash built into Toki, and unpacks it into `<data>/tools/uv/0.11.15/`. Your PATH and the registry are not changed. |
+| **Blender MCP tools** | `mcp-for-blender` 2.3.1 in `<data>/tools/blender-mcp/2.3.1/` | **Install Blender tools**: installs the pinned package and its pinned dependencies, with hashes, using uv. If the add-on file later differs from what Toki installed, the item says so, and the same button reinstalls it. |
+| **Roblox Studio** | Studio installed, its MCP setting on, and Studio open | **Turn on Studio MCP**, only while Studio is closed. It backs up each `%LOCALAPPDATA%\Roblox\AssistantSettings\<id>.json` to `.toki-bak`, turns on only `mcp-server`, and leaves every other setting alone (prompt sharing included). **Open Studio** appears in the desktop app. |
+
+- Downloads and settings changes ask first, in the app.
+- No password sign-in is needed. Only you can press these buttons: bots and paired phones cannot.
+- Every change writes an audit row naming what it changed (`game_tools.uv_installed`,
+  `game_tools.blender_mcp_installed`, `game_tools.studio_mcp_enabled`, `game_tools.blender_reset`).
+- Studio items say **Unverified** for now, because Toki's live Studio steps haven't been checked
+  with Studio open yet.
+
+### Make a game project
+
+Settings › Projects › new project, **Team: Game team**. Game team stays disabled, and says why, until
+Blender and the Blender MCP tools are ready. Nothing else needs setting up. It makes:
+
+- A group chat with a lead (cloned from @lead-engineer), a builder (from @roblox-builder) and an
+  artist (from @blender-artist). Any of those three you don't have yet is created with your first
+  game project. One you already have is used as it is.
+- The project folder `<data>/projects/<slug>/` with `art/`, `exports/`, `studio/` and `places/`, as
+  a git repo with a first commit. The files live in Toki's data folder, not in a Roblox folder,
+  because Roblox has no single local project folder: places live in the cloud, and `.rbxl` files go
+  wherever you save them. In the desktop app, **Open folder** opens the project folder in Explorer.
+- Roblox Studio's tools for that chat, when Studio's launcher is on the PC, and Toki's headless
+  Blender for that chat.
+- The skills blender-loop and studio-loop. Bots look before changing anything, save after each
+  change, keep text copies of changed Studio scripts in `studio/`, and play-test before
+  `save_place`.
+
+The game chat shows a one-line strip, for example "Blender stopped · Studio not open (unverified)",
+with a button for the next step: **Fix in Settings** when something needs fixing, and **Open Studio**
+in the desktop app.
+
+### Toki's Blender runs headless
+
+- **It never opens a window.** Toki starts its own Blender with `-b --factory-startup`. It never
+  reads or changes your own Blender settings or add-ons.
+- **It starts on the first Blender call** in a game chat, and opens the project's
+  `art/<slug>.blend`.
+- **It stops after 10 minutes with no Blender call,** saving first. It also saves every 5 minutes
+  while there are changes.
+- **One at a time.** If another Blender is open on the PC (yours, or a render), Toki doesn't start
+  one and the item says which.
+- **Crashes.** After a crash it starts again on the next call. After more than 3 crashes in 10
+  minutes it stops restarting, and Settings › Game tools shows **Open log** and **Try again**.
+- **Saving.** Bots save with `toki_save()`, which writes only `art/<slug>.blend`. Blender code that
+  uses `bpy.ops.wm.` is refused in every approval mode.
+
+### Look-backs
+
+When a bot calls Blender's `look` or Studio's `screen_capture`, the picture is kept with that tool
+step: a thumbnail under the bot's work line, opening full size in the picture viewer. You get one
+picture per call, within the usual size limit. Toki takes it from the tool result itself, never from
+the Claude CLI's copy in your home folder.
+
+### Approvals follow your setting
+
+Game tools use the approval mode the bot already runs under:
+
+- **Ask (the default):** read tools (for example `get_scene_info`, `look`, `script_read`,
+  `screen_capture`) run without a card. Everything else shows the normal approval card, where your
+  rules and "Always allow" work. On the card, the script in `execute_blender_code` or `execute_luau`
+  reads as code, and an input over 8000 characters is refused.
+- **Bypass:** nothing asks, except on routine, trigger and failover turns.
+- **Read-only:** writes are refused.
+
+No game tool is blocked. That includes Roblox's `open_cloud_invoke` and generators, and Blender's
+`generate_3d` and `generate_gaussian_world`. The last two call paid third-party services and do
+nothing unless their keys are set in the add-on.
+
+### What runs as you
+
+Code a bot sends to Blender (Python) or Studio (Luau) runs as you, on this PC. Toki's Blender
+listens on a loopback port with no password, so any program on the PC that finds the port can send
+it code while it runs. The port changes every start, and Blender stops when idle. Under Ask you see
+each write before it runs. Under bypass you don't. Bots on your server can't reach Blender or Studio
+at all. Asset searches and Roblox's generators send prompts to those services.
+
+## This PC and your server
+
+The desktop app always runs the hub on this PC, and that is your main host. A server (a VPS with
+Toki on it) is optional. It is a second host next to the PC, not a separate mode.
+
+- **Connecting.** The tray's **Open your server** opens an SSH tunnel to it on `127.0.0.1:7790`.
+  The PC hub keeps 7788. The app reads the server hub's own token over SSH, so you get no token
+  prompt. Losing the tunnel never stops the hub on this PC.
+- **Old setups.** A saved "Server over SSH" setup loads as this PC plus that server. The tray's
+  **Connection settings** page shows it as "This PC and a server over SSH".
+- **One project list.** When the server connects, and every 5 minutes after, the app copies the
+  names of its projects to the PC hub. These are names only, at most 500, and nothing is sent to the
+  server. Once a server is known, every project shows a tag in words: **This PC** or **Server**.
+  Bots never see the server's list.
+- **Opening a Server project.** While the server is connected, the window switches to it, and
+  **Back to this PC** returns. While it is offline, a prompt says "This project is on your server.
+  Connect to open it." with **Connect** and **Cancel**. If connecting fails, the prompt says so, and
+  the desktop notification gives the reason. Outside the desktop app (a phone or a browser), the
+  prompt says to open it from the desktop app.
+- **When the server drops,** the PC hub marks it offline within 30 seconds, keeps the last list,
+  and the window comes back to this PC.
+- **PC projects never need the server.** When the PC is off, the server keeps running its own bots,
+  routines and triggers.
+- **Nothing is migrated.** Projects, bots, chats and history stay on the host where they were made.
+  Nothing is synced between hosts. Game tools exist only on the PC hub.
+- **One subscription.** Both hosts spend from the same Claude subscription. The Usage page says so
+  once a server is known.
 
 ## Permissions & safety
 

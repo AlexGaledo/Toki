@@ -1,0 +1,34 @@
+# Checks run on 2026-11-24T10:08Z at d2c4bda
+
+$ pnpm lint
+
+> pocketrocket@0.5.4 lint C:\Users\alex\Desktop\claude-grokbot-spec-gamedev
+> eslint --cache --cache-location node_modules/.cache/eslint/ .
+
+(exit 0)
+
+$ pnpm ts-strict
+ok: 1493 frozen strict-TS errors, none new
+
+$ node --test scripts/contrast.test.mjs scripts/token-parity.test.mjs
+✔ pr-design-system.md: "Text: --fg / --muted / --dim, all checked for AA contrast." and "Keep WCAG AA contrast in both themes." (10.4085ms)
+✔ pr-design-system.md: "Token parity: the splash page and the site copy these tokens. If you change a token, update all three surfaces or say why not." (19.0506ms)
+ℹ tests 8
+ℹ pass 8
+ℹ fail 0
+
+$ pnpm --filter @pocketrocket/web build && node scripts/bundle-budget.mjs
+entry chunk index-DCX0-I_c.js: 923815 bytes (gzip 266386), budget 1320000
+bundle-budget: ok
+
+$ (cd packages/web && npx tsc --noEmit -p .)
+(exit 0)
+
+$ (cd packages/web && npx vitest run)   # the whole web package, 2026-11-24, 1.5 GB free
+ Test Files  49 passed (49)
+      Tests  382 passed (382)
+
+$ node --test scripts/repo-guards.test.mjs
+ℹ tests 6
+ℹ pass 6
+ℹ fail 0

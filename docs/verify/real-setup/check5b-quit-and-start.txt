@@ -1,0 +1,12 @@
+# check 5b: quit while connected, then start again (2026-11-24)
+22:35:44.690 tunnel before quit: ssh 30216 (connected since 22:31:07); PC hub node 38472; Studio 27236
+22:35:45.000 CloseMainWindow on PocketRocket.exe 27940 (closeToTray is false, so closing quits)
+22:35:46.495 Toki exited: True
+22:35:50.492 after quit: PocketRocket.exe: 0; 7788 listener: False; 7790 listener: False; node 38472 alive: False
+22:35:50.517 Studio after Toki quit: 1 running (pid 27236), responding True   <- S2 item 6, see s2-open-studio.txt
+22:35:59 PC hub DB (read-only, app closed): remote_hosts = [('server', 1, 1795530666306)] ; project_stubs = 8
+22:36:11.940 started PocketRocket.exe pid 31012 (no connect asked)
+22:36:27.411 window: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+22:36:28.790 GET /api/projects on the PC hub (16.9 s after start): status 200, stubs 8, connected values: False
+22:36:28.853 7790 listener: False (no tunnel was opened)
+Result: pass. The stale connected:true left by quitting while connected was cleared once the PC hub came up, with no tunnel opened.

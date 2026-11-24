@@ -1,0 +1,10 @@
+## Without the change: the new modules moved aside (HEAD has none of them)
+ FAIL  src/components/ApprovalCode.test.tsx [ src/components/ApprovalCode.test.tsx ]
+ FAIL  src/lib/approvalCode.test.ts [ src/lib/approvalCode.test.ts ]
+ FAIL  src/lib/gameTools.test.ts [ src/lib/gameTools.test.ts ]
+ Test Files  3 failed (3)
+      Tests  no tests
+
+## With the change
+ Test Files  3 passed (3)
+      Tests  22 passed (22)

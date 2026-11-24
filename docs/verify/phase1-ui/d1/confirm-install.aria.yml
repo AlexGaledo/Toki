@@ -1,0 +1,7 @@
+# url=http://127.0.0.1:38986/ title="(1) Toki"
+- status
+- alertdialog "Install the Blender tools?":
+  - heading "Install the Blender tools?" [level=2]
+  - paragraph: Toki uses uv to install the pinned Blender MCP tools (2.3.1) into its own data folder, checking every package against a pinned hash. Your own Blender and its add-ons are not touched.
+  - button "Cancel"
+  - button "Install"

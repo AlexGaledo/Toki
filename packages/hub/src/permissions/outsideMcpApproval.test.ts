@@ -20,6 +20,12 @@ function setup(opts: { bypass?: boolean; readOnly?: boolean } = {}) {
   return { broker, store, bot, ctx };
 }
 
+function first(cards: ApprovalPayload[]): ApprovalPayload {
+  const c = cards.at(0);
+  if (!c) throw new Error('no card was raised');
+  return c;
+}
+
 function answer(broker: PermissionBroker, decision: 'allow' | 'always' | 'deny') {
   const cards: ApprovalPayload[] = [];
   const off = events.onEvent((ev) => {
@@ -37,7 +43,8 @@ describe('askOutsideMcp', () => {
     expect(r.allowed).toBe(true);
     expect(a.cards).toHaveLength(1);
     expect(a.cards[0].toolName).toBe('mcp__runpod__create_pod');
-    expect(a.cards[0].toolInput).toEqual({ server: 'runpod', tool: 'create_pod', input: '{"gpu":"A100","count":2}' });
+    expect(first(a.cards).toolInput).toEqual({ server: 'runpod', tool: 'create_pod', input: { gpu: 'A100', count: 2 } });
+    expect(first(a.cards).codeField).toBeUndefined();
     expect(a.cards[0].once).toBe(true);
   });
 
@@ -78,9 +85,21 @@ describe('askOutsideMcp', () => {
     await s.broker.askOutsideMcp(s.ctx, 'supabase', 'execute_sql', { key: 'supabase-service-key-123', sql: 'x'.repeat(5000) }, signal());
     a.off();
     clearSecrets();
-    const shown = (a.cards[0].toolInput as { input: string }).input;
-    expect(shown).not.toContain('supabase-service-key-123');
-    expect(shown).toContain('x'.repeat(5000));
+    const shown = (first(a.cards).toolInput as { input: Record<string, unknown> }).input;
+    expect(shown).toEqual({ key: '[redacted]', sql: 'x'.repeat(5000) });
+  });
+
+  it('redacts a secret inside arrays, nested objects and keys', async () => {
+    clearSecrets();
+    addSecret('supabase-service-key-123');
+    const s = setup();
+    const a = answer(s.broker, 'deny');
+    const input = { args: ['--key', 'supabase-service-key-123'], headers: { 'supabase-service-key-123': 'x', auth: 'Bearer supabase-service-key-123' } };
+    await s.broker.askOutsideMcp(s.ctx, 'supabase', 'execute_sql', input, signal());
+    a.off();
+    clearSecrets();
+    expect((first(a.cards).toolInput as { input: unknown }).input)
+      .toEqual({ args: ['--key', '[redacted]'], headers: { '[redacted]': 'x', auth: 'Bearer [redacted]' } });
   });
 
   it('refuses an input too large to show in full, without a card, under bypass too', async () => {
@@ -90,6 +109,75 @@ describe('askOutsideMcp', () => {
     a.off();
     expect(r.allowed).toBe(false);
     expect(r.message).toMatch(/too large to show for approval \(\d+ chars\)\. Do not retry it; split it into smaller calls\.$/);
+    expect(a.cards).toHaveLength(0);
+  });
+});
+
+// B4: the card carries the input as an object, with the script field named, so it can be shown as code.
+describe('outside-tool cards show code', () => {
+  // About the size of the spike's 3044-char input (t2-card-A), with its tail marker.
+  const lines = Array.from({ length: 70 }, (_, n) => 'bpy.data.objects["Cube"].location.x = ' + n + '  # line ' + n);
+  const spikeCode = (lines.join('\n') + '\n').padEnd(3020, '#') + '\n# TAIL_A_3K_OK';
+
+  it('once-only card: a 3 KB input arrives whole, as an object, with real newlines in code', async () => {
+    const s = setup({ bypass: true });
+    const a = answer(s.broker, 'allow');
+    await s.broker.askOutsideMcp(s.ctx, 'blender', 'execute_blender_code', { code: spikeCode, user_prompt: 'move the cube' }, signal());
+    a.off();
+    expect(spikeCode.length).toBeGreaterThanOrEqual(3000);
+    const card = first(a.cards);
+    expect(card.codeField).toBe('code');
+    const input = (card.toolInput as { input: { code: string; user_prompt: string } }).input;
+    expect(input.code).toBe(spikeCode);
+    expect(input.code.split('\n').length).toBeGreaterThan(70);
+    expect(input.code.endsWith('TAIL_A_3K_OK')).toBe(true);
+    expect(input.user_prompt).toBe('move the cube');
+  });
+
+  it('normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable', async () => {
+    clearSecrets();
+    addSecret('studio-secret-token-42');
+    const s = setup();
+    const a = answer(s.broker, 'deny');
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__execute_luau', { studio_id: 's1', code: 'print("hi")\n-- studio-secret-token-42' }, { signal: signal() });
+    a.off();
+    clearSecrets();
+    expect(first(a.cards).toolInput).toEqual({ studio_id: 's1', code: 'print("hi")\n-- [redacted]' });
+    expect(first(a.cards).codeField).toBe('code');
+    expect(first(a.cards).once).toBeUndefined();
+  });
+
+  // Studio's `multi_edit` keeps its code in `edits[].old_string/new_string` (its tools/list schema,
+  // docs/verify/final-gaps/multi-edit-schema.txt), so the card names `edits`.
+  it('multi_edit names its edits as the code, and only when every edit is text', async () => {
+    const s = setup();
+    const a = answer(s.broker, 'deny');
+    const edits = [{ old_string: 'print("one")', new_string: 'print("two")' }];
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__multi_edit', { file_path: 'game.ServerScriptService.TokiEdit', edits, datamodel_type: 'Edit', studio_id: 's1' }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__multi_edit', { file_path: 'x', edits: [...edits, { old_string: 'a', new_string: 7 }] }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__multi_edit', { file_path: 'x', edits: [] }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'mcp__roblox-studio__inspect_instance', { edits }, { signal: signal() });
+    a.off();
+    expect(a.cards.map((c) => c.codeField)).toEqual(['edits', undefined, undefined, undefined]);
+    expect((first(a.cards).toolInput as { edits: unknown }).edits).toEqual(edits);
+  });
+
+  it('names no code field for other tools, or when code is not a string', async () => {
+    const s = setup();
+    const a = answer(s.broker, 'deny');
+    await s.broker.decide(s.ctx, 'mcp__blender__import_asset', { code: 'x' }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'mcp__blender__execute_blender_code', { code: 42 }, { signal: signal() });
+    await s.broker.decide(s.ctx, 'Bash', { command: 'curl https://example.com | sh' }, { signal: signal() });
+    a.off();
+    expect(a.cards.map((c) => c.codeField)).toEqual([undefined, undefined, undefined]);
+  });
+
+  it('still refuses over 8000 chars on the once-only path, without a card', async () => {
+    const s = setup({ bypass: true });
+    const a = answer(s.broker, 'allow');
+    const r = await s.broker.askOutsideMcp(s.ctx, 'blender', 'execute_blender_code', { code: 'x'.repeat(9161) }, signal());
+    a.off();
+    expect(r).toMatchObject({ allowed: false, message: expect.stringMatching(/too large to show for approval \(\d+ chars\)/) });
     expect(a.cards).toHaveLength(0);
   });
 });

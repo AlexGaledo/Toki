@@ -1,0 +1,60 @@
+# Checks for phase 3 UI (D4, Open folder, B11 note), 2026-11-24, on this PC (about 2.6 GB RAM free)
+# Runs 1-3 on 54f4194; run 4 on fe19e50 (tests only changed). No full pnpm test and no pnpm -r build (RAM rule).
+
+## pnpm lint
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.patchedDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+> pocketrocket@0.5.4 lint C:\Users\alex\Desktop\claude-grokbot-spec-gamedev
+> eslint --cache --cache-location node_modules/.cache/eslint/ .
+
+exit=0
+
+## pnpm ts-strict
+
+> pocketrocket@0.5.4 ts-strict C:\Users\alex\Desktop\claude-grokbot-spec-gamedev
+> node scripts/ts-strict.mjs
+
+ok: 1493 frozen strict-TS errors, none new
+
+## node --test contrast + token-parity + repo-guards + lint-rules
+✔ pr-design-system.md: "Token parity: the splash page and the site copy these tokens. If you change a token, update all three surfaces or say why not." (48.9511ms)
+ℹ tests 14
+ℹ suites 2
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1475.7849
+
+## tsc --noEmit (web)
+tsc clean
+
+## pnpm --filter @pocketrocket/web build
+  - plugin @tailwindcss/vite:generate:build transform (11%, 1.5s, 7 calls)
+Additional callback time came from the callbacks below and from callbacks under 1s.
+1 callback is listed without a time. Its calls overlapped, so the time inside one call includes work from other calls. To find its cost, profile the build with `node --cpu-prof`:
+  - plugin vite:css transform (7 calls)
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+[39m
+
+## node scripts/bundle-budget.mjs
+entry chunk index-BupZPxo3.js: 928541 bytes (gzip 267535), budget 1320000
+bundle-budget: ok
+
+## web vitest, whole suite (54f4194)
+ Test Files  54 passed (54)
+      Tests  419 passed (419)
+   Start at  19:34:56
+   Duration  16.40s (tests 78%, import 17%, transform 3%, worker 2%)
+
+    Isolate  54 workers spawned · ~1.06s startup each (spawn + environment, per file)
+             at least ~4.14s faster with isolate: false — reuses workers across files instead of one per file
+
+
+## after fe19e50: web vitest whole suite, pnpm lint
+ Test Files  54 passed (54)
+      Tests  421 passed (421)
+> eslint --cache --cache-location node_modules/.cache/eslint/ .
+
+lint exit 0

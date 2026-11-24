@@ -1,0 +1,12 @@
+# throwaway hub 127.0.0.1:32967, real multi_edit card 1 of 2 from the Studio turn, 2026-11-24T16:24:39.893Z
+- text: Needs your OK mcp__roblox-studio__multi_edit Allowed once mcp__roblox-studio__multi_edit requires approval
+- term: file_path
+- definition: game.ServerScriptService.TokiEdit
+- term: className
+- definition: Script
+- term: datamodel_type
+- definition: Edit
+- term: studio_id
+- definition: 0c614c2c-5284-40bf-8476-4e370358f12b
+- region "edits for multi_edit":
+  - code: edit 1 of 1 + print("toki one")

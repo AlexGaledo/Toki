@@ -1,0 +1,7 @@
+# url=http://127.0.0.1:21337/ title="Toki"
+- status
+- alertdialog "Turn on Studio MCP?":
+  - heading "Turn on Studio MCP?" [level=2]
+  - paragraph: Toki backs up Roblox Studio's assistant settings, then turns on only the MCP server option. Nothing else changes.
+  - button "Cancel"
+  - button "Turn on"

@@ -1,0 +1,40 @@
+# url=http://127.0.0.1:56083/ title="Toki" dialogs=["Settings"]
+- status
+- dialog "Settings":
+  - button "Close"
+  - complementary:
+    - heading "Settings" [level=2]
+    - tablist "Settings sections":
+      - tab "Account"
+      - tab "Security"
+      - tab "Claude"
+      - tab "Bots"
+      - tab "Projects"
+      - tab "Tools"
+      - tab "Game tools" [selected]
+      - tab "Reports"
+      - tab "Connections"
+      - tab "Logins"
+      - tab "Knowledge"
+      - tab "Devices"
+      - tab "PC runner"
+      - tab "Notifications"
+      - tab "Appearance"
+      - tab "About"
+  - tabpanel "Game tools":
+    - banner:
+      - heading "Game tools" [level=2]
+      - paragraph: Blender and Roblox Studio for game rooms. Toki runs its own Blender headless; it never opens a Blender window.
+    - paragraph: Game tools run code as you on this PC, and follow your approval setting.
+    - paragraph: Blender's asset search and model generators, and Roblox Studio's own tools, send prompts to Roblox and other third parties.
+    - status: Game tools work on the hub that runs on your Windows PC. This hub can't use them.
+    - heading "Status" [level=3]
+    - button "Check again"
+    - heading "Blender" [level=4]
+    - text: Not supported here
+    - heading "uv" [level=4]
+    - text: Not supported here
+    - heading "Blender MCP tools" [level=4]
+    - text: Not supported here
+    - heading "Roblox Studio" [level=4]
+    - text: Not supported here

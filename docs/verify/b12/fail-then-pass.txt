@@ -1,0 +1,32 @@
+# B12 fail-then-pass, as run on 2026-11-24 (targeted vitest files only; packages/hub)
+
+## Read-only gap (decision for B3's open case), outsideMcpMode.test.ts, before the outsideMcp.ts fix
+ FAIL  src/permissions/outsideMcpMode.test.ts > NEGATIVE: approve: 'mode' under read-only > refuses a write without a card, with the same words as an every-call server
+AssertionError: expected { ran: true, step: { kind: 'pass' } } to deeply equal { ran: false, step: { …(2) } }
+      Tests  1 failed | 14 passed (15)
+## after
+      Tests  15 passed (15)
+
+## Hook: blenderEnsure before a blender tool, readOnly from the turn; claudeOutsideMcp.test.ts with providers/claude.ts stashed
+     × starts Blender before a blender tool runs, and refuses the call with its reason when it cannot
+     × NEGATIVE: under read-only a mode write is refused by the hook, a read still runs
+      Tests  2 failed | 7 passed (9)
+## after
+      Tests  9 passed (9)
+
+## Mount: blenderTurn.test.ts with agent/BotRunner.ts stashed
+     × mounts the built-in blender server on the live port, approve mode, with the read tools
+     × hands the hook an ensure for this project, which refuses while another Blender runs
+     × tells the provider when the hub is read-only
+      Tests  3 failed | 2 passed (5)
+## after
+      Tests  5 passed (5)
+
+## Two bugs the live run found, test first (BlenderHost.test.ts), before the fix
+     × NEGATIVE: points the MCP server's add-on check and data at Toki's folders, never the owner's Blender config
+     × counts idle time from READY, so a slow first start is not stopped on arrival
+      Tests  2 failed | 16 passed (18)
+## after (with blenderTurn.test.ts)
+      Tests  23 passed (23)
+
+## BlenderHost itself: one mutation per guarded line, see mutations.txt (every mutation fails at least one test)

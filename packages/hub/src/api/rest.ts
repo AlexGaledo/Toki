@@ -48,6 +48,7 @@ import type { VoiceProposals } from '../services/VoiceProposals.js';
 import { logError } from '../providers/redact.js';
 import { sandboxStatus } from '../providers/sandbox.js';
 import type { MediaStore } from '../services/MediaStore.js';
+import type { UsageTracker } from '../services/UsageTracker.js';
 import { contextUsage } from '../services/SessionRotation.js';
 
 type Handler = (ctx: { params: Record<string, string>; query: URLSearchParams; body: unknown; req: IncomingMessage }) => unknown | Promise<unknown>;
@@ -73,6 +74,8 @@ export interface RestDeps {
   media?: MediaStore;
   busy?: () => BusyInfo;
   stop?: () => void;
+  /** B11: the shared-subscription note in GET /api/usage. */
+  usage?: Pick<UsageTracker, 'subscriptionNote'>;
 }
 
 export function createRest(deps: RestDeps) {
@@ -640,6 +643,8 @@ export function createRest(deps: RestDeps) {
       totals: repos.usageTotals({ botId, roomId }), rows: repos.usageBreakdown(),
       byModel: repos.usageBy('model'), byCause: repos.usageBy('causeKind'), byProvider: repos.usageBy('provider'),
     };
+    const note = deps.usage?.subscriptionNote() ?? null;
+    if (note) res.subscriptionNote = note;
     return res;
   });
 

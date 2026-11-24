@@ -1,0 +1,6 @@
+[
+ "start textarea \"Message #Obby Run\"",
+ "Shift+Tab -> [strip] button \"Fix in Settings\"",
+ "Enter -> button \"Close\" dialogs=1 panel=radix-_r_2u_-trigger-game-tools",
+ "Escape -> [strip] button \"Fix in Settings\""
+]

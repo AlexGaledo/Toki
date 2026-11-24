@@ -1,0 +1,33 @@
+I4 fail-then-pass, 2026-11-24, branch feat/gamedev-tools
+
+### 1. scripts/build-hub.mjs as on HEAD (daa692e), new test present: node --test --test-reporter=tap scripts/hub-resources.test.mjs
+ok 1 - the hub source has both resources
+ok 2 - copyHubResources puts both files into the build, byte for byte
+ok 3 - a missing resource fails the bundle instead of shipping without it
+not ok 4 - build-hub.mjs copies the resources after it empties the build folder
+  error: 'build-hub.mjs never calls copyHubResources(HUB, BUILD)'
+ok 5 - Tauri ships packages/hub/build as <install>/hub, so the files sit at <HUB_DIR>/resources/blender
+ok 6 - scripts/deploy.sh ships the resources to the VPS, where the service runs from packages/hub
+# pass 5
+# fail 1
+
+### 2. scripts/deploy.sh with an added --exclude=resources (mutation, reverted after)
+ok 1 - the hub source has both resources
+ok 2 - copyHubResources puts both files into the build, byte for byte
+ok 3 - a missing resource fails the bundle instead of shipping without it
+ok 4 - build-hub.mjs copies the resources after it empties the build folder
+ok 5 - Tauri ships packages/hub/build as <install>/hub, so the files sit at <HUB_DIR>/resources/blender
+not ok 6 - scripts/deploy.sh ships the resources to the VPS, where the service runs from packages/hub
+    --exclude=resources drops packages/hub/resources/blender/requirements.txt
+# pass 5
+# fail 1
+
+### 3. with the change
+ok 1 - the hub source has both resources
+ok 2 - copyHubResources puts both files into the build, byte for byte
+ok 3 - a missing resource fails the bundle instead of shipping without it
+ok 4 - build-hub.mjs copies the resources after it empties the build folder
+ok 5 - Tauri ships packages/hub/build as <install>/hub, so the files sit at <HUB_DIR>/resources/blender
+ok 6 - scripts/deploy.sh ships the resources to the VPS, where the service runs from packages/hub
+# pass 6
+# fail 0

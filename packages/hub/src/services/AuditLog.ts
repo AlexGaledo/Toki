@@ -68,6 +68,8 @@ const NOT_AUDITED = [
   /^\/api\/settings$/,
   /^\/api\/rooms\/[^/]+\/files(\/|$)/,
   /^\/api\/pc-runner(\/|$)/,
+  // Game tools write their own rows, naming the step and what it changed.
+  /^\/api\/game-tools(\/|$)/,
 ];
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);

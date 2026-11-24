@@ -1,0 +1,121 @@
+Each task's new tests run with its source change reverted (git stash of the named files, tests kept), then restored.
+Run on 2026-11-24 from packages/hub with npx vitest run <files>; output filtered to the result lines.
+
+=== B8 BEFORE (builtinSkills.ts at HEAD, new test kept) ===
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+ FAIL  src/services/builtinSkills.test.ts > the blender-loop and studio-loop skills > blender-loop states its rules: no wm operators, toki_save at the end of each change, look after, export to exports/, retry once on a lost connection
+TypeError: Cannot read properties of undefined (reading 'markdown')
+ ❯ src/services/builtinSkills.test.ts:38:35
+     36|
+     37|   it('blender-loop states its rules: no wm operators, toki_save at the…
+     38|     const md = BLENDER_LOOP_SKILL.markdown;
+       |                                   ^
+     39|     expect(md).toContain('Never use `bpy.ops.wm.*`');
+     40|     expect(md).toContain('wm.save_mainfile');
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+ FAIL  src/services/builtinSkills.test.ts > the blender-loop and studio-loop skills > studio-loop states its rules: studio_id first, read before writing, save_place only after a check, mirror scripts to studio/
+TypeError: Cannot read properties of undefined (reading 'markdown')
+ ❯ src/services/builtinSkills.test.ts:55:34
+     53|
+     54|   it('studio-loop states its rules: studio_id first, read before writi…
+     55|     const md = STUDIO_LOOP_SKILL.markdown;
+       |                                  ^
+     56|     const order = ['`list_roblox_studios` first', 'Read before you wri…
+     57|     expect(order.every((i) => i >= 0)).toBe(true);
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  17:33:04
+   Duration  6.76s (import 82%, transform 14%, worker 3%, tests 1%)
+
+=== B8 AFTER ===
+ RUN  v5.1.1 C:/Users/alex/Desktop/claude-grokbot-spec-gamedev/packages/hub
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  17:33:14
+   Duration  1.02s (import 40%, transform 30%, tests 29%, worker 1%)
+
+
+=== B7 BEFORE (source at d608323, new tests kept) ===
+     × creates @roblox-builder and @blender-artist once on a Windows hub, with no DM, and with their loop skills named 83ms
+     × NEGATIVE: seeds nothing on a hub that is not Windows, where game tools do not exist 80ms
+     × does not bring back a deleted one, and leaves a user bot with the same handle alone 105ms
+     × B7: the game template sets the kind, so its room mounts blender and another room of the same bot does not 92ms
+     × clones a lead, a builder and an artist into a group chat, as kind game with the game version 46ms
+     × makes art/ exports/ studio/ places/ (each kept by git), a .gitignore, and records the game template 44ms
+     × NEGATIVE: team: true still means the dev template, which is not a game and gets no game folders 41ms
+     × refuses a game team when a seed bot is missing, and leaves nothing behind 44ms
+     × turns the folder into a git repo with one first commit, and leaves a repo already there alone 56ms
+     × reports a git failure as failed and keeps the project 41ms
+ FAIL  src/api/gameProject.test.ts [ src/api/gameProject.test.ts ]
+TypeError: seedGameBots is not a function
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/agent/blenderTurn.test.ts > a game room's turn > B7: the game template sets the kind, so its room mounts blender and another room of the same bot does not
+TypeError: Cannot read properties of undefined (reading 'roles')
+ FAIL  src/api/projects.test.ts > the game team template (B7) > clones a lead, a builder and an artist into a group chat, as kind game with the game version
+TypeError: Cannot read properties of undefined (reading 'roles')
+ FAIL  src/api/projects.test.ts > the game team template (B7) > makes art/ exports/ studio/ places/ (each kept by git), a .gitignore, and records the game template
+TypeError: Cannot read properties of undefined (reading 'roles')
+ FAIL  src/api/projects.test.ts > the game team template (B7) > NEGATIVE: team: true still means the dev template, which is not a game and gets no game folders
+TypeError: Cannot read properties of undefined (reading 'roles')
+ FAIL  src/api/projects.test.ts > the game team template (B7) > refuses a game team when a seed bot is missing, and leaves nothing behind
+TypeError: Cannot read properties of undefined (reading 'roles')
+ FAIL  src/api/projects.test.ts > the game team template (B7) > turns the folder into a git repo with one first commit, and leaves a repo already there alone
+TypeError: Cannot read properties of undefined (reading 'roles')
+ FAIL  src/api/projects.test.ts > the game team template (B7) > reports a git failure as failed and keeps the project
+TypeError: Cannot read properties of undefined (reading 'roles')
+ FAIL  src/services/SeedBots.test.ts > the game template source bots (B7) > creates @roblox-builder and @blender-artist once on a Windows hub, with no DM, and with their loop skills named
+TypeError: seedGameBots is not a function
+ FAIL  src/services/SeedBots.test.ts > the game template source bots (B7) > NEGATIVE: seeds nothing on a hub that is not Windows, where game tools do not exist
+TypeError: seedGameBots is not a function
+ FAIL  src/services/SeedBots.test.ts > the game template source bots (B7) > does not bring back a deleted one, and leaves a user bot with the same handle alone
+TypeError: Provided value cannot be bound to SQLite parameter 3.
+ Test Files  4 failed (4)
+      Tests  10 failed | 52 passed | 4 skipped (66)
+
+=== B7 AFTER ===
+ Test Files  5 passed (5)
+      Tests  80 passed (80)
+
+
+=== B9 BEFORE (BotRunner/claude/repos/types at 574e6a2; lookBacks.ts and the tests kept) ===
+     × hands the runner the first base64 image block as the SDK carried it, not the tool-results file 30ms
+     × firstImage takes only the first base64 image, and ignores url sources and malformed blocks 1ms
+     × stores Blender's look as media, attaches it to that tool message, and drops the CLI's file path from the text 215ms
+     × keeps one image per call: each call gets its own single attachment 83ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/agent/lookBackTurn.test.ts > look-backs in a game room > stores Blender's look as media, attaches it to that tool message, and drops the CLI's file path from the text
+AssertionError: expected undefined to deeply equal [ Array(1) ]
+ FAIL  src/agent/lookBackTurn.test.ts > look-backs in a game room > keeps one image per call: each call gets its own single attachment
+AssertionError: expected [ null, null, null ] to deeply equal [ …(3) ]
+ FAIL  src/providers/claudeLookBack.test.ts > tool_result images from the SDK message > hands the runner the first base64 image block as the SDK carried it, not the tool-results file
+AssertionError: expected undefined to deeply equal { mediaType: 'image/png', …(1) }
+ FAIL  src/providers/claudeLookBack.test.ts > tool_result images from the SDK message > firstImage takes only the first base64 image, and ignores url sources and malformed blocks
+TypeError: firstImage is not a function
+ Test Files  2 failed (2)
+      Tests  4 failed | 7 passed (11)
+
+=== B9 AFTER ===
+ Test Files  4 passed (4)
+      Tests  19 passed (19)
+
+
+=== game-tools.changed BEFORE (BlenderHost/gameTools API/hub at 4041481, new tests kept) ===
+     × reports a start, READY, a stop and a crash, and the reset after crashes 23ms
+     × is sent after a Studio setup and a blender-reset, carries nothing, and not for a refused call 64ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/api/gameTools.test.ts > game-tools.changed > is sent after a Studio setup and a blender-reset, carries nothing, and not for a refused call
+AssertionError: expected [] to deeply equal [ { type: 'game-tools.changed' } ]
+ FAIL  src/services/BlenderHost.test.ts > BlenderHost: game-tools.changed > reports a start, READY, a stop and a crash, and the reset after crashes
+AssertionError: expected +0 to be 1 // Object.is equality
+ Test Files  2 failed (2)
+      Tests  2 failed | 33 passed (35)
+
+=== AFTER ===
+ Test Files  2 passed (2)
+      Tests  35 passed (35)
+
+
+=== Wider targeted sweep after all commits ===
+ Test Files  24 passed (24)
+      Tests  314 passed (314)

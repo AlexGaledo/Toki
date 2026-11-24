@@ -161,6 +161,12 @@ export interface ApprovalPayload {
   once?: boolean;
   /** Only a browser signed in with the owner's password may allow it (a job on the PC); the hub token may only deny. */
   signInRequired?: boolean;
+  /**
+   * A field holding a script (`code` for execute_blender_code / execute_luau), to show as code. It is a key of the
+   * tool's own input: `toolInput.input` on an outside-server card (`toolInput` is `{ server, tool, input }`),
+   * otherwise `toolInput`.
+   */
+  codeField?: string;
 }
 export interface HandoffPayload {
   fromBotId: string;
@@ -360,6 +366,8 @@ export interface UsageResponse {
   byModel?: UsageGroup[];
   byCause?: UsageGroup[];
   byProvider?: UsageGroup[];
+  /** B11: fixed words, present once a server host is known: both hubs spend from one Claude subscription. */
+  subscriptionNote?: string;
 }
 
 export interface KnowledgeStatus {

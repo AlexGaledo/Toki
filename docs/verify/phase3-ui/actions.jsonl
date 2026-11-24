@@ -1,0 +1,122 @@
+{"at":"2026-11-24T11:27:10.405Z","cmd":"launch","web":"vite","onboarding":false,"ports":{"hub":47004,"workspace":47005,"web":47006,"cdp":47007}}
+{"at":"2026-11-24T11:27:15.042Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T11:27:15.283Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:27:18.354Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T11:27:23.649Z","cmd":"api","method":"POST","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:27:23.926Z","cmd":"api","method":"POST","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:27:24.163Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T11:27:24.401Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:27:30.165Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder,hosts,server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:27:30.942Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:27:31.776Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\list-light.aria.yml"}
+{"at":"2026-11-24T11:27:42.884Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder,hosts,server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:27:43.672Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:27:44.460Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\list-light.aria.yml"}
+{"at":"2026-11-24T11:27:45.622Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\list-light.png"}
+{"at":"2026-11-24T11:27:53.853Z","cmd":"click","role":"button","name":"Tower Climb Server (offline)","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:27:54.854Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-ask-light.aria.yml"}
+{"at":"2026-11-24T11:27:56.136Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-ask-light.png"}
+{"at":"2026-11-24T11:27:57.633Z","cmd":"click","role":"button","name":"Cancel","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:27:58.816Z","cmd":"press","key":"Enter","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:27:59.699Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-cancel-then-enter.aria.yml"}
+{"at":"2026-11-24T11:28:06.779Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:28:07.962Z","cmd":"press","key":"Enter","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:28:10.587Z","cmd":"click","role":"button","name":"Connect","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:28:11.535Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-working-light.aria.yml"}
+{"at":"2026-11-24T11:28:22.312Z","cmd":"screenshot","args":["d4/prompt-working-light.png"],"error":"page.screenshot: Timeout 10000ms exceeded."}
+{"at":"2026-11-24T11:28:22.638Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T11:28:23.315Z","cmd":"wait","what":"text \"Couldn't connect\"","gone":false}
+{"at":"2026-11-24T11:28:24.119Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-failed-light.aria.yml"}
+{"at":"2026-11-24T11:28:27.568Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-failed-light.png"}
+{"at":"2026-11-24T11:29:02.449Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder,hosts,server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:29:03.256Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:29:04.496Z","cmd":"click","role":"button","name":"Tower Climb Server (offline)","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:29:05.711Z","cmd":"press","key":"Tab","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:29:07.861Z","cmd":"press","key":"Enter","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:29:08.856Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-working-keyboard.aria.yml"}
+{"at":"2026-11-24T11:29:10.786Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-working-light.png"}
+{"at":"2026-11-24T11:29:11.154Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T11:29:11.887Z","cmd":"wait","what":"text \"Couldn't connect\"","gone":false}
+{"at":"2026-11-24T11:29:13.840Z","cmd":"press","key":"Enter","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:29:14.642Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-try-again-keyboard.aria.yml"}
+{"at":"2026-11-24T11:29:31.525Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:29:42.682Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder,hosts,server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:29:43.460Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:29:44.705Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:29:46.016Z","cmd":"click","role":"menuitem","name":"Settings","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:29:47.939Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:29:49.012Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\settings-projects-light.aria.yml"}
+{"at":"2026-11-24T11:30:06.736Z","cmd":"click","role":"tab","name":"Appearance","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:30:08.564Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:30:09.581Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\settings-projects-light.aria.yml"}
+{"at":"2026-11-24T11:30:11.518Z","cmd":"click","role":"button","name":"Open the folder of Wika","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:30:13.460Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\settings-projects-light.png"}
+{"at":"2026-11-24T11:30:24.888Z","cmd":"click","role":"button","name":"Open Obby Run on your server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Obby Run\"]"}
+{"at":"2026-11-24T11:30:25.981Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-over-settings.aria.yml"}
+{"at":"2026-11-24T11:30:27.258Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:30:28.769Z","cmd":"click","role":"tab","name":"Appearance","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:30:30.260Z","cmd":"click","role":"button","name":"Dark","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:30:31.449Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:30:32.574Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\settings-projects-dark.png"}
+{"at":"2026-11-24T11:30:33.316Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\settings-projects-dark.aria.yml"}
+{"at":"2026-11-24T11:30:34.380Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:30:35.118Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\list-dark.aria.yml"}
+{"at":"2026-11-24T11:30:36.224Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\list-dark.png"}
+{"at":"2026-11-24T11:30:49.676Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder,hosts,server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:30:50.376Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:30:51.487Z","cmd":"click","role":"button","name":"CRM sync Server (offline)","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"CRM sync\"]"}
+{"at":"2026-11-24T11:30:52.431Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-ask-dark.png"}
+{"at":"2026-11-24T11:30:53.270Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-ask-dark.aria.yml"}
+{"at":"2026-11-24T11:30:57.271Z","cmd":"click","role":"button","name":"Connect","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"CRM sync\"]"}
+{"at":"2026-11-24T11:30:58.385Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T11:30:59.080Z","cmd":"wait","what":"text \"Couldn't connect\"","gone":false}
+{"at":"2026-11-24T11:30:59.932Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-failed-dark.png"}
+{"at":"2026-11-24T11:31:00.720Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-failed-dark.aria.yml"}
+{"at":"2026-11-24T11:31:13.240Z","cmd":"api","method":"POST","path":"/api/projects","status":409}
+{"at":"2026-11-24T11:31:30.969Z","cmd":"api","method":"POST","path":"/api/bots","status":200}
+{"at":"2026-11-24T11:31:31.222Z","cmd":"api","method":"POST","path":"/api/skills","status":200}
+{"at":"2026-11-24T11:31:31.471Z","cmd":"api","method":"POST","path":"/api/projects","status":409}
+{"at":"2026-11-24T11:31:34.433Z","cmd":"api","method":"POST","path":"/api/projects","status":409}
+{"at":"2026-11-24T11:31:34.667Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:31:41.272Z","cmd":"api","method":"POST","path":"/api/bots","status":200}
+{"at":"2026-11-24T11:31:41.519Z","cmd":"api","method":"POST","path":"/api/bots","status":200}
+{"at":"2026-11-24T11:31:41.823Z","cmd":"api","method":"POST","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:31:42.099Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:31:48.858Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T11:31:50.995Z","cmd":"goto","path":"/?desktop=1&caps=hosts&host=server&project=arena","after":"url=http://127.0.0.1:47006/?desktop=1&caps=hosts&host=server title=\"Toki\""}
+{"at":"2026-11-24T11:31:51.731Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:31:54.541Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\server-page-deeplink.aria.yml"}
+{"at":"2026-11-24T11:31:55.415Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\server-page-deeplink.png"}
+{"at":"2026-11-24T11:32:09.081Z","cmd":"click","role":"button","name":"Back to this PC","after":"url=http://127.0.0.1:47006/?desktop=1&caps=hosts&host=server title=\"Toki\""}
+{"at":"2026-11-24T11:32:10.375Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T11:32:12.551Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder title=\"Toki\""}
+{"at":"2026-11-24T11:32:13.383Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:32:14.329Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\pc-page-no-hosts-cap.aria.yml"}
+{"at":"2026-11-24T11:32:15.596Z","cmd":"click","role":"button","name":"Tower Climb Server (offline)","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder title=\"Toki\" dialogs=[\"Tower Climb\"]"}
+{"at":"2026-11-24T11:32:16.448Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-elsewhere.aria.yml"}
+{"at":"2026-11-24T11:32:17.899Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\prompt-elsewhere-dark.png"}
+{"at":"2026-11-24T11:32:19.107Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder title=\"Toki\""}
+{"at":"2026-11-24T11:32:21.279Z","cmd":"goto","path":"/?desktop=1&caps=localcopy,openfolder,hosts,server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:32:22.079Z","cmd":"wait","what":"heading \"Projects\"","gone":false}
+{"at":"2026-11-24T11:32:23.330Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:32:24.610Z","cmd":"click","role":"menuitem","name":"Usage","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:32:24.898Z","cmd":"api","method":"GET","path":"/api/usage","status":200}
+{"at":"2026-11-24T11:32:25.745Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\usage-note-dark.aria.yml"}
+{"at":"2026-11-24T11:32:26.942Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\usage-note-dark.png"}
+{"at":"2026-11-24T11:32:38.525Z","cmd":"api","method":"PUT","path":"/api/hosts/server/projects","status":200}
+{"at":"2026-11-24T11:32:40.397Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\list-connected.aria.yml"}
+{"at":"2026-11-24T11:32:42.636Z","cmd":"click","role":"button","name":"Obby Run Server","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:32:52.115Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:32:53.265Z","cmd":"click","role":"menuitem","name":"Settings","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:32:54.472Z","cmd":"click","role":"tab","name":"Appearance","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:32:56.159Z","cmd":"click","role":"button","name":"Light","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:32:57.542Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:32:58.782Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:32:59.921Z","cmd":"click","role":"menuitem","name":"Usage","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:33:00.979Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\usage-note-light.aria.yml"}
+{"at":"2026-11-24T11:33:01.807Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\evidence\\20261124-192646\\d4\\usage-note-light.png"}
+{"at":"2026-11-24T11:33:04.857Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\""}
+{"at":"2026-11-24T11:33:05.970Z","cmd":"click","role":"menuitem","name":"Settings","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:33:07.425Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T11:33:18.878Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T11:33:40.923Z","cmd":"stop","keepData":false}

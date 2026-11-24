@@ -1,0 +1,4 @@
+22:26:50.568 start; window: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server; tunnel pid(s): 7308
+22:26:50.615 killed tunnel ssh 7308
+22:26:53.056 window: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+22:28:47.480 end; tunnels now: 

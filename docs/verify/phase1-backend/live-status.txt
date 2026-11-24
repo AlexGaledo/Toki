@@ -1,0 +1,53 @@
+◇ injected env (0) from .env
+data dir: C:\Users\alex\AppData\Local\Temp\toki-phase1-tLhF
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data C:\Users\alex\AppData\Local\Temp\toki-phase1-tLhF · http://127.0.0.1:25050
+throwaway hub on 127.0.0.1:25050
+
+### GET /api/game-tools -> HTTP 200 in 3.1 s
+{
+  "supported": true,
+  "blender": {
+    "ok": true,
+    "reason": "found",
+    "exe": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
+    "version": "5.2.2",
+    "fix": null
+  },
+  "uv": {
+    "ok": true,
+    "reason": "system",
+    "path": "C:\\Users\\alex\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\uv.exe",
+    "version": "0.11.15",
+    "pinned": "0.11.15",
+    "fix": null
+  },
+  "blenderMcp": {
+    "version": "2.3.1",
+    "ok": false,
+    "reason": "not-installed",
+    "addonSha256": null,
+    "fix": "install-blender-mcp"
+  },
+  "blenderProcess": {
+    "project": null,
+    "pid": null,
+    "port": null,
+    "idleMs": null,
+    "exe": null,
+    "crashes": 0,
+    "crashLog": false,
+    "fix": null,
+    "state": "stopped"
+  },
+  "studio": {
+    "ok": false,
+    "reason": "not-running",
+    "mcpBat": true,
+    "studioMcp": true,
+    "setting": "on",
+    "running": false,
+    "verified": false,
+    "fix": null
+  }
+}
+

@@ -6,14 +6,13 @@ import { useStore, botById, selectActiveRoom } from '../../store';
 import { fmtAge, type InboxItem } from '../../lib/inbox';
 import { useInbox } from '../../lib/useInbox';
 import { avatarStatus, STATUS_LABEL, useBotStatus, type BotStatus } from '../../lib/botStatus';
-import { cardWords } from '../../lib/approvalWords';
+import { approvalSummary } from '../../lib/approvalWords';
 import { projectOfRoom } from '../../lib/projects';
 import { revealMessage, useOverview } from '../../lib/useProject';
 import type { ProjectInfo } from '../../lib/api';
 import { ActionCard, ActionCardActions, ActionCardHeader, Avatar, Badge, Button, IconRailButton, SectionLabel, Tooltip, cn } from '../ui';
 import { WorkflowApprovalCardView } from '../workflows/WorkflowCard';
 import { FailoverCardView } from '../FailoverCard';
-import { fmtInput } from '../WorkLine';
 
 type Pane = 'next' | 'rooms' | 'done';
 const PANES: { id: Pane; label: string; icon: React.ReactNode }[] = [
@@ -178,8 +177,7 @@ function ReviewCard({ item, covering }: { item: InboxItem; covering: boolean }) 
   const closePanel = useStore((s) => s.closePanel);
   const Icon = KIND_ICON[item.kind];
   const age = fmtAge(item.since, Date.now());
-  const words = item.approval ? cardWords(item.approval) : null;
-  const summary = item.approval ? (words ? words.main : fmtInput(item.approval.toolInput)).replace(/\s+/g, ' ').trim().slice(0, 160) : '';
+  const summary = item.approval ? approvalSummary(item.approval) : '';
 
   const review = () => {
     if (!item.roomId) return;

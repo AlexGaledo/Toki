@@ -8,7 +8,9 @@ import {
 import type { Db, Row } from '../db/db.js';
 import type { Repos } from '../db/repos.js';
 import type { MemoryService } from './MemoryService.js';
-import { DEV_TEAM_TEMPLATE, FEATURES_README, cloneDescription, templateRecord } from './devTeamTemplate.js';
+import { FEATURES_README, TEAM_TEMPLATES, cloneDescription, templateRecord, type TeamTemplate } from './devTeamTemplate.js';
+import { runGit, type GitRunner } from './git.js';
+import { logError } from '../providers/redact.js';
 import { sandboxActive } from '../providers/sandbox.js';
 import { EMPTY_OVERVIEW, parseProjectOverview } from './projectOverview.js';
 
@@ -19,6 +21,8 @@ export interface Project {
   memberIds: string[];
   roomId: string | null;
   templateVersion: number | null;
+  /** 'game': its room gets Toki's headless Blender. Set by the game template (B7), never by a bot. */
+  kind: 'game' | null;
   createdAt: number;
 }
 export interface ProjectHit { project: string; path: string; status: string; updated: string | null; reviewExpired: boolean; snippet: string }
@@ -36,6 +40,18 @@ const MAX_OVERVIEW_BYTES = 256 * 1024;
 const CHUNK_CHARS = 1200;
 const TINY_CHARS = 80;
 const STOP = new Set('a an the is are was were be of to in on for and or what which who how when where why do does did i we our my it its this that these those with at by from as ang ng sa na ba yung mga si ni kay para ano paano saan bakit kailan sino ko mo natin namin ito iyon po ha lang din rin may meron'.split(' '));
+
+/**
+ * A game project's checkpoint always carries the current scene. The B8 A/B run showed bots commit `exports/` and forget
+ * `art/<slug>.blend`, with or without the blender-loop skill, so a pre-commit hook stages the .blend files on every
+ * commit. Fixed text, written by Toki at git init; it runs nothing but `git add` on paths inside the repo.
+ */
+export const CHECKPOINT_HOOK = '#!/bin/sh\n# Written by Toki: every checkpoint includes the current Blender scene.\ngit add -- "art/*.blend" 2>/dev/null\nexit 0\n';
+export function writeCheckpointHook(repoDir: string): void {
+  const hooks = path.join(repoDir, '.git', 'hooks');
+  fs.mkdirSync(hooks, { recursive: true });
+  fs.writeFileSync(path.join(hooks, 'pre-commit'), CHECKPOINT_HOOK, { mode: 0o755 });
+}
 
 export function slugify(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
@@ -65,7 +81,14 @@ function chunk(text: string): string[] {
 
 export class ProjectService {
   private reposCache = new Map<string, { mtimeMs: number; size: number; file: ProjectReposFile }>();
-  constructor(private deps: { db: Db; repos: Repos; memory: MemoryService; root: string; now?: () => number }) {}
+  constructor(private deps: {
+    db: Db; repos: Repos; memory: MemoryService; root: string; now?: () => number; git?: GitRunner;
+    /**
+     * Seeds a template's source bots the first time a project uses it, so a hub that never makes a game project never
+     * gets @roblox-builder or @blender-artist. Runs after the skill check, before the source bots are looked up.
+     */
+    seedSources?: (template: TeamTemplate) => unknown;
+  }) {}
 
   private get db() { return this.deps.db; }
   private now() { return (this.deps.now ?? Date.now)(); }
@@ -81,6 +104,7 @@ export class ProjectService {
       memberIds: this.db.all('SELECT bot_id FROM project_members WHERE slug=? ORDER BY bot_id', slug).map((m) => m.bot_id as string),
       roomId: (r.room_id as string | null) ?? null,
       templateVersion: (r.template_version as number | null) ?? null,
+      kind: r.kind === 'game' ? 'game' : null,
       createdAt: Number(r.created_at),
     };
   }
@@ -104,7 +128,8 @@ export class ProjectService {
     return this.db.all('SELECT slug FROM projects').map((r) => r.slug as string);
   }
 
-  create(input: { name: string; team?: boolean; memberIds?: string[] }): { project: Project; bots: Bot[]; room: Room | null } {
+  /** `template` wins over `team`; `team: true` alone means the dev template. */
+  create(input: { name: string; team?: boolean; template?: TeamTemplate['id']; memberIds?: string[] }): { project: Project; bots: Bot[]; room: Room | null } {
     const slug = slugify(input.name);
     if (!slug) throw new ProjectError(400, 'A project name needs letters or numbers');
     if (this.get(slug)) throw new ProjectError(409, 'There is already a project called ' + slug);
@@ -113,7 +138,8 @@ export class ProjectService {
 
     const name = input.name.trim();
     const dir = this.dirOf(slug);
-    const plan = input.team ? this.planTeam(slug, name, dir) : [];
+    const template: TeamTemplate | null = input.template ? TEAM_TEMPLATES[input.template] : input.team ? TEAM_TEMPLATES.dev : null;
+    const plan = template ? this.planTeam(slug, name, dir, template) : [];
 
     fs.mkdirSync(path.join(dir, 'archive'), { recursive: true });
     const current = path.join(dir, 'current.md');
@@ -124,6 +150,13 @@ export class ProjectService {
     fs.mkdirSync(path.join(dir, 'features'), { recursive: true });
     const featuresIndex = path.join(dir, 'features', 'README.md');
     if (!fs.existsSync(featuresIndex)) fs.writeFileSync(featuresIndex, FEATURES_README);
+    for (const f of template?.folders ?? []) {
+      fs.mkdirSync(path.join(dir, f), { recursive: true });
+      const keep = path.join(dir, f, '.gitkeep');
+      if (!fs.existsSync(keep)) fs.writeFileSync(keep, '');
+    }
+    const ignore = path.join(dir, '.gitignore');
+    if (template?.git && !fs.existsSync(ignore)) fs.writeFileSync(ignore, '*.toki-tmp\n*.blend1\n');
     const bots = plan.map((p) => {
       const bot = this.deps.repos.createBot(p.input);
       this.deps.memory.ensureHome(bot.id);
@@ -135,7 +168,7 @@ export class ProjectService {
       const today = new Date(this.now()).toISOString().slice(0, 10);
       const skills = Object.fromEntries(plan.map((p) => [p.input.handle, p.skillIds.map((id) => this.deps.repos.getSkill(id)?.name ?? id)]));
       const record = path.join(dir, 'TEMPLATE.md');
-      if (!fs.existsSync(record)) fs.writeFileSync(record, templateRecord(name, today, skills));
+      if (!fs.existsSync(record)) fs.writeFileSync(record, templateRecord(name, today, skills, template ?? undefined));
     }
     const coordinator = bots[plan.findIndex((p) => p.coordinator)]?.id ?? null;
     const room = bots.length
@@ -143,30 +176,31 @@ export class ProjectService {
       : null;
 
     this.db.run(
-      'INSERT INTO projects (slug,name,room_id,template_version,created_at) VALUES (?,?,?,?,?)',
-      slug, name, room?.id ?? null, input.team ? DEV_TEAM_TEMPLATE.version : null, this.now(),
+      'INSERT INTO projects (slug,name,room_id,template_version,kind,created_at) VALUES (?,?,?,?,?,?)',
+      slug, name, room?.id ?? null, template?.version ?? null, template?.kind ?? null, this.now(),
     );
     this.setMembers(slug, [...members, ...bots.map((b) => b.id)]);
     return { project: this.need(slug), bots, room };
   }
 
-  private planTeam(slug: string, name: string, dir: string) {
+  private planTeam(slug: string, name: string, dir: string, template: TeamTemplate) {
     const pool = this.deps.repos.listSkills();
-    const required = DEV_TEAM_TEMPLATE.skills.map((skillName) => {
+    const required = template.skills.map((skillName) => {
       const skill = pool.find((s) => s.name === skillName);
-      if (!skill) throw new ProjectError(409, 'The dev team template needs the skill ' + skillName + ', which does not exist');
+      if (!skill) throw new ProjectError(409, 'The ' + template.label + ' template needs the skill ' + skillName + ', which does not exist');
       return skill.id;
     });
-    return DEV_TEAM_TEMPLATE.roles.map((role) => {
+    this.deps.seedSources?.(template);
+    return template.roles.map((role) => {
       const source = this.deps.repos.getBotByHandle(role.source);
-      if (!source) throw new ProjectError(409, 'The dev team template needs the bot @' + role.source + ', which does not exist');
+      if (!source) throw new ProjectError(409, 'The ' + template.label + ' template needs the bot @' + role.source + ', which does not exist');
       const handle = slug.slice(0, 15).replace(/-+$/, '') + '-' + role.suffix;
       if (this.deps.repos.getBotByHandle(handle)) throw new ProjectError(409, 'Handle already taken: ' + handle);
       const parsed = BotInputSchema.safeParse({
         name: source.name,
         handle,
         title: name,
-        description: cloneDescription(source.description, name, dir),
+        description: cloneDescription(source.description, name, dir, template),
         avatar: source.avatar,
         model: 'auto',
         allowedTools: source.allowedTools,
@@ -175,6 +209,26 @@ export class ProjectService {
       if (!parsed.success) throw new ProjectError(400, 'Cannot clone @' + role.source + ': ' + parsed.error.issues.map((i) => i.path.join('.') + ' ' + i.message).join('; '));
       return { input: parsed.data, coordinator: role.coordinator, skillIds: [...new Set([...this.deps.repos.botSkillIds(source.id), ...required])] };
     });
+  }
+
+  /**
+   * The game template's folder becomes a git repo with one first commit (spec §3, Checkpoints). A repo already there is
+   * left alone. Hooks are off (GIT_SAFE_CONFIG) and the env is git's own allowlist, never the hub token.
+   */
+  async initRepo(slug: string): Promise<'created' | 'exists' | 'failed'> {
+    const dir = this.need(slug).dir;
+    if (fs.existsSync(path.join(dir, '.git'))) return 'exists';
+    const git = this.deps.git ?? runGit;
+    try {
+      await git(['init', '-q', '-b', 'main'], { cwd: dir, timeoutMs: 30_000 });
+      writeCheckpointHook(dir);
+      await git(['add', '-A'], { cwd: dir, timeoutMs: 30_000 });
+      await git(['-c', 'user.name=Toki', '-c', 'user.email=toki@localhost', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'Start ' + this.need(slug).name + ' from the game team template'], { cwd: dir, timeoutMs: 30_000 });
+      return 'created';
+    } catch (e) {
+      logError('[projects] git init ' + slug, e);
+      return 'failed';
+    }
   }
 
   setMembers(slug: string, botIds: string[]) {

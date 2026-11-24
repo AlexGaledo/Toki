@@ -1,0 +1,81 @@
+# Phase 1 backend fail-then-pass, as run on 2026-11-24 (targeted vitest files only; packages/hub)
+# Per-guard mutations are in mutations.txt. These are the whole-change runs.
+
+## B1: gameTools.test.ts with services/gameTools.ts moved away
+ FAIL  src/services/gameTools.test.ts [ src/services/gameTools.test.ts ]
+Error: Cannot find module './gameTools.js' imported from .../packages/hub/src/services/gameTools.test.ts
+ Test Files  1 failed (1)
+      Tests  no tests
+## after
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+
+## B6: gameToolsInstall.test.ts with services/gameTools.ts at the B1 commit (fcbe5d8)
+     × downloads the pinned zip, unpacks it with Windows tar into <data>/tools/uv/<version>/, and leaves no staging
+     × NEGATIVE: a wrong sha256 leaves nothing on disk and runs nothing
+     × NEGATIVE: PATH and the registry are unchanged by an install
+     × cleans up a failed unpack, and reports download failures without writing
+     × needs uv first
+     × makes the venv and installs from the hashed requirements, records the add-on hash, then reports installed
+     × NEGATIVE: an add-on that does not hash to the pin removes the whole environment
+     × NEGATIVE: a failed pip install (such as a hash mismatch) removes the whole environment
+     × NEGATIVE: refuses while RobloxStudioBeta.exe runs, and writes nothing
+     × sets only mcp-server.enabled, keeps every other key and the layout, and writes a .toki-bak
+     × keeps CRLF, a final newline, and unknown keys inside mcp-server
+     × NEGATIVE: changes nothing when a file will not parse or has no mcp-server key, and shows the menu path
+     × handles each account file on its own: a bad one does not stop a good one
+TypeError: s.gt.installUv is not a function   (and installBlenderMcp / enableStudioMcp)
+      Tests  13 failed (13)
+## after (with gameTools.test.ts)
+ Test Files  2 passed (2)
+      Tests  28 passed (28)
+
+## B2: api/gameTools.test.ts with hub.ts at the B6 commit (route not mounted)
+     × refuses a live bot MCP bearer on every route before the handler (401: it is not a hub credential), and writes nothing
+     × reports the fixture PC with fixed reason words
+     × refuses any field a fix step does not take, and runs nothing
+     × refuses command, args or env on the Studio setup, and an unknown room
+     × writes the fixed Studio recipe for one room, and adds a second room without changing the command
+     × downloads only the pinned uv URL, whatever the query string says
+     × records one named row per write, with no generic request row
+     × refuses the Studio setting while Studio runs, logs the refusal, and changes nothing
+     × works under ask and under bypass
+     × runs one step at a time
+      Tests  10 failed | 1 passed (11)
+# The one that passes is "403s a paired device on every route": the pipeline's DEVICE_ALLOW already refuses an
+# unlisted route, mounted or not, and DEVICE_ALLOW is unchanged (deviceAllow.test.ts passes on its snapshot).
+## after
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+
+## B5: services/gameTools.ts, api/mcpServers.ts, api/gameTools.ts, hub.ts at the B2 commit (e632778)
+     × shows starting with the project and port, then crashing past the cap with its log, and stopped after reset
+     × reports the Studio recipe with fixed words: setting-off, studio-not-open, then command-found
+     × serves BlenderHost's crash log for Open log, redacted, and null when there is none
+AssertionError: expected { ok: true, …(2) } to match object { ok: false, result: 'setting-off' }
+AssertionError: expected { error: 'No such route' } to deeply equal { log: null }
+TypeError: gt.crashLog is not a function
+      Tests  3 failed | 26 passed (29)
+## after
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+
+## The one mutation that survived (mutations.txt: "handler lets any principal through"), closed by a direct handler test
+# api/gameTools.ts with `if (principalOf(req)?.kind !== 'hub' || !actor)` changed to `if (!actor)`:
+     × 403s a device, runner or missing principal even if the pipeline let one through
+      Tests  1 failed | 13 passed (14)
+## restored
+      Tests  14 passed (14)
+
+## Final targeted run (gameTools, gameToolsInstall, api/gameTools, mcpServers, deviceAllow, BlenderHost, guard)
+ Test Files  7 passed (7)
+      Tests  120 passed (120)
+
+## pnpm lint
+> eslint --cache --cache-location node_modules/.cache/eslint/ .
+(no problems)
+
+## pnpm ts-strict
+Fewer strict-TS errors than the baseline; run `pnpm ts-strict --update` to lock it in:
+  hub:src/permissions/outsideMcpApproval.test.ts: 4 -> 2
+ok: 1493 frozen strict-TS errors, none new

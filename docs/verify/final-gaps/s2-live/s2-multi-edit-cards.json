@@ -1,0 +1,41 @@
+[
+  {
+    "n": 1,
+    "toolName": "mcp__roblox-studio__multi_edit",
+    "codeField": "edits",
+    "once": false,
+    "danger": false,
+    "toolInput": {
+      "file_path": "game.ServerScriptService.TokiEdit",
+      "className": "Script",
+      "datamodel_type": "Edit",
+      "studio_id": "0c614c2c-5284-40bf-8476-4e370358f12b",
+      "edits": [
+        {
+          "old_string": "",
+          "new_string": "print(\"toki one\")"
+        }
+      ]
+    },
+    "decision": "allow"
+  },
+  {
+    "n": 2,
+    "toolName": "mcp__roblox-studio__multi_edit",
+    "codeField": "edits",
+    "once": false,
+    "danger": false,
+    "toolInput": {
+      "file_path": "game.ServerScriptService.TokiEdit",
+      "datamodel_type": "Edit",
+      "studio_id": "0c614c2c-5284-40bf-8476-4e370358f12b",
+      "edits": [
+        {
+          "old_string": "print(\"toki one\")",
+          "new_string": "print(\"toki two\")"
+        }
+      ]
+    },
+    "decision": "allow"
+  }
+]

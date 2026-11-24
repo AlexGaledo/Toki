@@ -1,0 +1,10 @@
+### art/ (after the run)
+total 80
+drwxr-xr-x 1 alex 197121     0 Nov 24 20:08 .
+drwxr-xr-x 1 alex 197121     0 Nov 24 20:08 ..
+-rw-r--r-- 1 alex 197121     0 Nov 24 20:08 .gitkeep
+-rw-r--r-- 1 alex 197121 76005 Nov 24 20:08 cube-test.blend
+### git status --short
+?? art/cube-test.blend
+### git log
+7554734 Start Cube Test from the game team template

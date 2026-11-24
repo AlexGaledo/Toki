@@ -1,0 +1,142 @@
+- complementary:
+  - button "Hide bots"
+  - button "Search every chat"
+  - button "New"
+  - button "Needs you 1 waiting"
+  - button "Tasks"
+  - button "PC sessions"
+  - region "Projects":
+    - heading "Projects" [level=2]
+    - list:
+      - listitem:
+        - button "Obby Run bots" [expanded]
+        - button "Obby Run 1 waiting on you"
+        - list:
+          - listitem:
+            - button "Obby Run"
+          - listitem:
+            - button "Blender Artist · Idle Blender Artist The cube is in, lit from the left. Here is the camera view.":
+              - img "Blender Artist · Idle"
+              - text: Blender Artist The cube is in, lit from the left. Here is the camera view.
+          - listitem:
+            - button "Roblox Builder · Needs you Roblox Builder Needs you":
+              - img "Roblox Builder · Needs you"
+              - text: Roblox Builder Needs you
+          - listitem:
+            - button "Lead Engineer · Idle Lead Engineer @obby-run-lead":
+              - img "Lead Engineer · Idle"
+              - text: Lead Engineer @obby-run-lead
+      - listitem:
+        - button "Tower Climb bots"
+        - button "Tower Climb"
+  - button "Bots bots" [expanded]
+  - text: Bots
+  - region "Podium":
+    - list:
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+    - button "Edit podium"
+  - list:
+    - listitem:
+      - button "Toki Support · Idle Toki Support @pocketrocket-support":
+        - img "Toki Support · Idle"
+        - text: Toki Support @pocketrocket-support
+    - listitem:
+      - button "Data Engineer · Idle Data Engineer @data-engineer":
+        - img "Data Engineer · Idle"
+        - text: Data Engineer @data-engineer
+    - listitem:
+      - button "Roblox Builder · Idle Roblox Builder @roblox-builder":
+        - img "Roblox Builder · Idle"
+        - text: Roblox Builder @roblox-builder
+    - listitem:
+      - button "Blender Artist · Idle Blender Artist @blender-artist":
+        - img "Blender Artist · Idle"
+        - text: Blender Artist @blender-artist
+    - listitem:
+      - button "Lead Engineer · Idle Lead Engineer @lead-engineer":
+        - img "Lead Engineer · Idle"
+        - text: Lead Engineer @lead-engineer
+  - button "Menu for Verifier. Online": Verifier Online
+  - button "Pair a phone"
+- separator "Resize sidebar"
+- main:
+  - heading "Obby Run" [level=1]
+  - text: No plan yet
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Map"
+    - tab "Tasks"
+  - button "Obby Run"
+  - button "Open Blender Artist's page":
+    - img "Blender Artist · Idle"
+  - button "Open Roblox Builder's page":
+    - img "Roblox Builder · Needs you"
+  - button "Open Lead Engineer's page":
+    - img "Lead Engineer · Idle"
+  - text: coordinator @obby-run-lead
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - tabpanel "Chat":
+    - group "Game tools": Blender stopped Studio not open (unverified)
+    - img "Blender Artist"
+    - text: Blender Artist 06:19 PM
+    - button "Worked · 2 steps"
+    - 'button "Look-back from blender: look"':
+      - 'img "Look-back from blender: look"'
+    - paragraph: The cube is in, lit from the left. Here is the camera view.
+    - img "Roblox Builder"
+    - text: Roblox Builder 06:19 PM Needs your OK mcp__roblox-studio__execute_luau Outside server "roblox-studio" tool "execute_luau"
+    - term: studio_id
+    - definition: studio-1
+    - region "code for execute_luau":
+      - code: "-- Add a finish pad at the end of the obby local pad = Instance.new(\"Part\") pad.Name = \"FinishPad\" pad.Size = Vector3.new(10, 1, 10) pad.Position = Vector3.new(130, 30, 0) pad.Anchored = true pad.BrickColor = BrickColor.new(\"Lime green\") pad.Parent = workspace print(\"finish pad added\")"
+    - button "Allow once"
+    - button "Deny"
+    - text: Asked every time.
+    - 'textbox "Message #Obby Run"':
+      - /placeholder: Message @bot or the room…
+    - button "Attach files"
+    - 'button "Permission level for all bots: Approval"': Approval
+    - status
+    - 'button "Model for this chat: Auto"': Auto
+    - button "Send" [disabled]
+- separator "Resize overview"
+- complementary "Obby Run overview":
+  - heading "Needs you" [level=2]
+  - text: 1 waiting
+  - button "Fold overview to icons"
+  - region "Needs you":
+    - list:
+      - listitem:
+        - text: Needs your OK mcp__roblox-studio__execute_luau just now @obby-run-builder
+        - paragraph: "roblox-studio · execute_luau: -- Add a finish pad at the end of the obby"
+        - paragraph: Outside server "roblox-studio" tool "execute_luau"
+        - button "Review"
+  - region "Bots":
+    - heading "Bots" [level=2]
+    - text: "3"
+    - list:
+      - listitem:
+        - button "Blender Artist · Idle Blender Artist Obby Run":
+          - img "Blender Artist · Idle"
+          - text: Blender Artist Obby Run
+      - listitem:
+        - button "Roblox Builder · Needs you Roblox Builder Needs you":
+          - img "Roblox Builder · Needs you"
+          - text: Roblox Builder Needs you
+      - listitem:
+        - button "Lead Engineer · Idle Lead Engineer Obby Run":
+          - img "Lead Engineer · Idle"
+          - text: Lead Engineer Obby Run
+  - region "More about this project":
+    - group "More":
+      - button "Next"
+      - button "Rooms"
+      - button "Done"
+- status

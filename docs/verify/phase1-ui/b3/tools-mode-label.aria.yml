@@ -1,0 +1,61 @@
+# url=http://127.0.0.1:38986/ title="(1) Toki" dialogs=["Settings"]
+- separator "Resize sidebar"
+- separator "Resize overview"
+- status
+- dialog "Settings":
+  - complementary:
+    - heading "Settings" [level=2]
+    - tablist "Settings sections":
+      - tab "Account"
+      - tab "Security"
+      - tab "Claude"
+      - tab "Bots"
+      - tab "Projects"
+      - tab "Tools" [selected]
+      - tab "Game tools"
+      - tab "Reports"
+      - tab "Connections"
+      - tab "Logins"
+      - tab "Knowledge"
+      - tab "Devices"
+      - tab "PC runner"
+      - tab "Notifications"
+      - tab "Appearance"
+      - tab "About"
+  - button "Close"
+  - tabpanel "Tools":
+    - banner:
+      - heading "Tools" [level=2]
+      - paragraph: Outside tool servers your bots can use. A change applies on the bot's next reply.
+    - heading "Servers" [level=3]
+    - text: roblox-studio Program C:\WINDOWS\System32\cmd.exe /d /c C:\Users\alex\AppData\Local\Roblox\mcp.bat
+    - button "Check"
+    - button "Remove roblox-studio"
+    - term: Last check
+    - definition: Not checked yet
+    - term: Used by
+    - definition: 4Mxt6TK6wO
+    - text: Approval
+    - combobox "Approval":
+      - option "Ask every time"
+      - option "Ask for changes only"
+      - option "Never ask"
+      - option "Follow approval setting" [selected]
+    - heading "Add a server" [level=3]
+    - text: Name lowercase letters and dashes
+    - textbox "Name":
+      - /placeholder: notes
+    - text: Type
+    - combobox "Type":
+      - option "Web address" [selected]
+      - option "Program on this computer"
+    - text: Address
+    - textbox "Address":
+      - /placeholder: https://example.com/mcp
+    - text: Token (optional) saved, never shown again
+    - textbox "Token (optional)"
+    - group "Bots that may use it":
+      - text: Bots that may use it
+      - button "Toki Support"
+      - button "Data Engineer"
+    - button "Add server" [disabled]

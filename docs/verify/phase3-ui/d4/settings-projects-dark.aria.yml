@@ -1,0 +1,69 @@
+# url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title="Toki" dialogs=["Settings"]
+- status
+- dialog "Settings":
+  - complementary:
+    - heading "Settings" [level=2]
+    - tablist "Settings sections":
+      - tab "Account"
+      - tab "Security"
+      - tab "Claude"
+      - tab "Bots"
+      - tab "Projects" [selected]
+      - tab "Tools"
+      - tab "Game tools"
+      - tab "Reports"
+      - tab "Connections"
+      - tab "Logins"
+      - tab "Knowledge"
+      - tab "Devices"
+      - tab "PC runner"
+      - tab "Notifications"
+      - tab "Appearance"
+      - tab "About"
+  - button "Close"
+  - tabpanel "Projects":
+    - banner:
+      - heading "Projects" [level=2]
+      - paragraph: Shared folders. Only the bots you list here can work in a project's folder.
+    - heading "New project" [level=3]
+    - text: Name
+    - textbox "Name":
+      - /placeholder: Wika
+    - text: Team
+    - radiogroup "Team":
+      - radio "None" [checked]: None Just the shared folder. Give bots access to it below.
+      - radio "Dev team": Dev team Adds a lead, an engineer and a quality engineer, with a group chat.
+      - radio "Game team" [disabled]: Game team Adds a lead, a Roblox builder and a Blender artist, a group chat with game tools, game folders and git. Install the Blender tools in Settings › Game tools first.
+    - button "Create project" [disabled]
+    - heading "Obby Run" [level=3]
+    - text: This PC
+    - button "Open the folder of Obby Run": Open folder
+    - paragraph: ~\AppData\Local\Temp\toki-verify-p3ui\run\data\projects\obby-run
+    - paragraph: Needs a look
+    - list:
+      - listitem: "current.md: Under 80 characters."
+      - listitem: "features/README.md: No updated date."
+    - group: 1 bot has access
+    - group: Repos
+    - heading "Wika" [level=3]
+    - text: This PC
+    - button "Open the folder of Wika": Open folder
+    - paragraph: ~\AppData\Local\Temp\toki-verify-p3ui\run\data\projects\wika
+    - paragraph: Needs a look
+    - list:
+      - listitem: "current.md: Under 80 characters."
+      - listitem: "features/README.md: No updated date."
+    - group: 1 bot has access
+    - group: Repos
+    - heading "CRM sync" [level=3]
+    - text: Server
+    - paragraph: On your server, which is offline. Last listed Nov 24, 2026, 7:27 PM.
+    - button "Open CRM sync on your server": Open on server
+    - heading "Obby Run" [level=3]
+    - text: Server
+    - paragraph: On your server, which is offline. Last listed Nov 24, 2026, 7:27 PM.
+    - button "Open Obby Run on your server": Open on server
+    - heading "Tower Climb" [level=3]
+    - text: Server
+    - paragraph: On your server, which is offline. Last listed Nov 24, 2026, 7:27 PM.
+    - button "Open Tower Climb on your server": Open on server

@@ -1,0 +1,38 @@
+## pnpm lint
+
+> pocketrocket@0.5.4 lint C:\Users\alex\Desktop\claude-grokbot-spec-gamedev
+> eslint --cache --cache-location node_modules/.cache/eslint/ .
+
+exit 0
+
+## pnpm ts-strict
+
+> pocketrocket@0.5.4 ts-strict C:\Users\alex\Desktop\claude-grokbot-spec-gamedev
+> node scripts/ts-strict.mjs
+
+Fewer strict-TS errors than the baseline; run `pnpm ts-strict --update` to lock it in:
+  hub:src/permissions/outsideMcpApproval.test.ts: 4 -> 2
+ok: 1493 frozen strict-TS errors, none new
+exit 0
+
+## node --test scripts/contrast.test.mjs scripts/token-parity.test.mjs
+ℹ tests 8
+ℹ suites 2
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 188.009
+
+## packages/web: npx vite build, then node scripts/bundle-budget.mjs
+entry chunk index-CJBAJ3sl.js: 918922 bytes (gzip 264795), budget 1320000
+bundle-budget: ok
+exit 0
+
+## vitest: the new tests plus the existing tests that import ChatPane, api.ts or projects
+ Test Files  7 passed (7)
+      Tests  48 passed (48)
+   Start at  17:21:07
+   Duration  3.32s (tests 54%, transform 22%, import 21%, worker 3%)
+

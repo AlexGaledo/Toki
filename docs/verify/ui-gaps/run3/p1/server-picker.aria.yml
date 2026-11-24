@@ -1,0 +1,38 @@
+# url=http://127.0.0.1:56083/ title="Toki" dialogs=["Settings"]
+- status
+- dialog "Settings":
+  - button "Close"
+  - complementary:
+    - heading "Settings" [level=2]
+    - tablist "Settings sections":
+      - tab "Account"
+      - tab "Security"
+      - tab "Claude"
+      - tab "Bots"
+      - tab "Projects" [selected]
+      - tab "Tools"
+      - tab "Game tools"
+      - tab "Reports"
+      - tab "Connections"
+      - tab "Logins"
+      - tab "Knowledge"
+      - tab "Devices"
+      - tab "PC runner"
+      - tab "Notifications"
+      - tab "Appearance"
+      - tab "About"
+  - tabpanel "Projects":
+    - banner:
+      - heading "Projects" [level=2]
+      - paragraph: Shared folders. Only the bots you list here can work in a project's folder.
+    - heading "New project" [level=3]
+    - text: Name
+    - textbox "Name":
+      - /placeholder: Wika
+    - text: Team
+    - radiogroup "Team":
+      - radio "None" [checked]: None Just the shared folder. Give bots access to it below.
+      - radio "Dev team": Dev team Adds a lead, an engineer and a quality engineer, with a group chat.
+      - radio "Game team" [disabled]: Game team Adds a lead, a Roblox builder and a Blender artist, a group chat with game tools, game folders and git. Game tools need the hub on a Windows PC.
+    - button "Create project" [disabled]
+    - text: No projects yet

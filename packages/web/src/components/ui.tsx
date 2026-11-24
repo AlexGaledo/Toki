@@ -214,17 +214,24 @@ export function RadioDot({ checked }: { checked: boolean }) {
   );
 }
 
-export function RadioCard({ checked, onSelect, disabled, title, badge, children }: { checked: boolean; onSelect: () => void; disabled?: boolean; title: React.ReactNode; badge?: React.ReactNode; children?: React.ReactNode }) {
+/**
+ * `note` sits under the description and is never dimmed, so a disabled option's reason stays readable (AA). It is part
+ * of the option's description for screen readers.
+ */
+export function RadioCard({ checked, onSelect, disabled, title, badge, note, children }: { checked: boolean; onSelect: () => void; disabled?: boolean; title: React.ReactNode; badge?: React.ReactNode; note?: React.ReactNode; children?: React.ReactNode }) {
   const select = () => { if (!disabled) onSelect(); };
   const titleId = React.useId();
   const descriptionId = React.useId();
+  const noteId = React.useId();
+  const describedBy = [children ? descriptionId : null, note ? noteId : null].filter(Boolean).join(' ') || undefined;
+  const dim = !checked && disabled && 'opacity-60';
   return (
     <div
       role="radio"
       aria-checked={checked}
       aria-disabled={disabled || undefined}
       aria-labelledby={titleId}
-      aria-describedby={children ? descriptionId : undefined}
+      aria-describedby={describedBy}
       tabIndex={checked ? 0 : -1}
       onClick={select}
       onKeyDown={(e) => radioKeyDown(e, select)}
@@ -233,15 +240,15 @@ export function RadioCard({ checked, onSelect, disabled, title, badge, children 
         checked ? 'bg-accent/8 ring-accent/50' : 'bg-card2/40 ring-line',
         disabled ? 'cursor-default' : 'cursor-pointer',
         !checked && !disabled && 'hover:bg-hover',
-        !checked && disabled && 'opacity-60',
       )}
     >
-      <div className="flex items-center gap-2">
+      <div className={cn('flex items-center gap-2', dim)}>
         <RadioDot checked={checked} />
         <span id={titleId} className="text-ui font-medium">{title}</span>
         {badge}
       </div>
-      {children && <div id={descriptionId} className="mt-1 pl-6 text-ui leading-relaxed text-muted">{children}</div>}
+      {children && <div id={descriptionId} className={cn('mt-1 pl-6 text-ui leading-relaxed text-muted', dim)}>{children}</div>}
+      {note && <div id={noteId} className="mt-1 pl-6 text-hint leading-relaxed text-fg">{note}</div>}
     </div>
   );
 }

@@ -1,0 +1,10 @@
+text   @cube-test-artist add a red cube and look at it
+tool mcp__blender__get_addon_status  mcp__blender__get_addon_status
+tool mcp__blender__get_scene_info  mcp__blender__get_scene_info
+tool mcp__blender__execute_blender_code  mcp__blender__execute_blender_code
+tool mcp__blender__execute_blender_code  mcp__blender__execute_blender_code
+tool Skill  Skill
+tool mcp__blender__execute_blender_code  mcp__blender__execute_blender_code
+tool mcp__blender__look img:27ee264721d613924c87f604d8b8f9c52b62660275ffef025acd823f0b357489 mcp__blender__look
+text   Done! Added a red cube next to the original cube. The red cube is positioned at (4, 0, 0) with a bright red material. Scene saved.
+contains [Image: source: 0

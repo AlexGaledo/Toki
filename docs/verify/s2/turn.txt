@@ -1,0 +1,68 @@
+data dir: C:\Users\alex\AppData\Local\Temp\toki-s2-turn-ny7w
+created default bots: @pocketrocket-support, @data-engineer
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data C:\Users\alex\AppData\Local\Temp\toki-s2-turn-ny7w · http://127.0.0.1:33206
+[pocketrocket] workspace: C:\Users\alex\AppData\Local\Temp\toki-s2-turn-ny7w\workspace  (token required)
+[pocketrocket] open: http://127.0.0.1:33206/  (sign in with the token from C:\Users\alex\AppData\Local\Temp\toki-s2-turn-ny7w\hub-token)
+throwaway hub on 127.0.0.1:33206
+### PUT /api/settings -> 200 approvals=ask
+### GET /api/game-tools with Studio open -> 200
+{
+  "ok": true,
+  "reason": "ready",
+  "mcpBat": true,
+  "studioMcp": true,
+  "setting": "on",
+  "running": true,
+  "verified": false,
+  "fix": null
+}
+### POST /api/projects -> 200 setup={"git":"created","studio":"added"}
+builder: @studio-test-builder
+### roblox-studio recipe: approve=mode rooms=["8_x8143zc8"] readTools=["search_game_tree","script_search","script_read","script_grep","inspect_instance","get_console_output","get_studio_state","screen_capture","list_roblox_studios","list_skills","skill","wait_job_finished","search_asset"]
+(node:13864) [CLAUDE_SDK_CAN_USE_TOOL_SHADOWED] Warning: canUseTool will not be invoked for: WebSearch, WebFetch, mcp__pocketrocket__*. Bare allowedTools entries auto-approve the whole tool before the callback is consulted. To gate every tool call, use a PreToolUse hook; or remove the bare names from allowedTools so they fall through to canUseTool. Allow rules from settings files can also shadow the callback but are not visible here.
+(Use `node --trace-warnings ...` to show where the warning was created)
+### POST message -> 200
+### CARD mcp__roblox-studio__execute_luau codeField=code once=false inputKeys=["code","datamodel_type","studio_id"] -> answering "always"
+    code (164 chars):
+      | local part = Instance.new("Part")
+      | part.Name = "TokiTest"
+      | part.BrickColor = BrickColor.new("Bright red")
+      | part.Position = Vector3.new(0, 5, 0)
+      | part.Parent = workspace
+### CARD mcp__roblox-studio__save_place codeField=(none) once=false inputKeys=["studio_id"] -> answering "allow"
+### turn finished after 28 s
+### tool calls, in order:
+  mcp__roblox-studio__list_roblox_studios
+    input: {}
+    output: {"studios":[{"file":"TokiS2.rbxl","id":"b5d5c4c7-2c1b-4901-8b8e-3d00279d0563","mode":"Edit","name":"TokiS2.rbxl","persistedToCloud":false,"state":"- Current Studio Mode: Edit\n- Available DataModels: Edit\n- Focused DataModel in the viewport: Edit"}]}
+  mcp__roblox-studio__execute_luau
+    input: {"code":"local part = Instance.new(\"Part\")\npart.Name = \"TokiTest\"\npart.BrickColor = BrickColor.new(\"Bright red\")\npart.Position = Vector3.new(0, 5, 0)\npart.Parent = workspace","datamodel_type":"Edit","studio_id":"b5d5c4c7-2c1b-4901-8b8e-3d00279d0563"}
+    output: nil
+  mcp__roblox-studio__execute_luau
+    input: {"code":"print(\"Position:\", workspace.TokiTest.Position)\nprint(\"BrickColor:\", workspace.TokiTest.BrickColor)","datamodel_type":"Edit","studio_id":"b5d5c4c7-2c1b-4901-8b8e-3d00279d0563"}
+    output: nil
+  mcp__roblox-studio__inspect_instance
+    input: {"path":"Workspace.TokiTest","studio_id":"b5d5c4c7-2c1b-4901-8b8e-3d00279d0563"}
+    output: {"path":"Workspace.TokiTest","name":"TokiTest","className":"Part","uniqueId":"1ffbf839-dffc-cae4-0b17-243500000871","children":{"immediateChildren":[],"totalDescendants":0,"childrenCount":0},"properties":{"CFrame.Rotation":"1, 0, 0, 0, 1, 0, 0, 0, 1","Anchored":false,"RightSurface":"Enum.SurfaceType.Smooth","CFrame.Position":"0, 5, 0","AssemblyAngularVelocity":"0, 0, 0","Capabilities":"","BottomSu
+  mcp__roblox-studio__screen_capture  attachments=img:ab2e323e40c153003394c8f88264eaa5fa704969ad42fe77fec931fe0768e2ad
+    input: {"capture_id":"TokiTest_1","studio_id":"b5d5c4c7-2c1b-4901-8b8e-3d00279d0563"}
+    output: [image] 
+  mcp__roblox-studio__save_place
+    input: {"studio_id":"b5d5c4c7-2c1b-4901-8b8e-3d00279d0563"}
+    output: Saved: Saved to the local place file. {"message":"Saved to the local place file.","status":"Saved","filePath":"C:/Users/alex/AppData/Local/Temp/toki-s2-place-0d31a2/TokiS2.rbxl","location":"LocalFile"}
+### execute_luau calls: 2; execute_luau cards: 1
+### cards raised: 2 -> mcp__roblox-studio__execute_luau=always, mcp__roblox-studio__save_place=allow
+### approvals rows: [{"tool_name":"mcp__roblox-studio__execute_luau","status":"always"},{"tool_name":"mcp__roblox-studio__save_place","status":"allow"}]
+### approval audit rows: [{"action":"approval.always","detail":"mcp__roblox-studio__execute_luau by bot 4z9qQEkqwO"},{"action":"approval.allow","detail":"mcp__roblox-studio__save_place by bot 4z9qQEkqwO"}]
+### messages containing "[Image: source:": 0
+### builder said: Done. Created red Part "TokiTest" at (0, 5, 0) in workspace. Inspection confirms Position: 0, 5, 0 and BrickColor: Bright red. Place saved to TokiS2.rbxl.
+### tool messages with an img: attachment: mcp__roblox-studio__screen_capture
+### media file: media\ab2e323e40c153003394c8f88264eaa5fa704969ad42fe77fec931fe0768e2ad (413612 B)
+### GET /api/game-tools after the turn -> 200 studio={"ok":true,"reason":"ready","mcpBat":true,"studioMcp":true,"setting":"on","running":true,"verified":false,"fix":null}
+### POST /api/game-tools/fix/studio-mcp-setting with Studio open -> 409
+{
+  "ok": false,
+  "step": "studio-mcp-setting",
+  "result": "studio-running",
+  "changed": []
+}

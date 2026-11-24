@@ -1,0 +1,89 @@
+PARTIAL RUN: stopped by the Claude Code harness for low system memory during mutant 13 of 27 ("B10 store: replace, not append").
+That mutant's result is unknown; the file it had mutated was restored from git afterwards. Mutants 13-27 did not run.
+
+CAUGHT  B10 handler: a password session may write  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 handler: no principal check  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 handler: any host name  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 handler: PUT only  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: 500 cap  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: slug rule  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: slug length  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: name rule (project names)  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: control and bidi characters  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: no extra fields  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: connected required  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 store: connected-only keeps stubs  (src/services/RemoteProjects.ts)  Tests  2 failed | 12 passed (14)
+
+12 of 12 completed mutants caught
+
+## Rerun of mutants 13 to 27 (2026-11-24, run by the coordinating session)
+
+```
+13 CAUGHT  B10 store: replace, not append  (src/services/RemoteProjects.ts)  Tests  7 failed | 7 passed (14)
+14 CAUGHT  B10 store: one transaction  (src/services/RemoteProjects.ts)  Tests  1 failed | 3 passed (4)
+15 CAUGHT  B10 event: hosts.changed  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+16 CAUGHT  B10 GET: stubs listed  (src/api/projects.ts)  Tests  5 failed | 5 passed (10)
+17 CAUGHT  B10 GET: local tagged pc  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+18 CAUGHT  B10 bots: knownSlugs includes stubs  (src/services/ProjectService.ts)  Tests  3 failed | 1 passed (4)
+19 CAUGHT  B10 bots: list includes stubs  (src/services/ProjectService.ts)  Tests  3 failed | 1 passed (4)
+20 CAUGHT  B10 bots: a bot path imports RemoteProjects  (src/agent/BotRunner.ts)  Tests  1 failed | 3 passed (4)
+21 CAUGHT  B11: note only when a server is known  (src/services/UsageTracker.ts)  Tests  3 failed | 4 passed (7)
+22 CAUGHT  B11: route leaves the field out when null  (src/api/rest.ts)  Tests  1 failed | 6 passed (7)
+23 CAUGHT  B11: hub wires the known host  (src/hub.ts)  Tests  1 failed | 6 passed (7)
+24 CAUGHT  seed: game bots back at startup  (src/hub.ts)  Tests  2 failed | 42 passed (44)
+25 CAUGHT  seed: hook not wired  (src/hub.ts)  Tests  1 failed | 43 passed (44)
+26 CAUGHT  seed: before the skill check  (src/services/ProjectService.ts)  Tests  1 failed | 43 passed (44)
+27 CAUGHT  hub dir: by node_modules again  (src/config.ts)  Tests  2 failed | 18 passed (20)
+15 of 15 mutants caught (mutants 13 to 27 of 27)
+```
+
+Total: 27 of 27 caught. Tree clean after the run.
+
+## B11: the remaining hub lines and the web (2026-11-24, b11_mutations.py, from the repo root)
+
+Mutants 21 to 23 above cover UsageTracker's gate, the route's field and hub.ts wiring known('server'). These cover
+RemoteProjects.known, the tracker reaching the route, and the Usage page (54f4194). The mutated file was clean in
+git after each mutant.
+
+Pass 1, on the code as committed (82e2afc's parent). The web mutants SKIP because their anchors are the lines
+82e2afc adds; the old code had no web test at all, so any web mutant would have survived.
+```
+ 1 CAUGHT  hub: known() says yes for a host never told  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 2 CAUGHT  hub: known() only while connected  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 3 CAUGHT  hub: the route is not given the tracker  (hub/src/hub.ts)  Tests  1 failed | 6 passed (7)
+ 4 CAUGHT  hub: the route never asks for the note  (hub/src/api/rest.ts)  Tests  1 failed | 6 passed (7)
+ 5 SKIP  web: the note is never shown: pattern found 0 times
+ 6 SKIP  web: any value from the hub is shown (no string check): pattern found 0 times
+ 7 SKIP  web: the note is rendered as HTML: pattern found 0 times
+ 8 SKIP  web: the Usage page drops the note: pattern found 0 times
+ 9 SKIP  web: the reply's note is not kept: pattern found 0 times
+
+4 of 9 mutants caught; the mutated file was clean after each
+```
+
+Gap: nothing failed if the Usage page stopped showing the note, showed a non-string, or rendered it as HTML.
+Fixed in 82e2afc: SubscriptionNote does the string check and the plain-text render, and
+packages/web/src/components/FleetPages.usageNote.test.tsx tests it (3 tests; all 3 fail against FleetPages.tsx at
+4a7df28, where the component does not exist yet, and pass with it).
+
+Pass 2, after 82e2afc:
+```
+ 1 CAUGHT  hub: known() says yes for a host never told  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 2 CAUGHT  hub: known() only while connected  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 3 CAUGHT  hub: the route is not given the tracker  (hub/src/hub.ts)  Tests  1 failed | 6 passed (7)
+ 4 CAUGHT  hub: the route never asks for the note  (hub/src/api/rest.ts)  Tests  1 failed | 6 passed (7)
+ 5 CAUGHT  web: the note is never shown  (web/src/components/FleetPages.tsx)  Tests  2 failed | 1 passed (3)
+ 6 CAUGHT  web: any value from the hub is shown (no string check)  (web/src/components/FleetPages.tsx)  Tests  1 failed | 2 passed (3)
+ 7 CAUGHT  web: the note is rendered as HTML  (web/src/components/FleetPages.tsx)  Tests  1 failed | 2 passed (3)
+ 8 SURVIVED  web: the Usage page drops the note  (web/src/components/FleetPages.tsx)  Tests  3 passed (3)
+ 9 SURVIVED  web: the reply's note is not kept  (web/src/components/FleetPages.tsx)  Tests  3 passed (3)
+
+7 of 9 mutants caught; the mutated file was clean after each
+```
+
+Survivors 8 and 9 are the wiring inside UsageSection: its useEffect keeps the reply's note, and its JSX places
+<SubscriptionNote>. The web's vitest runs in node with no DOM, and renderToStaticMarkup runs no effects, so no unit
+test can reach them. They are only covered live, by the verify-toki shots in phase3-ui/d4/usage-note-* (taken on
+54f4194, before this 4-line refactor; the refactor itself was not re-shot).
+
+B11 total: 3 (above) + 9 = 12 mutants, 10 caught, 2 survived (web wiring, explained above).

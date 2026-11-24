@@ -19,8 +19,8 @@ import { READ_ONLY_GUARD_TOOLS, readOnlyWriteDecision, routingFileWrite } from '
 import { secretFileAccess } from '../permissions/secretFiles.js';
 import { denyMessage } from '../permissions/messages.js';
 import { logError } from './redact.js';
-import { outsideMcpNeedsCard } from '../services/outsideMcp.js';
-import type { AgentProvider, HubTool, LimitReport, ProviderInit, SteerInput, SteerResult, TurnContext, TurnImage, TurnLimit, TurnOutcome, TurnSink } from './types.js';
+import { outsideMcpHooked, outsideMcpStep } from '../services/outsideMcp.js';
+import type { AgentProvider, HubTool, LimitReport, ProviderInit, SteerInput, SteerResult, TurnContext, TurnImage, TurnLimit, TurnOutcome, ToolResultImage, TurnSink } from './types.js';
 
 // A bare allowedTools entry bypasses canUseTool everywhere, so file and shell tools must never be listed here.
 const AUTO_OK = new Set(['WebSearch', 'WebFetch']);
@@ -219,6 +219,19 @@ export function userContent(input: string, images: readonly TurnImage[]) {
     { type: 'text' as const, text: input },
     ...inline.map((i) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: i.mediaType, data: i.data!.toString('base64') } })),
   ];
+}
+
+/**
+ * B9: the first base64 image block of a tool result, straight from the SDK message. The CLI also saves a copy under
+ * ~/.claude/.../tool-results and names it in a text block; that file is never read.
+ */
+export function firstImage(content: unknown): ToolResultImage | undefined {
+  if (!Array.isArray(content)) return undefined;
+  for (const c of content as { type?: unknown; source?: { type?: unknown; media_type?: unknown; data?: unknown } }[]) {
+    const src = c?.type === 'image' ? c.source : undefined;
+    if (src?.type === 'base64' && typeof src.media_type === 'string' && typeof src.data === 'string') return { mediaType: src.media_type, data: src.data };
+  }
+  return undefined;
 }
 
 export const STEER_CAPABILITY = 'interrupt_receipt_v1';
@@ -459,8 +472,8 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
-    // Under bypass too: bypass skips canUseTool, never a hook.
-    const gatedOutside = (ctx.outsideMcp ?? []).filter((s) => s.approve !== 'none');
+    // Under bypass too: bypass skips canUseTool, never a hook. ctx.bypassPermissions is already off on strict turns.
+    const gatedOutside = (ctx.outsideMcp ?? []).filter(outsideMcpHooked);
     const outsideGuard = gatedOutside.length
       ? [{
           matcher: 'mcp__(' + gatedOutside.map((s) => s.name).join('|') + ')__.*',
@@ -468,14 +481,26 @@ export class ClaudeProvider implements AgentProvider {
             async (hookInput: unknown) => {
               const i = hookInput as PreToolUseHookInput;
               const s = gatedOutside.find((g) => i.tool_name.startsWith('mcp__' + g.name + '__'));
-              if (!s || !outsideMcpNeedsCard(s, i.tool_name.slice(('mcp__' + s.name + '__').length))) return {};
-              const why = ctx.outsideMcpGate
-                ? await ctx.outsideMcpGate(i.tool_name, (i.tool_input ?? {}) as Record<string, unknown>)
-                : 'This outside tool needs the owner\'s approval, and none can be asked for here.';
+              if (!s) return {};
+              const input = (i.tool_input ?? {}) as Record<string, unknown>;
+              // `pass` leaves the call to bypass or, otherwise, to canUseTool's normal card.
+              const step = outsideMcpStep(s, i.tool_name.slice(('mcp__' + s.name + '__').length), input, { bypass: !!ctx.bypassPermissions, readOnly: !!ctx.approvalsReadOnly });
+              // Toki's own Blender starts on the first call it is needed for, and again after a crash.
+              const down = step.kind !== 'refuse' && s.name === 'blender' && ctx.blenderEnsure ? await ctx.blenderEnsure() : null;
+              if (down) return { hookSpecificOutput: { hookEventName: 'PreToolUse' as const, permissionDecision: 'deny' as const, permissionDecisionReason: down } };
+              if (step.kind === 'pass') return {};
+              const why = step.kind === 'refuse' ? step.message
+                : step.kind === 'allow' ? null
+                : ctx.outsideMcpGate
+                  ? await ctx.outsideMcpGate(i.tool_name, input)
+                  : 'This outside tool needs the owner\'s approval, and none can be asked for here.';
               return {
                 hookSpecificOutput: why
                   ? { hookEventName: 'PreToolUse' as const, permissionDecision: 'deny' as const, permissionDecisionReason: why }
-                  : { hookEventName: 'PreToolUse' as const, permissionDecision: 'allow' as const, permissionDecisionReason: 'Approved by the owner.' },
+                  : {
+                      hookEventName: 'PreToolUse' as const, permissionDecision: 'allow' as const,
+                      permissionDecisionReason: step.kind === 'allow' ? 'A read tool of this server: no approval needed.' : 'Approved by the owner.',
+                    },
               };
             },
           ],
@@ -800,7 +825,7 @@ export class ClaudeProvider implements AgentProvider {
             const output = typeof block.content === 'string'
               ? block.content
               : (block.content ?? []).map((c) => (c.type === 'text' ? c.text : '[' + c.type + ']')).join('\n');
-            sink.onToolResult(block.tool_use_id, output, !!block.is_error);
+            sink.onToolResult(block.tool_use_id, output, !!block.is_error, firstImage(block.content));
           }
           sink.onState('thinking');
           continue;

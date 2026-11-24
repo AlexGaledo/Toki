@@ -1,0 +1,7 @@
+[
+ "on: button \"Try again\" id=",
+ "+100ms: h4 \"Blender\" id=game-tool-name-blender",
+ "+1500ms: h4 \"Blender\" id=game-tool-name-blender",
+ "Tab -> button \"Show the full Blender path\" id=",
+ "Shift+Tab -> button \"Check again\" id="
+]

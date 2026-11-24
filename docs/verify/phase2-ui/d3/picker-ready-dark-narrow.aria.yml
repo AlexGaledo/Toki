@@ -1,0 +1,48 @@
+- button "Show bots"
+- status
+- dialog "Settings":
+  - complementary:
+    - heading "Settings" [level=2]
+    - button "Close"
+    - tablist "Settings sections":
+      - tab "Account"
+      - tab "Security"
+      - tab "Claude"
+      - tab "Bots"
+      - tab "Projects" [selected]
+      - tab "Tools"
+      - tab "Game tools"
+      - tab "Reports"
+      - tab "Connections"
+      - tab "Logins"
+      - tab "Knowledge"
+      - tab "Devices"
+      - tab "PC runner"
+      - tab "Notifications"
+      - tab "Appearance"
+      - tab "About"
+  - tabpanel "Projects":
+    - banner:
+      - heading "Projects" [level=2]
+      - paragraph: Shared folders. Only the bots you list here can work in a project's folder.
+    - heading "New project" [level=3]
+    - text: Name
+    - textbox "Name":
+      - /placeholder: Wika
+    - text: Team
+    - radiogroup "Team":
+      - radio "None" [checked]: None Just the shared folder. Give bots access to it below.
+      - radio "Dev team": Dev team Adds a lead, an engineer and a quality engineer, with a group chat.
+      - radio "Game team": Game team Adds a lead, a Roblox builder and a Blender artist, a group chat with game tools, game folders and git.
+    - button "Create project" [disabled]
+    - heading "Obby Run" [level=3]
+    - text: Team template v1
+    - button "Open the map of Obby Run": Map
+    - button "Open project Obby Run": Open project
+    - paragraph: ~\AppData\Local\Temp\toki-verify-p2ui\run\data\projects\obby-run
+    - paragraph: Needs a look
+    - list:
+      - listitem: "current.md: Under 80 characters."
+      - listitem: "features/README.md: No updated date."
+    - group: 3 bots have access
+    - group: Repos

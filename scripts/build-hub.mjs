@@ -5,6 +5,7 @@
 //     node_modules/  production dependencies (pnpm deploy --prod)
 //     package.json   written by pnpm deploy
 //     web/           packages/web/dist (the built UI)
+//     resources/     packages/hub/resources (Blender server script + hashed requirements, see hub-resources.mjs)
 //     VERSION        root package.json version + build timestamp
 //
 // Run: pnpm hub:bundle
@@ -20,6 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bundleHub } from './hub-esbuild.mjs';
+import { copyHubResources } from './hub-resources.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HUB = path.join(ROOT, 'packages', 'hub');
@@ -161,6 +163,10 @@ await bundleHub(path.join(BUILD, 'hub.mjs'));
 const webOut = path.join(BUILD, 'web');
 fs.rmSync(webOut, { recursive: true, force: true });
 fs.cpSync(WEB_DIST, webOut, { recursive: true });
+
+// 4b. resources the hub reads from <HUB_DIR>/resources/ (the headless Blender server script and its hashed
+// requirements). The cleanup above removed the copy `pnpm deploy` made, so put them back from the source.
+for (const f of copyHubResources(HUB, BUILD)) console.log(`[hub:bundle]   resource ${path.relative(BUILD, f)}`);
 
 // 5. VERSION stamp
 const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;

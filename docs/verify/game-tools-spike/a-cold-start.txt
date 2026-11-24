@@ -1,0 +1,11 @@
+# (a) Blender cold start, 2026-11-24 15:05 +08:00 (PowerShell, owner's PC)
+9876 listeners before: 0
+blender processes before: 0
+started blender pid=1424 at 2026-11-24T15:05:38.5009055+08:00 with no arguments (no .blend)
+# node ping9876.mjs: connect to 127.0.0.1:9876 every 0.5 s, send {"type":"ping"} then {"type":"get_scene_info"}
+first answer after 10.1s (attempt 19): {"status":"success","result":{"pong":true}}
+get_scene_info: {"status":"success","result":{"name":"Scene","object_count":3,"objects":[{"name":"Cube","type":"MESH","location":[0,0,0]},{"name":"Light","type":"LIGHT","location":[4.08,1.01,5.9]},{"name":"Camera","type":"CAMERA","location":[7.36,-6.93,4.96]}],"materials_count":2}}
+
+LocalAddress LocalPort OwningProcess
+------------ --------- -------------
+127.0.0.1         9876          1424

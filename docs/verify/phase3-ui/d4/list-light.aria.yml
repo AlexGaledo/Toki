@@ -1,0 +1,87 @@
+# url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title="Toki"
+- complementary:
+  - button "Hide bots"
+  - button "Search every chat"
+  - button "New"
+  - button "Needs you"
+  - button "Tasks"
+  - button "PC sessions"
+  - region "Projects":
+    - heading "Projects" [level=2]
+    - list:
+      - listitem:
+        - button "Obby Run bots"
+        - button "Obby Run This PC"
+        - list:
+          - listitem:
+            - button "Toki Support · Idle Toki Support @pocketrocket-support":
+              - img "Toki Support · Idle"
+              - text: Toki Support @pocketrocket-support
+      - listitem:
+        - button "Wika bots"
+        - button "Wika This PC"
+        - list:
+          - listitem:
+            - button "Toki Support · Idle Toki Support @pocketrocket-support":
+              - img "Toki Support · Idle"
+              - text: Toki Support @pocketrocket-support
+      - listitem:
+        - button "CRM sync Server (offline)"
+      - listitem:
+        - button "Obby Run Server (offline)"
+      - listitem:
+        - button "Tower Climb Server (offline)"
+  - button "Bots bots" [expanded]
+  - text: Bots
+  - region "Podium":
+    - list:
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+    - button "Edit podium"
+  - list:
+    - listitem:
+      - button "Toki Support · Idle Toki Support @pocketrocket-support":
+        - img "Toki Support · Idle"
+        - text: Toki Support @pocketrocket-support
+    - listitem:
+      - button "Data Engineer · Idle Data Engineer @data-engineer":
+        - img "Data Engineer · Idle"
+        - text: Data Engineer @data-engineer
+  - button "Menu for Verifier. Online": Verifier Online
+  - button "Pair a phone"
+- separator "Resize sidebar"
+- main:
+  - button "Toki Support"
+  - text: App help and improvements
+  - img "Toki Support · Idle"
+  - button "Open Toki Support's page"
+  - button "Files"
+  - button "Screen"
+  - text: Nothing here yet
+  - paragraph: Say hi whenever you're ready.
+  - textbox "Message Toki Support":
+    - /placeholder: Message Toki Support · App help and improvements
+  - button "Attach files"
+  - 'button "Permission level for all bots: Approval"': Approval
+  - status
+  - 'button "Model for this chat: Auto"': Auto
+  - button "Send" [disabled]
+- separator "Resize overview"
+- complementary "Overview":
+  - heading "Needs you" [level=2]
+  - button "Fold overview to icons"
+  - region "Needs you":
+    - paragraph: All caught up.
+  - region "Bots":
+    - heading "Bots" [level=2]
+    - text: "1"
+    - list:
+      - listitem:
+        - button "Toki Support · Idle Toki Support App help and improvements":
+          - img "Toki Support · Idle"
+          - text: Toki Support App help and improvements
+- status

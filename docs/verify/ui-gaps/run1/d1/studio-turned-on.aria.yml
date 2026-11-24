@@ -1,0 +1,52 @@
+# url=http://127.0.0.1:21337/ title="Toki" dialogs=["Settings"]
+- status:
+  - text: Studio MCP is on. It takes effect when Studio next opens.
+  - button "Dismiss"
+- dialog "Settings":
+  - complementary:
+    - heading "Settings" [level=2]
+    - tablist "Settings sections":
+      - tab "Account"
+      - tab "Security"
+      - tab "Claude"
+      - tab "Bots"
+      - tab "Projects"
+      - tab "Tools"
+      - tab "Game tools" [selected]
+      - tab "Reports"
+      - tab "Connections"
+      - tab "Logins"
+      - tab "Knowledge"
+      - tab "Devices"
+      - tab "PC runner"
+      - tab "Notifications"
+      - tab "Appearance"
+      - tab "About"
+  - button "Close"
+  - tabpanel "Game tools":
+    - banner:
+      - heading "Game tools" [level=2]
+      - paragraph: Blender and Roblox Studio for game rooms. Toki runs its own Blender headless; it never opens a Blender window.
+    - paragraph: Game tools run code as you on this PC, and follow your approval setting.
+    - paragraph: Blender's asset search and model generators, and Roblox Studio's own tools, send prompts to Roblox and other third parties.
+    - heading "Status" [level=3]
+    - button "Check again"
+    - heading "Blender" [level=4]
+    - text: Not installed
+    - link "Get Blender (opens in a new tab)":
+      - /url: https://www.blender.org/download/
+    - paragraph: Install Blender, then come back here.
+    - heading "uv" [level=4]
+    - text: Installed 0.11.15 ~\AppData\Local\Programs\Python\Python313\Scripts\uv.exe
+    - button "Show the full uv path"
+    - button "Copy the full uv path"
+    - status
+    - paragraph: Found on your PATH.
+    - heading "Blender MCP tools" [level=4]
+    - text: Not installed 2.3.1
+    - button "Install Blender tools"
+    - paragraph: Lets bots model in Toki's headless Blender.
+    - heading "Roblox Studio" [level=4]
+    - text: Not open Unverified
+    - paragraph: Open Roblox Studio to use it.
+    - paragraph: Studio's live steps have not been checked on this PC yet.

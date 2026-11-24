@@ -3,17 +3,21 @@ import { ArrowDown, ArrowRightLeft, Check, ChevronDown, Clock, Download, FileTex
 import { CHAT_MODELS, MODELS } from '@pocketrocket/shared';
 import { TokiMark } from './TokiMark';
 import { ChatHeader } from './ChatHeader';
+import { GameToolsStrip } from './GameToolsStrip';
+import { ApprovalCodeView } from './ApprovalCode';
+import { approvalCode } from '../lib/approvalCode';
 import type { ApprovalPayload, Bot, HandoffPayload, HandoffResultPayload, Message, Room, RoutinePayload, TakeoverPayload, TurnFailurePayload, VerificationPayload } from '@pocketrocket/shared';
 import type { Approvals, TriggerPayload } from '@pocketrocket/shared';
 import { useStore, selectActiveRoom, botById } from '../store';
 import { api, ApiError } from '../lib/api';
-import { ActionCard, ActionCardActions, ActionCardHeader, Avatar, Banner, Button, DialogCloseButton, DialogShell, DialogTitle, EmptyState, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, Skeleton, SkeletonGroup, Tooltip, UserAvatar, cn, fmtTime } from './ui';
+import { ActionCard, ActionCardActions, ActionCardHeader, Avatar, Banner, Button, EmptyState, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, Skeleton, SkeletonGroup, Tooltip, UserAvatar, cn, fmtTime } from './ui';
 import { LinkBot, Markdown } from './Markdown';
 import { SignInToApprove } from './SignInToApprove';
 import { AlwaysAllow, RuleOffer, TakeoverCard } from './ComputerControl';
 import { CtaButtons, FormCard } from './Cards';
 import { WorkLine, fmtInput, isStep } from './WorkLine';
 import { useMediaUrl } from '../lib/media';
+import { ImageLightbox } from './ImageLightbox';
 import { useNewLayout } from '../lib/newLayout';
 import { DRAFT_SAVE_MS, readDraft, writeDraft } from '../lib/drafts';
 import { MAX_ATTACHMENTS, reencodeImage, uploadAttachment } from '../lib/attach';
@@ -114,6 +118,7 @@ export function ChatPane({ hideHeader = false }: { hideHeader?: boolean } = {}) 
   return (
     <>
       {!hideHeader && <ChatHeader room={room} members={members} />}
+      <GameToolsStrip room={room} />
       <Transcript key={room.id} roomId={room.id} />
       <WorkflowCardsForRoom roomId={room.id} />
       <FailoverCardsForRoom roomId={room.id} />
@@ -554,6 +559,7 @@ function ApprovalCard({ m }: { m: Message }) {
   const words = yesOrNo ? cardWords(p) : null;
   const once = !!p.once || p.toolName === 'run_on_pc';
   const pcJob = p.toolName === 'run_on_pc' ? pcJobInput(p) : null;
+  const script = pcJob || words ? null : approvalCode(p);
   const outcome = p.status === 'allow' ? (handoff ? 'Sent' : proposal ? 'Added' : 'Allowed once') : p.status === 'always' ? (once ? 'Allowed once' : 'Allowed for that session') : p.status === 'deny' ? (handoff ? 'Kept here' : proposal ? 'Not added' : 'Denied') : p.status === 'timeout' ? 'Timed out, denied' : p.status === 'expired' ? 'Expired after restart. Ask the bot to retry.' : null;
   return (
     <ActionCard tone={p.danger ? 'danger' : pending ? 'warn-soft' : 'quiet'} className="max-w-[640px]">
@@ -573,6 +579,8 @@ function ApprovalCard({ m }: { m: Message }) {
           {words.main}
           {words.more && <div className="mt-1.5 text-muted">{words.more}</div>}
         </div>
+      ) : script ? (
+        <ApprovalCodeView code={script} label={script.field + ' for ' + p.toolName.replace(/^mcp__.+?__/, '')} />
       ) : (
         <pre className="mx-4 mb-3 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-card2 p-2.5 font-mono text-hint">{fmtInput(p.toolInput)}</pre>
       )}
@@ -681,17 +689,6 @@ function AttachmentImage({ mediaRef, onOpen }: { mediaRef: string; onOpen: () =>
     <button type="button" onClick={onOpen} className="block overflow-hidden rounded-md ring-1 ring-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
       <img src={url} alt="Attached picture" className="max-h-64 max-w-full object-contain" />
     </button>
-  );
-}
-
-function ImageLightbox({ mediaRef, onClose }: { mediaRef: string; onClose: () => void }) {
-  const url = useMediaUrl(mediaRef);
-  return (
-    <DialogShell open onOpenChange={(o) => !o && onClose()} className="max-h-[92vh] max-w-[92vw] overflow-hidden bg-transparent p-0 shadow-none">
-      <DialogTitle className="sr-only">Attached picture</DialogTitle>
-      {url && <img src={url} alt="Attached picture" className="block max-h-[92vh] max-w-[92vw] rounded-lg object-contain" />}
-      <div className="absolute right-2 top-2"><DialogCloseButton /></div>
-    </DialogShell>
   );
 }
 

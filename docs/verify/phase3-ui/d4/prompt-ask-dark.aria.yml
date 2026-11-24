@@ -1,0 +1,8 @@
+# url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title="Toki" dialogs=["CRM sync"]
+- status
+- dialog "CRM sync":
+  - heading "CRM sync" [level=2]
+  - paragraph: This project is on your server. Connect to open it.
+  - status
+  - button "Cancel"
+  - button "Connect"

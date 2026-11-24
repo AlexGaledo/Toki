@@ -6,7 +6,7 @@ import type {
   SandboxStatus,
   IntegrationsState, IntegrationInfo, IntegrationProvider, OAuthAppInput, OAuthAppStatus, PendingConnect, TokenConnectInput,
 } from '@pocketrocket/shared';
-import type { AuditEntry, UserSessionInfo } from '@pocketrocket/shared';
+import type { AuditEntry, GameProjectSetup, GameToolFix, GameToolFixResult, GameToolsStatus, TeamTemplateId, UserSessionInfo } from '@pocketrocket/shared';
 import type { ProjectMapReply, ProjectOverview } from '@pocketrocket/shared';
 import type { Workflow, WorkflowApprovalCard, WorkflowDecision, WorkflowInput, WorkflowPatch, WorkflowRun, WorkflowRunSummary } from '@pocketrocket/shared';
 import type { KnowledgeStatus, SkillGitImportResult, VoiceProposal } from '@pocketrocket/shared';
@@ -20,12 +20,14 @@ import type { MachineInfo, MachinePolicy, PcRunnerStatus } from '@pocketrocket/s
 import type { BotExportResult, BotImportResult, ContextUsage, LaneQueue, Task, TaskStatus } from '@pocketrocket/shared';
 import type { PcJobRequest, PcJobView } from './pcRun';
 import type { ProjectReposFile, ReposPutBody } from './projectRepos';
+import type { ProjectListItem } from './hosts';
 import { listQuery, PC_ENTRY_PAGE, type PcSessionDetail, type PcSessionQuery, type PcSessionSummary, type PcSeqEntry } from './pcSessions';
 import type { TelegramState } from './telegram';
 import { getToken, reportAuthFailure, clearAuthFailure } from './auth';
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  /** The reply's JSON body, e.g. a game tools fix's `result` word on a 409. */
+  constructor(message: string, readonly status: number, readonly body?: unknown) {
     super(message);
     this.name = 'ApiError';
   }
@@ -43,7 +45,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
   clearAuthFailure();
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new ApiError((j as { error?: string }).error ?? r.statusText, r.status);
+  if (!r.ok) throw new ApiError((j as { error?: string }).error ?? r.statusText, r.status, j);
   return j as T;
 }
 
@@ -53,7 +55,11 @@ export type HealthResponse = HealthInfo & { version?: string; provider?: Provide
 
 export type AccountActionResponse = AccountState | { ok: boolean } | Record<string, unknown>;
 
-export interface ProjectInfo { slug: string; name: string; dir: string; memberIds: string[]; roomId: string | null; templateVersion: number | null; createdAt: number }
+export interface ProjectInfo { slug: string; name: string; dir: string; memberIds: string[]; roomId: string | null; templateVersion: number | null; kind?: 'game' | null; createdAt: number }
+/** `template` wins over `team` on the hub; `team: true` alone still means the dev template. */
+export interface ProjectCreateInput { name: string; team?: boolean; template?: TeamTemplateId; memberIds?: string[] }
+/** `setup` comes only with the game template (B7). */
+export interface ProjectCreateReply { project: ProjectInfo; bots: Bot[]; room: Room | null; setup?: GameProjectSetup }
 export interface ProjectLint { issues: { kind: string; path: string; detail: string }[]; recentMisses: string[] }
 
 const filesBase = (roomId: string) => '/api/rooms/' + encodeURIComponent(roomId) + '/files';
@@ -75,7 +81,7 @@ export interface BotReportRow {
 export interface McpServerRow {
   name: string; kind: 'http' | 'stdio' | 'invalid'; status: 'configured' | 'invalid'; problems: string[];
   url?: string; urlHasQuery?: boolean; tokenSet?: boolean; command?: string; args?: string[]; argsMasked?: boolean; envKeys?: string[];
-  rooms: string[]; bots: string[]; approve: 'every-call' | 'writes' | 'none'; readTools: string[]; needs: string[];
+  rooms: string[]; bots: string[]; approve: 'every-call' | 'writes' | 'none' | 'mode'; readTools: string[]; needs: string[];
   lastCheck: { ok: boolean; result: string; at: number } | null;
 }
 export interface McpServerInput {
@@ -101,6 +107,12 @@ export const api = {
   botReports: {
     list: () => req<BotReportRow[]>('GET', '/api/bot-reports'),
     set: (id: string, status: BotReportRow['status']) => req<BotReportRow>('PATCH', '/api/bot-reports/' + encodeURIComponent(id), { status }),
+  },
+  gameTools: {
+    status: () => req<GameToolsStatus>('GET', '/api/game-tools'),
+    /** A failed step answers 409 with the same shape: read it from `ApiError.body`. */
+    fix: (step: GameToolFix) => req<GameToolFixResult>('POST', '/api/game-tools/fix/' + encodeURIComponent(step), {}),
+    crashLog: () => req<{ log: string | null }>('GET', '/api/game-tools/blender/crash-log'),
   },
   mcpServers: {
     list: () => req<{ servers: McpServerRow[] }>('GET', '/api/mcp-servers'),
@@ -136,8 +148,9 @@ export const api = {
       req<FileChangeResult>('DELETE', filesBase(roomId) + '?path=' + encodeURIComponent(path) + (recursive ? '&recursive=true' : '')),
   },
   projects: {
-    list: () => req<ProjectInfo[]>('GET', '/api/projects'),
-    create: (input: { name: string; team?: boolean }) => req<{ project: ProjectInfo; bots: Bot[] }>('POST', '/api/projects', input),
+    /** This hub's projects and the other host's stubs (D4). Split with `splitProjects` before using a slug route. */
+    list: () => req<ProjectListItem[]>('GET', '/api/projects'),
+    create: (input: ProjectCreateInput) => req<ProjectCreateReply>('POST', '/api/projects', input),
     setMembers: (slug: string, memberIds: string[]) => req<ProjectInfo>('PUT', '/api/projects/' + encodeURIComponent(slug) + '/members', { memberIds }),
     lint: (slug: string) => req<ProjectLint>('GET', '/api/projects/' + encodeURIComponent(slug) + '/lint'),
     repos: (slug: string) => req<ProjectReposFile>('GET', '/api/projects/' + encodeURIComponent(slug) + '/repos'),
@@ -276,7 +289,7 @@ export const api = {
     const p = new URLSearchParams();
     if (q.botId) p.set('botId', q.botId);
     if (q.roomId) p.set('roomId', q.roomId);
-    return req<{ totals: UsageTotals; rows: UsageRow[]; byModel?: UsageGroup[]; byCause?: UsageGroup[]; byProvider?: UsageGroup[] }>('GET', '/api/usage?' + p.toString());
+    return req<{ totals: UsageTotals; rows: UsageRow[]; byModel?: UsageGroup[]; byCause?: UsageGroup[]; byProvider?: UsageGroup[]; subscriptionNote?: string }>('GET', '/api/usage?' + p.toString());
   },
   previews: () => req<Record<string, BotPreview>>('GET', '/api/previews'),
   search: (q: string) => req<SearchHit[]>('GET', '/api/search?q=' + encodeURIComponent(q)),

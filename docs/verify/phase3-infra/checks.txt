@@ -1,0 +1,12 @@
+$ node --test scripts/ssh-host-keys.test.mjs scripts/repo-guards.test.mjs scripts/token-parity.test.mjs
+ℹ tests 13
+ℹ pass 13
+ℹ fail 0
+
+$ npx eslint packages/desktop/ui/splash.js
+C:\Users\alex\Desktop\claude-grokbot-spec-gamedev\packages\desktop\ui\splash.js
+  0:0  warning  File ignored because of a matching ignore pattern. Use "--no-ignore" to disable file ignore settings or use "--no-warn-ignored" to suppress this warning
+
+✖ 1 problem (0 errors, 1 warning)
+
+eslint exit 0

@@ -1,0 +1,33 @@
+## mutation: no -b on the command line
+   2 failed | 21 passed (23)
+   FAIL BlenderHost: the command line > always starts -b --factory-startup, hidden, with the server script and a clean env
+   FAIL BlenderHost: the command line > opens art/<slug>.blend from the command line when it exists, before -P
+## mutation: no other-Blender check
+   2 failed | 21 passed (23)
+   FAIL BlenderHost: one at a time > NEGATIVE: refuses to start while a Blender it did not start is running, and never touches it
+   FAIL a game room's turn > hands the hook an ensure for this project, which refuses while another Blender runs
+## mutation: no busy check (two projects at once)
+   1 failed | 22 passed (23)
+   FAIL BlenderHost: one at a time > NEGATIVE: refuses another project while Blender is busy, and switches only after 60 s of quiet
+## mutation: no idle stop
+   2 failed | 21 passed (23)
+   FAIL BlenderHost: idle stop > asks Blender to save and stop after the idle time, and starts it again on the next call
+   FAIL BlenderHost: idle stop > counts idle time from READY, so a slow first start is not stopped on arrival (the live run: a 19.5 s start)
+## mutation: idle clock from spawn, not READY
+   1 failed | 22 passed (23)
+   FAIL BlenderHost: idle stop > counts idle time from READY, so a slow first start is not stopped on arrival (the live run: a 19.5 s start)
+## mutation: no crash cap
+   1 failed | 22 passed (23)
+   FAIL BlenderHost: crashes > restarts after a crash, and the fourth crash in 10 minutes stops the restarts until reset
+## mutation: Blender on another port than the mount
+   2 failed | 21 passed (23)
+   FAIL BlenderHost: the port > keeps the port across a restart, so a turn's MCP server finds the new Blender
+   FAIL BlenderHost: the port > mounts the built-in blender entry on the port Blender binds, and never 9876
+## mutation: mount may use 9876
+   1 failed | 22 passed (23)
+   FAIL BlenderHost: the port > mounts the built-in blender entry on the port Blender binds, and never 9876
+## mutation: MCP server reads the owner's APPDATA
+   2 failed | 21 passed (23)
+   FAIL BlenderHost: the port > NEGATIVE: points the MCP server's add-on check and data at Toki's folders, never the owner's Blender config
+   FAIL a game room's turn > mounts the built-in blender server on the live port, approve mode, with the read tools
+## restored: 23 passed (23)

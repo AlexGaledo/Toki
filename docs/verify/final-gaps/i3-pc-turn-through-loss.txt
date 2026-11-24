@@ -1,0 +1,44 @@
+# I3 live, 2026-11-24. Times are UTC (15:51 UTC = 23:51 +08:00). Driver: scripts/i3_driver.mjs run, against the owner's installed
+# Toki (NSIS build of a2c0e3b) started with the WebView2 debug port 9339; the PC hub on 7788, the server tunnel on 7790.
+# The owner's own message author id is shown as <owner>. One Haiku turn.
+15:51:27.828 # I3: a PC bot turn through a loss of the server link
+15:51:27.828 window before: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+15:51:27.849 PC hub token read from the 7788 page only (never printed). approvals=ask
+15:51:27.862 PC hub before: bots=1 rooms=1
+15:51:27.873 WRITE POST 127.0.0.1:7788/api/bots -> 200
+15:51:27.873 temp bot @i3-temp-counter model=claude-haiku-4-5-20251001
+15:51:27.884 WRITE POST 127.0.0.1:7788/api/rooms -> 200
+15:51:28.189 window on the server after 0.3 s: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server
+15:51:31.342 tunnel ssh pids: [19504]; 7790 listeners: 127.0.0.1:7790 pid=19504
+15:51:31.357 WRITE POST 127.0.0.1:7788/api/rooms/sOSER3Ug5d/messages -> 200
+15:51:31.357 message sent to the DM on 7788 -> 200
+15:51:36.306 card on 7788: Bash -> allow (ws approval.decide to 127.0.0.1:7788)
+15:51:36.419 Bash tool message seen 5.1 s after send
+15:51:42.437 busy just before the kill: {"blocking":1,"running":1,"liveCards":0,"pendingLanes":0,"parkedCards":0,"waitingRuns":0,"heldUntil":null}
+15:51:42.830 KILLED the tunnel ssh pid 19504 (the VPS hub was not touched)
+15:51:43.608 window back on the PC after 0.8 s: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+15:51:45.561 7790 listeners now: (none)
+15:51:45.565 busy right after the fallback: {"blocking":1,"running":1,"liveCards":0,"pendingLanes":0,"parkedCards":0,"waitingRuns":0,"heldUntil":null}
+15:52:19.789 turn finished 37.0 s after the kill; 48.4 s after send
+15:52:19.789 ## the DM on 7788, in order (times relative to the kill)
+15:52:19.789   [-11.5 s] text <owner>: Count slowly from 1 to 20. Use one Bash command with sleep 2 between numbers, for example: for i in $(seq 1 20); do echo $i; sleep 2; done. Then reply with only the last number.
+15:52:19.789   [-6.6 s] tool Bash input={"command":"for i in $(seq 1 20); do echo $i; sleep 2; done","timeout":60000} output="1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20" status=
+15:52:19.789   [-6.5 s] approval @i3-temp-counter: I3 Temp Counter wants to run Bash
+15:52:19.789   [36.9 s] text @i3-temp-counter: 20
+15:52:19.789 RESULT: the turn finished on the PC hub after the loss
+15:52:19.801 WRITE DELETE 127.0.0.1:7788/api/rooms/sOSER3Ug5d -> 200
+15:52:19.812 WRITE DELETE 127.0.0.1:7788/api/bots/316M7kXFSv -> 200
+15:52:19.821 PC hub after cleanup: bots=1 rooms=1 handle exists=false
+15:52:19.821 ## every write this run made (6):
+15:52:19.821   POST http://127.0.0.1:7788/api/bots -> 200
+15:52:19.821   POST http://127.0.0.1:7788/api/rooms -> 200
+15:52:19.821   POST http://127.0.0.1:7788/api/rooms/sOSER3Ug5d/messages -> 200
+15:52:19.821   WS approval.decide ws://127.0.0.1:7788/ws Bash
+15:52:19.821   DELETE http://127.0.0.1:7788/api/rooms/sOSER3Ug5d -> 200
+15:52:19.821   DELETE http://127.0.0.1:7788/api/bots/316M7kXFSv -> 200
+15:52:19.821 writes not to 127.0.0.1:7788: 0
+15:52:19.821 window at the end: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server; elapsed 52 s
+
+## after the run (read-only)
+no temp bot home dirs left on the PC (data/bots has neither temp id)
+server hub, read on the server over ssh with its own token (not printed): bots with handle i3-temp-counter: 0; rooms named I3 Temp Counter: 0; pocketrocket MainPID=3829701 active (the same PID as real-setup check 3: the VPS hub was never touched)

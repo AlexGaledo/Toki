@@ -2,8 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { outsideMcpFor, outsideMcpNeedsCard, registerOutsideMcpSecrets, vpsMountable } from './outsideMcp.js';
+import { outsideMcpFor, outsideMcpHooked, outsideMcpNeedsCard, registerOutsideMcpSecrets, vpsMountable } from './outsideMcp.js';
 import { parseKeyRegistry } from './keyRegistry.js';
+import { McpServerAddSchema, viewOf } from './outsideMcpStore.js';
 import { clearSecrets, redact } from '../providers/redact.js';
 
 function file(content: string): string {
@@ -114,6 +115,14 @@ describe('stdio entries', () => {
     ]);
   });
 
+  it("keeps approve 'mode' in the file and through the settings view, and never cards it from the once-only hook", () => {
+    const f = file(JSON.stringify({ blender: { command: abs, approve: 'mode', readTools: ['look'], rooms: ['game'] } }));
+    expect(outsideMcpFor('b', { id: 'r', name: 'game' }, f).map((s) => [s.name, s.approve, s.readTools])).toEqual([['blender', 'mode', ['look']]]);
+    expect(viewOf('blender', { command: abs, approve: 'mode', rooms: ['game'] }).approve).toBe('mode');
+    expect(McpServerAddSchema.safeParse({ name: 'blender', command: abs, approve: 'mode', rooms: ['game'] }).success).toBe(true);
+    expect(outsideMcpNeedsCard({ approve: 'mode', readTools: [] }, 'execute_blender_code')).toBe(false);
+  });
+
   it('reads needs; a malformed needs skips the entry rather than reading as "needs nothing"', () => {
     const f = file(JSON.stringify({
       a: { command: 'npx', needs: ['firecrawl'], bots: ['b'] },
@@ -149,6 +158,12 @@ describe('stdio entries', () => {
     expect(outsideMcpNeedsCard({ approve: 'writes', readTools: ['search'] }, 'search')).toBe(false);
     expect(outsideMcpNeedsCard({ approve: 'writes', readTools: ['search'] }, 'create_pod')).toBe(true);
     expect(outsideMcpNeedsCard({ approve: 'none', readTools: [] }, 'anything')).toBe(false);
+  });
+
+  it("hooks every server that asks, and a server named blender even with approve 'none' (the wm refusal)", () => {
+    expect(outsideMcpHooked({ name: 'blender', approve: 'none' })).toBe(true);
+    expect(outsideMcpHooked({ name: 'wika', approve: 'none' })).toBe(false);
+    for (const approve of ['every-call', 'writes', 'mode'] as const) expect(outsideMcpHooked({ name: 'x', approve })).toBe(true);
   });
 
   it('registers every env value and token for redaction', () => {

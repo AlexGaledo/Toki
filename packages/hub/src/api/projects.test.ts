@@ -13,7 +13,8 @@ import { createHubTools } from '../agent/botTools.js';
 import { MemoryService } from '../services/MemoryService.js';
 import { SkillService } from '../services/SkillService.js';
 import { ProjectService, parseFrontmatter, slugify } from '../services/ProjectService.js';
-import { DEV_TEAM_TEMPLATE, cloneDescription } from '../services/devTeamTemplate.js';
+import { DEV_TEAM_TEMPLATE, GAME_TEAM_TEMPLATE, cloneDescription } from '../services/devTeamTemplate.js';
+import { runGit, type GitRunner } from '../services/git.js';
 import { folderAccessDenied } from '../permissions/projectGuard.js';
 
 const TOKEN = 'projects-test-token';
@@ -280,6 +281,111 @@ describe('the dev team template', () => {
   });
   it('drops the setup section from the role text', () => {
     expect(cloneDescription(SOURCE, 'P', '/x')).not.toContain('More setup text');
+  });
+});
+
+describe('the game team template (B7)', () => {
+  const SOURCE = 'You make games.\n\nWhen the owner mentions you to create an agent, ask for a purpose.';
+  function withGameSources(git?: GitRunner) {
+    const repos = new Repos(new Db(':memory:'));
+    const root = path.join(tmp, 'svc' + counter++);
+    const projects = new ProjectService({ db: repos.db, repos, memory: new MemoryService(), root, git });
+    for (const role of GAME_TEAM_TEMPLATE.roles) makeBot(repos, role.source, SOURCE);
+    for (const name of GAME_TEAM_TEMPLATE.skills) {
+      repos.upsertSkill({ name, description: '', path: '/x/' + name, source: 'authored', reviewStatus: 'approved', createdByBot: null });
+    }
+    return { repos, projects, root };
+  }
+  const skillNames = (repos: Repos, botId: string) => repos.botSkillIds(botId).map((id) => repos.getSkill(id)!.name).sort();
+
+  it('clones a lead, a builder and an artist into a group chat, as kind game with the game version', () => {
+    const { repos, projects } = withGameSources();
+    const { project, bots, room } = projects.create({ name: 'Obby Run', template: 'game' });
+    expect(bots.map((b) => b.handle)).toEqual(['obby-run-lead', 'obby-run-builder', 'obby-run-artist']);
+    expect(project.kind).toBe('game');
+    expect(projects.get('obby-run')!.kind).toBe('game');
+    expect(project.templateVersion).toBe(GAME_TEAM_TEMPLATE.version);
+    expect(room!.kind).toBe('group');
+    expect(room!.memberIds.slice().sort()).toEqual(bots.map((b) => b.id).sort());
+    expect(repos.getRoom(room!.id)!.coordinatorBotId).toBe(bots[0]!.id);
+    expect(project.roomId).toBe(room!.id);
+    for (const b of bots) {
+      expect(skillNames(repos, b.id)).toEqual([...GAME_TEAM_TEMPLATE.skills].sort());
+      expect(b.description).toContain('toki_save()');
+      expect(b.description).toContain(project.dir);
+      expect(b.description).not.toContain('open a pull request');
+    }
+  });
+
+  it('makes art/ exports/ studio/ places/ (each kept by git), a .gitignore, and records the game template', () => {
+    const { projects } = withGameSources();
+    const { project } = projects.create({ name: 'Obby Run', template: 'game' });
+    for (const f of ['art', 'exports', 'studio', 'places']) expect(fs.existsSync(path.join(project.dir, f, '.gitkeep')), f).toBe(true);
+    expect(fs.readFileSync(path.join(project.dir, '.gitignore'), 'utf8')).toBe('*.toki-tmp\n*.blend1\n');
+    expect(fs.readFileSync(path.join(project.dir, 'TEMPLATE.md'), 'utf8')).toContain('Cloned from game team template v' + GAME_TEAM_TEMPLATE.version);
+  });
+
+  it('NEGATIVE: team: true still means the dev template, which is not a game and gets no game folders', () => {
+    const { repos, projects } = withGameSources();
+    for (const role of DEV_TEAM_TEMPLATE.roles) if (!repos.getBotByHandle(role.source)) makeBot(repos, role.source, SOURCE);
+    const { project, bots } = projects.create({ name: 'Shop', team: true });
+    expect(bots.map((b) => b.handle)).toEqual(DEV_TEAM_TEMPLATE.roles.map((r) => 'shop-' + r.suffix));
+    expect(project.kind).toBeNull();
+    expect(project.templateVersion).toBe(DEV_TEAM_TEMPLATE.version);
+    for (const f of ['art', 'exports', 'studio', 'places', '.gitignore']) expect(fs.existsSync(path.join(project.dir, f)), f).toBe(false);
+    expect(projects.create({ name: 'Plain' }).project.kind).toBeNull();
+  });
+
+  it('refuses a game team when a seed bot is missing, and leaves nothing behind', () => {
+    const { repos, projects, root } = withGameSources();
+    repos.deleteBot(repos.getBotByHandle('blender-artist')!.id);
+    const before = repos.listBots().length;
+    expect(() => projects.create({ name: 'Half', template: 'game' })).toThrow('The game team template needs the bot @blender-artist');
+    expect(repos.listBots()).toHaveLength(before);
+    expect(projects.get('half')).toBeUndefined();
+    expect(fs.existsSync(path.join(root, 'half'))).toBe(false);
+  });
+
+  it('seeds the template source bots on demand: after the skill check, before the bots are looked up', () => {
+    const repos = new Repos(new Db(':memory:'));
+    const seen: string[] = [];
+    const projects = new ProjectService({
+      db: repos.db, repos, memory: new MemoryService(), root: path.join(tmp, 'svc' + counter++),
+      seedSources: (t) => {
+        seen.push(t.id);
+        for (const role of t.roles) if (!repos.getBotByHandle(role.source)) makeBot(repos, role.source, SOURCE);
+      },
+    });
+    projects.create({ name: 'Plain' });
+    expect(seen).toEqual([]);
+    expect(() => projects.create({ name: 'Early', template: 'game' })).toThrow('needs the skill');
+    expect(seen).toEqual([]);
+    expect(repos.listBots()).toEqual([]);
+    for (const name of GAME_TEAM_TEMPLATE.skills) {
+      repos.upsertSkill({ name, description: '', path: '/x/' + name, source: 'authored', reviewStatus: 'approved', createdByBot: null });
+    }
+    const { bots } = projects.create({ name: 'Obby Run', template: 'game' });
+    expect(seen).toEqual(['game']);
+    expect(bots.map((b) => b.handle)).toEqual(['obby-run-lead', 'obby-run-builder', 'obby-run-artist']);
+  });
+
+  it('turns the folder into a git repo with one first commit, and leaves a repo already there alone', async () => {
+    const { projects } = withGameSources();
+    const { project } = projects.create({ name: 'Obby Run', template: 'game' });
+    expect(await projects.initRepo('obby-run')).toBe('created');
+    const log = await runGit(['log', '--format=%an|%s'], { cwd: project.dir });
+    expect(log.trim()).toBe('Toki|Start Obby Run from the game team template');
+    const files = (await runGit(['ls-files'], { cwd: project.dir })).trim().split('\n');
+    expect(files).toEqual(expect.arrayContaining(['.gitignore', 'TEMPLATE.md', 'current.md', 'art/.gitkeep', 'exports/.gitkeep', 'studio/.gitkeep', 'places/.gitkeep']));
+    expect(await projects.initRepo('obby-run')).toBe('exists');
+    expect((await runGit(['rev-list', '--count', 'HEAD'], { cwd: project.dir })).trim()).toBe('1');
+  });
+
+  it('reports a git failure as failed and keeps the project', async () => {
+    const { projects } = withGameSources(async () => { throw new Error('git is not installed'); });
+    projects.create({ name: 'No Git', template: 'game' });
+    expect(await projects.initRepo('no-git')).toBe('failed');
+    expect(projects.get('no-git')!.kind).toBe('game');
   });
 });
 

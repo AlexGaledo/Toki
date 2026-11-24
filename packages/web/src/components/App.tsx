@@ -31,6 +31,7 @@ import { SearchDialog } from './dialogs/SearchDialog';
 import { PodiumDialog } from './dialogs/PodiumDialog';
 import { ProfileDialog } from './dialogs/ProfileDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
+import { ServerProjectPrompt } from './dialogs/ServerProjectPrompt';
 import { Onboarding } from './Onboarding';
 import { TokenPrompt } from './TokenPrompt';
 import { Button, ConfirmHost, cn } from './ui';
@@ -246,6 +247,7 @@ export function App() {
       {dialog?.kind === 'profile' && <ProfileDialog onClose={() => openDialog(null)} />}
       {dialog?.kind === 'settings' && <SettingsDialog section={dialog.section} onClose={() => openDialog(null)} />}
 
+      <ServerProjectPrompt />
       <ConfirmHost />
 
       {showOnboarding && <Onboarding />}

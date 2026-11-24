@@ -48,6 +48,14 @@ export function redact(text: string): string {
   return out;
 }
 
+/** Redacts every string (keys too) in a JSON-like value, keeping its shape. */
+export function redactValue(v: unknown): unknown {
+  if (typeof v === 'string') return redact(v);
+  if (Array.isArray(v)) return v.map(redactValue);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [redact(k), redactValue(x)]));
+  return v;
+}
+
 export function redactUnknown(v: unknown): string {
   return redact(typeof v === 'string' ? v : String(v ?? ''));
 }

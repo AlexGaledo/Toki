@@ -33,6 +33,8 @@ export function createMcpServersApi(deps: {
   db: Db;
   fetch?: typeof fetch;
   pathEnv?: () => string;
+  /** Game tools (B5): a fixed word for a server whose command was found, such as `studio-not-open`, or null. */
+  runtimeCheck?: (name: string) => Promise<string | null>;
 }) {
   const { store, db } = deps;
   const doFetch = deps.fetch ?? fetch;
@@ -52,7 +54,8 @@ export function createMcpServersApi(deps: {
     let out: McpCheck;
     if (raw.command !== undefined) {
       const found = typeof raw.command === 'string' && hasCommand(raw.command);
-      out = { ok: found, result: found ? 'command-found' : 'command-missing', at };
+      const more = found ? await deps.runtimeCheck?.(name) ?? null : null;
+      out = { ok: found && !more, result: more ?? (found ? 'command-found' : 'command-missing'), at };
     } else if (typeof raw.url === 'string') {
       try {
         const headers: Record<string, string> = {

@@ -1,0 +1,7 @@
+# url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder title="Toki" dialogs=["Tower Climb"]
+- status
+- dialog "Tower Climb":
+  - heading "Tower Climb" [level=2]
+  - paragraph: This project is on your server. Open it from the desktop app, which can connect to your server.
+  - status
+  - button "Close"

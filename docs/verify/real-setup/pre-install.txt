@@ -1,0 +1,6 @@
+# before install, 2026-11-24T22:02:09.4347011+08:00
+PocketRocket.exe version: 0.5.4
+ssh pid 27068 parent 7176: C:\WINDOWS\System32\OpenSSH\ssh.exe -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 127.0.0.1:7789:127.0.0.1:7788 -- crm-agency
+ssh pid 28132 parent 19136: "C:\Program Files\Git\usr\bin\ssh.exe" -i /c/Users/alex/.ssh/crm-agency -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -N -L 127.0.0.1:3000:127.0.0.1:4310 crm-agency
+netstat 7788/7789/7790:
+TCP    127.0.0.1:7789         0.0.0.0:0              LISTENING       27068

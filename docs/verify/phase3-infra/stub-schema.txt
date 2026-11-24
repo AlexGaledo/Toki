@@ -1,0 +1,8 @@
+$ (packages/hub) npx tsx ../../docs/verify/phase3-infra/scripts/stub_bodies_vs_schema.ts
+disconnected.json: accepted (- stubs, max 500)
+empty.json: accepted (0 stubs, max 500)
+many.json: accepted (500 stubs, max 500)
+mixed.json: accepted (5 stubs, max 500)
+  [{"name":"Trimmed","slug":"ok"},{"name":"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀","slug":"wide"},{"name":"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn","slug":"sixty"},{"name":"Spaced","slug":"nbsp"},{"name":"Café ☕ 世界","slug":"emoji-ok"}]
+all bodies pass the hub schema
+exit 0

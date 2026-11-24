@@ -1,0 +1,32 @@
+multi_edit card: fail-then-pass, 2026-11-24T23:44:27+08:00
+== tests added, source unchanged (expect fail) ==
+     × multi_edit names its edits as the code, and only when every edit is text 101ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ undefined, undefined, …(2) ] to deeply equal [ 'edits', undefined, undefined, …(1) ]
+- Expected
++ Received
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+     × shows a multi_edit edits list as old and new lines, in order 6ms
+     × shows a new script (empty old_string) as added lines only 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected undefined to be 'edits' // Object.is equality
+AssertionError: expected undefined to be 'edit 1 of 1\n+ print("hi")' // Object.is equality
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+
+== source changed (expect pass) ==
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+
+== rerun after the hub test gained a mixed good+bad edits list (mutant 3): hub source reverted to HEAD (expect fail) ==
+     × multi_edit names its edits as the code, and only when every edit is text 117ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ undefined, undefined, …(2) ] to deeply equal [ 'edits', undefined, undefined, …(1) ]
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+== hub source restored (expect pass) ==
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
