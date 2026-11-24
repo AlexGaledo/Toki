@@ -6,7 +6,7 @@ import { api, type McpServerRow } from '../../lib/api';
 import { Badge, Banner, Button, EmptyState, Input, Label, Select, Skeleton, SkeletonGroup, Textarea, confirmAction } from '../ui';
 import { Card, Group, SectionHeader } from './parts';
 
-const APPROVE_LABEL: Record<McpServerRow['approve'], string> = { 'every-call': 'Ask every time', writes: 'Ask for changes only', none: 'Never ask' };
+const APPROVE_LABEL: Record<McpServerRow['approve'], string> = { 'every-call': 'Ask every time', writes: 'Ask for changes only', none: 'Never ask', mode: 'Follow approval setting' };
 const CHECK_LABEL: Record<string, string> = {
   connected: 'Connected', 'auth-rejected': 'Token rejected', timeout: 'No answer', unreachable: 'Unreachable',
   'command-found': 'Program found', 'command-missing': 'Program not found', invalid: 'Not set up correctly',

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { Bell, BookOpen, Flag, FolderGit2, KeyRound, Wrench, Info, Palette, Plug, ShieldCheck, Sparkles, UserRound, type LucideIcon, LockKeyhole } from 'lucide-react';
-import { Monitor, Smartphone } from 'lucide-react';
+import { Gamepad2, Monitor, Smartphone } from 'lucide-react';
 import { DevicesSection } from '../settings/DevicesSection';
 import { PcRunnerSection } from '../settings/PcRunnerSection';
 import { SecuritySection } from '../settings/SecuritySection';
@@ -21,12 +21,14 @@ import { IntegrationsSection } from '../settings/IntegrationsSection';
 import { ProjectsSection } from '../settings/ProjectsSection';
 import { CredentialsSection } from '../settings/CredentialsSection';
 import { McpServersSection } from '../settings/McpServersSection';
+import { GameToolsSection } from '../settings/GameToolsSection';
 import { BotReportsSection } from '../settings/BotReportsSection';
 
 export type SectionId = 'account' | 'security' | 'claude' | 'bots' | 'appearance' | 'about' | 'knowledge'
   | 'integrations'
   | 'projects'
   | 'tools'
+  | 'game-tools'
   | 'reports'
   | 'devices'
   | 'pc-runner'
@@ -40,6 +42,7 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: 'bots', label: 'Bots', icon: ShieldCheck },
   { id: 'projects', label: 'Projects', icon: FolderGit2 },
   { id: 'tools', label: 'Tools', icon: Wrench },
+  { id: 'game-tools', label: 'Game tools', icon: Gamepad2 },
   { id: 'reports', label: 'Reports', icon: Flag },
   { id: 'integrations', label: 'Connections', icon: Plug },
   { id: 'credentials', label: 'Logins', icon: KeyRound },
@@ -138,6 +141,7 @@ export function SettingsDialog({ section: opening, onClose }: { section?: Sectio
             <TabsPrimitive.Content value="appearance" tabIndex={-1} className={PANEL}><AppearanceSection readOnly={device} /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="about" tabIndex={-1} className={PANEL}><AboutSection health={health} /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="tools" tabIndex={-1} className={PANEL}><McpServersSection /></TabsPrimitive.Content>
+            <TabsPrimitive.Content value="game-tools" tabIndex={-1} className={PANEL}><GameToolsSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="reports" tabIndex={-1} className={PANEL}><BotReportsSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="projects" tabIndex={-1} className={PANEL}><ProjectsSection /></TabsPrimitive.Content>
             <TabsPrimitive.Content value="devices" tabIndex={-1} className={PANEL}><DevicesSection /></TabsPrimitive.Content>

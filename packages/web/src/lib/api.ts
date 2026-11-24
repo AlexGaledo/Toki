@@ -6,7 +6,7 @@ import type {
   SandboxStatus,
   IntegrationsState, IntegrationInfo, IntegrationProvider, OAuthAppInput, OAuthAppStatus, PendingConnect, TokenConnectInput,
 } from '@pocketrocket/shared';
-import type { AuditEntry, UserSessionInfo } from '@pocketrocket/shared';
+import type { AuditEntry, GameToolFix, GameToolFixResult, GameToolsStatus, UserSessionInfo } from '@pocketrocket/shared';
 import type { ProjectMapReply, ProjectOverview } from '@pocketrocket/shared';
 import type { Workflow, WorkflowApprovalCard, WorkflowDecision, WorkflowInput, WorkflowPatch, WorkflowRun, WorkflowRunSummary } from '@pocketrocket/shared';
 import type { KnowledgeStatus, SkillGitImportResult, VoiceProposal } from '@pocketrocket/shared';
@@ -25,7 +25,8 @@ import type { TelegramState } from './telegram';
 import { getToken, reportAuthFailure, clearAuthFailure } from './auth';
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  /** The reply's JSON body, e.g. a game tools fix's `result` word on a 409. */
+  constructor(message: string, readonly status: number, readonly body?: unknown) {
     super(message);
     this.name = 'ApiError';
   }
@@ -43,7 +44,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
   clearAuthFailure();
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new ApiError((j as { error?: string }).error ?? r.statusText, r.status);
+  if (!r.ok) throw new ApiError((j as { error?: string }).error ?? r.statusText, r.status, j);
   return j as T;
 }
 
@@ -53,7 +54,7 @@ export type HealthResponse = HealthInfo & { version?: string; provider?: Provide
 
 export type AccountActionResponse = AccountState | { ok: boolean } | Record<string, unknown>;
 
-export interface ProjectInfo { slug: string; name: string; dir: string; memberIds: string[]; roomId: string | null; templateVersion: number | null; createdAt: number }
+export interface ProjectInfo { slug: string; name: string; dir: string; memberIds: string[]; roomId: string | null; templateVersion: number | null; kind?: 'game' | null; createdAt: number }
 export interface ProjectLint { issues: { kind: string; path: string; detail: string }[]; recentMisses: string[] }
 
 const filesBase = (roomId: string) => '/api/rooms/' + encodeURIComponent(roomId) + '/files';
@@ -75,7 +76,7 @@ export interface BotReportRow {
 export interface McpServerRow {
   name: string; kind: 'http' | 'stdio' | 'invalid'; status: 'configured' | 'invalid'; problems: string[];
   url?: string; urlHasQuery?: boolean; tokenSet?: boolean; command?: string; args?: string[]; argsMasked?: boolean; envKeys?: string[];
-  rooms: string[]; bots: string[]; approve: 'every-call' | 'writes' | 'none'; readTools: string[]; needs: string[];
+  rooms: string[]; bots: string[]; approve: 'every-call' | 'writes' | 'none' | 'mode'; readTools: string[]; needs: string[];
   lastCheck: { ok: boolean; result: string; at: number } | null;
 }
 export interface McpServerInput {
@@ -101,6 +102,12 @@ export const api = {
   botReports: {
     list: () => req<BotReportRow[]>('GET', '/api/bot-reports'),
     set: (id: string, status: BotReportRow['status']) => req<BotReportRow>('PATCH', '/api/bot-reports/' + encodeURIComponent(id), { status }),
+  },
+  gameTools: {
+    status: () => req<GameToolsStatus>('GET', '/api/game-tools'),
+    /** A failed step answers 409 with the same shape: read it from `ApiError.body`. */
+    fix: (step: GameToolFix) => req<GameToolFixResult>('POST', '/api/game-tools/fix/' + encodeURIComponent(step), {}),
+    crashLog: () => req<{ log: string | null }>('GET', '/api/game-tools/blender/crash-log'),
   },
   mcpServers: {
     list: () => req<{ servers: McpServerRow[] }>('GET', '/api/mcp-servers'),

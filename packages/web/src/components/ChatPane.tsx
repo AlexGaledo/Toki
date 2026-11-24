@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRightLeft, Check, ChevronDown, Clock, Download, FileTex
 import { CHAT_MODELS, MODELS } from '@pocketrocket/shared';
 import { TokiMark } from './TokiMark';
 import { ChatHeader } from './ChatHeader';
+import { GameToolsStrip } from './GameToolsStrip';
 import type { ApprovalPayload, Bot, HandoffPayload, HandoffResultPayload, Message, Room, RoutinePayload, TakeoverPayload, TurnFailurePayload, VerificationPayload } from '@pocketrocket/shared';
 import type { Approvals, TriggerPayload } from '@pocketrocket/shared';
 import { useStore, selectActiveRoom, botById } from '../store';
@@ -114,6 +115,7 @@ export function ChatPane({ hideHeader = false }: { hideHeader?: boolean } = {}) 
   return (
     <>
       {!hideHeader && <ChatHeader room={room} members={members} />}
+      <GameToolsStrip room={room} />
       <Transcript key={room.id} roomId={room.id} />
       <WorkflowCardsForRoom roomId={room.id} />
       <FailoverCardsForRoom roomId={room.id} />
