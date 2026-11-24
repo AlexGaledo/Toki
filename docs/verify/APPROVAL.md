@@ -34,7 +34,7 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand) | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt` | approved |
 | B8 | blender-loop and studio-loop skills | d608323 | fail-then-pass | `phase2-backend/fail-then-pass.txt` | approved with gaps (the A/B trap test did not run) |
 | B9 | Look-backs from the SDK tool result | 4041481, bd45584 | fail-then-pass, mutation | `phase2-backend/` | approved with gaps (no live `look` turn) |
-| B10 | Server project stubs, host tags | 5c06ec3 | fail-then-pass, mutation (partial), live | `phase3-backend/live-stubs.txt`, `mutations.txt` | approved with gaps (mutants 13 to 27 not run) |
+| B10 | Server project stubs, host tags | 5c06ec3 | fail-then-pass, mutation (27/27), live | `phase3-backend/live-stubs.txt`, `mutations.txt` | approved |
 | B11 | Shared-subscription note | 1847740, 113bb0c, 54f4194 (web) | fail-then-pass, live, verify-toki | `phase3-backend/live-stubs.txt`, `phase3-ui/d4/usage-note-*` | approved with gaps (its mutants not run) |
 | B12 | Toki's headless Blender | d3f3517, ca43f26 (hub dir) | fail-then-pass, mutation, live | `b12/` (`live-run.txt`, `b12-look-rendered.png`, `mutations.txt`) | approved with gaps (no live bot turn through the mount) |
 | I1 | "Open Studio" only | 477db49 | mutation | `phase1-infra/i1-mutations.txt`, `i1-cargo.txt` | approved with gaps (no real launch; S2) |
@@ -107,8 +107,7 @@ steps.
 
 ## Unfinished proofs (not live, but incomplete)
 
-- **phase3-backend mutations:** mutants 13 to 27 did not run, because the run stopped for low memory. They cover:
-  replace, transaction, event, GET merge, the three bot-leak mutants, B11, seed on demand, and hub dir.
+- **phase3-backend mutations:** done. Mutants 13 to 27 were rerun after the memory stop and all 15 were caught, so all 27 are caught (`phase3-backend/mutations.txt`).
 - **phase3-infra mutations:** 35 of 46 did not run, because the run was capped for time.
 - **B3 and B4:** the first pass caught 37 of 44 mutants. Six of the survivors were real gaps, and each now has a test (28517d0). The seventh survivor makes no difference that matters: it would also hide known secrets on hub and browser tool cards. The rerun caught mutants 1 to 31 before the run stopped for low memory. Mutants 32 to 44 were not rerun; in the first pass they were all caught except 44, the harmless one.
 
