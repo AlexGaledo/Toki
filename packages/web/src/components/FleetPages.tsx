@@ -231,6 +231,12 @@ export function RoutinesSection({ botId }: { botId: string | null }) {
   );
 }
 
+/** B11: the hub's fixed words, sent once a server is known: both hubs spend from one subscription. Plain text only. */
+export function SubscriptionNote({ note }: { note: unknown }) {
+  const text = typeof note === 'string' && note.trim() ? note : null;
+  return text ? <p className="rounded-lg bg-card2/60 p-3 text-fg">{text}</p> : null;
+}
+
 function UsageSection() {
   const fresh = useNewPages();
   const bots = useStore((s) => s.bots);
@@ -238,12 +244,12 @@ function UsageSection() {
   const live = useStore((s) => s.usage);
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [split, setSplit] = useState<UsageSplitData>({ byModel: [], byCause: [], byProvider: [] });
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<unknown>(undefined);
   useEffect(() => {
     api.usage().then((u) => {
       setRows(u.rows);
       setSplit({ byModel: u.byModel ?? [], byCause: u.byCause ?? [], byProvider: u.byProvider ?? [] });
-      setNote(typeof u.subscriptionNote === 'string' && u.subscriptionNote ? u.subscriptionNote : null);
+      setNote(u.subscriptionNote);
     });
   }, [live]);
   const total = rows.reduce((a, r) => a + r.costUsd, 0);
@@ -251,8 +257,7 @@ function UsageSection() {
   return (
     <div className="flex flex-col gap-3 p-3 text-hint">
       <PlanLimits />
-      {/* B11: the hub's fixed words, sent once a server is known: both hubs spend from one subscription. */}
-      {note && <p className="rounded-lg bg-card2/60 p-3 text-fg">{note}</p>}
+      <SubscriptionNote note={note} />
       <div className="rounded-lg bg-card2/60 p-3">
         <div className="text-label text-muted">Estimated usage, all time</div>
         <div className="text-title">≈{fmtUsd(total)}</div><div className="mt-1 text-hint text-dim">API-price estimate. Subscription plans aren't charged this.</div>
