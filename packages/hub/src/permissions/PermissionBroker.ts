@@ -12,7 +12,7 @@ import {
 import { patternMatches, type ApprovalStore, type ParkedApproval, type StoredPolicy } from '../db/approvalStore.js';
 import { isComputerTool } from './controlInterlock.js';
 import { routingFileWrite } from './readOnlyRoots.js';
-import { outsideCardInput, outsideTooLarge } from '../services/outsideMcp.js';
+import { outsideCardInput, outsideCodeField, outsideTooLarge } from '../services/outsideMcp.js';
 import { denyMessage } from './messages.js';
 
 export interface PermCtx {
@@ -104,6 +104,8 @@ const SILENT_HUB_TOOLS = SILENT_TOOLS;
 const GATED_HUB_TOOLS = GATED_TOOLS;
 
 const ASK_EVERY_TIME = ASK_EVERY_TIME_TOOLS;
+/** A tool of an outside MCP server (not the hub's own, not the browser); group 1 is the bare tool name. */
+const OUTSIDE_TOOL = /^mcp__(?!pocketrocket__|browser__)[a-z0-9_-]+?__(.+)$/;
 
 /** The hub token is not enough: a bot under bypass can read it and answer its own card. */
 export { SIGN_IN_TOOLS };
@@ -214,6 +216,13 @@ export class PermissionBroker {
     const rule = this.matchPolicy(ctx.bot.id, toolName, approvalSubject(toolName, input), danger);
     if (rule === 'allow') return { behavior: 'allow' };
     if (rule === 'deny') return { behavior: 'deny', message: denyMessage('declined', { note: 'an approval rule the user set denies this', alt: 'choose another approach or ask in chat' }) };
+    const outside = OUTSIDE_TOOL.exec(toolName);
+    if (outside) {
+      // An outside server's own key can sit in its input: the card shows it redacted, with any script as code.
+      const shown = outsideCardInput(input);
+      const codeField = outsideCodeField(outside[1] ?? '', shown);
+      return this.promptUser(ctx, toolName, shown, reason, danger, { ...opts, ...(codeField ? { codeField } : {}) });
+    }
     return this.promptUser(ctx, toolName, input, reason, danger, opts);
   }
 
@@ -537,9 +546,10 @@ export class PermissionBroker {
     const shown = outsideCardInput(input);
     const big = outsideTooLarge(shown);
     if (big) return { allowed: false, message: big };
+    const codeField = outsideCodeField(tool, shown);
     const { decision } = await this.prompt(
-      ctx, 'mcp__' + server + '__' + tool, { server, tool, input: JSON.stringify(shown) },
-      'Outside server "' + server + '" tool "' + tool + '"', false, { signal, once: true },
+      ctx, 'mcp__' + server + '__' + tool, { server, tool, input: shown },
+      'Outside server "' + server + '" tool "' + tool + '"', false, { signal, once: true, ...(codeField ? { codeField } : {}) },
     );
     if (decision === 'allow' || decision === 'always') return { allowed: true, message: 'Approved by the user.' };
     return {
@@ -556,7 +566,7 @@ export class PermissionBroker {
     input: Record<string, unknown>,
     reason: string,
     danger: boolean,
-    opts: { signal: AbortSignal; suggestions?: PermissionUpdate[] },
+    opts: { signal: AbortSignal; suggestions?: PermissionUpdate[]; codeField?: string },
   ): Promise<PermissionResult> {
     const { decision } = await this.prompt(ctx, toolName, input, reason, danger, opts);
     if (decision === 'allow') return { behavior: 'allow' };
@@ -578,7 +588,7 @@ export class PermissionBroker {
     reason: string,
     danger: boolean,
     /** `once`: an "always" answer allows this call only and is never remembered. */
-    opts: { signal: AbortSignal; once?: boolean },
+    opts: { signal: AbortSignal; once?: boolean; codeField?: string },
   ): Promise<{ decision: Decision; approvalId: string }> {
     const gk = this.grantKey(ctx.bot.id, toolName, input);
     const grant = this.parkedGrants.get(gk);
@@ -592,6 +602,7 @@ export class PermissionBroker {
     const payload: ApprovalPayload = {
       approvalId, toolName, toolInput: input, reason, danger, status: 'pending',
       ...(SIGN_IN_TOOLS.has(toolName) ? { signInRequired: true } : {}),
+      ...(opts.codeField ? { codeField: opts.codeField } : {}),
     };
     if (opts.once || ASK_EVERY_TIME.has(toolName)) payload.once = true;
     const msg = this.repos.insertMessage({

@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - An outside MCP server can now be set to `approve: "mode"`. Under full allow its tools run without asking, except on routine, trigger and failover turns. Under Ask, the tools listed in `readTools` run without a card, and every other tool shows the normal approval card, where your rules and "Always allow" work. The `every-call`, `writes` and `none` settings work as before.
 - Blender code that uses `bpy.ops.wm.` is refused in every mode, because Toki's Blender runs headless. Bots are told to save with `toki_save()` instead.
+- Approval cards for outside tools now show the tool's input as fields instead of one escaped line. The script in `execute_blender_code` and `execute_luau` is marked as code, and the normal card hides the server's keys too. Inputs over 8000 characters are still refused.
 
 ## [0.5.4] - 2026-11-21
 

@@ -56,6 +56,12 @@ export function outsideTooLarge(shown: Record<string, unknown>): string | null {
     : null;
 }
 
+const CODE_TOOLS = new Set(['execute_blender_code', 'execute_luau']);
+/** The input field the card shows as code, for tools whose input is a script. */
+export function outsideCodeField(tool: string, input: Record<string, unknown>): 'code' | undefined {
+  return CODE_TOOLS.has(tool) && typeof input.code === 'string' ? 'code' : undefined;
+}
+
 /** Owner rule: Toki's Blender is headless, so no `bpy.ops.wm.*` UI operators. A text check, not a wall. */
 export const BLENDER_WM_MESSAGE =
   'Blender runs headless here, so bpy.ops.wm.* operators are refused. Use toki_save(); the file is opened for you.';
