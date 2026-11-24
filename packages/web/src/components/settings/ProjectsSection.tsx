@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, FolderGit2, Map as MapIcon, Plus, Server, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Check, FolderGit2, FolderOpen, Map as MapIcon, Plus, Server, TriangleAlert } from 'lucide-react';
 import type { ProjectStub } from '@pocketrocket/shared';
 import { useNewLayout } from '../../lib/newLayout';
 import { useStore } from '../../store';
 import { api, type ProjectInfo, type ProjectLint } from '../../lib/api';
 import { TEMPLATE_CHOICES, createInput, setupLines, templateBlocked, type SetupLine, type TemplateChoice } from '../../lib/projectTemplates';
 import { useGameTools } from '../../lib/useGameTools';
-import { desktopHost } from '../../lib/auth';
-import { hostTag, projectKey, showHostTags, splitProjects } from '../../lib/hosts';
+import { desktopCan, desktopHost } from '../../lib/auth';
+import { desktopCall, hostTag, projectKey, showHostTags, splitProjects } from '../../lib/hosts';
 import { Badge, Button, EmptyState, Input, Label, RadioCard, Switch, cn } from '../ui';
 import { Card, Group, InlineError, SectionHeader, shortPath } from './parts';
 import { ReposEditor } from './ReposEditor';
@@ -156,6 +156,12 @@ export function ProjectCard({ project, tag, onChanged, onError }: { project: Pro
     </span>
   ) : null;
   const badge = project.templateVersion ? <Badge>Team template v{project.templateVersion}</Badge> : null;
+  // D3 follow-up: the desktop app opens the folder (I3's `openfolder`); the page never sees or sends a path.
+  const folder = desktopCan('openfolder') ? (
+    <Button size="sm" variant="ghost" aria-label={'Open the folder of ' + project.name} onClick={() => window.open(desktopCall.openFolder(location.origin, project.slug), '_blank')}>
+      <FolderOpen size={13} aria-hidden />Open folder
+    </Button>
+  ) : null;
   useEffect(() => { api.projects.lint(project.slug).then(setLint, () => setLint(null)); }, [project.slug, project.memberIds.length]);
 
   const toggle = async (botId: string, on: boolean) => {
@@ -171,7 +177,7 @@ export function ProjectCard({ project, tag, onChanged, onError }: { project: Pro
   return (
     <Group
       title={project.name}
-      aside={tag || badge || open ? <span className="flex flex-wrap items-center justify-end gap-2">{tag && <Badge>{tag}</Badge>}{badge}{open}</span> : undefined}
+      aside={tag || badge || open || folder ? <span className="flex flex-wrap items-center justify-end gap-2">{tag && <Badge>{tag}</Badge>}{badge}{folder}{open}</span> : undefined}
     >
       <Card>
         <p className={cn('flex min-w-0 gap-1.5 text-hint text-muted', fresh ? 'items-start' : 'items-center')}>

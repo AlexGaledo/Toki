@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { ProjectStub } from '@pocketrocket/shared';
 import type { ProjectInfo } from '../../lib/api';
 
-// D4 in Settings › Projects: host tags in words, and a Server project card that is a name only.
+// D4 / D3 follow-up in Settings › Projects: host tags in words, and Open folder only when the shell can open one.
 const state: Record<string, unknown> = { bots: [], openStub: () => undefined, stubs: [] };
 let caps: string[] = [];
 vi.mock('../../store', () => ({ useStore: (sel: (s: Record<string, unknown>) => unknown) => sel(state) }));
@@ -21,6 +21,15 @@ const stub: ProjectStub = { host: 'server', slug: 'wika', name: 'Wika', seenAt: 
 const card = (tag: string | null) => renderToStaticMarkup(<ProjectCard project={project} tag={tag} onChanged={() => undefined} onError={() => undefined} />);
 
 describe('a PC project card', () => {
+  it('has Open folder only with the openfolder cap', () => {
+    caps = [];
+    expect(card(null)).not.toContain('Open folder');
+    caps = ['hosts', 'localcopy'];
+    expect(card(null)).not.toContain('Open folder');
+    caps = ['openfolder'];
+    expect(card(null)).toContain('aria-label="Open the folder of Wika"');
+  });
+
   it('shows its host tag in words', () => {
     expect(card('This PC')).toContain('>This PC<');
     expect(card(null)).not.toContain('This PC');
