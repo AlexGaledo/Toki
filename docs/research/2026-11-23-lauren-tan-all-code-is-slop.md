@@ -141,13 +141,13 @@ The plan was reviewed before work started and changed:
 | A5 comment cleanup (code-identical; ~9.7k comment lines cut, 375 security invariants kept as one-liners) | #235–#238 | merged |
 | A8 TLA+ model of the cut-off retry, run in CI (`pnpm formal`); a known-bad config must fail | #239 | merged |
 | B5 `features/` map seeded in projects; template v4 rule | #242 | merged, added to the 9 existing projects |
-| A7 stricter tsconfig (`noUncheckedIndexedAccess`) behind a per-file ratchet, 1,496 frozen | this PR | merged |
+| A7 stricter tsconfig (`noUncheckedIndexedAccess`) behind a per-file ratchet, 1,496 frozen | #244 | merged |
 | C other projects (owner's own repos only) | mimegen#22, wika-saas#68, wika-outreach#8, dialecto-offline#1 | open for owner review; Contributor-Hub-Frontend skipped (Wika-PH org) |
-| Recorder Chromium flake | #230, #232, #241, this PR | see below |
+| Recorder Chromium flake | #230, #232, #241, #243, #245 | root cause fixed, see below |
 
-Deployed: eacd312 on 2026-11-24.
+Deployed: fed7f74 on 2026-11-24.
 
-**Recorder flake.** The flake: on 2026-11-23, the first attempt of the test missed the checkout navigation; retries passed. With retries off, it passed all 32 Linux CI runs: 12 alone, 15 alone under 6 CPU hogs, 4 full hub suites and 1 normal run (#240, closed). The one code path that fits the symptom is a browser tab whose attach failed, which the recorder ignored. #241 records that in `info.error`, and the test's failure message prints it. This PR removes `retry: 2`, so the next failure fails CI with its cause instead of passing on a retry. The root cause is unconfirmed until it happens again.
+**Recorder flake: root cause found and fixed (#245).** Once the retry came off (#243), the next CI failure printed its cause: `Browser not recorded: This operation was aborted`. Under full-suite load, the recorder's first `GET /json/version` to a just-started Chromium took more than the 5 s fetch timeout. That aborted the whole browser attach, so nothing was recorded. Isolated runs never hit it (0/32 in #240) because Chrome answers fast when the machine is idle, and retries passed because Chrome was warm by then. `browserWsUrl` now retries a timeout up to 3 times, and a refused connection still fails at once. This was the "attack the premise" loop in practice: the retry hid the evidence, and removing it surfaced the cause on the next run.
 
 Owner decisions still open (current defaults):
 - B1 stays a label, not a block.
