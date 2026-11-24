@@ -1,0 +1,113 @@
+## 0. unmutated tree: test result: ok. 96 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.83s
+## 1. [without] old configs load as they are (no migration)  (src/lib.rs)
+   - fn migrate_config(mut c: Config) -> Config {
+   + fn migrate_config(mut c: Config) -> Config {
+    if c.port > 0 { return c; }
+   CAUGHT: failed tests::a_leftover_host_on_a_local_config_is_not_a_server, tests::an_old_server_mode_config_loads_as_this_pc_plus_that_server, tests::config_migration_is_idempotent_and_round_trips, tests::the_tunnel_never_takes_the_pc_hubs_port
+   test result: FAILED. 92 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.85s
+## 2. [without] the tunnel may take the PC hub's port (migration)  (src/lib.rs)
+   - if s.local_port == c.port {
+            s.local_port
+   + if false && s.local_port == c.port {
+            s.local_port
+   CAUGHT: failed tests::the_tunnel_never_takes_the_pc_hubs_port
+   test result: FAILED. 95 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.67s
+## 3. [rule] validation lets the tunnel share the PC hub's port  (src/lib.rs)
+   - if s.local_port < 1024 || s.local_port == c.port {
+   + if s.local_port < 1024 {
+   CAUGHT: failed tests::the_tunnel_never_takes_the_pc_hubs_port
+   test result: FAILED. 95 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.78s
+## 4. [without] the settings page's 'remote' saved like an old file (moves the PC hub's port)  (src/lib.rs)
+   - fn from_settings_page(mut c: Config, current: Option<ServerEntry>) -> Config {
+   + fn from_settings_page(mut c: Config, current: Option<ServerEntry>) -> Config {
+    if c.mode != "attach" { if c.mode != "remote" { c.server = None; } let _ = &c
+   CAUGHT: failed tests::the_settings_page_adds_and_drops_the_server_without_moving_the_pc_hub
+   test result: FAILED. 95 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.69s
+## 5. [without] the webview allows only the PC hub's port  (src/lib.rs)
+   - let hub = on_loopback_port(url, HUB_PORT.load(Ordering::Relaxed)) || on_loopback_port(url, SERVER_PORT.load(Ordering::Relaxed));
+   + let hub = on_loopback_port(url, HUB_PORT.load(Ordering::Relaxed));
+   CAUGHT: failed tests::both_hubs_stay_in_the_webview_and_nothing_else_does
+   test result: FAILED. 95 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.92s
+## 6. [rule] https (or any scheme) on a hub port counts as the hub  (src/lib.rs)
+   - port != 0
+        && url.scheme() == "http"
+   + port != 0
+   CAUGHT: failed folder::tests::only_the_pc_hubs_page_may_ask, hosts::tests::other_origins_and_other_asks_are_not_host_asks, tests::both_hubs_stay_in_the_webview_and_nothing_else_does, tests::only_splash_and_hub_stay_in_the_webview
+   test result: FAILED. 92 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.79s
+
+## STOPPED here on the coordinator's request (time: about 2 min per mutant). Mutant 7 was cut off mid-build and its file restored from git.
+## Second run, security guards only: --only 21,26,30,41,44
+   (a first attempt found the build still locked by the killed run and stopped at the clean-tree check; rerun below)
+## 0. unmutated tree: test result: ok. 96 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.74s
+## 21. [rule] the server's own stubs of other hosts are passed on  (src/hosts.rs)
+   - Some(h) => h.as_str() == Some("pc"),
+   + Some(_) => true,
+   CAUGHT: failed hosts::tests::stubs_are_the_servers_own_projects_with_slug_and_name_only, server::tests::a_refresh_reads_the_server_and_writes_only_to_this_pc
+   test result: FAILED. 94 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.78s
+## 26. [rule] no 500 cap  (src/hosts.rs)
+   - if out.len() == MAX_STUBS {
+            break;
+        }
+   + 
+   CAUGHT: failed hosts::tests::at_most_500_stubs_are_sent
+   test result: FAILED. 95 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.78s
+## 30. [rule] extra parameters (a token) ride along  (src/hosts.rs)
+   - let ask = match pairs.as_slice() {
+   + let ask = match &pairs[..1.min(pairs.len())] {
+   CAUGHT: failed hosts::tests::the_page_can_never_pass_an_address_a_path_or_a_token
+   test result: FAILED. 95 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.73s
+## 41. [rule] any non-empty name is a folder name (paths, '..')  (src/folder.rs)
+   - valid_slug(slug)
+        && !slug.contains("..")
+   + !slug.is_empty() || valid_slug(slug)
+        && !slug.contains("..")
+   CAUGHT: failed folder::tests::it_opens_the_resolved_folder_once_per_cooldown, folder::tests::paths_traversal_and_extra_parameters_are_refused, folder::tests::the_shell_resolves_an_existing_folder_under_projects_only
+   test result: FAILED. 93 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.74s
+## 44. [rule] the folder isn't checked on disk (missing or a file)  (src/folder.rs)
+   - let root = std::fs::canonicalize(data.join("projects")).map_err(|_| NOT_HERE)?;
+   + if !slug.is_empty() { return Ok(data.join("projects").join(slug)); }
+    let root = std::fs::canonicalize(data.join("projects")).map_err(|_| NOT_HERE)?;
+   CAUGHT: failed folder::tests::a_junction_out_of_the_projects_folder_is_refused, folder::tests::it_opens_the_resolved_folder_once_per_cooldown, folder::tests::the_shell_resolves_an_existing_folder_under_projects_only
+   test result: FAILED. 93 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.75s
+
+0 mutant(s) not caught as expected; 46 mutants, 57 s
+exit 0
+
+## Not run (time), capped by the coordinator. Each is in scripts/mutations_phase3.py; run one with --only <n>.
+   7. [without] the tunnel's local end not bound to 127.0.0.1  (src/lib.rs)  would need to fail: tests::the_server_tunnel_listens_on_loopback_only_and_never_relaxes_host_keys
+   8. [rule] BatchMode dropped from the tunnel  (src/lib.rs)  would need to fail: tests::the_server_tunnel_listens_on_loopback_only_and_never_relaxes_host_keys
+   9. [rule] any hex string is taken as the server token  (src/lib.rs)  would need to fail: tests::only_a_32_hex_token_is_taken_from_the_server
+   10. [without] dropping the server clears the one shared token (the PC hub's)  (src/server.rs)  would need to fail: tests::dropping_the_server_never_touches_the_pc_hub_or_its_token
+   11. [rule] the server port stays allowed after the tunnel is dropped  (src/server.rs)  would need to fail: tests::dropping_the_server_never_touches_the_pc_hub_or_its_token
+   12. [rule] the server token rides in the query  (src/server.rs)  would need to fail: server::tests::the_server_page_gets_its_own_token_only_in_the_fragment
+   13. [without] the page is not told about host asks (no `hosts` cap)  (src/lib.rs)  would need to fail: tests::hub_url_always_says_desktop
+   14. [without] no `server` cap when a server is set up  (src/lib.rs)  would need to fail: tests::hub_url_always_says_desktop
+   15. [without] the server's reply is passed on unfiltered  (src/server.rs)  would need to fail: server::tests::a_refresh_reads_the_server_and_writes_only_to_this_pc
+   16. [rule] the PC hub is sent the server's token  (src/server.rs)  would need to fail: server::tests::a_refresh_reads_the_server_and_writes_only_to_this_pc
+   17. [rule] a failed read wipes the last stubs  (src/server.rs)  would need to fail: server::tests::a_failed_read_keeps_the_stubs_and_a_loss_marks_the_server_disconnected
+   18. [without] a loss is not told to the PC hub  (src/hosts.rs)  would need to fail: server::tests::a_failed_read_keeps_the_stubs_and_a_loss_marks_the_server_disconnected
+   19. [rule] stubs are written to a hub that is not ours (attach: no token)  (src/server.rs)  would need to fail: server::tests::nothing_is_told_to_a_pc_hub_that_is_not_ours_or_not_up
+   20. [rule] slugs with a double dash pass  (src/hosts.rs)  would need to fail: hosts::tests::slugs_follow_the_hub_rule
+   22. [rule] control and bidi characters pass  (src/hosts.rs)  would need to fail: hosts::tests::invalid_stubs_are_dropped_not_sent
+   23. [rule] names are not trimmed  (src/hosts.rs)  would need to fail: hosts::tests::invalid_stubs_are_dropped_not_sent
+   24. [rule] name length counted in chars, not UTF-16 units as zod does  (src/hosts.rs)  would need to fail: hosts::tests::invalid_stubs_are_dropped_not_sent
+   25. [rule] a slug may appear twice  (src/hosts.rs)  would need to fail: hosts::tests::invalid_stubs_are_dropped_not_sent
+   27. [rule] a hub with no server is taught one (any project counts as 'connected')  (src/hosts.rs)  would need to fail: hosts::tests::a_stale_connected_server_is_noticed_on_the_pc_hub
+   28. [without] no host asks at all  (src/hosts.rs)  would need to fail: hosts::tests::the_page_can_ask_for_the_server_by_id_and_a_slug, hosts::tests::the_page_can_never_pass_an_address_a_path_or_a_token
+   29. [rule] openproject takes any host before the colon  (src/hosts.rs)  would need to fail: hosts::tests::the_page_can_never_pass_an_address_a_path_or_a_token
+   31. [rule] a fragment (a token) rides along  (src/hosts.rs)  would need to fail: hosts::tests::the_page_can_never_pass_an_address_a_path_or_a_token
+   32. [rule] any loopback port may ask  (src/hosts.rs)  would need to fail: hosts::tests::other_origins_and_other_asks_are_not_host_asks
+   33. [without] only ssh exiting counts (a quiet hub waits for ServerAlive, about 90 s)  (src/hosts.rs)  would need to fail: hosts::tests::a_lost_tunnel_shows_within_30_seconds, hosts::tests::one_or_two_missed_checks_are_not_a_loss, hosts::tests::a_long_silence_is_a_loss_at_the_first_missed_check
+   34. [rule] five strikes  (src/hosts.rs)  would need to fail: hosts::tests::one_or_two_missed_checks_are_not_a_loss
+   35. [rule] one missed check is a loss  (src/hosts.rs)  would need to fail: hosts::tests::one_or_two_missed_checks_are_not_a_loss
+   36. [rule] no quiet deadline  (src/hosts.rs)  would need to fail: hosts::tests::a_long_silence_is_a_loss_at_the_first_missed_check
+   37. [rule] telling the PC hub may take 12 s (over the 30 s budget)  (src/hosts.rs)  would need to fail: hosts::tests::a_lost_tunnel_shows_within_30_seconds
+   38. [rule] health checks may take 8 s  (src/hosts.rs)  would need to fail: (informational)
+   39. [without] no folder asks at all  (src/folder.rs)  would need to fail: folder::tests::the_page_can_ask_for_a_project_folder_by_slug, folder::tests::paths_traversal_and_extra_parameters_are_refused, folder::tests::only_the_pc_hubs_page_may_ask
+   40. [without] openfolder not advertised  (src/lib.rs)  would need to fail: tests::hub_url_always_says_desktop
+   42. [rule] the server hub's page may ask (opens a same-named PC folder)  (src/folder.rs)  would need to fail: folder::tests::only_the_pc_hubs_page_may_ask
+   43. [rule] extra parameters (a path) ride along  (src/folder.rs)  would need to fail: folder::tests::paths_traversal_and_extra_parameters_are_refused
+   45. [rule] a junction out of projects/ is followed  (src/folder.rs)  would need to fail: folder::tests::a_junction_out_of_the_projects_folder_is_refused
+   46. [rule] no cooldown  (src/folder.rs)  would need to fail: folder::tests::it_opens_the_resolved_folder_once_per_cooldown
+
+Summary: 11 of 46 mutants run, 11 caught as expected, 0 survived. 35 not run (time).

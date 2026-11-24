@@ -12,7 +12,7 @@ Switch from **Connection settings** in the tray icon menu:
 | Mode | What happens | State lives in |
 |---|---|---|
 | **Local: this PC** (default) | The app starts its own hub as a child process and shuts it down on quit. No network hop. | `%APPDATA%\com.pocketrocket.app\data\` — SQLite db (WAL), bot memories, workspace, skills. `hub.log` next to it. |
-| **VPS over SSH tunnel** | Opens an SSH tunnel to the hub on your server itself, waits for it, and respawns the tunnel if it drops. Gets the virtual desktop/screen. | on the VPS |
+| **This PC and a server over SSH** | The hub on this PC runs as in Local. The server is a second host: its own tunnel (`127.0.0.1:7790` here to the hub's `7788` there, BatchMode), opened when you ask (tray: **Open your server**, or Connect on a server project). Its token is read over SSH. Its projects are listed on the PC by name only, refreshed on connect and every 5 minutes. A lost tunnel shows as disconnected within 30 s and never stops the PC hub. A setup saved by an older app as "VPS over SSH tunnel" loads as this. Gets the virtual desktop/screen. | each project on its own host; nothing is copied between them |
 | **Attach** | Connects to a hub you already run (`pnpm dev` / `pnpm start`). | wherever that hub points |
 
 On first run the app can scan the servers in your `~/.ssh/config` and connect to the ones you
