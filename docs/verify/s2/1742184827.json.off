@@ -1,0 +1,12 @@
+{
+    "mcp-prompt-sharing": {
+        "enabled": false
+    },
+    "AssistantSkillsCloudMigrated": true,
+    "integrations": {
+        "integrations": []
+    },
+    "mcp-server": {
+        "enabled": false
+    }
+}

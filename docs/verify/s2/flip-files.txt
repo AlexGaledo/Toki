@@ -1,0 +1,26 @@
+# Item 1 files (real %LOCALAPPDATA%\Roblox\AssistantSettings), 2026-11-24T20:59:15+08:00
+## ls
+total 18
+drwxr-xr-x 1 alex 197121   0 Nov 24 20:59 .
+drwxr-xr-x 1 alex 197121   0 Nov 21 01:21 ..
+-rw-r--r-- 1 alex 197121 211 Nov 24 20:59 1742184827.json
+-rw-r--r-- 1 alex 197121 212 Nov 24 20:57 1742184827.json.toki-bak
+## sha256
+\2fef68893d7a2fc8a13156a66b0f12eb73eb1f2b73b60589081c9578d8789867 *C:\\Users\\alex\\AppData\\Local/Roblox/AssistantSettings/1742184827.json
+\e2387264d0636b5f39cd541ba48df3ed517aa4eaeee59117298372fde7b3de33 *C:\\Users\\alex\\AppData\\Local/Roblox/AssistantSettings/1742184827.json.toki-bak
+2fef68893d7a2fc8a13156a66b0f12eb73eb1f2b73b60589081c9578d8789867 *1742184827.json.orig
+e2387264d0636b5f39cd541ba48df3ed517aa4eaeee59117298372fde7b3de33 *1742184827.json.off
+## diff original-backup vs file after Toki's fix (empty = byte-identical)
+(identical)
+## diff hand-flipped (off) vs .toki-bak (empty = Toki backed up exactly what it found)
+(identical)
+## diff .toki-bak vs fixed file (only mcp-server.enabled may change)
+10c10
+<         "enabled": false
+---
+>         "enabled": true
+## key-by-key
+mcp-prompt-sharing             unchanged
+AssistantSkillsCloudMigrated   unchanged
+integrations                   unchanged
+mcp-server                     CHANGED {"enabled":false} -> {"enabled":true}

@@ -1,0 +1,28 @@
+# Item 5 (desktop part): does `?launch=studio`'s resolver find this PC's Studio? Read, not launched.
+# Code: packages/desktop/src-tauri/src/launch.rs  find_installed(App::Studio) -> studio_exe(content_folder, LOCALAPPDATA)
+#   1. ContentFolder (HKCU\Software\Roblox\RobloxStudio) -> parent dir -> join RobloxStudioBeta.exe; used if it is a file
+#      under <LOCALAPPDATA>\Roblox\Versions (case-insensitive, no `..`).
+#   2. else the newest-modified Versions\version-*\RobloxStudioBeta.exe that is a file.
+
+## This PC (2026-11-24)
+HKEY_CURRENT_USER\Software\Roblox\RobloxStudio
+    ContentFolder    REG_SZ    C:\Users\alex\AppData\Local\Roblox\Versions\version-8d7a1009c17e4ff8\content\
+LOCALAPPDATA=C:\Users\alex\AppData\Local
+Versions:
+  version-2c6fd5e09aaf4cfa  (no RobloxStudioBeta.exe: RobloxCrashHandler.exe RobloxPlayerBeta.exe RobloxPlayerInstaller.exe )
+  version-8d7a1009c17e4ff8  RobloxStudioBeta.exe  mtime 2026-11-19T20:51:29+08:00
+
+## Walk-through
+Step 1: ContentFolder = C:\Users\alex\AppData\Local\Roblox\Versions\version-8d7a1009c17e4ff8\content\
+  Path::parent ignores the trailing separator -> ...\Versions\version-8d7a1009c17e4ff8
+  join -> C:\Users\alex\AppData\Local\Roblox\Versions\version-8d7a1009c17e4ff8\RobloxStudioBeta.exe
+  under(<that>, C:\Users\alex\AppData\Local\Roblox\Versions) = true (absolute, no `..`, prefix matches); is_file = true
+  => returned at step 1.
+Step 2 (fallback, if the registry value were missing): version-2c6fd5e09aaf4cfa has no RobloxStudioBeta.exe (Player
+  only) and is filtered out; the only candidate is version-8d7a1009c17e4ff8\RobloxStudioBeta.exe => same exe.
+Result: both paths give C:\Users\alex\AppData\Local\Roblox\Versions\version-8d7a1009c17e4ff8\RobloxStudioBeta.exe,
+  the exe this S2 run launched by hand (pid 37340). The launch itself (no args, out of Toki's job, cooldown) is item 6,
+  left to the installed-app run. Rust unit tests for both paths: launch.rs
+  `studio_is_found_beside_roblox_content_folder_or_as_the_newest_version`,
+  `a_registry_value_pointing_outside_roblox_versions_is_ignored` (not rerun here: no Rust change, and a cargo build
+  would not fit beside Studio in this PC's free RAM).

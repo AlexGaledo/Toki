@@ -1,0 +1,32 @@
+data dir: C:\Users\alex\AppData\Local\Temp\toki-s2-flip-ApMM
+LOCALAPPDATA the hub reads: C:\Users\alex\AppData\Local
+created default bots: @pocketrocket-support, @data-engineer
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data C:\Users\alex\AppData\Local\Temp\toki-s2-flip-ApMM · http://127.0.0.1:52882
+[pocketrocket] workspace: C:\Users\alex\AppData\Local\Temp\toki-s2-flip-ApMM\workspace  (token required)
+[pocketrocket] open: http://127.0.0.1:52882/  (sign in with the token from C:\Users\alex\AppData\Local\Temp\toki-s2-flip-ApMM\hub-token)
+throwaway hub on 127.0.0.1:52882
+### GET /api/game-tools (before) -> 200
+studio: {"ok":false,"reason":"setting-off","mcpBat":true,"studioMcp":true,"setting":"off","running":false,"verified":false,"fix":"studio-mcp-setting"}
+### POST /api/game-tools/fix/studio-mcp-setting -> 200
+{
+  "ok": true,
+  "step": "studio-mcp-setting",
+  "result": "enabled",
+  "changed": [
+    "C:\\Users\\alex\\AppData\\Local\\Roblox\\AssistantSettings\\1742184827.json"
+  ],
+  "studio": {
+    "ok": false,
+    "reason": "not-running",
+    "mcpBat": true,
+    "studioMcp": true,
+    "setting": "on",
+    "running": false,
+    "verified": false,
+    "fix": null
+  }
+}
+### GET /api/game-tools (after) -> 200
+studio: {"ok":false,"reason":"not-running","mcpBat":true,"studioMcp":true,"setting":"on","running":false,"verified":false,"fix":null}
+### audit rows: [{"action":"game_tools.studio_mcp_enabled","target":"1742184827.json","detail":null}]
+(process exit printed a Node 26 libuv assertion after all output; the step had already finished)

@@ -1,0 +1,30 @@
+# Cleanup, 2026-11-24T21:03:36+08:00
+## AssistantSettings after Studio closed
+total 18
+drwxr-xr-x 1 alex 197121   0 Nov 24 20:59 .
+drwxr-xr-x 1 alex 197121   0 Nov 24 21:03 ..
+-rw-r--r-- 1 alex 197121 211 Nov 24 21:03 1742184827.json
+-rw-r--r-- 1 alex 197121 212 Nov 24 20:57 1742184827.json.toki-bak
+## diff backup (1742184827.json.orig) vs real file (empty = byte-identical)
+(identical)
+2fef68893d7a2fc8a13156a66b0f12eb73eb1f2b73b60589081c9578d8789867 *1742184827.json.orig
+tr: warning: an unescaped backslash at end of string is not portable
+2fef68893d7a2fc8a13156a66b0f12eb73eb1f2b73b60589081c9578d8789867 *C:UsersalexAppDataLocal/Roblox/AssistantSettings/1742184827.json
+(Studio rewrote the file on exit at 21:03; content is byte-identical to the backup)
+## .toki-bak (Toki's backup of the hand-flipped 'off' file; same bytes as 1742184827.json.off here) removed so the folder is as before:
+removed
+total 17
+drwxr-xr-x 1 alex 197121   0 Nov 24 21:03 .
+drwxr-xr-x 1 alex 197121   0 Nov 24 21:03 ..
+-rw-r--r-- 1 alex 197121 211 Nov 24 21:03 1742184827.json
+## processes after cleanup (Studio pid 37340 closed by CloseMainWindow, exited in ~6 s, no force-kill)
+"StudioMCP.exe","2188","Console","1","10,164 K"
+"StudioMCP.exe","36852","Console","1","7,136 K"
+"blender-mcp.exe","27784","Console","1","28 K"
+"blender-mcp.exe","18792","Console","1","28 K"
+"RobloxPlayerBeta.exe","27388","Console","1","130,600 K"
+"RobloxCrashHandler.exe","34204","Console","1","7,752 K"
+blender.exe running: 0
+(StudioMCP.exe 2188/36852 and RobloxPlayerBeta 27388 were running before S2 and were left alone)
+## throwaway hubs: both drivers called hub.shutdown() and exited
+## temp place and hub data dirs removed

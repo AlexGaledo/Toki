@@ -24,13 +24,13 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | Task | What | Commit(s) | Proof type | Evidence | Status |
 |---|---|---|---|---|---|
 | S1 | Spike: game tools on the owner's PC | 0840b6f | live | `docs/verify/game-tools-spike.md`, `game-tools-spike/` | approved |
-| S2 | Studio steps with Studio open | none | none | none | not done |
-| B1 | Detection (Blender, uv, Blender MCP tools, Studio) | fcbe5d8 | fail-then-pass, mutation, live | `phase1-backend/` (`live-status.txt`, `mutations.txt`, `fail-then-pass.txt`) | approved with gaps (the Studio "open" state was not seen) |
+| S2 | Studio steps with Studio open | none (verification only, no bug found) | live (real AssistantSettings, real Studio, one Haiku turn under ask) | `s2/` (`README.md`, `flip.txt`, `flip-files.txt`, `turn.txt`, `cards.json`, `screen.png`, `resolver.txt`, `cleanup.txt`) | approved with gaps (items 1-5 pass; `multi_edit` not exercised; item 6 is the installed-app run) |
+| B1 | Detection (Blender, uv, Blender MCP tools, Studio) | fcbe5d8 | fail-then-pass, mutation, live | `phase1-backend/` (`live-status.txt`, `mutations.txt`, `fail-then-pass.txt`) | approved (the Studio "open" state was seen live in `s2/turn.txt`) |
 | B2 | Game tools routes, hub token only, audited | e632778, daa692e | fail-then-pass, mutation, live | `phase1-backend/` | approved |
-| B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved with gaps (bypass shown live in `e2e/`; no live turn showing "Always allow" under ask) |
-| B4 | Card input as an object, with `codeField` | b4d4875, 28517d0 | fail-then-pass, mutation, verify-toki | `b3-b4/fail-then-pass.txt`, `b3-b4/mutations.txt`, `phase1-ui/d1/strip-and-d5-card.aria.yml` | approved (the normal-card path is unit-tested only) |
+| B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved (bypass live in `e2e/`; "Always allow" under ask live in `s2/turn.txt`) |
+| B4 | Card input as an object, with `codeField` | b4d4875, 28517d0 | fail-then-pass, mutation, verify-toki | `b3-b4/fail-then-pass.txt`, `b3-b4/mutations.txt`, `phase1-ui/d1/strip-and-d5-card.aria.yml` | approved (the normal-card path with `codeField` live in `s2/cards.json`) |
 | B5 | Status checks from BlenderHost and Studio, crash log | 074b918 | fail-then-pass, mutation, live | `phase1-backend/` | approved with gaps (Studio states) |
-| B6 | Install uv, the pinned Blender MCP tools, Studio's MCP setting | 196b4ce | fail-then-pass, mutation, live | `phase1-backend/live-install.txt` | approved with gaps (the Studio setting step never ran on the real file) |
+| B6 | Install uv, the pinned Blender MCP tools, Studio's MCP setting | 196b4ce | fail-then-pass, mutation, live | `phase1-backend/live-install.txt` | approved (the Studio setting step ran on the real file in `s2/flip-files.txt`) |
 | B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand) | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt` | approved |
 | B8 | blender-loop and studio-loop skills | d608323, see e2e | fail-then-pass, live A/B 3x3 | `phase2-backend/fail-then-pass.txt`, `e2e/ab-skill.txt` | approved (the A/B found the skill alone 1/3; the fix makes the checkpoint structural, then 6/6) |
 | B9 | Look-backs from the SDK tool result | 4041481, bd45584 | fail-then-pass, mutation, live | `phase2-backend/`, `e2e/` | approved |
@@ -54,14 +54,13 @@ These need the owner's machine with Studio open, the installed app, or the real 
 steps.
 
 **S2: Roblox Studio** (`game-tools-spike.md` "Not verified", `phase1-infra/README.md`)
-1. A `mcp-server` flip made with Studio closed takes effect the next time Studio starts. This is the **Turn on Studio
-   MCP** step on the real `AssistantSettings` file.
-2. `execute_luau` and `multi_edit` cards from a real turn. They should show code, and "Always allow" should work under
-   Ask.
-3. `screen_capture` returns an image block, and it becomes a look-back.
-4. `save_place` from a bot.
-5. Detection and the room strip with Studio open: "Studio open", and "Close Roblox Studio first" while the setting is off.
-6. **Open Studio** in an installed build:
+Items 1 to 5 passed live on 2026-11-24 (`s2/README.md`): the setting flip on the real file took effect on the next
+Studio start; the `execute_luau` card showed `codeField: "code"` and "Always allow" let the second call run with no card
+under Ask; `screen_capture` became an `img:` look-back; `save_place` saved; detection read "ready" with Studio open and the
+fix refused with 409 `studio-running`. The desktop resolver finds this PC's exe (read, not launched). Still open:
+1. A `multi_edit` card from a real turn. The bot never called it, and its card is not code-formatted (`outsideCodeField`
+   knows only `execute_luau` and `execute_blender_code`; no real `multi_edit` input has been seen yet).
+2. **Open Studio** in an installed build:
    - it starts `RobloxStudioBeta.exe` with no arguments;
    - Studio is not in Toki's job;
    - Studio stays open after you quit Toki;

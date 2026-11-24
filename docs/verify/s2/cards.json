@@ -1,0 +1,26 @@
+[
+  {
+    "toolName": "mcp__roblox-studio__execute_luau",
+    "codeField": "code",
+    "once": false,
+    "danger": false,
+    "inputKeys": [
+      "code",
+      "datamodel_type",
+      "studio_id"
+    ],
+    "code": "local part = Instance.new(\"Part\")\npart.Name = \"TokiTest\"\npart.BrickColor = BrickColor.new(\"Bright red\")\npart.Position = Vector3.new(0, 5, 0)\npart.Parent = workspace",
+    "decision": "always"
+  },
+  {
+    "toolName": "mcp__roblox-studio__save_place",
+    "codeField": null,
+    "once": false,
+    "danger": false,
+    "inputKeys": [
+      "studio_id"
+    ],
+    "code": null,
+    "decision": "allow"
+  }
+]
