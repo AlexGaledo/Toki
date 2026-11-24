@@ -47,7 +47,30 @@ describe('pushing to the default branch', () => {
 });
 
 describe('merging a pull request', () => {
-  const checks = (state: PrChecks, seen: string[][] = []): GitInfo => ({ ...on('feature'), prChecks: (_dir, args) => { seen.push([...args]); return state; } });
+  const checks = (state: PrChecks, seen: string[][] = [], files: string[] | null = ['src/a.ts']): GitInfo =>
+    ({ ...on('feature'), prChecks: (_dir, args) => { seen.push([...args]); return state; }, prFiles: () => files });
+
+  it('reads the checks of exactly the pull request merged, however the repo is written', () => {
+    const seen: string[][] = [];
+    for (const cmd of ['gh pr merge 3 -R me/app', 'gh pr merge 3 --repo=me/app', 'gh pr merge 3 -Rme/app', 'gh pr merge 3 -R=me/app']) {
+      expect(denied(cmd, checks('pass', seen)), cmd).toBeNull();
+    }
+    expect(seen).toEqual(Array(4).fill(['3', '--repo', 'me/app']));
+  });
+  it('refuses spellings and flags it does not know, two pull requests, and environment overrides', () => {
+    for (const cmd of [
+      'gh pr merge 3 --admin=true', 'gh pr merge 3 --admin', 'gh pr merge 3 --unknown', 'gh pr merge 3 4',
+      'GH_REPO=other/app gh pr merge 3', 'gh -R other/app pr merge 3', 'bash -c "gh pr merge 3"',
+    ]) expect(denied(cmd, checks('pass')), cmd).not.toBeNull();
+  });
+  it('refuses a merge after a push or commit in the same command', () => {
+    expect(denied('git push origin feature && gh pr merge 3', checks('pass'))).toMatch(/separate command/);
+    expect(denied('git commit -am x; gh pr merge 3', checks('pass'))).toMatch(/separate command/);
+  });
+  it('refuses a pull request that changes CI, or whose changes cannot be read', () => {
+    expect(denied('gh pr merge 3', checks('pass', [], ['src/a.ts', '.github/workflows/ci.yml']))).toMatch(/changes CI/);
+    expect(denied('gh pr merge 3', checks('pass', [], null))).toMatch(/Could not read what/);
+  });
 
   it('is allowed once its checks pass, asking gh about the same pull request and repo', () => {
     const seen: string[][] = [];

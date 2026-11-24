@@ -14,6 +14,8 @@ export interface GitInfo {
   remoteUrl?: (dir: string, remote: string) => string | null;
   /** State of a pull request's checks, from `gh pr checks <args>` run in dir. */
   prChecks?: (dir: string, args: readonly string[]) => PrChecks;
+  /** Paths a pull request changes, from `gh pr diff <args> --name-only`; null when it cannot be read. */
+  prFiles?: (dir: string, args: readonly string[]) => string[] | null;
 }
 
 export type PrChecks = 'pass' | 'pending' | 'fail' | 'none' | 'unknown';
@@ -30,22 +32,53 @@ const ghPrChecks = (dir: string, args: readonly string[]): PrChecks => {
   }
 };
 
-const MERGE_SELECTOR_FLAGS = new Set(['-R', '--repo']);
-const MERGE_VALUE_FLAGS = new Set(['-b', '--body', '-F', '--body-file', '-t', '--subject', '-A', '--author-email', '--match-head-commit']);
+const ghPrFiles = (dir: string, args: readonly string[]): string[] | null => {
+  try {
+    return execFileSync('gh', ['pr', 'diff', ...args, '--name-only'], { cwd: dir, encoding: 'utf8', timeout: 20_000, stdio: ['ignore', 'pipe', 'pipe'] })
+      .split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  } catch {
+    return null;
+  }
+};
 
-/** Bots may merge their own pull request, but only once its checks have passed, and never past branch protection. */
-function mergeDenied(args: readonly string[], dir: string, info: GitInfo): string | null {
-  if (args.some((a) => a === '--admin')) return 'Merging with --admin skips branch protection, so it is left to the owner.';
+const MERGE_SWITCHES = new Set(['--merge', '-m', '--squash', '-s', '--rebase', '-r', '--delete-branch', '-d', '--auto', '--disable-auto']);
+const MERGE_VALUE_FLAGS = new Set(['-b', '--body', '-F', '--body-file', '-t', '--subject', '-A', '--author-email', '--match-head-commit']);
+const ONLY_FLAGS = 'Merge with plain flags only (--merge, --squash, --rebase, --delete-branch, --auto, a body or subject, -R owner/repo).';
+
+/** Parses `gh pr merge` arguments strictly, so the checks read are for exactly the pull request merged. */
+export function parseMergeArgs(args: readonly string[]): { pr: string | null; repo: string | null } | string {
   let pr: string | null = null;
-  const repo: string[] = [];
+  let repo: string | null = null;
   const rest = args[Symbol.iterator]();
   for (const arg of rest) {
-    if (MERGE_SELECTOR_FLAGS.has(arg)) repo.push('--repo', rest.next().value ?? '');
-    else if (arg.startsWith('--repo=')) repo.push(arg);
-    else if (!arg.startsWith('-') && pr === null) pr = arg;
+    if (arg === '-R' || arg === '--repo') repo = rest.next().value ?? '';
+    else if (arg.startsWith('--repo=')) repo = arg.slice('--repo='.length);
+    else if (/^-R.+/.test(arg)) repo = arg.slice(2).replace(/^=/, '');
+    else if (MERGE_SWITCHES.has(arg)) continue;
     else if (MERGE_VALUE_FLAGS.has(arg)) rest.next();
+    else if ([...MERGE_VALUE_FLAGS].some((f) => f.startsWith('--') && arg.startsWith(f + '='))) continue;
+    else if (arg.startsWith('-')) return arg.startsWith('--admin') ? 'Merging with --admin skips branch protection, so it is left to the owner.' : ONLY_FLAGS;
+    else if (pr === null) pr = arg;
+    else return 'Name one pull request to merge.';
   }
-  switch ((info.prChecks ?? ghPrChecks)(dir, [...(pr ? [pr] : []), ...repo])) {
+  if (repo === '') return 'Name the repo after -R.';
+  return { pr, repo };
+}
+
+/**
+ * Bots may merge their own pull request, but only once its checks have passed, never past branch protection, and
+ * never one that changes the CI that decides whether it passed.
+ */
+function mergeDenied(args: readonly string[], dir: string, info: GitInfo): string | null {
+  const parsed = parseMergeArgs(args);
+  if (typeof parsed === 'string') return parsed;
+  const select = [...(parsed.pr ? [parsed.pr] : []), ...(parsed.repo ? ['--repo', parsed.repo] : [])];
+  const files = (info.prFiles ?? ghPrFiles)(dir, select);
+  if (files === null) return 'Could not read what this pull request changes (gh pr diff failed). Merge only once you can.';
+  if (files.some((f) => f.startsWith('.github/workflows/') || f.startsWith('.github/actions/'))) {
+    return 'This pull request changes CI itself, so its checks cannot vouch for it. Ask the owner to merge it.';
+  }
+  switch ((info.prChecks ?? ghPrChecks)(dir, select)) {
     case 'pass': return null;
     case 'pending': return 'The checks on this pull request are still running. Wait with gh pr checks --watch, then merge.';
     case 'fail': return 'The checks on this pull request failed. Fix them, push, and merge once they pass.';
@@ -72,18 +105,26 @@ const REFUSED = 'Pushing to the default branch is blocked for this bot. Push a b
 
 export function defaultBranchPushDenied(command: string, cwd: string, info: GitInfo = realGit, extraProtected?: (remote: string) => readonly string[]): string | null {
   let dir = cwd;
+  let changedEarlier = false;
   for (const segment of command.split(/&&|\|\||[;|\n]/)) {
     const tokens = segment.trim().split(/\s+/).map(clean).filter(Boolean);
-    while (tokens[0] && /^\w+=/.test(tokens[0])) tokens.shift();
+    let envPrefix = false;
+    while (tokens[0] && /^\w+=/.test(tokens[0])) { tokens.shift(); envPrefix = true; }
     if (!tokens.length) continue;
+    const [head = ''] = tokens;
 
     if (tokens[0] === 'cd' && tokens[1]) { dir = path.resolve(dir, tokens[1]); continue; }
     if (tokens[0] === 'gh' && tokens[1] === 'pr' && tokens[2] === 'merge') {
+      if (envPrefix) return 'Run gh pr merge without environment settings in front, so the checks read are for the same pull request.';
+      if (changedEarlier) return 'Push first, wait for the checks on that commit, then merge in a separate command.';
       const why = mergeDenied(tokens.slice(3), dir, info);
       if (why) return why;
       continue;
     }
-    if (WRAPPERS.has(tokens[0]) && /\bgit\b.*\bpush\b/.test(segment)) return 'Run git push as a plain command, not inside ' + tokens[0] + ', so it can be checked.';
+    if (tokens[0] === 'git' && tokens.some((t) => t === 'push' || t === 'commit' || t === 'merge' || t === 'rebase')) changedEarlier = true;
+    if (tokens[0] === 'gh' && /\bgh\b.*\bpr\b.*\bmerge\b/.test(segment)) return 'Run gh pr merge as a plain command so it can be checked.';
+    if (WRAPPERS.has(head) && /\bgh\b.*\bpr\b.*\bmerge\b/.test(segment)) return 'Run gh pr merge as a plain command, not inside ' + head + ', so it can be checked.';
+    if (WRAPPERS.has(head) && /\bgit\b.*\bpush\b/.test(segment)) return 'Run git push as a plain command, not inside ' + head + ', so it can be checked.';
     if (tokens[0] !== 'git') continue;
 
     let i = 1;

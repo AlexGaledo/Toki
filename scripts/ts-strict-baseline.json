@@ -101,7 +101,7 @@
   "hub:src/permissions/parking.test.ts": 8,
   "hub:src/permissions/projectGuard.ts": 3,
   "hub:src/permissions/secretFiles.ts": 6,
-  "hub:src/permissions/shipGuard.ts": 5,
+  "hub:src/permissions/shipGuard.ts": 4,
   "hub:src/permissions/strictApprovals.test.ts": 3,
   "hub:src/permissions/toolRegistry.test.ts": 2,
   "hub:src/providers/acp/adapter.test.ts": 22,
