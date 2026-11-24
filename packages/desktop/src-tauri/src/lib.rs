@@ -13,6 +13,7 @@
 //! environment, and the app runs `packages/hub/src/index.ts` via tsx.
 
 mod envpath;
+mod folder;
 mod proc;
 mod hosts;
 mod scan;
@@ -301,9 +302,9 @@ fn hub_responding(port: u16, read_timeout: Duration) -> bool {
 }
 
 /// What this shell can do for the PC hub's page (`desktopCan()` in the web UI): `localcopy` ("Open on my PC"), on
-/// Windows `studio` ("Open Studio", launch.rs), `hosts` (the asks in hosts.rs), and `server` once a server is set up
-/// (so the page can offer to connect to it before it has any of its projects).
-const CAPS: &str = if cfg!(windows) { "localcopy,studio,hosts" } else { "localcopy,hosts" };
+/// Windows `studio` ("Open Studio", launch.rs), `openfolder` (a project's folder, folder.rs), `hosts` (the asks in
+/// hosts.rs), and `server` once a server is set up (so the page can offer to connect before it has any of its projects).
+const CAPS: &str = if cfg!(windows) { "localcopy,studio,openfolder,hosts" } else { "localcopy,openfolder,hosts" };
 
 fn caps(has_server: bool) -> String {
     if has_server { format!("{CAPS},server") } else { CAPS.to_string() }
@@ -1087,6 +1088,22 @@ fn popout_request(url: &Url) -> Option<(String, Option<String>)> {
 /// PC" file copy (see localcopy.rs), or a web link for the default browser.
 fn new_window_elsewhere(app: &AppHandle, url: &Url) {
     let port = HUB_PORT.load(Ordering::Relaxed);
+    // "Open folder": a PC project's folder in Explorer. The page names a slug; the shell finds and checks the folder.
+    if let Some(ask) = folder::request(url, port, SERVER_PORT.load(Ordering::Relaxed)) {
+        match ask {
+            Ok(slug) => {
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    let data = data_dir(&app);
+                    if let Err(why) = folder::open(&data, &slug, Instant::now(), &folder::open_in_explorer) {
+                        tell(&app, "Couldn't open that folder", &why);
+                    }
+                });
+            }
+            Err(why) => tell(app, "Couldn't open that folder", why),
+        }
+        return;
+    }
     // I3: the server, from either hub's page. Only a host id and a slug come from the page (hosts.rs).
     if let Some(ask) = hosts::request(url, port, SERVER_PORT.load(Ordering::Relaxed)) {
         match ask {
@@ -1731,7 +1748,7 @@ mod tests {
 
     #[test]
     fn hub_url_always_says_desktop() {
-        let caps = if cfg!(windows) { "localcopy,studio,hosts" } else { "localcopy,hosts" };
+        let caps = if cfg!(windows) { "localcopy,studio,openfolder,hosts" } else { "localcopy,openfolder,hosts" };
         assert_eq!(hub_url(7788, "", false), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}"));
         assert_eq!(hub_url(7788, "abc", false), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}#token=abc"));
         // `server` tells the page it may offer Connect before it has any of the server's projects.
