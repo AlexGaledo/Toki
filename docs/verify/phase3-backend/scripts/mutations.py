@@ -1,6 +1,6 @@
 """Phase 3 backend mutation run (B10, B11, seed on demand, hub dir).
 
-From packages/hub:  python -I ../../docs/verify/phase3-backend/scripts/mutations.py
+From packages/hub:  python -I ../../docs/verify/phase3-backend/scripts/mutations.py [first mutant number, default 1]
 Each guarded line is broken in turn, the listed test files run, and the file is restored byte for byte. A mutant is
 "caught" when vitest exits non-zero.
 """
@@ -55,13 +55,15 @@ MUTANTS = [
     ("hub dir: by node_modules again", "src/config.ts", "if (exists(path.join(dir, 'package.json'))) return dir;", "if (exists(path.join(dir, 'node_modules'))) return dir;", CFG),
 ]
 
+START = int(sys.argv[1]) if len(sys.argv) > 1 else 1
+RUN = MUTANTS[START - 1:]
 caught = 0
-for name, rel, old, new, tests in MUTANTS:
+for n, (name, rel, old, new, tests) in enumerate(RUN, START):
     f = HUB / rel
     raw = f.read_bytes()
     src = raw.decode("utf8")
     if src.count(old) != 1:
-        print(f"SKIP  {name}: pattern found {src.count(old)} times")
+        print(f"{n:>2} SKIP  {name}: pattern found {src.count(old)} times")
         continue
     f.write_bytes(src.replace(old, new).encode("utf8"))
     try:
@@ -71,5 +73,5 @@ for name, rel, old, new, tests in MUTANTS:
     ok = r.returncode != 0
     caught += ok
     summary = [l.strip() for l in (r.stdout + r.stderr).splitlines() if l.strip().startswith("Tests ")]
-    print(f"{'CAUGHT' if ok else 'SURVIVED'}  {name}  ({rel})  {summary[-1] if summary else ''}", flush=True)
-print(f"\n{caught} of {len(MUTANTS)} mutants caught")
+    print(f"{n:>2} {'CAUGHT' if ok else 'SURVIVED'}  {name}  ({rel})  {summary[-1] if summary else ''}", flush=True)
+print(f"\n{caught} of {len(RUN)} mutants caught (mutants {START} to {START + len(RUN) - 1} of {len(MUTANTS)})")

@@ -27,8 +27,8 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | S2 | Studio steps with Studio open | none | none | none | not done |
 | B1 | Detection (Blender, uv, Blender MCP tools, Studio) | fcbe5d8 | fail-then-pass, mutation, live | `phase1-backend/` (`live-status.txt`, `mutations.txt`, `fail-then-pass.txt`) | approved with gaps (the Studio "open" state was not seen) |
 | B2 | Game tools routes, hub token only, audited | e632778, daa692e | fail-then-pass, mutation, live | `phase1-backend/` | approved |
-| B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix) | fail-then-pass, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/` | approved with gaps (no mutation record of its own; no live turn showing "Always allow" or bypass) |
-| B4 | Card input as an object, with `codeField` | b4d4875 | verify-toki | `phase1-ui/d1/strip-and-d5-card.aria.yml` | approved with gaps (no fail-then-pass or mutation record; the normal-card path is unit-tested only) |
+| B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved with gaps (no live turn showing "Always allow" or bypass) |
+| B4 | Card input as an object, with `codeField` | b4d4875, 28517d0 | fail-then-pass, mutation, verify-toki | `b3-b4/fail-then-pass.txt`, `b3-b4/mutations.txt`, `phase1-ui/d1/strip-and-d5-card.aria.yml` | approved (the normal-card path is unit-tested only) |
 | B5 | Status checks from BlenderHost and Studio, crash log | 074b918 | fail-then-pass, mutation, live | `phase1-backend/` | approved with gaps (Studio states) |
 | B6 | Install uv, the pinned Blender MCP tools, Studio's MCP setting | 196b4ce | fail-then-pass, mutation, live | `phase1-backend/live-install.txt` | approved with gaps (the Studio setting step never ran on the real file) |
 | B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand) | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt` | approved |
@@ -110,7 +110,9 @@ steps.
 - **phase3-backend mutations:** mutants 13 to 27 did not run, because the run stopped for low memory. They cover:
   replace, transaction, event, GET merge, the three bot-leak mutants, B11, seed on demand, and hub dir.
 - **phase3-infra mutations:** 35 of 46 did not run, because the run was capped for time.
-- **B3 and B4:** no mutation run of their own.
+- **B3 and B4:** the first pass caught 37 of 44 mutants. Six of the survivors were real gaps, and each now has a test (28517d0). The seventh survivor makes no difference that matters: it would also hide known secrets on hub and browser tool cards. The rerun caught mutants 1 to 31 before the run stopped for low memory. Mutants 32 to 44 were not rerun; in the first pass they were all caught except 44, the harmless one.
+
+- **Studio `http_get`:** taken off `readTools` (131e52f), so it asks under ask. Tested fail-then-pass in `b3-b4/http-get-fail-then-pass.txt`. A recipe already in `mcp-servers.json` keeps the old list until its room's Studio setup runs again.
 
 ## Follow-ups raised by the evidence (not part of any task)
 
