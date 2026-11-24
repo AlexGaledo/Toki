@@ -436,21 +436,31 @@ function Item({ m, bots }: { m: Message; bots: Bot[] }) {
           {m.attachments?.length ? <Attachments refs={m.attachments} /> : null}
           {work && <OpenChat roomId={work} />}
           {m.kind === 'text' && <CtaButtons payload={m.payload} />}
-          {verification && <UnverifiedBadge reason={verification.reason} />}
+          {verification && <VerifyPrompt m={m} reason={verification.reason} resolved={verification.resolved} bot={m.authorId ? botById(bots, m.authorId) : undefined} />}
         </div>
       );
     }
   }
 }
 
-function UnverifiedBadge({ reason }: { reason: string }) {
+function VerifyPrompt({ m, reason, resolved, bot }: { m: Message; reason: string; resolved?: 'asked' | 'accepted'; bot?: Bot }) {
+  const toast = useStore((s) => s.toast);
+  const [busy, setBusy] = useState(false);
+  const name = bot ? '@' + bot.handle : 'This bot';
+  if (resolved) {
+    return <p className="mt-1.5 text-hint text-muted">{resolved === 'asked' ? 'You asked ' + name + ' to prove it.' : 'You accepted this without proof.'}</p>;
+  }
+  const answer = async (r: 'asked' | 'accepted') => {
+    setBusy(true);
+    try { await api.verification.answer(m.id, r); } catch (e) { toast("Couldn't send that: " + (e as Error).message, true); setBusy(false); }
+  };
   return (
-    <div className="mt-1.5">
-      <Tooltip content={reason}>
-        <span tabIndex={0} className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-card px-2 py-0.5 text-hint text-muted ring-1 ring-line">
-          unverified<span className="sr-only">: {reason}</span>
-        </span>
-      </Tooltip>
+    <div role="group" aria-label="Unverified work" className="mt-2 flex flex-col gap-2 rounded-lg bg-card px-3 py-2 ring-1 ring-line">
+      <p className="text-hint text-muted"><span className="text-fg">{name} didn&apos;t prove this works.</span> {reason}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button className="touch-target" disabled={busy} onClick={() => void answer('asked')}>Ask it to prove it</Button>
+        <Button className="touch-target" variant="ghost" disabled={busy} onClick={() => void answer('accepted')}>Accept</Button>
+      </div>
     </div>
   );
 }

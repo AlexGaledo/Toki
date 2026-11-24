@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Bots keep working longer and show their proof
 
 - A bot now gets 100 steps per run instead of 30, and up to 3 continuations instead of 1. When it still runs out, it carries on in the same conversation instead of starting over from a summary, so long design or coding work keeps its place. Only the token limit starts a fresh session.
-- When a bot edits files and runs no test, build or screenshot afterwards, its reply gets a small "unverified" label with the reason.
+- When a bot edits files and runs no test, build or screenshot afterwards, its reply asks you about it and shows up in Needs you: **Ask it to prove it** sends the bot a request as you, **Accept** takes the work as is.
+- Bots on a project team now merge their own pull requests, but the hub lets a merge through only once its checks pass, and never with `--admin`.
 - New built-in skill, prove-it, adapted from Lauren Tan's pstack: prove a task against the real thing before saying done, question the approach after two failed fixes, report only problems it reproduced.
 - When you correct a bot twice for the same thing, it can propose a rule (a command or folder it must not touch, and what to do instead). You approve the exact rule on a card; after that the hub refuses the action in every approval mode and tells the bot what to do instead.
 - The bots' instructions are about 16% shorter: text that only repeated what tools and approval cards already enforce is gone.

@@ -1,7 +1,7 @@
-import { ASK_EVERY_TIME_TOOLS, SIGN_IN_TOOLS, type ApprovalPayload, type ControlStatus, type FailoverCard, type FormPayload, type Message, type OpenApproval, type Skill, type WorkflowApprovalCard } from '@pocketrocket/shared';
+import { ASK_EVERY_TIME_TOOLS, SIGN_IN_TOOLS, type ApprovalPayload, type ControlStatus, type FailoverCard, type FormPayload, type Message, type OpenApproval, type Skill, type VerificationPayload, type WorkflowApprovalCard } from '@pocketrocket/shared';
 import { toolAsk } from './toolPhrases';
 
-export type InboxKind = 'approval' | 'takeover' | 'skill' | 'form' | 'workflow' | 'failover';
+export type InboxKind = 'approval' | 'takeover' | 'skill' | 'form' | 'workflow' | 'failover' | 'verify';
 
 const WORKFLOW_CARD_WAIT_MS = 24 * 3_600_000;
 
@@ -43,6 +43,11 @@ const isPendingApproval = (m: Message): m is Message & { payload: ApprovalPayloa
 
 const isPendingForm = (m: Message): m is Message & { payload: FormPayload } =>
   m.kind === 'form' && (m.payload as FormPayload | null)?.status === 'pending';
+
+const unansweredVerification = (m: Message) => {
+  const v = m.kind === 'text' ? (m.payload as Partial<VerificationPayload> | null)?.verification : undefined;
+  return v && !v.resolved ? v : undefined;
+};
 
 export function selectInbox({ openApprovals, messages, control, skills, workflowCards, failoverCards }: InboxInput): InboxItem[] {
   const items: InboxItem[] = [];
@@ -111,6 +116,14 @@ export function selectInbox({ openApprovals, messages, control, skills, workflow
         detail: m.payload.title || null,
         since: m.createdAt,
       });
+    }
+  }
+
+  for (const [roomId, list] of Object.entries(messages)) {
+    for (const m of list) {
+      const v = unansweredVerification(m);
+      if (!v) continue;
+      items.push({ key: 'verify:' + m.id, kind: 'verify', botId: m.authorId, roomId, title: 'Says done without proof', detail: v.reason, since: m.createdAt });
     }
   }
 

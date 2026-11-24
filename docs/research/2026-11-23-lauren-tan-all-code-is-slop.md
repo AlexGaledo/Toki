@@ -149,7 +149,7 @@ Deployed: fed7f74 on 2026-11-24.
 
 **Recorder flake: root cause found and fixed (#245).** Once the retry came off (#243), the next CI failure printed its cause: `Browser not recorded: This operation was aborted`. Under full-suite load, the recorder's first `GET /json/version` to a just-started Chromium took more than the 5 s fetch timeout. That aborted the whole browser attach, so nothing was recorded. Isolated runs never hit it (0/32 in #240) because Chrome answers fast when the machine is idle, and retries passed because Chrome was warm by then. `browserWsUrl` now retries a timeout up to 3 times, and a refused connection still fails at once. This was the "attack the premise" loop in practice: the retry hid the evidence, and removing it surfaced the cause on the next run.
 
-Owner decisions still open (current defaults):
-- B1 stays a label, not a block.
-- Agents do not merge their own PRs.
-- Whether to merge the C PRs.
+Owner decisions (2026-11-24):
+- B1: unverified work prompts the owner (inline Ask it to prove it / Accept, plus a Needs you row) instead of a passive label.
+- Agents merge their own PRs; the hub's ship guard allows `gh pr merge` only once `gh pr checks` passes, never `--admin`.
+- C PRs: merged (mimegen#22, wika-saas#68 with the test_retention clock fix, wika-outreach#8, dialecto-offline#1).

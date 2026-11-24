@@ -29,6 +29,20 @@ describe('selectInbox forms', () => {
   });
 });
 
+const reply = (id: string, roomId: string, verification?: { resolved?: 'asked' | 'accepted' }): Message => ({
+  id, roomId, seq: 1, authorType: 'bot', authorId: 'b1', kind: 'text', text: 'Done.', causeId: null, hop: 0, turnId: null, createdAt: 7,
+  payload: verification ? { verification: { state: 'unverified', reason: 'Edited 2 files and ran nothing after.', ...verification } } : null,
+} as Message);
+
+describe('selectInbox unverified work', () => {
+  it('asks the owner about a reply that says done without proof, until they answer', () => {
+    const items = selectInbox({ ...base, messages: { r1: [reply('v1', 'r1', {}), reply('v2', 'r1', { resolved: 'accepted' }), reply('v3', 'r1', { resolved: 'asked' }), reply('plain', 'r1')] } });
+    expect(items).toEqual([
+      { key: 'verify:v1', kind: 'verify', botId: 'b1', roomId: 'r1', title: 'Says done without proof', detail: 'Edited 2 files and ran nothing after.', since: 7 },
+    ]);
+  });
+});
+
 describe('selectInbox', () => {
   it('is empty when nothing waits', () => {
     expect(selectInbox(base)).toEqual([]);

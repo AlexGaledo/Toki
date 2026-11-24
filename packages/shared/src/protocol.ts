@@ -15,11 +15,19 @@ import type { WorkflowApprovalCard, WorkflowRunSummary } from './workflows.js';
 export interface ContextUsage { contextTokens: number; window: number; rotateAt: number | null }
 
 /** Set by the hub, never by the bot. */
+export const VERIFICATION_ANSWERS = ['asked', 'accepted'] as const;
 export const MessageVerificationSchema = z.object({
   state: z.literal('unverified'),
   reason: z.string().max(200),
+  /** The owner's answer to the prompt: asked the bot to prove it, or accepted the work without proof. */
+  resolved: z.enum(VERIFICATION_ANSWERS).optional(),
 });
 export type MessageVerification = z.infer<typeof MessageVerificationSchema>;
+export const VerificationAnswerInputSchema = z.object({ resolved: z.enum(VERIFICATION_ANSWERS) });
+
+/** What the owner sends, as themselves, when they ask a bot to prove unverified work. */
+export const proveItRequest = (handle: string) =>
+  '@' + handle + ' please prove that last change works: run the tests or build, or take a screenshot, and show me the result.';
 
 export type ServerEvent =
   | { type: 'hello'; bots: Bot[]; rooms: Room[]; botStates: Record<string, BotState>; settings: Settings; principal?: 'hub' | 'device'; /** Carries an owner password session, so it may allow sign-in-required cards. */ signedIn?: boolean; openApprovals?: OpenApproval[] }
