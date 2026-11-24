@@ -141,7 +141,7 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     for (const s of [PASSWORD, CARD, OTP]) expect(raw).not.toContain(s);
     const trace = rec.readTrace('b', info.id);
     const navs = trace.filter((e) => e.t === 'nav').map((e) => String(e.url));
-    expect(navs.some((u) => u.endsWith('checkout.html')), 'checkout nav missing; navs seen: ' + JSON.stringify(navs) + '; first events: ' + JSON.stringify(trace.slice(0, 5))).toBe(true);
+    expect(navs.some((u) => u.endsWith('checkout.html')), 'checkout nav missing; navs seen: ' + JSON.stringify(navs) + '; first events: ' + JSON.stringify(trace.slice(0, 5)) + '; recorder error: ' + String(info.error)).toBe(true);
     expect(trace.some((e) => e.t === 'type' && e.value === 'me@example.com')).toBe(true);
     expect(trace.filter((e) => e.t === 'type' && e.value === '«secret»')).toHaveLength(3);
     const pay = trace.find((e) => e.t === 'click' && (e.target as { text?: string })?.text === 'Pay now');

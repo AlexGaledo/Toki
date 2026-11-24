@@ -264,7 +264,7 @@ export class Recorder {
     if (!s.cdp || s.stopping || (t.type !== 'page' && t.type !== 'iframe')) return Promise.resolve();
     let p = s.attached.get(t.targetId);
     if (!p) {
-      p = this.attachNow(s, t).catch(() => undefined);
+      p = this.attachNow(s, t).catch((e: unknown) => { if (!s.stopping) s.info.error ??= 'A browser tab was not recorded: ' + clip((e as Error).message, 200); });
       s.attached.set(t.targetId, p);
     }
     return p;
