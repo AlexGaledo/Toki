@@ -1,14 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { z } from 'zod';
+import { TEAM_TEMPLATE_IDS, type GameProjectSetup } from '@pocketrocket/shared';
 import { events } from '../events.js';
 import { readBody } from './body.js';
+import { principalOf } from './guard.js';
 import type { Repos } from '../db/repos.js';
 import type { Db } from '../db/db.js';
-import { actorOf, recordAudit } from '../services/AuditLog.js';
+import { actorOf, recordAudit, type AuditActor } from '../services/AuditLog.js';
 import { ProjectError, type ProjectService } from '../services/ProjectService.js';
 import { logError } from '../providers/redact.js';
 
-const CreateInput = z.object({ name: z.string().trim().min(1).max(60), team: z.boolean().optional(), memberIds: z.array(z.string()).max(100).optional() });
+const CreateInput = z.object({
+  name: z.string().trim().min(1).max(60), team: z.boolean().optional(), template: z.enum(TEAM_TEMPLATE_IDS).optional(),
+  memberIds: z.array(z.string()).max(100).optional(),
+});
 const MembersInput = z.object({ memberIds: z.array(z.string()).max(100) });
 const RoomLinkInput = z.object({ roomId: z.string().min(1).nullable() });
 
@@ -19,7 +24,11 @@ const send = (res: ServerResponse, status: number, body: unknown): true => {
 };
 
 /** Human-only: only the owner decides which bots work in which folder. */
-export function createProjectsApi(deps: { projects: ProjectService; repos: Repos; db?: Db }) {
+export function createProjectsApi(deps: {
+  projects: ProjectService; repos: Repos; db?: Db;
+  /** B7: writes the Studio recipe for a new game room (hub-token callers only). Returns a fixed word. */
+  studioForRoom?: (roomId: string, actor: AuditActor) => Promise<GameProjectSetup['studio']>;
+}) {
   const { projects, repos, db } = deps;
   const changed = () => events.emitEvent({ type: 'projects.changed' });
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -43,7 +52,17 @@ export function createProjectsApi(deps: { projects: ProjectService; repos: Repos
           if (made.bots.length) events.emitEvent({ type: 'bots.changed', bots: repos.listBots() });
           if (made.room) events.emitEvent({ type: 'rooms.changed', rooms: repos.listRooms() });
           changed();
-          return send(res, 200, made);
+          if (made.project.kind !== 'game') return send(res, 200, made);
+          // Like /api/game-tools: the hub token only, so a paired device never writes mcp-servers.json.
+          const actor = principalOf(req)?.kind === 'hub' ? actorOf(req) : null;
+          const setup: GameProjectSetup = {
+            git: await projects.initRepo(made.project.slug),
+            studio: made.room && actor && deps.studioForRoom ? await deps.studioForRoom(made.room.id, actor).catch((e: unknown) => {
+              logError('[projects api] studio recipe', e);
+              return 'failed' as const;
+            }) : 'failed',
+          };
+          return send(res, 200, { ...made, setup });
         }
       }
       const [slug, action] = parts;

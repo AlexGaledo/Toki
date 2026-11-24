@@ -1,12 +1,12 @@
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { z } from 'zod';
-import { GAME_TOOL_FIXES, type GameToolFix, type GameToolFixResult, type GameToolsStudio } from '@pocketrocket/shared';
+import { GAME_TOOL_FIXES, type GameProjectSetup, type GameToolFix, type GameToolFixResult, type GameToolsStudio } from '@pocketrocket/shared';
 import { readBody } from './body.js';
 import { principalOf } from './guard.js';
 import type { Db } from '../db/db.js';
 import type { Repos } from '../db/repos.js';
-import { actorOf, recordAudit } from '../services/AuditLog.js';
+import { actorOf, recordAudit, type AuditActor } from '../services/AuditLog.js';
 import type { FixOutcome, GameTools } from '../services/gameTools.js';
 import { McpStoreError, type McpServerStore, type McpServerView } from '../services/outsideMcpStore.js';
 import { logError, redact } from '../providers/redact.js';
@@ -25,6 +25,30 @@ export function studioCheckWord(s: GameToolsStudio): string | null {
   if (s.setting === 'off') return 'setting-off';
   if (!s.running) return 'studio-not-open';
   return null;
+}
+
+/** The Studio recipe in mcp-servers.json, now also listing `roomId`. Fixed command and args; only the room id comes in. */
+export function writeStudioRecipe(store: McpServerStore, mcpBat: string, roomId: string, env: NodeJS.ProcessEnv = process.env): McpServerView {
+  const command = path.join(env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe');
+  const fixed = { command, args: ['/d', '/c', mcpBat], approve: 'mode' as const, readTools: [...STUDIO_READ_TOOLS] };
+  const cur = store.list().find((s) => s.name === STUDIO_SERVER);
+  if (!cur) return store.add({ name: STUDIO_SERVER, ...fixed, rooms: [roomId] });
+  return store.patch(STUDIO_SERVER, { ...fixed, rooms: [...new Set([...cur.rooms, roomId])] });
+}
+
+/**
+ * B7: a new game room gets the Studio recipe when Roblox Studio's launcher is on this PC, audited like the setup route.
+ * Studio need not be open: the recipe starts mcp.bat when a turn mounts it.
+ */
+export async function studioForGameRoom(
+  deps: { tools: Pick<GameTools, 'status' | 'mcpBat'>; store: McpServerStore; db: Db; env?: NodeJS.ProcessEnv },
+  roomId: string, actor: AuditActor,
+): Promise<GameProjectSetup['studio']> {
+  const studio = (await deps.tools.status()).studio;
+  if (studio.reason === 'unsupported' || studio.reason === 'no-mcp-bat') return studio.reason;
+  writeStudioRecipe(deps.store, deps.tools.mcpBat, roomId, deps.env);
+  recordAudit(deps.db, actor, 'game_tools.studio_setup', roomId, STUDIO_SERVER);
+  return 'added';
 }
 
 // Strict: a field the route does not know is refused, so nothing in a request can become a command, argument or env.
@@ -75,14 +99,7 @@ export function createGameToolsApi(deps: {
     return { ok: true, result: 'reset', changed: [] };
   }
 
-  function studioRecipe(roomId: string): McpServerView {
-    const env = deps.env ?? process.env;
-    const command = path.join(env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe');
-    const fixed = { command, args: ['/d', '/c', tools.mcpBat], approve: 'mode' as const, readTools: [...STUDIO_READ_TOOLS] };
-    const cur = store.list().find((s) => s.name === STUDIO_SERVER);
-    if (!cur) return store.add({ name: STUDIO_SERVER, ...fixed, rooms: [roomId] });
-    return store.patch(STUDIO_SERVER, { ...fixed, rooms: [...new Set([...cur.rooms, roomId])] });
-  }
+  const studioRecipe = (roomId: string): McpServerView => writeStudioRecipe(store, tools.mcpBat, roomId, deps.env);
 
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const url = new URL(req.url ?? '/', 'http://localhost');

@@ -82,3 +82,16 @@ export interface GameToolFixResult {
   changed: string[];
   status: GameToolsStatus;
 }
+
+/** `POST /api/projects` `template`. `team: true` with no template still means `dev`. */
+export const TEAM_TEMPLATE_IDS = ['dev', 'game'] as const;
+export type TeamTemplateId = (typeof TEAM_TEMPLATE_IDS)[number];
+
+/**
+ * B7: what `POST /api/projects` with `template: 'game'` set up, as fixed words. `studio` is `added` when the Studio
+ * recipe now lists the new room, the Studio reason when Roblox Studio's launcher is not on this PC, or `failed`.
+ */
+export interface GameProjectSetup {
+  git: 'created' | 'exists' | 'failed';
+  studio: 'added' | 'no-mcp-bat' | 'unsupported' | 'failed';
+}

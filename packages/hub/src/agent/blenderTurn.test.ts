@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ModelInfo, ProviderCheck, ProviderId, Room } from '@pocketrocket/shared';
+import type { Bot, ModelInfo, ProviderCheck, ProviderId, Room } from '@pocketrocket/shared';
+import { GAME_TEAM_TEMPLATE } from '../services/devTeamTemplate.js';
 import { Db } from '../db/db.js';
 import { Repos } from '../db/repos.js';
 import { MemoryService } from '../services/MemoryService.js';
@@ -75,11 +76,11 @@ function setup(o: { readOnly?: boolean; tools?: boolean } = {}) {
   db.run('UPDATE projects SET room_id=?, kind=? WHERE slug=?', gameRoom.id, 'game', 'cat-game');
   db.run('UPDATE projects SET room_id=? WHERE slug=?', devRoom.id, 'website');
 
-  const run = async (room: Room) => {
-    await runner.runTurn({ bot, room, members: [bot], injected: 'hi', hop: 0, causeId: 'c-' + room.id });
+  const run = async (room: Room, as: Bot = bot) => {
+    await runner.runTurn({ bot: as, room, members: [as], injected: 'hi', hop: 0, causeId: 'c-' + room.id + '-' + as.id });
     return provider.seen[provider.seen.length - 1]!;
   };
-  return { run, gameRoom, devRoom, tools, projects };
+  return { run, gameRoom, devRoom, tools, projects, repos };
 }
 
 describe("a game room's turn", () => {
@@ -116,6 +117,25 @@ describe("a game room's turn", () => {
     const ctx = await s.run(s.gameRoom);
     expect(ctx.outsideMcp?.some((x) => x.name === 'blender')).toBe(false);
     expect(ctx.blenderEnsure).toBeUndefined();
+  });
+
+  it('B7: the game template sets the kind, so its room mounts blender and another room of the same bot does not', async () => {
+    const s = setup();
+    for (const role of GAME_TEAM_TEMPLATE.roles) {
+      s.repos.createBot({ name: role.source, handle: role.source, title: '', description: 'x', avatar: '', model: 'm1', allowedTools: ['Read'], maxBudgetUsd: 1 });
+    }
+    for (const name of GAME_TEAM_TEMPLATE.skills) {
+      s.repos.upsertSkill({ name, description: '', path: '/x/' + name, source: 'authored', reviewStatus: 'approved', createdByBot: null });
+    }
+    const made = s.projects.create({ name: 'Kart Game', template: 'game' });
+    const artist = made.bots[2]!;
+    const elsewhere = s.repos.createRoom({ kind: 'group', name: 'Elsewhere', memberIds: [artist.id], coordinatorBotId: null }) as Room;
+    const inGame = await s.run(made.room!, artist);
+    expect(inGame.outsideMcp?.filter((x) => x.name === 'blender')).toHaveLength(1);
+    expect(inGame.blenderEnsure).toBeTypeOf('function');
+    const outside = await s.run(elsewhere, artist);
+    expect(outside.outsideMcp?.some((x) => x.name === 'blender')).toBe(false);
+    expect(outside.blenderEnsure).toBeUndefined();
   });
 
   it('tells the provider when the hub is read-only', async () => {

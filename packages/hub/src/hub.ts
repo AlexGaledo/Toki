@@ -53,7 +53,7 @@ import { createIntegrationsApi } from './api/integrations.js';
 import { TelegramService } from './services/TelegramService.js';
 import { createTelegramApi } from './api/telegram.js';
 import { createMcpServersApi } from './api/mcpServers.js';
-import { STUDIO_SERVER, createGameToolsApi, studioCheckWord } from './api/gameTools.js';
+import { STUDIO_SERVER, createGameToolsApi, studioCheckWord, studioForGameRoom } from './api/gameTools.js';
 import { GameTools, type GameToolsDeps } from './services/gameTools.js';
 import { createCredentialsApi } from './api/credentials.js';
 import { CredentialStore } from './services/CredentialStore.js';
@@ -72,7 +72,7 @@ import { createTriggersApi } from './api/triggers.js';
 import type { SocketFactory } from './services/SlackSocketMode.js';
 import { ALLOWED_HOSTS, ATTACHMENTS_DIR, PUSH_SUBJECT, VAPID_PATH } from './config.js';
 import { sweepAttachments } from './agent/attachments.js';
-import { seedDefaultBots } from './services/SeedBots.js';
+import { seedDefaultBots, seedGameBots } from './services/SeedBots.js';
 import { DEVICE_PAIR_PATH, deviceMayAccess, setPrincipal } from './api/guard.js';
 import { DevicesRepo } from './db/devices.js';
 import { DeviceService } from './services/DeviceService.js';
@@ -204,7 +204,7 @@ export function createHub(opts: HubOptions = {}): Hub {
   installSettings(settings);
   repos.renameOwner(settings.get().userName);
   if (opts.seedBots) {
-    const seeded = seedDefaultBots(repos, memory);
+    const seeded = [...seedDefaultBots(repos, memory), ...seedGameBots(repos, memory)];
     if (seeded.length) console.log('created default bots: ' + seeded.map((b) => '@' + b.handle).join(', '));
   }
   const providers = createProviders({ settings, enabled: ENABLED_PROVIDERS });
@@ -441,9 +441,12 @@ export function createHub(opts: HubOptions = {}): Hub {
   const ccApi = createCcApi({ repos, roomFiles, revisions, router, projects, sessionMoves });
   projects.pruneMembers(repos.listBots().map((b) => b.id));
   const offProjectBots = events.onEvent((ev) => { if (ev.type === 'bots.changed') projects.pruneMembers(ev.bots.map((b) => b.id)); });
-  const projectsApi = createProjectsApi({ projects, repos, db });
   const mcpStore = new McpServerStore(opts.mcpServers?.file);
   const gameTools = new GameTools({ dataDir: DATA_DIR, ...opts.gameTools, blender });
+  const projectsApi = createProjectsApi({
+    projects, repos, db,
+    studioForRoom: (roomId, actor) => studioForGameRoom({ tools: gameTools, store: mcpStore, db, env: opts.gameTools?.env }, roomId, actor),
+  });
   const mcpServersApi = createMcpServersApi({
     store: mcpStore, db, fetch: opts.mcpServers?.fetch,
     runtimeCheck: async (name) => (name === STUDIO_SERVER ? studioCheckWord((await gameTools.status()).studio) : null),
