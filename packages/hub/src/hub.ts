@@ -14,6 +14,7 @@ import { MemoryService } from './services/MemoryService.js';
 import { SkillService } from './services/SkillService.js';
 import { ensureBuiltinSkills } from './services/builtinSkills.js';
 import { UsageTracker } from './services/UsageTracker.js';
+import { RemoteProjects } from './services/RemoteProjects.js';
 import { AutoMemory } from './services/AutoMemory.js';
 import { SettingsStore, installSettings } from './services/SettingsStore.js';
 import { SecretsStore } from './services/SecretsStore.js';
@@ -200,6 +201,7 @@ export function createHub(opts: HubOptions = {}): Hub {
     models: (p) => providers.modelsSync(p),
     modelsAsync: (p) => providers.modelsAwaited(p),
   });
+  const remoteProjects = new RemoteProjects({ db });
   const usage = new UsageTracker(repos, { alertThresholdUsd: () => settings.get().spendAlertThresholdUsd });
   installSettings(settings);
   repos.renameOwner(settings.get().userName);
@@ -452,7 +454,7 @@ export function createHub(opts: HubOptions = {}): Hub {
   const mcpStore = new McpServerStore(opts.mcpServers?.file);
   const gameTools = new GameTools({ dataDir: DATA_DIR, ...opts.gameTools, blender });
   const projectsApi = createProjectsApi({
-    projects, repos, db,
+    projects, repos, db, remote: remoteProjects,
     studioForRoom: async (roomId, actor) => {
       const word = await studioForGameRoom({ tools: gameTools, store: mcpStore, db, env: opts.gameTools?.env }, roomId, actor);
       if (word === 'added') gameToolsChanged();

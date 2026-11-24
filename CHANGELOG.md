@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings › Tools no longer shows your Windows user name in a program's command line (for example the Studio recipe's `mcp.bat`). The user folder shows as `~`, as in Game tools, and the eye button shows or copies the full line.
 - In Needs you and the Overview, an outside tool's approval now reads like "roblox-studio · execute_luau: local part = Instance.new("Part")": the server, the tool and the first line of its code, instead of the input as escaped JSON. The full script is still on the card.
 - New built-in skills, blender-loop and studio-loop, for game rooms. blender-loop: look at the scene first, end each change with `toki_save()`, `look` after it, export to `exports/`, never use `bpy.ops.wm.*`, and retry a call once after "Connection to Blender lost". studio-loop: get a `studio_id` first, read before writing, play-test before `save_place`, and keep text copies of changed scripts in `studio/`.
+- Groundwork for one app with two hosts: the PC hub can keep a names-only list of your server's projects, sent by the desktop app (`PUT /api/hosts/server/projects`, hub token only, at most 500). `GET /api/projects` now tags each project `pc` or `server`. Nothing is copied or moved between hosts, and bots never see the server's list.
 
 ## [0.5.4] - 2026-11-21
 

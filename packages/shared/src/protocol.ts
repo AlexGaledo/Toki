@@ -41,6 +41,8 @@ export type ServerEvent =
   | { type: 'projects.changed' }
   /** Carries nothing: Toki's Blender started, stopped or crashed, or a game tools step changed something. Re-read GET /api/game-tools. */
   | { type: 'game-tools.changed' }
+  /** Carries nothing, like projects.changed: another host's stubs or its `connected` flag changed. Re-read GET /api/projects. */
+  | { type: 'hosts.changed' }
   | { type: 'message.new'; message: Message }
   | { type: 'message.update'; id: string; roomId: string; patch: Partial<Message> }
   | { type: 'turn.start'; turnId: string; botId: string; roomId: string; causeId: string; hop: number }
