@@ -289,7 +289,7 @@ export const api = {
     const p = new URLSearchParams();
     if (q.botId) p.set('botId', q.botId);
     if (q.roomId) p.set('roomId', q.roomId);
-    return req<{ totals: UsageTotals; rows: UsageRow[]; byModel?: UsageGroup[]; byCause?: UsageGroup[]; byProvider?: UsageGroup[] }>('GET', '/api/usage?' + p.toString());
+    return req<{ totals: UsageTotals; rows: UsageRow[]; byModel?: UsageGroup[]; byCause?: UsageGroup[]; byProvider?: UsageGroup[]; subscriptionNote?: string }>('GET', '/api/usage?' + p.toString());
   },
   previews: () => req<Record<string, BotPreview>>('GET', '/api/previews'),
   search: (q: string) => req<SearchHit[]>('GET', '/api/search?q=' + encodeURIComponent(q)),

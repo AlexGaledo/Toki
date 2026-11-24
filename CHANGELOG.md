@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The desktop app can open a PC project's folder in Explorer (`?openfolder=<slug>`, advertised as `openfolder`). The page names only the project's slug. The app finds `projects/<slug>` in its own data folder and opens it only if it already exists, never creates it, and refuses `..`, paths and folders linked out of the projects folder. A server project's folder is not on the PC, so that page can't ask.
 - Projects are listed from both hosts, each with a tag in words: **This PC** or **Server** (in the sidebar and in Settings › Projects, once a server is known). A server project shows by name only. Opening one while the server is connected goes straight to it in the desktop app. While it is offline, a prompt says "This project is on your server. Connect to open it." with **Connect** and **Cancel**; Connect waits, and if the connection fails it says so and points to the desktop notification for the reason. Outside the desktop app the prompt says to open it there. The server's page opens the project the desktop app asked for, and has **Back to this PC**.
 - Settings › Projects has **Open folder** on each PC project in the desktop app. It asks the app to open the project's folder and never sends a path.
+- The Usage page now shows the note that your PC and your server spend from the same Claude subscription, once a server is known.
 
 ## [0.5.4] - 2026-11-21
 
