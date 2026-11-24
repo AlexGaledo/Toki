@@ -41,12 +41,12 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | I2 | PC hub always runs; server tunnel on 7790 | 39afb96 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `cargo.txt`, `real-setup/check1-old-config.txt`, `check4-port-busy.txt`, `check5b-quit-and-start.txt` | approved (all 46 phase3-infra mutants run: 45 caught, 1 informational and harmless) |
 | I3 | Stub refresh, 30 s loss, host requests, Open folder | 0fe6cc0, c6fe9b2 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `stub-schema.txt`, `real-setup/check2-*`, `check3-loss.txt`, `check5a-*`, `check6-open-folder.txt`, `final-gaps/i3-pc-turn-through-loss.txt` | approved (a PC bot's Haiku turn ran a 40 s Bash through the tunnel kill and replied 36.9 s after it, with the window back on the PC in 0.8 s and every write on 7788; mutants as I2, all run) |
 | I4 | Ship the Blender server script and requirements | d4a4b0d | fail-then-pass, live (installed NSIS build; silent install into a new empty folder) | `phase1-infra/i4-bundle.txt`, `i4-fail-then-pass.txt`, `real-setup/README.md` ("I4"), `final-gaps/i4-clean-folder.txt` | approved (in a new empty folder `hub/resources/blender/` matches the source and the hub starts there on its own `node.exe`; a second, clean PC was not used) |
-| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020; ui-gaps commit (two keyboard fixes) | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/`, `ui-gaps/` | approved with gaps (every state now rendered in `ui-gaps/`: crashing with Open log and Try again pressed, another Blender (real), not installed, the Studio states; the server state through the `platform` seam only. The real server's page was not captured: blocked twice in `final-gaps/README.md` (run 1: the owner was using Toki and RAM was 0.9 to 1.25 GB free; run 2: the owner had quit Toki and was in a game); `final-gaps/scripts/d1_server_page.mjs` is ready. Open Studio is live in `real-setup/s2-open-studio.txt`) |
+| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020; ui-gaps commit (two keyboard fixes) | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/`, `ui-gaps/`, `final-gaps/d1-server-game-tools.aria.txt` | approved (every state rendered in `ui-gaps/`; the server's "not supported" state also captured on the real server's page on 2026-11-25, headless through a private ssh tunnel, `final-gaps/d1-server-game-tools.aria.txt`; Open Studio live in `real-setup/s2-open-studio.txt`) |
 | D2 | Look-back thumbnails | c98e388, 222a003, 9970651 | fail-then-pass, mutation, verify-toki, live | `phase2-ui/d2/`, `ui-gaps/run2/d2/` | approved (a live Haiku turn's `look`, rendered as a thumbnail and opened in the lightbox in the browser) |
 | D3 | Template picker, Open folder | b04029c, b3a92ac | fail-then-pass, mutation, verify-toki | `phase2-ui/d3/`, `phase3-ui/d4/settings-projects-*` | approved |
 | D4 | Host tags, Server project prompt, Back to this PC | 8cc8868, fe19e50 | fail-then-pass, mutation, verify-toki, live (installed app) | `phase3-ui/d4/`, `real-setup/check7-d4.txt` | approved |
 | D5 | Code on approval cards | 7b239e6 | fail-then-pass, mutation, verify-toki | `phase1-ui/d5/` | approved |
-| P1 | Guide, CHANGELOG, this ledger | ui-gaps commit (5 guide fixes) | verify-toki walk | `docs/GUIDE.md` ("Make games with Blender and Studio", "This PC and your server"), `CHANGELOG.md` [Unreleased], `ui-gaps/README.md` ("P1") | approved with gaps (walked in the app; desktop-only steps cited from `real-setup/`; a fresh install now makes a Game team with no setup, `fresh-game/fail-then-pass.txt`) |
+| P1 | Guide, CHANGELOG, this ledger | ui-gaps commit (5 guide fixes) | verify-toki walk | `docs/GUIDE.md` ("Make games with Blender and Studio", "This PC and your server"), `CHANGELOG.md` [Unreleased], `ui-gaps/README.md` ("P1") | approved (walked in the app in `ui-gaps/`; its desktop-only steps were run live in `real-setup/`; the fresh-install Game team step it found is fixed, `fresh-game/fail-then-pass.txt`) |
 | R1 | Real-setup run: installed build, real server, real Studio | this commit (hub-stopped hint fix) | live, fail-then-pass | `real-setup/README.md` | approved (one copy bug found and fixed; findings listed there) |
 
 ## Still to verify live
@@ -100,11 +100,10 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
 2. ~~The UI states this PC could not show~~: done in `ui-gaps/` (2026-11-24). A crashing Blender (real BlenderHost
    exits of a crash stub) with **Open log** and **Try again** both pressed; another Blender (a real headless one);
    Blender not installed (fake Program Files); the Studio states (fake process row). The server hub's "not supported"
-   was shown through `createHub`'s `platform` seam on this PC. **Still open:** the same state on the real server's page
-   through 7790. It was blocked on 2026-11-24 because the owner was using Toki and RAM was at 0.9 to 1.25 GB free.
-   It was blocked again on 2026-11-25: the owner had quit Toki and was in a game (`final-gaps/README.md` run 2).
-   `final-gaps/scripts/d1_server_page.mjs` captures it (private shots to `evidence-private`, redacted ARIA to the
-   repo).
+   was shown through `createHub`'s `platform` seam on this PC. The same state on the real server's page: done on 2026-11-25 with a headless browser through a
+   private `ssh -L 7797` to the server, so nothing opened on the owner's screen (`final-gaps/d1-server-game-tools.aria.txt`,
+   script `final-gaps/scripts/d1_server_headless.mjs`; screenshot and full snapshot in `evidence-private` only). Every
+   row reads "Not supported here" under the banner "Game tools work on the hub that runs on your Windows PC."
 3. ~~A keyboard Tab walk~~: done in `ui-gaps/run1/a11y/`, default and classic layouts. It found two bugs, both fixed
    with tests: Shift+Tab stuck on the selected Settings section, and focus dropping to the page after a fix button.
 

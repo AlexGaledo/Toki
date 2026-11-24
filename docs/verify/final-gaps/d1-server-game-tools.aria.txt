@@ -1,0 +1,19 @@
+# D1 on the real server hub (headless browser, private ssh -L 7797 -> server 7788), 2026-11-24T16:32:42.481Z
+# Settings > Game tools: the tabpanel only (the full snapshot and screenshot are kept off the repo)
+- tabpanel "Game tools":
+  - banner:
+    - heading "Game tools" [level=2]
+    - paragraph: Blender and Roblox Studio for game rooms. Toki runs its own Blender headless; it never opens a Blender window.
+  - paragraph: Game tools run code as you on this PC, and follow your approval setting.
+  - paragraph: Blender's asset search and model generators, and Roblox Studio's own tools, send prompts to Roblox and other third parties.
+  - status: Game tools work on the hub that runs on your Windows PC. This hub can't use them.
+  - heading "Status" [level=3]
+  - button "Check again"
+  - heading "Blender" [level=4]
+  - text: Not supported here
+  - heading "uv" [level=4]
+  - text: Not supported here
+  - heading "Blender MCP tools" [level=4]
+  - text: Not supported here
+  - heading "Roblox Studio" [level=4]
+  - text: Not supported here
