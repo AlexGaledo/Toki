@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@types/http-proxy": "^1.17.17",
-    "@types/node": "^26.5.0",
+    "@types/node": "^26.6.6",
     "@types/ws": "^8.18.2",
     "tsx": "^4.19.2",
     "typescript": "^7.0.2",
