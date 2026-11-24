@@ -49,6 +49,6 @@ describe('Needs you rows carry the code field', () => {
       payload: { approvalId: 'a1', reason: 'run Luau', danger: false, status: 'pending', ...luauCard({ script: LUAU }, 'script') } as ApprovalPayload,
     };
     const [row] = selectInbox({ openApprovals: [], messages: { r1: [m] }, control: {}, skills: [] });
-    expect(row.approval && approvalSummary(row.approval)).toBe('roblox-studio · execute_luau: -- build the start pad');
+    expect(row?.approval && approvalSummary(row.approval)).toBe('roblox-studio · execute_luau: -- build the start pad');
   });
 });

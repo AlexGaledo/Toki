@@ -13,7 +13,8 @@ export interface LookBack {
  */
 export function lookBackAlt(toolName: string): string {
   const m = /^mcp__(.+?)__(.+)$/.exec(toolName);
-  const [server, tool] = m ? [m[1], m[2]] : [null, toolName];
+  const server = m?.[1] ?? null;
+  const tool = m?.[2] ?? toolName;
   const words = (s: string) => s.replace(/[_-]+/g, ' ').trim();
   return 'Look-back from ' + (server ? words(server) + ': ' : '') + (words(tool) || 'a tool');
 }

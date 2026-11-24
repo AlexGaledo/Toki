@@ -27,7 +27,7 @@ describe('RadioCard note (D3: a disabled option says why)', () => {
   });
 
   it('is read out as part of the option, after what it adds', () => {
-    const describedBy = /aria-describedby="([^"]+)"/.exec(html)?.[1].split(' ') ?? [];
+    const describedBy = /aria-describedby="([^"]+)"/.exec(html)?.[1]?.split(' ') ?? [];
     const note = /<div id="([^"]+)" class="[^"]*">Install the Blender tools/.exec(html)?.[1];
     expect(describedBy).toHaveLength(2);
     expect(describedBy[1]).toBe(note);

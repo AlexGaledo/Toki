@@ -72,9 +72,9 @@ describe('setupLines: the `setup` reply in plain words', () => {
       { ok: false, text: "Roblox Studio: not linked, because Studio's MCP launcher isn't on this PC. Install or update Studio, then check Settings › Game tools." },
     ]);
     const [git, studio] = setupLines({ git: 'failed', studio: 'failed' });
-    expect(git.ok).toBe(false);
-    expect(git.text).toContain('git is installed');
+    expect(git?.ok).toBe(false);
+    expect(git?.text).toContain('git is installed');
     expect(studio).toEqual({ ok: false, text: "Roblox Studio: couldn't add its tools to the game chat. Settings › Tools shows what is set up." });
-    expect(setupLines({ git: 'created', studio: 'unsupported' })[1].ok).toBe(false);
+    expect(setupLines({ git: 'created', studio: 'unsupported' })[1]?.ok).toBe(false);
   });
 });
