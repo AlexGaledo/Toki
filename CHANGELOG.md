@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The bots' instructions are about 16% shorter: text that only repeated what tools and approval cards already enforce is gone.
 - New projects get a `features/` folder: one file per part of the product, with the same four sections, so you and the bots call each part by one name and know how to prove it works. Project bots are told to keep it current.
 - When the recorder can't attach to a browser tab, the recording now says so instead of quietly missing that tab.
+- Recording on a busy machine no longer misses the whole browser: when the browser is slow to answer, the recorder now asks again instead of giving up after 5 seconds.
 
 ### Creating a bot or group chat no longer freezes the page
 
