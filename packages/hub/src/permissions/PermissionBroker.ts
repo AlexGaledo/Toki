@@ -12,7 +12,7 @@ import {
 import { patternMatches, type ApprovalStore, type ParkedApproval, type StoredPolicy } from '../db/approvalStore.js';
 import { isComputerTool } from './controlInterlock.js';
 import { routingFileWrite } from './readOnlyRoots.js';
-import { redact } from '../providers/redact.js';
+import { outsideCardInput, outsideTooLarge } from '../services/outsideMcp.js';
 import { denyMessage } from './messages.js';
 
 export interface PermCtx {
@@ -109,9 +109,6 @@ const ASK_EVERY_TIME = ASK_EVERY_TIME_TOOLS;
 export { SIGN_IN_TOOLS };
 export const SIGN_IN_MESSAGE =
   'Only a browser signed in with your password can approve this. The server token is not enough. Sign in, then approve it.';
-
-/** Anything bigger is refused, never truncated. */
-const OUTSIDE_INPUT_CAP = 8000;
 
 export const GRANT_TTL_MS = 10 * 60 * 1000;
 
@@ -537,12 +534,11 @@ export class PermissionBroker {
       return { allowed: false, message: denyMessage('readonly', { subject: 'outside tools', alt: 'say so in the room' }) };
     }
     // Never ask about input the owner cannot see in full: a hidden tail could carry the real payload.
-    const shown = redact(JSON.stringify(input ?? {}) ?? '{}');
-    if (shown.length > OUTSIDE_INPUT_CAP) {
-      return { allowed: false, message: denyMessage('unavailable', { subject: 'this call', note: 'its input is too large to show for approval (' + shown.length + ' chars)', alt: 'split it into smaller calls' }) };
-    }
+    const shown = outsideCardInput(input);
+    const big = outsideTooLarge(shown);
+    if (big) return { allowed: false, message: big };
     const { decision } = await this.prompt(
-      ctx, 'mcp__' + server + '__' + tool, { server, tool, input: shown },
+      ctx, 'mcp__' + server + '__' + tool, { server, tool, input: JSON.stringify(shown) },
       'Outside server "' + server + '" tool "' + tool + '"', false, { signal, once: true },
     );
     if (decision === 'allow' || decision === 'always') return { allowed: true, message: 'Approved by the user.' };

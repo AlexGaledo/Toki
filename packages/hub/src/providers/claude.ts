@@ -19,7 +19,7 @@ import { READ_ONLY_GUARD_TOOLS, readOnlyWriteDecision, routingFileWrite } from '
 import { secretFileAccess } from '../permissions/secretFiles.js';
 import { denyMessage } from '../permissions/messages.js';
 import { logError } from './redact.js';
-import { outsideMcpNeedsCard } from '../services/outsideMcp.js';
+import { outsideMcpHooked, outsideMcpStep } from '../services/outsideMcp.js';
 import type { AgentProvider, HubTool, LimitReport, ProviderInit, SteerInput, SteerResult, TurnContext, TurnImage, TurnLimit, TurnOutcome, TurnSink } from './types.js';
 
 // A bare allowedTools entry bypasses canUseTool everywhere, so file and shell tools must never be listed here.
@@ -459,8 +459,8 @@ export class ClaudeProvider implements AgentProvider {
         }]
       : [];
 
-    // Under bypass too: bypass skips canUseTool, never a hook.
-    const gatedOutside = (ctx.outsideMcp ?? []).filter((s) => s.approve !== 'none');
+    // Under bypass too: bypass skips canUseTool, never a hook. ctx.bypassPermissions is already off on strict turns.
+    const gatedOutside = (ctx.outsideMcp ?? []).filter(outsideMcpHooked);
     const outsideGuard = gatedOutside.length
       ? [{
           matcher: 'mcp__(' + gatedOutside.map((s) => s.name).join('|') + ')__.*',
@@ -468,14 +468,23 @@ export class ClaudeProvider implements AgentProvider {
             async (hookInput: unknown) => {
               const i = hookInput as PreToolUseHookInput;
               const s = gatedOutside.find((g) => i.tool_name.startsWith('mcp__' + g.name + '__'));
-              if (!s || !outsideMcpNeedsCard(s, i.tool_name.slice(('mcp__' + s.name + '__').length))) return {};
-              const why = ctx.outsideMcpGate
-                ? await ctx.outsideMcpGate(i.tool_name, (i.tool_input ?? {}) as Record<string, unknown>)
-                : 'This outside tool needs the owner\'s approval, and none can be asked for here.';
+              if (!s) return {};
+              const input = (i.tool_input ?? {}) as Record<string, unknown>;
+              // `pass` leaves the call to bypass or, otherwise, to canUseTool's normal card.
+              const step = outsideMcpStep(s, i.tool_name.slice(('mcp__' + s.name + '__').length), input, { bypass: !!ctx.bypassPermissions });
+              if (step.kind === 'pass') return {};
+              const why = step.kind === 'refuse' ? step.message
+                : step.kind === 'allow' ? null
+                : ctx.outsideMcpGate
+                  ? await ctx.outsideMcpGate(i.tool_name, input)
+                  : 'This outside tool needs the owner\'s approval, and none can be asked for here.';
               return {
                 hookSpecificOutput: why
                   ? { hookEventName: 'PreToolUse' as const, permissionDecision: 'deny' as const, permissionDecisionReason: why }
-                  : { hookEventName: 'PreToolUse' as const, permissionDecision: 'allow' as const, permissionDecisionReason: 'Approved by the owner.' },
+                  : {
+                      hookEventName: 'PreToolUse' as const, permissionDecision: 'allow' as const,
+                      permissionDecisionReason: step.kind === 'allow' ? 'A read tool of this server: no approval needed.' : 'Approved by the owner.',
+                    },
               };
             },
           ],

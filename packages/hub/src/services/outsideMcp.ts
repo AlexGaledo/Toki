@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR } from '../config.js';
-import { addSecret } from '../providers/redact.js';
+import { addSecret, redactValue } from '../providers/redact.js';
+import { denyMessage } from '../permissions/messages.js';
 import { routeByNeeds, type KeyRegistry } from './keyRegistry.js';
 
 /** No UI or bot tool writes it, and a bot's file and shell tools are refused it. */
@@ -12,7 +13,8 @@ export const NAME_RE = /^[a-z0-9](?:[a-z0-9-]|_(?!_)){0,31}$/;
 export const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const BARE_COMMANDS = new Set(['npx', 'node']);
 
-export type OutsideMcpApprove = 'every-call' | 'writes' | 'none';
+/** `mode`: follows the hub's approval mode (game tools). The others ask under bypass too. */
+export type OutsideMcpApprove = 'every-call' | 'writes' | 'none' | 'mode';
 
 interface OutsideMcpBase {
   name: string;
@@ -34,9 +36,57 @@ export interface OutsideMcpStdio extends OutsideMcpBase {
 export type OutsideMcpServer = OutsideMcpHttp | OutsideMcpStdio;
 
 export function outsideMcpNeedsCard(server: Pick<OutsideMcpServer, 'approve' | 'readTools'>, tool: string): boolean {
-  if (server.approve === 'none') return false;
+  if (server.approve === 'none' || server.approve === 'mode') return false;
   if (server.approve === 'writes') return !server.readTools.includes(tool);
   return true;
+}
+
+/** Anything bigger is refused, never truncated: a hidden tail could carry the real payload. */
+export const OUTSIDE_INPUT_CAP = 8000;
+
+/** The input as a card shows it: secrets redacted, still an object. */
+export function outsideCardInput(input: Record<string, unknown>): Record<string, unknown> {
+  return redactValue(input ?? {}) as Record<string, unknown>;
+}
+
+export function outsideTooLarge(shown: Record<string, unknown>): string | null {
+  const n = (JSON.stringify(shown) ?? '{}').length;
+  return n > OUTSIDE_INPUT_CAP
+    ? denyMessage('unavailable', { subject: 'this call', note: 'its input is too large to show for approval (' + n + ' chars)', alt: 'split it into smaller calls' })
+    : null;
+}
+
+/** Owner rule: Toki's Blender is headless, so no `bpy.ops.wm.*` UI operators. A text check, not a wall. */
+export const BLENDER_WM_MESSAGE =
+  'Blender runs headless here, so bpy.ops.wm.* operators are refused. Use toki_save(); the file is opened for you.';
+function blenderWmRefused(server: string, tool: string, input: Record<string, unknown>): boolean {
+  return server === 'blender' && tool === 'execute_blender_code' && (JSON.stringify(input ?? {}) ?? '').includes('bpy.ops.wm.');
+}
+
+/** Servers whose calls go through the outside-tool hook. */
+export function outsideMcpHooked(server: Pick<OutsideMcpServer, 'name' | 'approve'>): boolean {
+  return server.approve !== 'none' || server.name === 'blender';
+}
+
+/**
+ * What the PreToolUse hook does with an outside call. `allow`: runs with no card at all. `once`: the once-only
+ * outside card. `pass`: the hook stays out, so bypass runs it and otherwise the normal tool card asks.
+ * `bypass` must already be false on strict (routine, trigger, failover) turns.
+ */
+export type OutsideMcpStep = { kind: 'refuse'; message: string } | { kind: 'allow' } | { kind: 'once' } | { kind: 'pass' };
+export function outsideMcpStep(
+  server: Pick<OutsideMcpServer, 'name' | 'approve' | 'readTools'>,
+  tool: string,
+  input: Record<string, unknown>,
+  o: { bypass: boolean },
+): OutsideMcpStep {
+  // In every mode, before any card.
+  if (blenderWmRefused(server.name, tool, input)) return { kind: 'refuse', message: BLENDER_WM_MESSAGE };
+  if (server.approve !== 'mode') return outsideMcpNeedsCard(server, tool) ? { kind: 'once' } : { kind: 'pass' };
+  if (o.bypass) return { kind: 'pass' };
+  if (server.readTools.includes(tool)) return { kind: 'allow' };
+  const big = outsideTooLarge(outsideCardInput(input));
+  return big ? { kind: 'refuse', message: big } : { kind: 'pass' };
 }
 
 /** Registers every key an outside server carries for redaction. */
@@ -61,7 +111,7 @@ function strings(v: unknown): string[] | null {
 
 function approveOf(v: unknown, fallback: OutsideMcpApprove): OutsideMcpApprove {
   if (v === undefined) return fallback;
-  return v === 'writes' || v === 'none' ? v : 'every-call';
+  return v === 'writes' || v === 'none' || v === 'mode' ? v : 'every-call';
 }
 
 export function outsideMcpFor(handle: string, room: { id: string; name: string } | null, file: string = OUTSIDE_MCP_PATH): OutsideMcpServer[] {

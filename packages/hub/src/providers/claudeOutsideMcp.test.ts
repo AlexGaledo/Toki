@@ -26,7 +26,14 @@ const servers: OutsideMcpServer[] = [
   { kind: 'stdio', name: 'runpod', command: 'npx', args: ['-y', 'runpod-mcp'], env: { RUNPOD_API_KEY: 'rp-key-12345678' }, approve: 'every-call', readTools: [], needs: [] },
   { kind: 'stdio', name: 'firecrawl', command: 'npx', args: [], env: {}, approve: 'writes', readTools: ['firecrawl_search'], needs: [] },
   { kind: 'http', name: 'wika', url: 'https://dashboard.wikaph.com/api/mcp', token: 'k-123456789', approve: 'none', readTools: [], needs: [] },
+  { kind: 'stdio', name: 'blender', command: 'C:\\tools\\mcp-for-blender.exe', args: [], env: {}, approve: 'mode', readTools: ['get_scene_info', 'look'], needs: [] },
 ];
+
+function firstHook(h: Hook): Hook['hooks'][number] {
+  const f = h.hooks.at(0);
+  if (!f) throw new Error('hook has no handler');
+  return f;
+}
 
 async function runTurn(bypass: boolean, gate?: (name: string, input: Record<string, unknown>) => Promise<string | null>) {
   const ctx = {
@@ -67,6 +74,33 @@ describe('outside MCP servers in the Claude provider', () => {
     expect((await hook.hooks[0]({ tool_name: 'mcp__firecrawl__firecrawl_scrape', tool_input: {} })).hookSpecificOutput)
       .toMatchObject({ permissionDecision: 'deny', permissionDecisionReason: verdict });
     expect(asked).toEqual(['mcp__runpod__create_pod', 'mcp__firecrawl__firecrawl_scrape']);
+  });
+
+  it("approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused", async () => {
+    const asked: string[] = [];
+    const { hooks } = await runTurn(false, async (name) => { asked.push(name); return null; });
+    const hook = hooks.find((h) => h.matcher.startsWith('mcp__('))!;
+    const run = firstHook(hook);
+    expect(new RegExp('^(' + hook.matcher + ')$').test('mcp__blender__look')).toBe(true);
+    expect((await run({ tool_name: 'mcp__blender__get_scene_info', tool_input: {} })).hookSpecificOutput)
+      .toMatchObject({ permissionDecision: 'allow' });
+    // {} hands the call to canUseTool, which raises the normal card with rules and "Always allow".
+    expect(await run({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'x = 1' } })).toEqual({});
+    expect((await run({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'bpy.ops.wm.quit_blender()' } })).hookSpecificOutput)
+      .toMatchObject({ permissionDecision: 'deny', permissionDecisionReason: expect.stringContaining('toki_save()') });
+    expect(asked).toEqual([]);
+  });
+
+  it("approve 'mode' under bypass: no card for reads or writes, wm code still refused", async () => {
+    const asked: string[] = [];
+    const { hooks } = await runTurn(true, async (name) => { asked.push(name); return null; });
+    const hook = hooks.find((h) => h.matcher.startsWith('mcp__('))!;
+    const run = firstHook(hook);
+    expect(await run({ tool_name: 'mcp__blender__get_scene_info', tool_input: {} })).toEqual({});
+    expect(await run({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'x = 1' } })).toEqual({});
+    expect((await run({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'bpy.ops.wm.save_mainfile()' } })).hookSpecificOutput)
+      .toMatchObject({ permissionDecision: 'deny' });
+    expect(asked).toEqual([]);
   });
 
   it('denies a gated call when no gate is wired', async () => {

@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Once GitHub, Google, Slack, ClickUp or Teams is connected, every bot can use it. No more switching each bot on under the connection, and the long bot list is gone from Settings › Connections. Sending or posting still shows an approval card every time.
 - Triggers no longer need the bot to be allowed on the connection; a trigger only skips when the connection is gone.
 
+### Game tools follow your approval setting
+
+- An outside MCP server can now be set to `approve: "mode"`. Under full allow its tools run without asking, except on routine, trigger and failover turns. Under Ask, the tools listed in `readTools` run without a card, and every other tool shows the normal approval card, where your rules and "Always allow" work. The `every-call`, `writes` and `none` settings work as before.
+- Blender code that uses `bpy.ops.wm.` is refused in every mode, because Toki's Blender runs headless. Bots are told to save with `toki_save()` instead.
+
 ## [0.5.4] - 2026-11-21
 
 ### Toki rebrand and cozy theme

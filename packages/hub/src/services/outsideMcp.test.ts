@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { outsideMcpFor, outsideMcpNeedsCard, registerOutsideMcpSecrets, vpsMountable } from './outsideMcp.js';
 import { parseKeyRegistry } from './keyRegistry.js';
+import { McpServerAddSchema, viewOf } from './outsideMcpStore.js';
 import { clearSecrets, redact } from '../providers/redact.js';
 
 function file(content: string): string {
@@ -112,6 +113,14 @@ describe('stdio entries', () => {
       ['d', 'every-call', []],
       ['e', 'every-call', []],
     ]);
+  });
+
+  it("keeps approve 'mode' in the file and through the settings view, and never cards it from the once-only hook", () => {
+    const f = file(JSON.stringify({ blender: { command: abs, approve: 'mode', readTools: ['look'], rooms: ['game'] } }));
+    expect(outsideMcpFor('b', { id: 'r', name: 'game' }, f).map((s) => [s.name, s.approve, s.readTools])).toEqual([['blender', 'mode', ['look']]]);
+    expect(viewOf('blender', { command: abs, approve: 'mode', rooms: ['game'] }).approve).toBe('mode');
+    expect(McpServerAddSchema.safeParse({ name: 'blender', command: abs, approve: 'mode', rooms: ['game'] }).success).toBe(true);
+    expect(outsideMcpNeedsCard({ approve: 'mode', readTools: [] }, 'execute_blender_code')).toBe(false);
   });
 
   it('reads needs; a malformed needs skips the entry rather than reading as "needs nothing"', () => {

@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { renameOver, restrictFile } from '../config.js';
 import { addSecret } from '../providers/redact.js';
-import { ENV_KEY_RE, NAME_RE, OUTSIDE_MCP_PATH, RESERVED, stdioCommand } from './outsideMcp.js';
+import { ENV_KEY_RE, NAME_RE, OUTSIDE_MCP_PATH, RESERVED, stdioCommand, type OutsideMcpApprove } from './outsideMcp.js';
 
 /** Values never leave through `list`. */
 export class McpStoreError extends Error {
@@ -30,7 +30,7 @@ const envValueRule = z.string().max(8192).refine((s) => !s.includes('\0'), 'no N
 const shared = {
   rooms: z.array(TEXT).max(50).optional(),
   bots: z.array(TEXT).max(50).optional(),
-  approve: z.enum(['every-call', 'writes', 'none']).optional(),
+  approve: z.enum(['every-call', 'writes', 'none', 'mode']).optional(),
   readTools: z.array(z.string().regex(LABEL)).max(100).optional(),
   needs: z.array(z.string().regex(LABEL)).max(50).optional(),
 };
@@ -93,7 +93,7 @@ export interface McpServerView {
   envKeys?: string[];
   rooms: string[];
   bots: string[];
-  approve: 'every-call' | 'writes' | 'none';
+  approve: OutsideMcpApprove;
   readTools: string[];
   needs: string[];
 }
@@ -126,7 +126,7 @@ export function viewOf(name: string, v: unknown): McpServerView {
   const r: Raw = isObj(v) ? v : {};
   const stdio = r.command !== undefined;
   const approve: McpServerView['approve'] =
-    r.approve === 'writes' || r.approve === 'none' ? r.approve : r.approve === undefined ? (stdio ? 'every-call' : 'none') : 'every-call';
+    r.approve === 'writes' || r.approve === 'none' || r.approve === 'mode' ? r.approve : r.approve === undefined ? (stdio ? 'every-call' : 'none') : 'every-call';
   const base = {
     name,
     status: problems.length ? ('invalid' as const) : ('configured' as const),
