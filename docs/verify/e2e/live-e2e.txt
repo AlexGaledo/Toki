@@ -1,0 +1,29 @@
+◇ injected env (0) from .env
+data dir: C:\Users\alex\AppData\Local\Temp\toki-e2e-14396
+created default bots: @pocketrocket-support, @data-engineer
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data C:\Users\alex\AppData\Local\Temp\toki-e2e-14396 · http://127.0.0.1:42172
+[pocketrocket] workspace: C:\Users\alex\AppData\Local\Temp\toki-e2e-14396\workspace  (token required)
+[pocketrocket] open: http://127.0.0.1:42172/  (sign in with the token from C:\Users\alex\AppData\Local\Temp\toki-e2e-14396\hub-token)
+throwaway hub on 127.0.0.1:42172
+[pocketrocket] WARNING: approvals turned off in Settings — bots now run every action with no approval card
+### PUT /api/settings -> 200 approvals=bypass
+### install-blender-mcp -> 200 installed
+### POST /api/projects -> 200 kind=game setup={"git":"created","studio":"added"}
+artist: @cube-test-artist
+(node:34344) [CLAUDE_SDK_CAN_USE_TOOL_SHADOWED] Warning: canUseTool will not be invoked: permissionMode 'bypassPermissions' auto-approves every tool call (except explicit deny rules) before the callback is consulted. To gate every tool call, use a PreToolUse hook instead.
+(Use `node --trace-warnings ...` to show where the warning was created)
+### POST message -> 200
+[blender] starting for cube-test on 127.0.0.1:42179 (pid 29156)
+[blender] ready for cube-test after 11.0 s
+### turn finished after 48 s; blender.exe seen: 1
+### messages with a look-back attachment: 1
+  mcp__blender__look -> img:cbff047cba7cb8ddda6143e94422b87e4750a5a55db34ca529f819859011e9d9
+### messages containing "[Image: source:": 0
+### tool calls by the artist: mcp__blender__get_addon_status, mcp__blender__get_scene_info, mcp__blender__execute_blender_code, mcp__blender__look, mcp__blender__execute_blender_code, mcp__blender__execute_blender_code
+### artist said: Done. Added red cube to the scene at (3, 0, 0), saved with toki_save(). The look shows the scene with both the original gray cube and the new red cube with red material applied.
+### media file: media\cbff047cba7cb8ddda6143e94422b87e4750a5a55db34ca529f819859011e9d9 (207714 B)
+[blender] stopped for cube-test (hub quit) after 32 s; peak working set 586 MB
+### after hub.close(): blender.exe running = 0
+ReferenceError: __dirname is not defined
+    at main (C:\Users\alex\Desktop\claude-grokbot-spec-gamedev\docs\verify\e2e\live_e2e.ts:112:51)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

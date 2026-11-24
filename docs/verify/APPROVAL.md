@@ -27,16 +27,16 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | S2 | Studio steps with Studio open | none | none | none | not done |
 | B1 | Detection (Blender, uv, Blender MCP tools, Studio) | fcbe5d8 | fail-then-pass, mutation, live | `phase1-backend/` (`live-status.txt`, `mutations.txt`, `fail-then-pass.txt`) | approved with gaps (the Studio "open" state was not seen) |
 | B2 | Game tools routes, hub token only, audited | e632778, daa692e | fail-then-pass, mutation, live | `phase1-backend/` | approved |
-| B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved with gaps (no live turn showing "Always allow" or bypass) |
+| B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved with gaps (bypass shown live in `e2e/`; no live turn showing "Always allow" under ask) |
 | B4 | Card input as an object, with `codeField` | b4d4875, 28517d0 | fail-then-pass, mutation, verify-toki | `b3-b4/fail-then-pass.txt`, `b3-b4/mutations.txt`, `phase1-ui/d1/strip-and-d5-card.aria.yml` | approved (the normal-card path is unit-tested only) |
 | B5 | Status checks from BlenderHost and Studio, crash log | 074b918 | fail-then-pass, mutation, live | `phase1-backend/` | approved with gaps (Studio states) |
 | B6 | Install uv, the pinned Blender MCP tools, Studio's MCP setting | 196b4ce | fail-then-pass, mutation, live | `phase1-backend/live-install.txt` | approved with gaps (the Studio setting step never ran on the real file) |
 | B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand) | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt` | approved |
 | B8 | blender-loop and studio-loop skills | d608323 | fail-then-pass | `phase2-backend/fail-then-pass.txt` | approved with gaps (the A/B trap test did not run) |
-| B9 | Look-backs from the SDK tool result | 4041481, bd45584 | fail-then-pass, mutation | `phase2-backend/` | approved with gaps (no live `look` turn) |
+| B9 | Look-backs from the SDK tool result | 4041481, bd45584 | fail-then-pass, mutation, live | `phase2-backend/`, `e2e/` | approved |
 | B10 | Server project stubs, host tags | 5c06ec3 | fail-then-pass, mutation (27/27), live | `phase3-backend/live-stubs.txt`, `mutations.txt` | approved |
 | B11 | Shared-subscription note | 1847740, 113bb0c, 54f4194 (web) | fail-then-pass, live, verify-toki | `phase3-backend/live-stubs.txt`, `phase3-ui/d4/usage-note-*` | approved with gaps (its mutants not run) |
-| B12 | Toki's headless Blender | d3f3517, ca43f26 (hub dir) | fail-then-pass, mutation, live | `b12/` (`live-run.txt`, `b12-look-rendered.png`, `mutations.txt`) | approved with gaps (no live bot turn through the mount) |
+| B12 | Toki's headless Blender | d3f3517, ca43f26 (hub dir) | fail-then-pass, mutation, live | `b12/` (`live-run.txt`, `b12-look-rendered.png`, `mutations.txt`) | approved (live bot turn through the mount in `e2e/`) |
 | I1 | "Open Studio" only | 477db49 | mutation | `phase1-infra/i1-mutations.txt`, `i1-cargo.txt` | approved with gaps (no real launch; S2) |
 | I2 | PC hub always runs; server tunnel on 7790 | 39afb96 | mutation (partial) | `phase3-infra/mutations.txt`, `cargo.txt` | approved with gaps (no live SSH; 35 of 46 mutants not run) |
 | I3 | Stub refresh, 30 s loss, host requests, Open folder | 0fe6cc0, c6fe9b2 | mutation (partial) | `phase3-infra/mutations.txt`, `stub-schema.txt` | approved with gaps (wire tests used fake hubs; no live server) |
@@ -90,9 +90,9 @@ steps.
    - the desktop notification gives the reason on a failed connect.
 
 **Blender and the game room from a real bot turn** (`phase2-backend/README.md`, `phase2-ui/README.md`)
-1. A live look-back. A game-room bot calls `look`, and the thumbnail appears with no seeding.
-2. A game-room turn mounts `blender`, Blender starts on the first call, and another room of the same bot gets no
-   `blender`.
+1. ~~A live look-back.~~ Done in `e2e/`: a real Haiku turn called `look` and the image was attached to the tool message. The browser rendering is covered by D2.
+2. ~~A game-room turn mounts `blender` and Blender starts on the first call~~ (done in `e2e/`). Still open: another room of the same bot gets no
+   `blender` live (unit-tested in `blenderTurn.test.ts`).
 3. The skills' A/B trap test: 3 runs with the skills and 3 without (`docs/project-folders.md`).
 4. The room strip updating live on `game-tools.changed` as Blender starts and stops.
 
