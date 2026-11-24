@@ -6,7 +6,7 @@ import type {
   SandboxStatus,
   IntegrationsState, IntegrationInfo, IntegrationProvider, OAuthAppInput, OAuthAppStatus, PendingConnect, TokenConnectInput,
 } from '@pocketrocket/shared';
-import type { AuditEntry, GameToolFix, GameToolFixResult, GameToolsStatus, UserSessionInfo } from '@pocketrocket/shared';
+import type { AuditEntry, GameProjectSetup, GameToolFix, GameToolFixResult, GameToolsStatus, TeamTemplateId, UserSessionInfo } from '@pocketrocket/shared';
 import type { ProjectMapReply, ProjectOverview } from '@pocketrocket/shared';
 import type { Workflow, WorkflowApprovalCard, WorkflowDecision, WorkflowInput, WorkflowPatch, WorkflowRun, WorkflowRunSummary } from '@pocketrocket/shared';
 import type { KnowledgeStatus, SkillGitImportResult, VoiceProposal } from '@pocketrocket/shared';
@@ -55,6 +55,10 @@ export type HealthResponse = HealthInfo & { version?: string; provider?: Provide
 export type AccountActionResponse = AccountState | { ok: boolean } | Record<string, unknown>;
 
 export interface ProjectInfo { slug: string; name: string; dir: string; memberIds: string[]; roomId: string | null; templateVersion: number | null; kind?: 'game' | null; createdAt: number }
+/** `template` wins over `team` on the hub; `team: true` alone still means the dev template. */
+export interface ProjectCreateInput { name: string; team?: boolean; template?: TeamTemplateId; memberIds?: string[] }
+/** `setup` comes only with the game template (B7). */
+export interface ProjectCreateReply { project: ProjectInfo; bots: Bot[]; room: Room | null; setup?: GameProjectSetup }
 export interface ProjectLint { issues: { kind: string; path: string; detail: string }[]; recentMisses: string[] }
 
 const filesBase = (roomId: string) => '/api/rooms/' + encodeURIComponent(roomId) + '/files';
@@ -144,7 +148,7 @@ export const api = {
   },
   projects: {
     list: () => req<ProjectInfo[]>('GET', '/api/projects'),
-    create: (input: { name: string; team?: boolean }) => req<{ project: ProjectInfo; bots: Bot[] }>('POST', '/api/projects', input),
+    create: (input: ProjectCreateInput) => req<ProjectCreateReply>('POST', '/api/projects', input),
     setMembers: (slug: string, memberIds: string[]) => req<ProjectInfo>('PUT', '/api/projects/' + encodeURIComponent(slug) + '/members', { memberIds }),
     lint: (slug: string) => req<ProjectLint>('GET', '/api/projects/' + encodeURIComponent(slug) + '/lint'),
     repos: (slug: string) => req<ProjectReposFile>('GET', '/api/projects/' + encodeURIComponent(slug) + '/repos'),
