@@ -9,9 +9,14 @@ import { PROVIDER_IDS, type Approvals, type ProviderId } from '@pocketrocket/sha
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * The hub package dir: the nearer of `from` and its parent that holds a package.json. A `node_modules` is no sign,
+ * since vitest leaves `src/node_modules/.vite` behind when run with `src` as cwd, and that made HUB_DIR `src`
+ * (no `resources/blender/` there). The desktop bundle has package.json next to hub.mjs; src/ and dist/ have none.
+ */
 export function resolveHubDir(from: string, exists: (p: string) => boolean = fs.existsSync): string {
   for (const dir of [from, path.resolve(from, '..')]) {
-    if (exists(path.join(dir, 'node_modules'))) return dir;
+    if (exists(path.join(dir, 'package.json'))) return dir;
   }
   return path.resolve(from, '..');
 }

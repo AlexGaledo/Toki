@@ -15,23 +15,39 @@ const SRC = path.join(BUNDLE, 'src');
 
 describe('resolveHubDir', () => {
   it('goes up one level from the source layout (src/config.ts)', () => {
-    const exists = (p: string) => p === path.join(BUNDLE, 'node_modules');
+    const exists = (p: string) => p === path.join(BUNDLE, 'package.json');
     expect(resolveHubDir(SRC, exists)).toBe(BUNDLE);
   });
 
-  it('stays put in the bundle layout (hub.mjs next to node_modules)', () => {
-    const exists = (p: string) => p === path.join(BUNDLE, 'node_modules');
+  it('stays put in the bundle layout (hub.mjs next to package.json)', () => {
+    const exists = (p: string) => p === path.join(BUNDLE, 'package.json');
     expect(resolveHubDir(BUNDLE, exists)).toBe(BUNDLE);
   });
 
-  it('prefers the nearer node_modules when both candidates have one', () => {
+  it('prefers the nearer package.json when both candidates have one', () => {
     const exists = () => true;
     expect(resolveHubDir(BUNDLE, exists)).toBe(BUNDLE);
     expect(resolveHubDir(SRC, exists)).toBe(SRC);
   });
 
-  it('falls back to the parent when nothing is installed', () => {
+  it('falls back to the parent when nothing is there', () => {
     expect(resolveHubDir(SRC, () => false)).toBe(BUNDLE);
+  });
+
+  // phase2-ui found it: a vitest cache in src/node_modules/.vite made HUB_DIR src, so resources/blender/ was not found.
+  it('NEGATIVE: a vitest cache under src/node_modules does not make src the hub dir', () => {
+    const hub = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-hubdir-'));
+    try {
+      const src = path.join(hub, 'src');
+      fs.mkdirSync(path.join(src, 'node_modules', '.vite', 'vitest'), { recursive: true });
+      fs.mkdirSync(path.join(hub, 'node_modules'), { recursive: true });
+      fs.mkdirSync(path.join(hub, 'resources', 'blender'), { recursive: true });
+      fs.writeFileSync(path.join(hub, 'package.json'), '{"name":"@pocketrocket/hub"}');
+      expect(resolveHubDir(src)).toBe(hub);
+      expect(fs.existsSync(path.join(resolveHubDir(src), 'resources', 'blender'))).toBe(true);
+    } finally {
+      fs.rmSync(hub, { recursive: true, force: true });
+    }
   });
 });
 
