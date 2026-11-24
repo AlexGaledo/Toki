@@ -243,6 +243,20 @@ describe('the dev team template', () => {
     again.projects.create({ name: 'Keep', team: true });
     expect(fs.readFileSync(path.join(dir, 'TEMPLATE.md'), 'utf8')).toBe('mine');
   });
+  it('seeds a features/ map convention, and keeps one already there', () => {
+    const { projects } = withSources();
+    const { project, bots } = projects.create({ name: 'Shop', team: true });
+    const index = fs.readFileSync(path.join(project.dir, 'features', 'README.md'), 'utf8');
+    for (const h of ['## Sub-features', '## How to get to it (user POV)', '## How to prove it works', '## Gotchas']) expect(index).toContain(h);
+    expect(bots[0].description).toContain('features/');
+
+    const again = withSources();
+    const dir = path.join(again.root, 'keep');
+    fs.mkdirSync(path.join(dir, 'features'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'features', 'README.md'), 'mine');
+    again.projects.create({ name: 'Keep' });
+    expect(fs.readFileSync(path.join(dir, 'features', 'README.md'), 'utf8')).toBe('mine');
+  });
   it('refuses a team when a required skill is missing', () => {
     const { repos, projects } = service();
     for (const role of DEV_TEAM_TEMPLATE.roles) makeBot(repos, role.source, SOURCE);

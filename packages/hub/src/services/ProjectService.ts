@@ -8,7 +8,7 @@ import {
 import type { Db, Row } from '../db/db.js';
 import type { Repos } from '../db/repos.js';
 import type { MemoryService } from './MemoryService.js';
-import { DEV_TEAM_TEMPLATE, cloneDescription, templateRecord } from './devTeamTemplate.js';
+import { DEV_TEAM_TEMPLATE, FEATURES_README, cloneDescription, templateRecord } from './devTeamTemplate.js';
 import { sandboxActive } from '../providers/sandbox.js';
 import { EMPTY_OVERVIEW, parseProjectOverview } from './projectOverview.js';
 
@@ -121,6 +121,9 @@ export class ProjectService {
       const today = new Date(this.now()).toISOString().slice(0, 10);
       fs.writeFileSync(current, '---\nstatus: current\nupdated: ' + today + '\n---\n\n# ' + name + '\n\nWhat is true now. Move anything outdated to archive/.\n');
     }
+    fs.mkdirSync(path.join(dir, 'features'), { recursive: true });
+    const featuresIndex = path.join(dir, 'features', 'README.md');
+    if (!fs.existsSync(featuresIndex)) fs.writeFileSync(featuresIndex, FEATURES_README);
     const bots = plan.map((p) => {
       const bot = this.deps.repos.createBot(p.input);
       this.deps.memory.ensureHome(bot.id);
