@@ -44,6 +44,9 @@ describe('GET /api/usage subscriptionNote', () => {
 
   it('present once the desktop app has reported the server, even while it is disconnected', async () => {
     expect((await request('PUT', '/api/hosts/server/projects', { connected: false })).status).toBe(200);
-    expect((await request('GET', '/api/usage')).json.subscriptionNote).toBe(SHARED_SUBSCRIPTION_NOTE);
+    const note = (await request('GET', '/api/usage')).json.subscriptionNote;
+    // Literal words too: with the shared constant gone, toBe(SHARED_SUBSCRIPTION_NOTE) alone would compare undefined to undefined.
+    expect(note).toMatch(/same Claude subscription/);
+    expect(note).toBe(SHARED_SUBSCRIPTION_NOTE);
   });
 });
