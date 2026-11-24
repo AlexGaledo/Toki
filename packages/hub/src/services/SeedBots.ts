@@ -161,12 +161,22 @@ function seedRoutine(repos: Repos, d: BotDefinition, marker: string, usersBot: b
   repos.createRoutine({ botId: bot.id, roomId: dm.id, name: d.routine!.name, cron: d.routine!.cron, prompt: d.routine!.prompt, enabled: true });
 }
 
+export const LEAD_ENGINEER_HANDLE = 'lead-engineer';
 export const ROBLOX_BUILDER_HANDLE = 'roblox-builder';
 export const BLENDER_ARTIST_HANDLE = 'blender-artist';
 
 /** The game template's sources (spec toki-local-first-gamedev §3). Each project clones them; edit these to change later clones. */
 function gameDefinitions(): BotDefinition[] {
   return [
+    {
+      // The coordinator source. A hub that already has one (any hub that made a dev team) keeps its own.
+      handle: LEAD_ENGINEER_HANDLE,
+      icon: 'compass',
+      name: 'Lead Engineer',
+      title: 'Plans the work and reviews it',
+      description: 'You are a lead engineer. You turn a request into a short plan of small changes, each with a check that shows it is done. You hand the work to your teammates and review what comes back against the plan. You keep scope to what was asked, ask the owner when a request can be read two ways, and settle disagreements between teammates with evidence: the code, a test or the request itself. You say what was verified and what was not.',
+      tools: BASE_TOOLS,
+    },
     {
       handle: ROBLOX_BUILDER_HANDLE,
       icon: 'hammer',

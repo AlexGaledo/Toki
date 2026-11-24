@@ -153,11 +153,11 @@ button for its next step, if there is one (a crashing Blender has two: **Open lo
 ### Make a game project
 
 Settings › Projects › new project, **Team: Game team**. Game team stays disabled, and says why, until
-Blender and the Blender MCP tools are ready. The template also uses the bot @lead-engineer and the
-skill safe-shipping; if either is missing, **Create project** says which. It makes:
+Blender and the Blender MCP tools are ready. Nothing else needs setting up. It makes:
 
 - A group chat with a lead (cloned from @lead-engineer), a builder (from @roblox-builder) and an
-  artist (from @blender-artist). The two new bots are created with your first game project.
+  artist (from @blender-artist). Any of those three you don't have yet is created with your first
+  game project. One you already have is used as it is.
 - The project folder `<data>/projects/<slug>/` with `art/`, `exports/`, `studio/` and `places/`, as
   a git repo with a first commit. The files live in Toki's data folder, not in a Roblox folder,
   because Roblox has no single local project folder: places live in the cloud, and `.rbxl` files go

@@ -31,7 +31,7 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | B4 | Card input as an object, with `codeField` | b4d4875, 28517d0 | fail-then-pass, mutation, verify-toki | `b3-b4/fail-then-pass.txt`, `b3-b4/mutations.txt`, `phase1-ui/d1/strip-and-d5-card.aria.yml` | approved (the normal-card path with `codeField` live in `s2/cards.json`) |
 | B5 | Status checks from BlenderHost and Studio, crash log | 074b918 | fail-then-pass, mutation, live, verify-toki | `phase1-backend/`, `ui-gaps/run1/` (crash log from real stub exits), `ui-gaps/run2/d1/` (real other Blender) | approved (Studio open, closed and "Close Roblox Studio first" rendered in `ui-gaps/run1/d1/` with a fake process row through `createHub`'s `processes` seam; Studio "ready" was read live in `s2/turn.txt`) |
 | B6 | Install uv, the pinned Blender MCP tools, Studio's MCP setting | 196b4ce | fail-then-pass, mutation, live | `phase1-backend/live-install.txt` | approved (the Studio setting step ran on the real file in `s2/flip-files.txt`) |
-| B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand) | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt` | approved |
+| B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand), fresh-install fix | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt`, `fresh-game/fail-then-pass.txt` | approved |
 | B8 | blender-loop and studio-loop skills | d608323, see e2e | fail-then-pass, live A/B 3x3 | `phase2-backend/fail-then-pass.txt`, `e2e/ab-skill.txt` | approved (the A/B found the skill alone 1/3; the fix makes the checkpoint structural, then 6/6) |
 | B9 | Look-backs from the SDK tool result | 4041481, bd45584 | fail-then-pass, mutation, live | `phase2-backend/`, `e2e/` | approved |
 | B10 | Server project stubs, host tags | 5c06ec3 | fail-then-pass, mutation (27/27), live | `phase3-backend/live-stubs.txt`, `mutations.txt` | approved |
@@ -46,7 +46,7 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | D3 | Template picker, Open folder | b04029c, b3a92ac | fail-then-pass, mutation, verify-toki | `phase2-ui/d3/`, `phase3-ui/d4/settings-projects-*` | approved |
 | D4 | Host tags, Server project prompt, Back to this PC | 8cc8868, fe19e50 | fail-then-pass, mutation, verify-toki, live (installed app) | `phase3-ui/d4/`, `real-setup/check7-d4.txt` | approved |
 | D5 | Code on approval cards | 7b239e6 | fail-then-pass, mutation, verify-toki | `phase1-ui/d5/` | approved |
-| P1 | Guide, CHANGELOG, this ledger | ui-gaps commit (5 guide fixes) | verify-toki walk | `docs/GUIDE.md` ("Make games with Blender and Studio", "This PC and your server"), `CHANGELOG.md` [Unreleased], `ui-gaps/README.md` ("P1") | approved with gaps (walked in the app; desktop-only steps cited from `real-setup/`; a fresh install can't make a Game team without `@lead-engineer` and `safe-shipping`, now stated in the guide and handed to pr-backend) |
+| P1 | Guide, CHANGELOG, this ledger | ui-gaps commit (5 guide fixes) | verify-toki walk | `docs/GUIDE.md` ("Make games with Blender and Studio", "This PC and your server"), `CHANGELOG.md` [Unreleased], `ui-gaps/README.md` ("P1") | approved with gaps (walked in the app; desktop-only steps cited from `real-setup/`; a fresh install now makes a Game team with no setup, `fresh-game/fail-then-pass.txt`) |
 | R1 | Real-setup run: installed build, real server, real Studio | this commit (hub-stopped hint fix) | live, fail-then-pass | `real-setup/README.md` | approved (one copy bug found and fixed; findings listed there) |
 
 ## Still to verify live
@@ -111,8 +111,10 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
   "Pick your first helper" step. The server is one click away, but is no longer what opens (owner's call).
 - `phase3-infra/README.md` step 5 says "tray, Restart hub". There is no such tray item: it is the splash's Retry once the
   hub is down.
-- A fresh install has no `@lead-engineer` or `safe-shipping`, so Game team and Dev team fail at **Create project**, and
-  the picker does not disable them for it (pr-backend; `ui-gaps/README.md`).
+- ~~A fresh install has no `@lead-engineer` or `safe-shipping`, so Game team fails at **Create project**~~. Fixed:
+  `safe-shipping` is a built-in skill and `@lead-engineer` is made on demand with the first game project
+  (`fresh-game/fail-then-pass.txt`). Dev team on a fresh install still needs `@software-engineer` and
+  `@quality-engineer` (pr-backend; not part of this spec).
 - Settings' **Check again** does not refresh the room strip; the strip waits for `game-tools.changed` or window focus.
   The strip offers **Fix in Settings** for "Another Blender running", where Settings has no step. On a server hub,
   Game tools still says "Game tools run code as you on this PC" (pr-design-system).

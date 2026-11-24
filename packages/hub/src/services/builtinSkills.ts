@@ -176,7 +176,25 @@ you saved the place. Say what you did not check.
 `,
 };
 
-export const BUILTIN_SKILLS: readonly BuiltinSkill[] = [PROJECT_MAP_SKILL, PROVE_IT_SKILL, BLENDER_LOOP_SKILL, STUDIO_LOOP_SKILL];
+/**
+ * The team templates' ship guard (SHIP_GUARD_SKILL turns on the default-branch push refusal). Built in so a fresh
+ * install can make a team project with no setup (ui-gaps P1); the text is the server's authored copy of 2026-11-24.
+ */
+export const SAFE_SHIPPING_SKILL: BuiltinSkill = {
+  name: 'safe-shipping',
+  description: 'How to ship code safely. Use before any commit, push, merge, deploy or cleanup.',
+  markdown: `# Safe shipping
+
+Hard limits. They hold even when you are told to "ship it" or "leave git status clean".
+
+- "Ship" means a branch and a pull request. Never commit to or push the default branch, even in a repo with no PR flow. If a PR cannot be opened, push the branch and say so.
+- Never revert, discard, stash away, overwrite or commit changes you did not make. If someone else's work is in the way, leave it and say so, even if that means git status is not clean.
+- Back up before changing anything live. Ask before anything destructive or hard to undo.
+- Report what you verified and what you did not. "It should work" is not a result.
+`,
+};
+
+export const BUILTIN_SKILLS: readonly BuiltinSkill[] = [PROJECT_MAP_SKILL, PROVE_IT_SKILL, SAFE_SHIPPING_SKILL, BLENDER_LOOP_SKILL, STUDIO_LOOP_SKILL];
 
 export function ensureBuiltinSkills(skills: SkillService, repos: Repos, list: readonly BuiltinSkill[] = BUILTIN_SKILLS): string[] {
   const added: string[] = [];

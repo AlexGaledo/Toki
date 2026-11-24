@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Db } from '../db/db.js';
 import { Repos } from '../db/repos.js';
-import { BLENDER_ARTIST_HANDLE, DATA_ENGINEER_HANDLE, ROBLOX_BUILDER_HANDLE, SUPPORT_HANDLE, seedDefaultBots, seedGameBots, supportSourceDirs } from './SeedBots.js';
+import { BLENDER_ARTIST_HANDLE, DATA_ENGINEER_HANDLE, LEAD_ENGINEER_HANDLE, ROBLOX_BUILDER_HANDLE, SUPPORT_HANDLE, seedDefaultBots, seedGameBots, supportSourceDirs } from './SeedBots.js';
 
 function setup(withSource = true) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'prc-seed-'));
@@ -156,16 +156,16 @@ describe('default bots', () => {
 describe('the game template source bots (B7)', () => {
   const gameOpts = (s: ReturnType<typeof setup>, platform: NodeJS.Platform = 'win32') => ({ dataDir: s.opts.dataDir, platform });
 
-  it('creates @roblox-builder and @blender-artist once on a Windows hub, with no DM, and with their loop skills named', () => {
+  it('creates @lead-engineer, @roblox-builder and @blender-artist once on a Windows hub, with no DM, and with their loop skills named', () => {
     const s = setup(false);
     const made = seedGameBots(s.repos, s.memory, gameOpts(s));
-    expect(made.map((b) => b.handle)).toEqual([ROBLOX_BUILDER_HANDLE, BLENDER_ARTIST_HANDLE]);
+    expect(made.map((b) => b.handle)).toEqual([LEAD_ENGINEER_HANDLE, ROBLOX_BUILDER_HANDLE, BLENDER_ARTIST_HANDLE]);
     expect(s.repos.listRooms()).toEqual([]);
-    expect(made[0]!.description).toContain('studio-loop');
-    expect(made[1]!.description).toContain('blender-loop');
-    expect(made[1]!.description).toContain('bpy.ops.wm');
+    expect(made[1]!.description).toContain('studio-loop');
+    expect(made[2]!.description).toContain('blender-loop');
+    expect(made[2]!.description).toContain('bpy.ops.wm');
     expect(seedGameBots(s.repos, s.memory, gameOpts(s))).toEqual([]);
-    expect(s.repos.listBots()).toHaveLength(2);
+    expect(s.repos.listBots()).toHaveLength(3);
   });
 
   it('NEGATIVE: seeds nothing on a hub that is not Windows, where game tools do not exist', () => {
@@ -177,9 +177,12 @@ describe('the game template source bots (B7)', () => {
   it('does not bring back a deleted one, and leaves a user bot with the same handle alone', () => {
     const s = setup(false);
     s.repos.createBot({ name: 'Mine', handle: BLENDER_ARTIST_HANDLE, title: '', description: 'mine', avatar: '', model: 'm', allowedTools: [], maxBudgetUsd: 1 });
-    const [builder] = seedGameBots(s.repos, s.memory, gameOpts(s));
+    s.repos.createBot({ name: 'My lead', handle: LEAD_ENGINEER_HANDLE, title: '', description: 'my lead', avatar: '', model: 'm', allowedTools: [], maxBudgetUsd: 1 });
+    const [builder, ...rest] = seedGameBots(s.repos, s.memory, gameOpts(s));
     expect(builder!.handle).toBe(ROBLOX_BUILDER_HANDLE);
+    expect(rest).toEqual([]);
     expect(s.repos.getBotByHandle(BLENDER_ARTIST_HANDLE)!.description).toBe('mine');
+    expect(s.repos.getBotByHandle(LEAD_ENGINEER_HANDLE)!.description).toBe('my lead');
     s.repos.deleteBot(builder!.id);
     expect(seedGameBots(s.repos, s.memory, gameOpts(s))).toEqual([]);
   });

@@ -38,7 +38,7 @@ beforeAll(async () => {
   port = await hub.listen();
   hub.repos.createBot({ name: 'Lead', handle: 'lead-engineer', title: '', description: 'You lead.', avatar: 'bot', model: 'auto', allowedTools: ['Read'], maxBudgetUsd: 2 });
   const memory = { ensureHome: () => undefined, writeIdentity: () => undefined };
-  expect(seedGameBots(hub.repos, memory, { dataDir: pc.data, platform: 'win32' }).map((b) => b.handle)).toEqual(['roblox-builder', 'blender-artist']);
+  expect(seedGameBots(hub.repos, memory, { dataDir: pc.data, platform: 'win32' }).map((b) => b.handle)).toEqual(['roblox-builder', 'blender-artist']); // @lead-engineer already exists here, so it is left alone
   for (const name of GAME_TEAM_TEMPLATE.skills) {
     hub.repos.upsertSkill({ name, description: '', path: '/x/' + name, source: 'authored', reviewStatus: 'approved', createdByBot: null });
   }
