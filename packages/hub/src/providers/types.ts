@@ -92,12 +92,19 @@ export interface TurnContext {
   carriedSteers?: SteerInput[];
 }
 
+/** A base64 image block from a tool result (B9 look-backs). Never read from a file. */
+export interface ToolResultImage {
+  mediaType: string;
+  data: string;
+}
+
 export interface TurnSink {
   onSession(token: string): void;
   onDelta(text: string): void;
   onText(text: string): void;
   onToolUse(id: string, name: string, input: unknown): void;
-  onToolResult(id: string, output: string, isError: boolean): void;
+  /** `image`: the first image block of the result, as the SDK message carried it (Claude only). The runner decides whether to keep it. */
+  onToolResult(id: string, output: string, isError: boolean, image?: ToolResultImage): void;
   onState(s: 'thinking' | 'working'): void;
   onInit?(info: ProviderInit): void;
   onLimit?(report: LimitReport): void;

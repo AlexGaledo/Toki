@@ -20,7 +20,7 @@ import { secretFileAccess } from '../permissions/secretFiles.js';
 import { denyMessage } from '../permissions/messages.js';
 import { logError } from './redact.js';
 import { outsideMcpHooked, outsideMcpStep } from '../services/outsideMcp.js';
-import type { AgentProvider, HubTool, LimitReport, ProviderInit, SteerInput, SteerResult, TurnContext, TurnImage, TurnLimit, TurnOutcome, TurnSink } from './types.js';
+import type { AgentProvider, HubTool, LimitReport, ProviderInit, SteerInput, SteerResult, TurnContext, TurnImage, TurnLimit, TurnOutcome, ToolResultImage, TurnSink } from './types.js';
 
 // A bare allowedTools entry bypasses canUseTool everywhere, so file and shell tools must never be listed here.
 const AUTO_OK = new Set(['WebSearch', 'WebFetch']);
@@ -219,6 +219,19 @@ export function userContent(input: string, images: readonly TurnImage[]) {
     { type: 'text' as const, text: input },
     ...inline.map((i) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: i.mediaType, data: i.data!.toString('base64') } })),
   ];
+}
+
+/**
+ * B9: the first base64 image block of a tool result, straight from the SDK message. The CLI also saves a copy under
+ * ~/.claude/.../tool-results and names it in a text block; that file is never read.
+ */
+export function firstImage(content: unknown): ToolResultImage | undefined {
+  if (!Array.isArray(content)) return undefined;
+  for (const c of content as { type?: unknown; source?: { type?: unknown; media_type?: unknown; data?: unknown } }[]) {
+    const src = c?.type === 'image' ? c.source : undefined;
+    if (src?.type === 'base64' && typeof src.media_type === 'string' && typeof src.data === 'string') return { mediaType: src.media_type, data: src.data };
+  }
+  return undefined;
 }
 
 export const STEER_CAPABILITY = 'interrupt_receipt_v1';
@@ -812,7 +825,7 @@ export class ClaudeProvider implements AgentProvider {
             const output = typeof block.content === 'string'
               ? block.content
               : (block.content ?? []).map((c) => (c.type === 'text' ? c.text : '[' + c.type + ']')).join('\n');
-            sink.onToolResult(block.tool_use_id, output, !!block.is_error);
+            sink.onToolResult(block.tool_use_id, output, !!block.is_error, firstImage(block.content));
           }
           sink.onState('thinking');
           continue;

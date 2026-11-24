@@ -48,6 +48,7 @@ import { loadKeyRegistry } from '../services/keyRegistry.js';
 import { computerToolGuard } from '../permissions/controlInterlock.js';
 import { decisionsWriteDenied, relIn, type FileRevisions, type FileRoot, type RevisionAuthor } from '../services/FileRevisions.js';
 import type { MediaStore } from '../services/MediaStore.js';
+import { isLookBackTool, lookBackServers, storeLookBack, stripCliImagePaths } from './lookBacks.js';
 import { AUTO_MEMORY_MODEL, runPass, type PassOutcome } from '../services/AutoMemory.js';
 import { buildSeed, buildSummaryPrompt, cleanSummary, contextUsage, readRoomNotes, rotationNote, rotationReason, SUMMARY_SYSTEM_PROMPT, SWITCH_SEED_LEAD, switchNote } from '../services/SessionRotation.js';
 import { RepeatFailureWatch, browserRefusal, brokenStart, escalationNote, type FailureKind } from './repeatFailure.js';
@@ -488,6 +489,7 @@ export class BotRunner {
     // built-in entry holds no secret, and its 127.0.0.1 must not be scrubbed.
     registerOutsideMcpSecrets(fileMcp);
     const outsideMcp = blenderEntry ? [...fileMcp, blenderEntry] : fileMcp;
+    const lookBacks = lookBackServers({ game: !!gameProject, blender: blenderEntry, mounted: outsideMcp });
     const images = materializeImages(this.media, ATTACHMENTS_DIR, bot.id, req.images);
     const files = materializeFiles(this.media, ATTACHMENTS_DIR, bot.id, req.images);
     const ctx: TurnContext = {
@@ -652,7 +654,7 @@ export class BotRunner {
         toolMsgIds.set(id, msg.id);
         events.emitEvent({ type: 'message.new', message: msg });
       },
-      onToolResult: (id, output, isError) => {
+      onToolResult: (id, output, isError, image) => {
         const msgId = toolMsgIds.get(id);
         if (!msgId) return;
         const cur = this.repos.getMessage(msgId);
@@ -661,9 +663,14 @@ export class BotRunner {
         const refused = browserRefusal(toolName, output);
         if (refused) this.noteFailure(bot, room, 'browser', refused, { causeId: req.causeId, hop: req.hop, turnId });
         else if (!isError && toolName.startsWith('mcp__browser__')) this.repeatFailures.clear(bot.id);
-        const payload: ToolPayload = { ...(cur.payload as ToolPayload), output: redact(output.slice(0, 20000)), isError, done: true };
-        this.repos.updateMessage(msgId, { payload });
-        events.emitEvent({ type: 'message.update', id: msgId, roomId: room.id, patch: { payload } });
+        // B9: a game tool's picture is kept as one attachment on this message; the CLI's file path leaves the text.
+        const lookBack = isLookBackTool(toolName, lookBacks);
+        const ref = lookBack && image && this.media ? storeLookBack(this.media, image) : null;
+        const shown = lookBack ? stripCliImagePaths(output) : output;
+        const payload: ToolPayload = { ...(cur.payload as ToolPayload), output: redact(shown.slice(0, 20000)), isError, done: true };
+        const patch = ref ? { payload, attachments: [ref] } : { payload };
+        this.repos.updateMessage(msgId, patch);
+        events.emitEvent({ type: 'message.update', id: msgId, roomId: room.id, patch });
       },
       onState: (s) => setState(s),
     };
