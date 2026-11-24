@@ -115,9 +115,13 @@ function prMergeDenied(command: string, cwd: string, info: GitInfo): string | nu
   return mergeDenied(plain[1].trim().split(/ +/), cwd, info);
 }
 
+/** Roughly what a shell sees once quotes and escapes are gone (g"h" p\r merge), lower-cased, for the merge checks only. */
+const shellish = (command: string) => command.replace(/["'\\]/g, '').toLowerCase();
+
 export function defaultBranchPushDenied(command: string, cwd: string, info: GitInfo = realGit, extraProtected?: (remote: string) => readonly string[]): string | null {
-  if (API_MERGE.test(command)) return 'Merging through gh api is left to the owner. Use gh pr merge <number> once its checks pass.';
-  if (MENTIONS_PR_MERGE.test(command)) return prMergeDenied(command, cwd, info);
+  const seen = shellish(command);
+  if (API_MERGE.test(seen)) return 'Merging through gh api is left to the owner. Use gh pr merge <number> once its checks pass.';
+  if (MENTIONS_PR_MERGE.test(seen)) return prMergeDenied(command, cwd, info);
   let dir = cwd;
   for (const segment of command.split(/&&|\|\||[;|\n]/)) {
     const tokens = segment.trim().split(/\s+/).map(clean).filter(Boolean);
