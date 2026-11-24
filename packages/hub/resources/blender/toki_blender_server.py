@@ -166,6 +166,13 @@ def main():
         if srv.command_queue.qsize():
             saver.dirty = True  # before the commands run, so one that ends in toki_save() leaves it clean
             srv._drain_command_queue()
+            # Save after every batch of commands, so art/<slug>.blend on disk always matches the scene and a checkpoint
+            # commit can never miss work the bot forgot to save (the B8 A/B run showed bots skip toki_save()).
+            if saver.dirty or bpy.data.is_dirty:
+                try:
+                    saver.save()
+                except Exception as e:
+                    print("toki: save after command failed:", e, flush=True)
             last_cmd = now
             last_ram = 0.0  # a render can set a new peak: report it now, not in 30 s
         if os.path.exists(a.stop):

@@ -41,6 +41,18 @@ const CHUNK_CHARS = 1200;
 const TINY_CHARS = 80;
 const STOP = new Set('a an the is are was were be of to in on for and or what which who how when where why do does did i we our my it its this that these those with at by from as ang ng sa na ba yung mga si ni kay para ano paano saan bakit kailan sino ko mo natin namin ito iyon po ha lang din rin may meron'.split(' '));
 
+/**
+ * A game project's checkpoint always carries the current scene. The B8 A/B run showed bots commit `exports/` and forget
+ * `art/<slug>.blend`, with or without the blender-loop skill, so a pre-commit hook stages the .blend files on every
+ * commit. Fixed text, written by Toki at git init; it runs nothing but `git add` on paths inside the repo.
+ */
+export const CHECKPOINT_HOOK = '#!/bin/sh\n# Written by Toki: every checkpoint includes the current Blender scene.\ngit add -- "art/*.blend" 2>/dev/null\nexit 0\n';
+export function writeCheckpointHook(repoDir: string): void {
+  const hooks = path.join(repoDir, '.git', 'hooks');
+  fs.mkdirSync(hooks, { recursive: true });
+  fs.writeFileSync(path.join(hooks, 'pre-commit'), CHECKPOINT_HOOK, { mode: 0o755 });
+}
+
 export function slugify(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
@@ -209,6 +221,7 @@ export class ProjectService {
     const git = this.deps.git ?? runGit;
     try {
       await git(['init', '-q', '-b', 'main'], { cwd: dir, timeoutMs: 30_000 });
+      writeCheckpointHook(dir);
       await git(['add', '-A'], { cwd: dir, timeoutMs: 30_000 });
       await git(['-c', 'user.name=Toki', '-c', 'user.email=toki@localhost', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'Start ' + this.need(slug).name + ' from the game team template'], { cwd: dir, timeoutMs: 30_000 });
       return 'created';

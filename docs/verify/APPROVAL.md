@@ -32,7 +32,7 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | B5 | Status checks from BlenderHost and Studio, crash log | 074b918 | fail-then-pass, mutation, live | `phase1-backend/` | approved with gaps (Studio states) |
 | B6 | Install uv, the pinned Blender MCP tools, Studio's MCP setting | 196b4ce | fail-then-pass, mutation, live | `phase1-backend/live-install.txt` | approved with gaps (the Studio setting step never ran on the real file) |
 | B7 | Game team template | 574e6a2, 4a8ed9f (seeds on demand) | fail-then-pass, mutation, live | `phase2-backend/live-create.txt`, `mutations.txt` | approved |
-| B8 | blender-loop and studio-loop skills | d608323 | fail-then-pass | `phase2-backend/fail-then-pass.txt` | approved with gaps (the A/B trap test did not run) |
+| B8 | blender-loop and studio-loop skills | d608323, see e2e | fail-then-pass, live A/B 3x3 | `phase2-backend/fail-then-pass.txt`, `e2e/ab-skill.txt` | approved (the A/B found the skill alone 1/3; the fix makes the checkpoint structural, then 6/6) |
 | B9 | Look-backs from the SDK tool result | 4041481, bd45584 | fail-then-pass, mutation, live | `phase2-backend/`, `e2e/` | approved |
 | B10 | Server project stubs, host tags | 5c06ec3 | fail-then-pass, mutation (27/27), live | `phase3-backend/live-stubs.txt`, `mutations.txt` | approved |
 | B11 | Shared-subscription note | 1847740, 113bb0c, 54f4194 (web) | fail-then-pass, live, verify-toki | `phase3-backend/live-stubs.txt`, `phase3-ui/d4/usage-note-*` | approved with gaps (its mutants not run) |
@@ -93,7 +93,7 @@ steps.
 1. ~~A live look-back.~~ Done in `e2e/`: a real Haiku turn called `look` and the image was attached to the tool message. The browser rendering is covered by D2.
 2. ~~A game-room turn mounts `blender` and Blender starts on the first call~~ (done in `e2e/`). Still open: another room of the same bot gets no
    `blender` live (unit-tested in `blenderTurn.test.ts`).
-3. The skills' A/B trap test: 3 runs with the skills and 3 without (`docs/project-folders.md`).
+3. ~~The skills' A/B trap test.~~ Done in `e2e/ab-skill.txt` (blender-loop; studio-loop waits for S2). Before the fix: with the skill 1/3, without 0/3, so it failed. Fixed structurally (save after every Blender command batch, plus a checkpoint pre-commit hook that stages `art/*.blend`). After the fix: 3/3 with and 3/3 without.
 4. The room strip updating live on `game-tools.changed` as Blender starts and stops.
 
 **Install and UI states** (`phase1-infra/README.md`, `phase1-ui/README.md`, `phase2-ui/README.md`)

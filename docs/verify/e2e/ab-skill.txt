@@ -1,0 +1,52 @@
+arm=with blender-loop attached=true
+turn 75 s; tools: get_addon_status,get_scene_info,execute_blender_code,execute_blender_code,execute_blender_code,look,Bash,Bash,Edit,Read,Edit,mcp__roblox-studio__list_roblox_studios,mcp__roblox-studio__list_roblox_studios
+exports/: cone.fbx; commits: 2; tracked art/exports: exports/cone.fbx
+artist said: Cone created and exported to `exports/cone.fbx`. Simple mesh: 16-vertex cone, 1-unit radius, 2-unit height. Checkpoint saved (commit 9976eeb). Ready for @cone-test-builder to import into Studio.
+RESULT arm=with PASS (blender.exe after: 0)
+arm=without blender-loop attached=false
+turn 85 s; tools: Read,get_addon_status,get_scene_info,execute_blender_code,execute_blender_code,execute_blender_code,look,Bash,Bash,Bash,Bash,Bash,Bash,Read,mcp__roblox-studio__list_roblox_studios
+exports/: SmallCone.fbx; commits: 2; tracked art/exports: exports/SmallCone.fbx
+artist said: Made a small cone (1.0×1.0×1.0 units) and exported it as `exports/SmallCone.fbx`. Checkpoint committed. Ready for @cone-test-builder to bring into Studio.
+RESULT arm=without PASS (blender.exe after: 0)
+
+## Pass rule tightened after round 1: art/<slug>.blend must also be in the checkpoint (blender-loop step 5: git add art exports studio). Round 1 by that rule: with FAIL (only exports/cone.fbx tracked), without FAIL (only exports/SmallCone.fbx tracked).
+arm=with blender-loop attached=true
+turn 80 s; tools: get_addon_status,get_scene_info,execute_blender_code,look,execute_blender_code,execute_blender_code,Bash,Bash,Bash,mcp__roblox-studio__list_roblox_studios,mcp__roblox-studio__list_roblox_studios
+exports/: cone.fbx; commits: 2; tracked art/exports: exports/cone.fbx
+artist said: Done. Created a cone, exported it to `exports/cone.fbx`, and committed the checkpoint. Ready for @cone-test-builder to import into Studio.
+RESULT arm=with FAIL (blender.exe after: 0)
+arm=without blender-loop attached=false
+turn 50 s; tools: get_addon_status,Read,get_scene_info,execute_blender_code,look,execute_blender_code,execute_blender_code,execute_blender_code,Bash,Bash,execute_blender_code,Bash,Bash
+exports/: cone.fbx; commits: 2; tracked art/exports: exports/cone.fbx
+artist said: Done. Created a 0.5-scale cone in Blender, exported it to `exports/cone.fbx` (12.8 KB), and committed. The builder can now import it into Studio.
+RESULT arm=without FAIL (blender.exe after: 0)
+arm=with blender-loop attached=true
+turn 45 s; tools: get_addon_status,get_scene_info,execute_blender_code,execute_blender_code,Skill,get_scene_info,execute_blender_code,look,Bash,Bash
+exports/: cone.fbx; commits: 2; tracked art/exports: art/cone-test.blend,exports/cone.fbx
+artist said: Done. Created a simple cone (2×2×2 studs, 32 verts) in Blender, exported it to `exports/cone.fbx`, and committed the checkpoint. The builder can now import it into Studio.
+RESULT arm=with PASS (blender.exe after: 0)
+arm=without blender-loop attached=false
+turn 70 s; tools: get_addon_status,get_scene_info,execute_blender_code,execute_blender_code,execute_blender_code,look,Bash,Bash,Bash,mcp__roblox-studio__list_roblox_studios,Read
+exports/: Cone.fbx; commits: 2; tracked art/exports: exports/Cone.fbx
+artist said: Done. Created a cone mesh in Blender, exported it as `Cone.fbx` to exports/, and committed. It's ready for @cone-test-builder to import into Studio.
+RESULT arm=without FAIL (blender.exe after: 0)
+
+## After the fix (save after every Blender command batch + checkpoint pre-commit hook), same task and pass rule, 3x3:
+arm=with blender-loop attached=true
+exports/: cone.fbx; commits: 2; tracked art/exports: art/cone-test.blend,exports/cone.fbx
+RESULT arm=with PASS (blender.exe after: 0)
+arm=without blender-loop attached=false
+exports/: cone.fbx; commits: 2; tracked art/exports: art/cone-test.blend,exports/cone.fbx
+RESULT arm=without PASS (blender.exe after: 0)
+arm=with blender-loop attached=true
+exports/: Cone.fbx; commits: 2; tracked art/exports: art/cone-test.blend,exports/Cone.fbx
+RESULT arm=with PASS (blender.exe after: 0)
+arm=without blender-loop attached=false
+exports/: cone.fbx; commits: 2; tracked art/exports: art/cone-test.blend,exports/cone.fbx
+RESULT arm=without PASS (blender.exe after: 0)
+arm=with blender-loop attached=true
+exports/: cone.fbx; commits: 2; tracked art/exports: art/cone-test.blend,exports/cone.fbx
+RESULT arm=with PASS (blender.exe after: 0)
+arm=without blender-loop attached=false
+exports/: Cone.fbx; commits: 2; tracked art/exports: art/cone-test.blend,exports/Cone.fbx
+RESULT arm=without PASS (blender.exe after: 0)
