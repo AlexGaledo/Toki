@@ -14,6 +14,7 @@
 
 mod envpath;
 mod proc;
+mod hosts;
 mod scan;
 mod server;
 mod ssh;
@@ -264,6 +265,11 @@ fn port_open(port: u16) -> bool {
 /// One small HTTP/1.0 exchange with 127.0.0.1:<port> (1.0 so the answer is never chunked).
 /// Returns the status code and body, capped at 64 KB.
 fn local_http(port: u16, method: &str, path: &str, extra_headers: &str, body: &str, read_timeout: Duration) -> Option<(u16, String)> {
+    local_http_max(port, method, path, extra_headers, body, read_timeout, 64 * 1024)
+}
+
+/// [`local_http`] with another cap on the answer (a cut-off answer is returned as is; callers that parse it fail).
+fn local_http_max(port: u16, method: &str, path: &str, extra_headers: &str, body: &str, read_timeout: Duration, max: u64) -> Option<(u16, String)> {
     let addr = ("127.0.0.1", port).to_socket_addrs().ok().and_then(|mut a| a.next())?;
     let mut s = TcpStream::connect_timeout(&addr, Duration::from_millis(500)).ok()?;
     let _ = s.set_read_timeout(Some(read_timeout));
@@ -275,7 +281,7 @@ fn local_http(port: u16, method: &str, path: &str, extra_headers: &str, body: &s
     );
     s.write_all(req.as_bytes()).ok()?;
     let mut buf = Vec::new();
-    let _ = s.take(64 * 1024).read_to_end(&mut buf);
+    let _ = s.take(max).read_to_end(&mut buf);
     parse_http_response(&String::from_utf8_lossy(&buf))
 }
 
@@ -294,17 +300,23 @@ fn hub_responding(port: u16, read_timeout: Duration) -> bool {
     }
 }
 
-/// What this shell can do for the page (`desktopCan()` in the web UI): `localcopy` ("Open on my PC"), and on
-/// Windows `studio` ("Open Studio", launch.rs).
-const CAPS: &str = if cfg!(windows) { "localcopy,studio" } else { "localcopy" };
+/// What this shell can do for the PC hub's page (`desktopCan()` in the web UI): `localcopy` ("Open on my PC"), on
+/// Windows `studio` ("Open Studio", launch.rs), `hosts` (the asks in hosts.rs), and `server` once a server is set up
+/// (so the page can offer to connect to it before it has any of its projects).
+const CAPS: &str = if cfg!(windows) { "localcopy,studio,hosts" } else { "localcopy,hosts" };
 
-fn hub_url(port: u16, token: &str) -> String {
+fn caps(has_server: bool) -> String {
+    if has_server { format!("{CAPS},server") } else { CAPS.to_string() }
+}
+
+fn hub_url(port: u16, token: &str, has_server: bool) -> String {
     // desktop=1 always (the web UI uses it for desktop-only affordances, the token prompt included); the
     // hub only accepts the token in the fragment, which never leaves the webview.
+    let caps = caps(has_server);
     if token.is_empty() {
-        format!("http://127.0.0.1:{port}/?desktop=1&caps={CAPS}")
+        format!("http://127.0.0.1:{port}/?desktop=1&caps={caps}")
     } else {
-        format!("http://127.0.0.1:{port}/?desktop=1&caps={CAPS}#token={token}")
+        format!("http://127.0.0.1:{port}/?desktop=1&caps={caps}#token={token}")
     }
 }
 
@@ -865,7 +877,7 @@ fn run_connection(app: AppHandle, state: AppState, cfg: Config, gen: u64, old: O
             }
         }
         if hub_responding(cfg.port, Duration::from_millis(1500)) {
-            navigate(&app, &hub_url(cfg.port, &token));
+            navigate(&app, &hub_url(cfg.port, &token, cfg.server.is_some()));
             let mut inner = state.0.lock().unwrap();
             if inner.generation != gen {
                 return;
@@ -874,6 +886,9 @@ fn run_connection(app: AppHandle, state: AppState, cfg: Config, gen: u64, old: O
             inner.status.navigated = true;
             inner.status.error = None;
             inner.status.error_kind = None;
+            drop(inner);
+            // I3: a new PC hub run (new token) gets the server's stubs again, or loses a stale "connected".
+            server::on_pc_hub_up(state.clone());
             break;
         }
         if started.elapsed() > Duration::from_secs(60) {
@@ -1072,6 +1087,22 @@ fn popout_request(url: &Url) -> Option<(String, Option<String>)> {
 /// PC" file copy (see localcopy.rs), or a web link for the default browser.
 fn new_window_elsewhere(app: &AppHandle, url: &Url) {
     let port = HUB_PORT.load(Ordering::Relaxed);
+    // I3: the server, from either hub's page. Only a host id and a slug come from the page (hosts.rs).
+    if let Some(ask) = hosts::request(url, port, SERVER_PORT.load(Ordering::Relaxed)) {
+        match ask {
+            Ok(ask) => {
+                let (app, state) = (app.clone(), app.state::<AppState>().inner().clone());
+                std::thread::spawn(move || match ask {
+                    hosts::Ask::ServerProject(slug) => server::connect(app, state, server::Open::Project(slug)),
+                    hosts::Ask::ServerHome => server::connect(app, state, server::Open::Home),
+                    hosts::Ask::ConnectServer => server::connect(app, state, server::Open::Nothing),
+                    hosts::Ask::PcHome => show_pc_hub(&app, &state),
+                });
+            }
+            Err(why) => tell(app, "Couldn't open that", why),
+        }
+        return;
+    }
     if let Some(ask) = launch::request(url, port) {
         match ask {
             Ok(which) if launch::GATE.pass(Instant::now()) => {
@@ -1145,10 +1176,10 @@ fn open_bot_popout(app: &AppHandle, bot_id: &str, room_id: Option<&str>) {
         let _ = w.set_focus();
         return;
     }
-    let (port, token, quitting) = match app.try_state::<AppState>() {
+    let (port, token, quitting, has_server) = match app.try_state::<AppState>() {
         Some(st) => {
             let inner = st.0.lock().unwrap();
-            (inner.config.port, inner.token.clone(), inner.quitting)
+            (inner.config.port, inner.token.clone(), inner.quitting, inner.config.server.is_some())
         }
         None => return,
     };
@@ -1156,7 +1187,7 @@ fn open_bot_popout(app: &AppHandle, bot_id: &str, room_id: Option<&str>) {
         return;
     }
     // The token rides only in the fragment, as for the main window; the page strips it after reading it.
-    let mut url = format!("http://127.0.0.1:{port}/?desktop=1&caps={CAPS}&popout={bot_id}");
+    let mut url = format!("http://127.0.0.1:{port}/?desktop=1&caps={}&popout={bot_id}", caps(has_server));
     if let Some(r) = room_id.filter(|r| valid_bot_id(r)) {
         url.push_str(&format!("&room={r}"));
     }
@@ -1285,26 +1316,26 @@ async fn retry(app: AppHandle, state: State<'_, AppState>) -> Result<(), String>
 /// Back from the settings page to the hub this app is connected to, with the current token.
 #[tauri::command]
 async fn open_hub(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let (connected, port, token) = {
+    let (connected, port, token, has_server) = {
         let inner = state.0.lock().unwrap();
-        (inner.status.connected, inner.config.port, inner.token.clone())
+        (inner.status.connected, inner.config.port, inner.token.clone(), inner.config.server.is_some())
     };
     if !connected {
         return Err("Not connected to a hub.".into());
     }
-    navigate(&app, &hub_url(port, &token));
+    navigate(&app, &hub_url(port, &token, has_server));
     Ok(())
 }
 
 /// The main window back on this PC's hub (or the splash when that isn't up). Takes the lock only to read.
 fn show_pc_hub(app: &AppHandle, state: &AppState) {
-    let (connected, port, token) = {
+    let (connected, port, token, has_server) = {
         let inner = state.0.lock().unwrap_or_else(|e| e.into_inner());
-        (inner.status.connected, inner.config.port, inner.token.clone())
+        (inner.status.connected, inner.config.port, inner.token.clone(), inner.config.server.is_some())
     };
     show_main_window(app);
     if connected {
-        navigate(app, &hub_url(port, &token));
+        navigate(app, &hub_url(port, &token, has_server));
     } else {
         show_splash(app);
     }
@@ -1700,9 +1731,11 @@ mod tests {
 
     #[test]
     fn hub_url_always_says_desktop() {
-        let caps = if cfg!(windows) { "localcopy,studio" } else { "localcopy" };
-        assert_eq!(hub_url(7788, ""), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}"));
-        assert_eq!(hub_url(7788, "abc"), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}#token=abc"));
+        let caps = if cfg!(windows) { "localcopy,studio,hosts" } else { "localcopy,hosts" };
+        assert_eq!(hub_url(7788, "", false), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}"));
+        assert_eq!(hub_url(7788, "abc", false), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}#token=abc"));
+        // `server` tells the page it may offer Connect before it has any of the server's projects.
+        assert_eq!(hub_url(7788, "abc", true), format!("http://127.0.0.1:7788/?desktop=1&caps={caps},server#token=abc"));
     }
 
     #[test]
