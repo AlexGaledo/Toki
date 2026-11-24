@@ -14,11 +14,13 @@ All runs were on 2026-11-24 on the owner's PC, with under 2 GB of RAM free.
 | 5c06ec3 | B10: `PUT /api/hosts/:host/projects`, host tags in `GET /api/projects`, `hosts.changed`, migration 331 |
 | 1847740 | B11: `subscriptionNote` in `GET /api/usage` once a server host is known |
 | 113bb0c | B11 test tightened after the fail-then-pass run |
+| 82e2afc | B11 web: `SubscriptionNote` and its test, after the B11 mutation run found the Usage page untested |
 
 | File | What it shows |
 |---|---|
 | `fail-then-pass.txt` | For each commit, its hub and shared source goes back to the parent and its tests run. They fail without the change and pass with it. B10 fails only as "module missing", which is why the mutation pass exists. B11's route test passed without the change, so it was tightened (113bb0c), and the rerun is at the end of the file. |
-| `mutations.txt` | **Partial.** 12 of 27 mutants ran and all 12 were caught: every handler auth, host and method check, and every schema rule (500 cap, slug, name, control/bidi characters, strict keys, `connected` required). The Claude Code harness stopped the run for low system memory during mutant 13. The file it had mutated was restored from git and the tree checked clean. Mutants 13 to 27 did not run: replace, transaction, event, GET merge, the three bot-leak mutants, B11, seed and hub dir. |
+| `mutations.txt` | **Partial.** 12 of 27 mutants ran and all 12 were caught: every handler auth, host and method check, and every schema rule (500 cap, slug, name, control/bidi characters, strict keys, `connected` required). The Claude Code harness stopped the run for low system memory during mutant 13. The file it had mutated was restored from git and the tree checked clean. Mutants 13 to 27 did not run: replace, transaction, event, GET merge, the three bot-leak mutants, B11, seed and hub dir. They were rerun later and all 15 were caught, so 27 of 27 (see the end of the file). |
+| `mutations.txt`, B11 section | B11's remaining mutants (`scripts/b11_mutations.py`): `RemoteProjects.known`, the tracker reaching the route, and the Usage page. With 21 to 23 above, 10 of 12 are caught; the 2 survivors are the Usage page's effect and JSX wiring, which the web's DOM-less vitest cannot reach (see that section). |
 | `live-stubs.txt` | A throwaway hub: real startup with `seedBots: true` and a temp data dir, deleted afterwards. See the summary below. |
 | `checks.txt` | tsc for hub and web, eslint, ts-strict, repo-guards, and the targeted vitest runs |
 | `scripts/` | `fail_then_pass.sh <commits>` from the repo root. `mutations.py` and `live_phase3.ts` from `packages/hub` (see each file's header) |

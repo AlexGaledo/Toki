@@ -38,3 +38,52 @@ CAUGHT  B10 store: connected-only keeps stubs  (src/services/RemoteProjects.ts) 
 ```
 
 Total: 27 of 27 caught. Tree clean after the run.
+
+## B11: the remaining hub lines and the web (2026-11-24, b11_mutations.py, from the repo root)
+
+Mutants 21 to 23 above cover UsageTracker's gate, the route's field and hub.ts wiring known('server'). These cover
+RemoteProjects.known, the tracker reaching the route, and the Usage page (54f4194). The mutated file was clean in
+git after each mutant.
+
+Pass 1, on the code as committed (82e2afc's parent). The web mutants SKIP because their anchors are the lines
+82e2afc adds; the old code had no web test at all, so any web mutant would have survived.
+```
+ 1 CAUGHT  hub: known() says yes for a host never told  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 2 CAUGHT  hub: known() only while connected  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 3 CAUGHT  hub: the route is not given the tracker  (hub/src/hub.ts)  Tests  1 failed | 6 passed (7)
+ 4 CAUGHT  hub: the route never asks for the note  (hub/src/api/rest.ts)  Tests  1 failed | 6 passed (7)
+ 5 SKIP  web: the note is never shown: pattern found 0 times
+ 6 SKIP  web: any value from the hub is shown (no string check): pattern found 0 times
+ 7 SKIP  web: the note is rendered as HTML: pattern found 0 times
+ 8 SKIP  web: the Usage page drops the note: pattern found 0 times
+ 9 SKIP  web: the reply's note is not kept: pattern found 0 times
+
+4 of 9 mutants caught; the mutated file was clean after each
+```
+
+Gap: nothing failed if the Usage page stopped showing the note, showed a non-string, or rendered it as HTML.
+Fixed in 82e2afc: SubscriptionNote does the string check and the plain-text render, and
+packages/web/src/components/FleetPages.usageNote.test.tsx tests it (3 tests; all 3 fail against FleetPages.tsx at
+4a7df28, where the component does not exist yet, and pass with it).
+
+Pass 2, after 82e2afc:
+```
+ 1 CAUGHT  hub: known() says yes for a host never told  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 2 CAUGHT  hub: known() only while connected  (hub/src/services/RemoteProjects.ts)  Tests  1 failed | 6 passed (7)
+ 3 CAUGHT  hub: the route is not given the tracker  (hub/src/hub.ts)  Tests  1 failed | 6 passed (7)
+ 4 CAUGHT  hub: the route never asks for the note  (hub/src/api/rest.ts)  Tests  1 failed | 6 passed (7)
+ 5 CAUGHT  web: the note is never shown  (web/src/components/FleetPages.tsx)  Tests  2 failed | 1 passed (3)
+ 6 CAUGHT  web: any value from the hub is shown (no string check)  (web/src/components/FleetPages.tsx)  Tests  1 failed | 2 passed (3)
+ 7 CAUGHT  web: the note is rendered as HTML  (web/src/components/FleetPages.tsx)  Tests  1 failed | 2 passed (3)
+ 8 SURVIVED  web: the Usage page drops the note  (web/src/components/FleetPages.tsx)  Tests  3 passed (3)
+ 9 SURVIVED  web: the reply's note is not kept  (web/src/components/FleetPages.tsx)  Tests  3 passed (3)
+
+7 of 9 mutants caught; the mutated file was clean after each
+```
+
+Survivors 8 and 9 are the wiring inside UsageSection: its useEffect keeps the reply's note, and its JSX places
+<SubscriptionNote>. The web's vitest runs in node with no DOM, and renderToStaticMarkup runs no effects, so no unit
+test can reach them. They are only covered live, by the verify-toki shots in phase3-ui/d4/usage-note-* (taken on
+54f4194, before this 4-line refactor; the refactor itself was not re-shot).
+
+B11 total: 3 (above) + 9 = 12 mutants, 10 caught, 2 survived (web wiring, explained above).

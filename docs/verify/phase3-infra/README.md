@@ -8,7 +8,7 @@ All runs were on 2026-11-24 on the owner's PC (Windows 11, rustc 1.96.0, `-j 2`,
 - Nothing touched ports 7788 or 7789, the installed desktop app, `%APPDATA%\com.pocketrocket.app`, the PC runner or the VPS.
 - No SSH connection was made. The "server" and the "PC hub" in the wire tests are fake hubs on random loopback ports.
 - No Blender or Studio process started.
-- The coordinator capped the mutation run for time: 11 of 46 mutants ran. The other 35 are listed in `mutations.txt` as "not run (time)".
+- The coordinator capped the first mutation run for time: 11 of 46 mutants ran. A third run (`--targeted`) ran the other 35, so all 46 have run.
 
 | Commit | Task |
 |---|---|
@@ -28,7 +28,7 @@ All runs were on 2026-11-24 on the owner's PC (Windows 11, rustc 1.96.0, `-j 2`,
 
 What `mutations.txt` shows:
 - **The method.** The unmutated tree passes (96 tests) first. Then each mutant is applied in turn, and the tests it names must fail. A mutant either restores the behaviour from before the change ("without") or breaks one security rule ("rule").
-- **Partial: 11 of 46 ran, and all 11 were caught.**
+- **All 46 ran. The 45 with named tests were all caught; mutant 38 is informational and harmless.**
 - **The first run** went in order through mutants 1 to 6, all I2:
   - migration;
   - the port clash, in migration and in validation;
@@ -44,7 +44,7 @@ What `mutations.txt` shows:
   - openfolder must-exist-under-projects.
 
   Its first attempt hit the build lock left by the killed run and stopped at the clean-tree check. The rerun is recorded.
-- **Not run.** The other 35 are listed at the end as not run (time).
+- **The third run** took the other 35, each running only its named tests (`--targeted`: `cargo test -j 2 --lib -- --exact <tests>`, target dir reused). The unmutated tree passed in full first (97 tests). 34 of 34 were caught. Mutant 38 (health checks may take 8 s) fails no test, which is right: the 30 s test builds its slowest loop from the real `CHECK_TIMEOUT`, and the 20 s quiet deadline still shows a loss inside 30 s. `mutations.txt` has the arithmetic.
 
 ## What the new tests cover
 

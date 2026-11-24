@@ -16,11 +16,12 @@ SUMMARY
   have. No test asserts that a card shows a secret in clear, and none should. Left as is.
 - Pass 2 (after the new tests): mutants 1 to 31 ran and all 31 were caught, including all 6 former survivors.
   Claude Code then stopped the run for low system memory, during mutant 32 ("outsideCardInput: not redacted"). That file
-  was restored from git and the tree checked clean. Mutants 32 to 44 were NOT rerun. In pass 1, 32 to 43 were all
-  caught and 44 is the equivalent one. The new tests only add assertions, so those results should still hold, but this
-  file does not prove that with a rerun.
+  was restored from git and the tree checked clean.
+- Pass 2, second part (2026-11-24, `mutations.py 32`): mutants 32 to 44 rerun. 32 to 43 caught (12 of 13); 44 survived
+  again, the equivalent one above. The mutated file was clean in git after each mutant.
+- Pass 2 total: 43 of 44 caught; the 1 survivor is the equivalent mutant 44.
 
-PASS 2 (partial: 31 of 44, stopped for low memory)
+PASS 2 (31 of 44 in the first part, stopped for low memory; 32 to 44 below it)
 CAUGHT  B3 step: wm refusal dropped  (src/services/outsideMcp.ts)  Tests  8 failed | 47 passed (55)
         first: src/permissions/outsideMcpMode.test.ts > NEGATIVE: Blender code with bpy.ops.wm. is refused in every mode > under ask, without a card
 CAUGHT  B3 step: wm refusal for any server  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
@@ -83,6 +84,35 @@ CAUGHT  redactValue: keys not redacted  (src/providers/redact.ts)  Tests  1 fail
         first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > redacts a secret inside arrays, nested objects and keys
 CAUGHT  redactValue: nested values not walked  (src/providers/redact.ts)  Tests  3 failed | 52 passed (55)
         first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+
+PASS 2, SECOND PART (mutants 32 to 44; from packages/hub: python -I ../../docs/verify/b3-b4/scripts/mutations.py 32)
+32 CAUGHT  outsideCardInput: not redacted  (src/services/outsideMcp.ts)  Tests  3 failed | 52 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+33 CAUGHT  B4 codeField: execute_luau not a code tool  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+34 CAUGHT  B4 codeField: execute_blender_code not a code tool  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > once-only card: a 3 KB input arrives whole, as an object, with real newlines in code
+35 CAUGHT  B4 codeField: non-string code named  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > names no code field for other tools, or when code is not a string
+36 CAUGHT  B4 codeField: any tool  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > names no code field for other tools, or when code is not a string
+37 CAUGHT  B4 once card: input as a string again  (src/permissions/PermissionBroker.ts)  Tests  4 failed | 51 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > raises a card under bypass, showing server, tool and input
+38 CAUGHT  B4 once card: codeField dropped  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > once-only card: a 3 KB input arrives whole, as an object, with real newlines in code
+39 CAUGHT  B4 once card: too-large check dropped  (src/permissions/PermissionBroker.ts)  Tests  2 failed | 53 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > refuses an input too large to show in full, without a card, under bypass too
+40 CAUGHT  B4 payload: codeField not sent  (src/permissions/PermissionBroker.ts)  Tests  2 failed | 53 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > once-only card: a 3 KB input arrives whole, as an object, with real newlines in code
+41 CAUGHT  B4 normal card: raw input shown  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+42 CAUGHT  B4 normal card: codeField dropped  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+43 CAUGHT  B4 normal card: branch off  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+44 SURVIVED  B4 normal card: hub tools treated as outside  (src/permissions/PermissionBroker.ts)  Tests  55 passed (55)
+
+12 of 13 mutants caught (mutants 32 to 44 of 44); git diff --stat clean after each
 
 PASS 1 (complete: 44 of 44)
 CAUGHT  B3 step: wm refusal dropped  (src/services/outsideMcp.ts)  Tests  7 failed | 45 passed (52)
