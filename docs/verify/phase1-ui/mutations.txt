@@ -1,0 +1,13 @@
+CAUGHT    canRunFix ignores studio.running  | Tests  2 failed | 20 passed (22)
+CAUGHT    runFix skips the fresh status check  | Tests  1 failed | 21 passed (22)
+CAUGHT    Studio fix offered while Studio runs  | Tests  1 failed | 21 passed (22)
+CAUGHT    Studio never marked unverified  | Tests  1 failed | 21 passed (22)
+CAUGHT    strip drops "(unverified)"  | Tests  2 failed | 20 passed (22)
+CAUGHT    uv fix button dropped  | Tests  1 failed | 21 passed (22)
+CAUGHT    Blender tools offered before uv  | Tests  1 failed | 21 passed (22)
+CAUGHT    Open Studio shown without the desktop capability  | Tests  1 failed | 21 passed (22)
+CAUGHT    codeField read from toolInput, not toolInput.input  | Tests  2 failed | 17 passed (19)
+CAUGHT    code shown as an escaped JSON string  | Tests  1 failed | 21 passed (22)
+CAUGHT    code area back to the short 160 px box  | Tests  1 failed | 21 passed (22)
+CAUGHT    code area not keyboard focusable  | Tests  1 failed | 21 passed (22)
+caught 12 of 12
