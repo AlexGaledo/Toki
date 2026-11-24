@@ -53,6 +53,8 @@ import { createIntegrationsApi } from './api/integrations.js';
 import { TelegramService } from './services/TelegramService.js';
 import { createTelegramApi } from './api/telegram.js';
 import { createMcpServersApi } from './api/mcpServers.js';
+import { createGameToolsApi } from './api/gameTools.js';
+import { GameTools, type GameToolsDeps } from './services/gameTools.js';
 import { createCredentialsApi } from './api/credentials.js';
 import { CredentialStore } from './services/CredentialStore.js';
 import { McpServerStore } from './services/outsideMcpStore.js';
@@ -124,6 +126,8 @@ export interface HubOptions {
   training?: Partial<Pick<TrainingDeps, 'run' | 'exeExists' | 'claudeReady' | 'now' | 'timezone'>>;
   mediaDir?: string;
   mcpServers?: { file?: string; fetch?: typeof fetch };
+  /** Tests: a fixture PC for game tools detection and installs. */
+  gameTools?: Partial<Omit<GameToolsDeps, 'blender'>>;
   credentials?: { file?: string; keyFile?: string };
   pcRunner?: Partial<Omit<PcRunnerOptions, 'db'>>;
   pcBundleMaxBytes?: number;
@@ -438,7 +442,10 @@ export function createHub(opts: HubOptions = {}): Hub {
   projects.pruneMembers(repos.listBots().map((b) => b.id));
   const offProjectBots = events.onEvent((ev) => { if (ev.type === 'bots.changed') projects.pruneMembers(ev.bots.map((b) => b.id)); });
   const projectsApi = createProjectsApi({ projects, repos, db });
-  const mcpServersApi = createMcpServersApi({ store: new McpServerStore(opts.mcpServers?.file), db, fetch: opts.mcpServers?.fetch });
+  const mcpStore = new McpServerStore(opts.mcpServers?.file);
+  const mcpServersApi = createMcpServersApi({ store: mcpStore, db, fetch: opts.mcpServers?.fetch });
+  const gameTools = new GameTools({ dataDir: DATA_DIR, ...opts.gameTools, blender });
+  const gameToolsApi = createGameToolsApi({ tools: gameTools, blender, store: mcpStore, repos, db, env: opts.gameTools?.env });
   const credentials = new CredentialStore(db, opts.credentials);
   runner.credentials = credentials;
   const credentialsApi = createCredentialsApi({ store: credentials, db });
@@ -672,6 +679,7 @@ export function createHub(opts: HubOptions = {}): Hub {
       if (await projectsApi(req, res)) return;
       if (await filesApi(req, res)) return;
       if (await mcpServersApi(req, res)) return;
+      if (await gameToolsApi(req, res)) return;
       if (await credentialsApi(req, res)) return;
       if (await pcRunnerApi(req, res)) return;
       if (await ccApi(req, res)) return;
