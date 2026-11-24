@@ -788,3 +788,8 @@ registerMigrations([320, 329], [
   { version: 320, name: 'approval_policies.message', up: (db) => addColumnIfMissing(db, 'approval_policies', 'message', 'TEXT') },
   { version: 321, name: 'rooms.lead_mode', up: (db) => addColumnIfMissing(db, 'rooms', 'lead_mode', 'INTEGER NOT NULL DEFAULT 0') },
 ]);
+
+// Local-first game dev (spec toki-local-first-gamedev). B12: a 'game' project gets Toki's headless Blender.
+registerMigrations([330, 339], [
+  { version: 330, name: 'projects.kind', up: (db) => addColumnIfMissing(db, 'projects', 'kind', 'TEXT') },
+]);

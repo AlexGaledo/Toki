@@ -69,6 +69,9 @@ function blenderWmRefused(server: string, tool: string, input: Record<string, un
   return server === 'blender' && tool === 'execute_blender_code' && (JSON.stringify(input ?? {}) ?? '').includes('bpy.ops.wm.');
 }
 
+/** Read-only approval mode: an outside tool that may write is refused, with no card. */
+export const OUTSIDE_READONLY_MESSAGE = denyMessage('readonly', { subject: 'outside tools', alt: 'say so in the room' });
+
 /** Servers whose calls go through the outside-tool hook. */
 export function outsideMcpHooked(server: Pick<OutsideMcpServer, 'name' | 'approve'>): boolean {
   return server.approve !== 'none' || server.name === 'blender';
@@ -77,20 +80,22 @@ export function outsideMcpHooked(server: Pick<OutsideMcpServer, 'name' | 'approv
 /**
  * What the PreToolUse hook does with an outside call. `allow`: runs with no card at all. `once`: the once-only
  * outside card. `pass`: the hook stays out, so bypass runs it and otherwise the normal tool card asks.
- * `bypass` must already be false on strict (routine, trigger, failover) turns.
+ * `bypass` must already be false on strict (routine, trigger, failover) turns. `readOnly`: the hub's read-only mode.
  */
 export type OutsideMcpStep = { kind: 'refuse'; message: string } | { kind: 'allow' } | { kind: 'once' } | { kind: 'pass' };
 export function outsideMcpStep(
   server: Pick<OutsideMcpServer, 'name' | 'approve' | 'readTools'>,
   tool: string,
   input: Record<string, unknown>,
-  o: { bypass: boolean },
+  o: { bypass: boolean; readOnly?: boolean },
 ): OutsideMcpStep {
   // In every mode, before any card.
   if (blenderWmRefused(server.name, tool, input)) return { kind: 'refuse', message: BLENDER_WM_MESSAGE };
   if (server.approve !== 'mode') return outsideMcpNeedsCard(server, tool) ? { kind: 'once' } : { kind: 'pass' };
   if (o.bypass) return { kind: 'pass' };
   if (server.readTools.includes(tool)) return { kind: 'allow' };
+  // As askOutsideMcp refuses an every-call server: canUseTool would otherwise card (or run) a write.
+  if (o.readOnly) return { kind: 'refuse', message: OUTSIDE_READONLY_MESSAGE };
   const big = outsideTooLarge(outsideCardInput(input));
   return big ? { kind: 'refuse', message: big } : { kind: 'pass' };
 }

@@ -44,6 +44,8 @@ export interface TurnContext {
   bypassPermissions?: boolean;
   /** Strict turn (routine, trigger, workflow step): approvals apply even under bypass. */
   strictApprovals?: boolean;
+  /** The hub's read-only approval mode, read per turn. */
+  approvalsReadOnly?: boolean;
   permission: (
     toolName: string,
     input: Record<string, unknown>,
@@ -80,6 +82,8 @@ export interface TurnContext {
   outsideMcp?: OutsideMcpServer[];
   /** Raises the owner's card, under bypass too. A string refuses the call. */
   outsideMcpGate?: (toolName: string, input: Record<string, unknown>) => Promise<string | null>;
+  /** Game rooms: starts (or reuses) the hub's headless Blender before a `blender` tool runs. A string refuses the call. */
+  blenderEnsure?: () => Promise<string | null>;
   computerFilesDir?: string;
   sandboxWritableDirs?: string[];
   /** Adapters must enforce it in bypass mode too; it is not an approval. */

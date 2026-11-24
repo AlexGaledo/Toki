@@ -19,6 +19,8 @@ export interface Project {
   memberIds: string[];
   roomId: string | null;
   templateVersion: number | null;
+  /** 'game': its room gets Toki's headless Blender. Set by the game template (B7), never by a bot. */
+  kind: 'game' | null;
   createdAt: number;
 }
 export interface ProjectHit { project: string; path: string; status: string; updated: string | null; reviewExpired: boolean; snippet: string }
@@ -81,6 +83,7 @@ export class ProjectService {
       memberIds: this.db.all('SELECT bot_id FROM project_members WHERE slug=? ORDER BY bot_id', slug).map((m) => m.bot_id as string),
       roomId: (r.room_id as string | null) ?? null,
       templateVersion: (r.template_version as number | null) ?? null,
+      kind: r.kind === 'game' ? 'game' : null,
       createdAt: Number(r.created_at),
     };
   }

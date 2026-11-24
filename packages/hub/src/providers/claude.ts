@@ -471,7 +471,10 @@ export class ClaudeProvider implements AgentProvider {
               if (!s) return {};
               const input = (i.tool_input ?? {}) as Record<string, unknown>;
               // `pass` leaves the call to bypass or, otherwise, to canUseTool's normal card.
-              const step = outsideMcpStep(s, i.tool_name.slice(('mcp__' + s.name + '__').length), input, { bypass: !!ctx.bypassPermissions });
+              const step = outsideMcpStep(s, i.tool_name.slice(('mcp__' + s.name + '__').length), input, { bypass: !!ctx.bypassPermissions, readOnly: !!ctx.approvalsReadOnly });
+              // Toki's own Blender starts on the first call it is needed for, and again after a crash.
+              const down = step.kind !== 'refuse' && s.name === 'blender' && ctx.blenderEnsure ? await ctx.blenderEnsure() : null;
+              if (down) return { hookSpecificOutput: { hookEventName: 'PreToolUse' as const, permissionDecision: 'deny' as const, permissionDecisionReason: down } };
               if (step.kind === 'pass') return {};
               const why = step.kind === 'refuse' ? step.message
                 : step.kind === 'allow' ? null

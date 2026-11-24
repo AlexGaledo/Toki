@@ -43,6 +43,7 @@ import type { FormBroker } from '../services/FormBroker.js';
 import { turnFailureNote } from './turnFailure.js';
 import { classifyVerification, type TurnToolCall } from './verification.js';
 import { outsideMcpFor, registerOutsideMcpSecrets, vpsMountable } from '../services/outsideMcp.js';
+import type { BlenderHost } from '../services/BlenderHost.js';
 import { loadKeyRegistry } from '../services/keyRegistry.js';
 import { computerToolGuard } from '../permissions/controlInterlock.js';
 import { decisionsWriteDenied, relIn, type FileRevisions, type FileRoot, type RevisionAuthor } from '../services/FileRevisions.js';
@@ -160,6 +161,7 @@ export class BotRunner {
   workflows?: WorkflowRunner;
   pcSessions?: PcSessions;
   sessionMoves?: SessionMoves;
+  blender?: BlenderHost;
   credentials?: CredentialStore;
   summarize: (prompt: string, systemPrompt: string) => Promise<PassOutcome> = runPass;
   repeatFailures = new RepeatFailureWatch();
@@ -478,9 +480,14 @@ export class BotRunner {
     const mcpToken = this.turns.registerTurn(tools, computerToolGuard(controlBlocked));
     // The per-turn MCP bearer travels in provider config and can surface in a stderr tail: scrub it until the turn ends.
     addSecret(mcpToken);
-    const outsideMcp = vpsMountable(outsideMcpFor(bot.handle, room), keyRegistry);
-    // Bearer tokens and stdio env values (the owner's API keys) are scrubbed from tool output, chat and logs.
-    registerOutsideMcpSecrets(outsideMcp);
+    // A game project's room gets Toki's own headless Blender as the `blender` server, in place of any file entry.
+    const gameProject = roomProject?.kind === 'game' && this.blender ? roomProject : undefined;
+    const blenderEntry = gameProject ? await this.blender!.mcpEntry() : null;
+    const fileMcp = vpsMountable(outsideMcpFor(bot.handle, room), keyRegistry).filter((s) => !blenderEntry || s.name !== 'blender');
+    // Bearer tokens and stdio env values (the owner's API keys) are scrubbed from tool output, chat and logs. The
+    // built-in entry holds no secret, and its 127.0.0.1 must not be scrubbed.
+    registerOutsideMcpSecrets(fileMcp);
+    const outsideMcp = blenderEntry ? [...fileMcp, blenderEntry] : fileMcp;
     const images = materializeImages(this.media, ATTACHMENTS_DIR, bot.id, req.images);
     const files = materializeFiles(this.media, ATTACHMENTS_DIR, bot.id, req.images);
     const ctx: TurnContext = {
@@ -522,6 +529,7 @@ export class BotRunner {
       allowedBuiltins: computerDown ? bot.allowedTools.filter((t) => t !== 'Browser' && t !== 'Desktop') : bot.allowedTools,
       bypassPermissions: bypass,
       strictApprovals: !!req.strictApprovals,
+      approvalsReadOnly: this.broker.readOnly,
       permission: async (name, input, extra) => {
         const r = await this.broker.decide(permCtx, name, input, { signal: ac.signal, blockedPath: extra?.blockedPath });
         return r.behavior === 'allow' ? 'allow' : 'deny';
@@ -579,6 +587,7 @@ export class BotRunner {
         const r = await this.broker.askOutsideMcp(permCtx, s.name, name.slice(('mcp__' + s.name + '__').length), input, ac.signal);
         return r.allowed ? null : r.message;
       },
+      ...(blenderEntry && gameProject ? { blenderEnsure: () => this.blender!.ensure(gameProject) } : {}),
       computerFilesDir: computer?.filesDir ?? undefined,
       controlGuard: controlBlocked,
       computerGate: computer ? async (name, input) => (await useComputer()) ?? browserTabRule(name, input) : undefined,

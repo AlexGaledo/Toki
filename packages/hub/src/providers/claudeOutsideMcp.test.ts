@@ -35,13 +35,13 @@ function firstHook(h: Hook): Hook['hooks'][number] {
   return f;
 }
 
-async function runTurn(bypass: boolean, gate?: (name: string, input: Record<string, unknown>) => Promise<string | null>) {
+async function runTurn(bypass: boolean, gate?: (name: string, input: Record<string, unknown>) => Promise<string | null>, extra: Partial<TurnContext> = {}) {
   const ctx = {
     turnId: 't', bot: { id: 'b', handle: 'b' }, room: {}, members: [], systemPrompt: '', input: 'hi', resumeToken: null,
     workspaceDir: WORKSPACE_DIR, botHome: path.join(os.tmpdir(), 'prc-home'), tools: [], allowedBuiltins: ['Read', 'Bash'],
     bypassPermissions: bypass, permission: async () => 'allow', pluginDir: null, model: 'claude-sonnet-5',
     maxBudgetUsd: 1, maxTurns: 1, signal: new AbortController().signal, mcp: { url: '', token: '' },
-    outsideMcp: servers, outsideMcpGate: gate,
+    outsideMcp: servers, outsideMcpGate: gate, ...extra,
   } as unknown as TurnContext;
   const sink = { onSession() {}, onDelta() {}, onText() {}, onToolUse() {}, onToolResult() {}, onState() {} };
   await new ClaudeProvider().runTurn(ctx, sink);
@@ -124,5 +124,39 @@ describe('outside MCP servers in the Claude provider', () => {
       expect((await read.hooks[0]({ tool_name: 'Read', tool_input: { file_path: path.join(DATA_DIR, 'hub-token') }, cwd: WORKSPACE_DIR })).hookSpecificOutput)
         .toMatchObject({ permissionDecision: 'deny', permissionDecisionReason: HUB_KEYS_MESSAGE });
     }
+  });
+});
+
+describe("B12: Toki's Blender behind the outside hook", () => {
+  const blenderHook = async (extra: Partial<TurnContext>) => {
+    const { hooks } = await runTurn(false, async () => null, extra);
+    return firstHook(hooks.find((h) => h.matcher.startsWith('mcp__('))!);
+  };
+
+  it('starts Blender before a blender tool runs, and refuses the call with its reason when it cannot', async () => {
+    const calls: string[] = [];
+    let down: string | null = null;
+    const hook = await blenderHook({ blenderEnsure: async () => { calls.push('ensure'); return down; } });
+    expect(await hook({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'x=1' } })).toEqual({});
+    expect((await hook({ tool_name: 'mcp__blender__get_scene_info', tool_input: {} })).hookSpecificOutput).toMatchObject({ permissionDecision: 'allow' });
+    expect(calls).toEqual(['ensure', 'ensure']);
+    down = 'Another Blender is running on this PC (blender.exe, pid 42). Try again when it finishes.';
+    expect((await hook({ tool_name: 'mcp__blender__get_scene_info', tool_input: {} })).hookSpecificOutput)
+      .toMatchObject({ permissionDecision: 'deny', permissionDecisionReason: down });
+  });
+
+  it('does not start Blender for a refused call or for another server', async () => {
+    const calls: string[] = [];
+    const hook = await blenderHook({ blenderEnsure: async () => { calls.push('ensure'); return null; } });
+    await hook({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'bpy.ops.wm.quit_blender()' } });
+    await hook({ tool_name: 'mcp__runpod__create_pod', tool_input: {} });
+    expect(calls).toEqual([]);
+  });
+
+  it('NEGATIVE: under read-only a mode write is refused by the hook, a read still runs', async () => {
+    const hook = await blenderHook({ approvalsReadOnly: true, blenderEnsure: async () => null });
+    expect((await hook({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'x=1' } })).hookSpecificOutput)
+      .toMatchObject({ permissionDecision: 'deny', permissionDecisionReason: expect.stringMatching(/read-only/i) });
+    expect((await hook({ tool_name: 'mcp__blender__look', tool_input: {} })).hookSpecificOutput).toMatchObject({ permissionDecision: 'allow' });
   });
 });

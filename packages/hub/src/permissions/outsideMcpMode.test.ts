@@ -5,7 +5,7 @@ import { Repos } from '../db/repos.js';
 import { ApprovalStore } from '../db/approvalStore.js';
 import { PermissionBroker } from './PermissionBroker.js';
 import { events } from '../events.js';
-import { BLENDER_WM_MESSAGE, outsideMcpStep, type OutsideMcpServer } from '../services/outsideMcp.js';
+import { BLENDER_WM_MESSAGE, OUTSIDE_READONLY_MESSAGE, outsideMcpStep, type OutsideMcpServer } from '../services/outsideMcp.js';
 
 // B3: `approve: 'mode'` follows the hub's approval mode.
 const signal = () => new AbortController().signal;
@@ -13,11 +13,11 @@ const blender = { name: 'blender', approve: 'mode', readTools: ['get_addon_statu
 const runpod = { name: 'runpod', approve: 'every-call', readTools: [] } satisfies Pick<OutsideMcpServer, 'name' | 'approve' | 'readTools'>;
 const code = { code: 'import bpy\nbpy.ops.mesh.primitive_cube_add()\ntoki_save()' };
 
-function setup(opts: { bypass?: boolean; strict?: boolean } = {}) {
+function setup(opts: { bypass?: boolean; strict?: boolean; readOnly?: boolean } = {}) {
   const db = new Db(':memory:');
   const repos = new Repos(db);
   const store = new ApprovalStore(db);
-  const broker = new PermissionBroker(repos, { store, bypass: () => !!opts.bypass });
+  const broker = new PermissionBroker(repos, { store, bypass: () => !!opts.bypass, globalReadOnly: () => !!opts.readOnly });
   const bot = repos.createBot({ name: 'Artist', handle: 'artist', title: '', description: '', avatar: '🤖', model: 'm', allowedTools: ['Read'], maxBudgetUsd: 2 });
   const room = repos.createRoom({ kind: 'dm', name: 'DM', memberIds: [bot.id], coordinatorBotId: null });
   const ctx = { bot, room, turnId: 't', hop: 0, causeId: 'c', setState: () => undefined, strictApprovals: !!opts.strict };
@@ -35,7 +35,7 @@ function answer(broker: PermissionBroker, decision: 'allow' | 'always' | 'deny')
 /** What the Claude provider does with one call: the hook's step, then canUseTool (broker.decide) when it passes. */
 async function call(s: ReturnType<typeof setup>, server: typeof blender | typeof runpod, tool: string, input: Record<string, unknown>) {
   // BotRunner hands the provider bypass only when the broker's mode is bypass and the turn is not strict.
-  const step = outsideMcpStep(server, tool, input, { bypass: s.broker.bypassedFor(s.ctx) });
+  const step = outsideMcpStep(server, tool, input, { bypass: s.broker.bypassedFor(s.ctx), readOnly: s.broker.readOnly });
   if (step.kind === 'refuse') return { ran: false, step };
   if (step.kind === 'allow') return { ran: true, step };
   if (step.kind === 'once') return { ran: (await s.broker.askOutsideMcp(s.ctx, server.name, tool, input, signal())).allowed, step };
@@ -118,6 +118,28 @@ describe("approve: 'mode' under bypass", () => {
     a.off();
     expect(a.cards).toHaveLength(2);
     expect(a.cards.every((c) => c.once)).toBe(true);
+  });
+});
+
+describe("NEGATIVE: approve: 'mode' under read-only", () => {
+  it('refuses a write without a card, with the same words as an every-call server', async () => {
+    const s = setup({ readOnly: true });
+    const a = answer(s.broker, 'allow');
+    const mode = await call(s, blender, 'execute_blender_code', code);
+    const every = await call(s, runpod, 'create_pod', { gpu: 'A100' });
+    a.off();
+    expect(mode).toEqual({ ran: false, step: { kind: 'refuse', message: OUTSIDE_READONLY_MESSAGE } });
+    expect(every.ran).toBe(false);
+    expect(OUTSIDE_READONLY_MESSAGE).toMatch(/read-only/i);
+    expect(a.cards).toHaveLength(0);
+  });
+
+  it('still runs a readTools tool with no card', async () => {
+    const s = setup({ readOnly: true });
+    const a = answer(s.broker, 'deny');
+    expect(await call(s, blender, 'get_scene_info', {})).toEqual({ ran: true, step: { kind: 'allow' } });
+    a.off();
+    expect(a.cards).toHaveLength(0);
   });
 });
 

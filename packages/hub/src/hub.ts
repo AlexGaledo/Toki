@@ -33,6 +33,7 @@ import { TurnRegistry, createMcpHandler, serveTools } from './mcp/httpServer.js'
 import { CONTEXT_CONNECTOR_PREFIX, contextConnectorTools, createContextApi } from './api/context.js';
 import { ContextRepo } from './db/contextRepo.js';
 import { ProjectService } from './services/ProjectService.js';
+import { BlenderHost } from './services/BlenderHost.js';
 import { createProjectsApi } from './api/projects.js';
 import { createRest } from './api/rest.js';
 import { createScreenOpener } from './services/screenOpen.js';
@@ -368,6 +369,8 @@ export function createHub(opts: HubOptions = {}): Hub {
   const contextRepo = new ContextRepo(db);
   const projects = new ProjectService({ db, repos, memory, root: opts.projectsDir ?? PROJECTS_DIR });
   runner.projects = projects;
+  const blender = new BlenderHost({ dataDir: DATA_DIR });
+  runner.blender = blender;
   const roomFiles = new RoomFiles({ projects, roomsDir: opts.roomsDir ?? ROOMS_DIR, dmDir: opts.dmFilesDir ?? botFilesDir });
   runner.roomFiles = roomFiles;
   const revisions = new FileRevisions(repos.db);
@@ -844,6 +847,8 @@ export function createHub(opts: HubOptions = {}): Hub {
       offSessionRevoke();
       router.freeze();
       runner.interruptAll();
+      // Saves the open scene first; kills only after the grace period.
+      await blender.shutdown();
       await providers.shutdown();
       for (const c of wss.clients) c.terminate();
       wss.close();

@@ -12,7 +12,7 @@ import {
 import { patternMatches, type ApprovalStore, type ParkedApproval, type StoredPolicy } from '../db/approvalStore.js';
 import { isComputerTool } from './controlInterlock.js';
 import { routingFileWrite } from './readOnlyRoots.js';
-import { outsideCardInput, outsideCodeField, outsideTooLarge } from '../services/outsideMcp.js';
+import { OUTSIDE_READONLY_MESSAGE, outsideCardInput, outsideCodeField, outsideTooLarge } from '../services/outsideMcp.js';
 import { denyMessage } from './messages.js';
 
 export interface PermCtx {
@@ -149,6 +149,9 @@ export class PermissionBroker {
 
   get bypassed(): boolean {
     return !!this.opts.bypass?.();
+  }
+  get readOnly(): boolean {
+    return !!this.opts.globalReadOnly?.();
   }
   /** Never for a strict (routine/trigger) turn, whatever the setting says. */
   bypassedFor(ctx: Pick<PermCtx, 'strictApprovals'>): boolean {
@@ -539,9 +542,7 @@ export class PermissionBroker {
     input: Record<string, unknown>,
     signal: AbortSignal,
   ): Promise<{ allowed: boolean; message: string }> {
-    if (this.opts.globalReadOnly?.()) {
-      return { allowed: false, message: denyMessage('readonly', { subject: 'outside tools', alt: 'say so in the room' }) };
-    }
+    if (this.opts.globalReadOnly?.()) return { allowed: false, message: OUTSIDE_READONLY_MESSAGE };
     // Never ask about input the owner cannot see in full: a hidden tail could carry the real payload.
     const shown = outsideCardInput(input);
     const big = outsideTooLarge(shown);
