@@ -1,0 +1,55 @@
+{"at":"2026-11-24T10:16:56.864Z","cmd":"launch","web":"vite","onboarding":false,"ports":{"hub":11942,"workspace":11943,"web":11944,"cdp":11945}}
+{"at":"2026-11-24T10:16:58.232Z","cmd":"api","method":"POST","path":"/api/bots","status":200}
+{"at":"2026-11-24T10:16:58.489Z","cmd":"api","method":"POST","path":"/api/skills","status":200}
+{"at":"2026-11-24T10:17:06.258Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:11944/ title=\"Toki\""}
+{"at":"2026-11-24T10:17:07.772Z","cmd":"click","role":"menuitem","name":"Settings","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:17:18.352Z","cmd":"click","role":"tab","name":"Game tools","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:17:22.200Z","cmd":"click","role":"button","name":"Install Blender tools","after":"url=http://127.0.0.1:11944/ title=\"Toki\""}
+{"at":"2026-11-24T10:17:23.657Z","cmd":"click","role":"button","name":"Install","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:17:30.669Z","cmd":"api","method":"GET","path":"/api/audit?limit=3","status":200}
+{"at":"2026-11-24T10:17:30.927Z","cmd":"api","method":"GET","path":"/api/audit?limit=3","status":200}
+{"at":"2026-11-24T10:17:37.282Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\game-tools-after-install.aria.yml"}
+{"at":"2026-11-24T10:17:38.812Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:17:39.863Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\picker-ready-light.aria.yml"}
+{"at":"2026-11-24T10:17:40.994Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\picker-ready-light.png"}
+{"at":"2026-11-24T10:17:46.636Z","cmd":"fill","role":"textbox","name":"Name","value":"Obby Run"}
+{"at":"2026-11-24T10:17:48.315Z","cmd":"click","role":"radio","name":"Game team","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:17:49.702Z","cmd":"click","role":"button","name":"Create project","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:17:50.891Z","cmd":"wait","what":"text \"Obby Run is set up\"","gone":false}
+{"at":"2026-11-24T10:17:51.999Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\created-setup-light.aria.yml"}
+{"at":"2026-11-24T10:17:53.215Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\created-setup-light.png"}
+{"at":"2026-11-24T10:18:01.337Z","cmd":"api","method":"GET","path":"/api/projects","status":200}
+{"at":"2026-11-24T10:18:03.163Z","cmd":"click","role":"tab","name":"Appearance","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:18:05.102Z","cmd":"click","role":"button","name":"Dark","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:18:06.268Z","cmd":"click","role":"tab","name":"Projects","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:18:15.810Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\picker-ready-dark.aria.yml"}
+{"at":"2026-11-24T10:18:16.683Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\picker-ready-dark.png"}
+{"at":"2026-11-24T10:18:19.822Z","cmd":"fill","role":"textbox","name":"Name","value":"Tower Climb"}
+{"at":"2026-11-24T10:18:21.042Z","cmd":"click","role":"radio","name":"Game team","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:18:22.385Z","cmd":"click","role":"button","name":"Create project","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:18:23.511Z","cmd":"wait","what":"text \"Tower Climb is set up\"","gone":false}
+{"at":"2026-11-24T10:18:24.413Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\created-setup-dark.aria.yml"}
+{"at":"2026-11-24T10:18:25.669Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d3\\created-setup-dark.png"}
+{"at":"2026-11-24T10:18:38.182Z","cmd":"click","role":"tab","name":"Tools","after":"url=http://127.0.0.1:11944/ title=\"Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:18:39.019Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\b\\tools-masked-dark.aria.yml"}
+{"at":"2026-11-24T10:18:39.944Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\b\\tools-masked-dark.png"}
+{"at":"2026-11-24T10:18:46.390Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T10:18:51.799Z","cmd":"api","method":"GET","path":"/api/bots","status":200}
+{"at":"2026-11-24T10:19:20.790Z","cmd":"goto","path":"/","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\""}
+{"at":"2026-11-24T10:19:21.725Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\snapshot-20261124-181921-4888.aria.yml"}
+{"at":"2026-11-24T10:19:26.809Z","cmd":"click","role":"button","name":"Obby Run 1 waiting on you","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\""}
+{"at":"2026-11-24T10:19:27.785Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d2\\lookback-dark.aria.yml"}
+{"at":"2026-11-24T10:19:31.821Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d2\\lookback-dark.png"}
+{"at":"2026-11-24T10:19:57.736Z","cmd":"click","role":"button","name":"Look-back from blender: look","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\" dialogs=[\"Look-back from blender: look\"]"}
+{"at":"2026-11-24T10:19:59.366Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d2\\lightbox.aria.yml"}
+{"at":"2026-11-24T10:20:01.074Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\d2\\lightbox.png"}
+{"at":"2026-11-24T10:20:02.691Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\""}
+{"at":"2026-11-24T10:20:12.159Z","cmd":"click","role":"button","name":"Menu for Verifier. Online","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\""}
+{"at":"2026-11-24T10:20:13.429Z","cmd":"click","role":"menuitem","name":"Settings","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:20:15.270Z","cmd":"click","role":"tab","name":"Appearance","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:20:17.419Z","cmd":"click","role":"button","name":"Light","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\" dialogs=[\"Settings\"]"}
+{"at":"2026-11-24T10:20:19.073Z","cmd":"press","key":"Escape","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\""}
+{"at":"2026-11-24T10:20:22.300Z","cmd":"click","role":"button","name":"Needs you","after":"url=http://127.0.0.1:11944/ title=\"(1) Toki\""}
+{"at":"2026-11-24T10:20:23.275Z","cmd":"snapshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\c\\needs-you-light.aria.yml"}
+{"at":"2026-11-24T10:20:24.271Z","cmd":"screenshot","file":"C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p2ui\\evidence\\20261124-181646\\c\\needs-you-light.png"}
+{"at":"2026-11-24T10:20:47.719Z","cmd":"stop","keepData":false}

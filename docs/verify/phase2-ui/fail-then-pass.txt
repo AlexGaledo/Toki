@@ -1,0 +1,87 @@
+=== c98e388 D2: look-back thumbnails on tool messages
+tests: src/components/LookBacks.test.tsx src/lib/lookBacks.test.ts
+source put back: packages/web/src/components/ChatPane.tsx packages/web/src/components/ImageLightbox.tsx packages/web/src/components/LookBacks.tsx packages/web/src/components/WorkLine.tsx packages/web/src/lib/lookBacks.ts
+--- without the change
+ FAIL  src/components/LookBacks.test.tsx [ src/components/LookBacks.test.tsx ]
+ FAIL  src/lib/lookBacks.test.ts [ src/lib/lookBacks.test.ts ]
+ Test Files  2 failed (2)
+      Tests  3 skipped (3)
+--- with the change
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+
+=== b04029c D3: template picker in Settings › Projects
+tests: src/components/RadioCard.test.tsx src/lib/projectTemplates.test.ts
+source put back: packages/web/src/components/settings/ProjectsSection.tsx packages/web/src/components/ui.tsx packages/web/src/lib/api.ts packages/web/src/lib/projectTemplates.ts
+--- without the change
+     × keeps the reason at full strength while the rest of a disabled option is dimmed
+     × is read out as part of the option, after what it adds
+ FAIL  src/lib/projectTemplates.test.ts [ src/lib/projectTemplates.test.ts ]
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/RadioCard.test.tsx > RadioCard note (D3: a disabled option says why) > keeps the reason at full strength while the rest of a disabled option is dimmed
+ FAIL  src/components/RadioCard.test.tsx > RadioCard note (D3: a disabled option says why) > is read out as part of the option, after what it adds
+ Test Files  2 failed (2)
+      Tests  2 failed (2)
+--- with the change
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+
+=== 6f668ee Room strip: re-read game tools on game-tools.changed and focus, no timer
+tests: src/lib/useGameTools.test.ts
+source put back: packages/web/src/components/GameToolsStrip.tsx packages/web/src/lib/useGameTools.ts packages/web/src/store.ts
+--- without the change
+     × the hub's game-tools.changed event bumps the store's counter
+     × re-reads on the event and on window focus, and never on a timer
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/lib/useGameTools.test.ts > game tools re-read (follow-up a) > the hub's game-tools.changed event bumps the store's counter
+ FAIL  src/lib/useGameTools.test.ts > game tools re-read (follow-up a) > re-reads on the event and on window focus, and never on a timer
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+--- with the change
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+
+=== e9d7020 Settings › Tools: mask the user folder in stdio command lines
+tests: src/components/settings/McpServerTarget.test.tsx
+source put back: packages/web/src/components/settings/McpServersSection.tsx packages/web/src/components/settings/parts.tsx
+--- without the change
+     × folds every home folder in a command line to ~, wherever it sits
+     × masks a drive letter in either case and forward slashes
+     × never shows the user folder in plain sight
+     × shows a command with no home folder as it is, with no reveal button
+     × shows a web address as it is
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/settings/McpServerTarget.test.tsx > maskHome (follow-up b) > folds every home folder in a command line to ~, wherever it sits
+ FAIL  src/components/settings/McpServerTarget.test.tsx > maskHome (follow-up b) > masks a drive letter in either case and forward slashes
+ FAIL  src/components/settings/McpServerTarget.test.tsx > ServerTarget in Settings › Tools > never shows the user folder in plain sight
+ FAIL  src/components/settings/McpServerTarget.test.tsx > ServerTarget in Settings › Tools > shows a command with no home folder as it is, with no reveal button
+ FAIL  src/components/settings/McpServerTarget.test.tsx > ServerTarget in Settings › Tools > shows a web address as it is
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+--- with the change
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+
+=== a26094d Needs you and Overview: outside-tool approvals read "<server> · <tool>: <first code line>"
+tests: src/lib/approvalSummary.test.ts
+source put back: packages/web/src/components/InboxPage.tsx packages/web/src/components/overview/OverviewPanel.tsx packages/web/src/lib/approvalWords.ts packages/web/src/lib/inbox.ts
+--- without the change
+     × reads "<server> · <tool>" plus the first line of the code field, not escaped JSON
+     × reads an older card whose input is a JSON string the same way
+     × shows just "<server> · <tool>" when there is no code field
+     × keeps one short line
+     × leaves the other cards as they were
+     × passes codeField from the card to the row, so the preview can find the code
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/lib/approvalSummary.test.ts > approvalSummary (follow-up c) > reads "<server> · <tool>" plus the first line of the code field, not escaped JSON
+ FAIL  src/lib/approvalSummary.test.ts > approvalSummary (follow-up c) > reads an older card whose input is a JSON string the same way
+ FAIL  src/lib/approvalSummary.test.ts > approvalSummary (follow-up c) > shows just "<server> · <tool>" when there is no code field
+ FAIL  src/lib/approvalSummary.test.ts > approvalSummary (follow-up c) > keeps one short line
+ FAIL  src/lib/approvalSummary.test.ts > approvalSummary (follow-up c) > leaves the other cards as they were
+ FAIL  src/lib/approvalSummary.test.ts > Needs you rows carry the code field > passes codeField from the card to the row, so the preview can find the code
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+--- with the change
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+
