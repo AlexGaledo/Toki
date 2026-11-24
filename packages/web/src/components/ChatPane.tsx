@@ -10,13 +10,14 @@ import type { ApprovalPayload, Bot, HandoffPayload, HandoffResultPayload, Messag
 import type { Approvals, TriggerPayload } from '@pocketrocket/shared';
 import { useStore, selectActiveRoom, botById } from '../store';
 import { api, ApiError } from '../lib/api';
-import { ActionCard, ActionCardActions, ActionCardHeader, Avatar, Banner, Button, DialogCloseButton, DialogShell, DialogTitle, EmptyState, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, Skeleton, SkeletonGroup, Tooltip, UserAvatar, cn, fmtTime } from './ui';
+import { ActionCard, ActionCardActions, ActionCardHeader, Avatar, Banner, Button, EmptyState, Kbd, Menu, MenuContent, MenuItem, MenuSeparator, Skeleton, SkeletonGroup, Tooltip, UserAvatar, cn, fmtTime } from './ui';
 import { LinkBot, Markdown } from './Markdown';
 import { SignInToApprove } from './SignInToApprove';
 import { AlwaysAllow, RuleOffer, TakeoverCard } from './ComputerControl';
 import { CtaButtons, FormCard } from './Cards';
 import { WorkLine, fmtInput, isStep } from './WorkLine';
 import { useMediaUrl } from '../lib/media';
+import { ImageLightbox } from './ImageLightbox';
 import { useNewLayout } from '../lib/newLayout';
 import { DRAFT_SAVE_MS, readDraft, writeDraft } from '../lib/drafts';
 import { MAX_ATTACHMENTS, reencodeImage, uploadAttachment } from '../lib/attach';
@@ -688,17 +689,6 @@ function AttachmentImage({ mediaRef, onOpen }: { mediaRef: string; onOpen: () =>
     <button type="button" onClick={onOpen} className="block overflow-hidden rounded-md ring-1 ring-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
       <img src={url} alt="Attached picture" className="max-h-64 max-w-full object-contain" />
     </button>
-  );
-}
-
-function ImageLightbox({ mediaRef, onClose }: { mediaRef: string; onClose: () => void }) {
-  const url = useMediaUrl(mediaRef);
-  return (
-    <DialogShell open onOpenChange={(o) => !o && onClose()} className="max-h-[92vh] max-w-[92vw] overflow-hidden bg-transparent p-0 shadow-none">
-      <DialogTitle className="sr-only">Attached picture</DialogTitle>
-      {url && <img src={url} alt="Attached picture" className="block max-h-[92vh] max-w-[92vw] rounded-lg object-contain" />}
-      <div className="absolute right-2 top-2"><DialogCloseButton /></div>
-    </DialogShell>
   );
 }
 

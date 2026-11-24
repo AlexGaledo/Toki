@@ -4,8 +4,10 @@ import type { Message, ToolPayload } from '@pocketrocket/shared';
 import { useStore } from '../store';
 import { isWorking, useBotStatus } from '../lib/botStatus';
 import { toolPhrase } from '../lib/toolPhrases';
+import { lookBacksOf } from '../lib/lookBacks';
 import { Badge, cn } from './ui';
 import { Markdown } from './Markdown';
+import { LookBacks } from './LookBacks';
 
 const payload = (m: Message) => m.payload as ToolPayload;
 
@@ -51,6 +53,7 @@ const fmtClock = (ms: number) => {
 
 export function WorkLine({ items, startedAt, endedAt, continued }: { items: Message[]; startedAt: number; endedAt: number; continued?: boolean }) {
   const steps = useMemo(() => items.filter(isStep), [items]);
+  const lookBacks = useMemo(() => lookBacksOf(items), [items]);
   const turnId = items[0].turnId;
   const authorId = items[0].authorId;
   const streaming = useStore((s) => !!turnId && !!s.streaming[turnId]);
@@ -90,6 +93,7 @@ export function WorkLine({ items, startedAt, endedAt, continued }: { items: Mess
         {open ? <ChevronDown size={14} aria-hidden className="mt-[3px] shrink-0" /> : <ChevronRight size={14} aria-hidden className="mt-[3px] shrink-0" />}
         <span className="min-w-0">{line}{continued && <span className="text-dim"> · continued</span>}</span>
       </button>
+      {lookBacks.length > 0 && <LookBacks items={lookBacks} />}
       {open && (
         <ul id={listId} className="ml-[5px] mt-1.5 flex flex-col gap-1 border-l border-line pl-4">
           {items.map((m) => m.kind === 'text' ? (
