@@ -1,0 +1,170 @@
+B3 and B4 mutation run, 2026-11-24, from packages/hub:  python -I ../../docs/verify/b3-b4/scripts/mutations.py
+44 guarded lines across outsideMcpStep / outsideMcpNeedsCard / outsideMcpHooked (services/outsideMcp.ts), the outside
+PreToolUse hook (providers/claude.ts), redactValue (providers/redact.ts), outsideCardInput, outsideCodeField and the two
+card paths (permissions/PermissionBroker.ts). Tests per mutant: outsideMcp, outsideMcpMode, outsideMcpApproval,
+claudeOutsideMcp, studioRecipeApproval (52 tests in pass 1, 55 in pass 2).
+
+SUMMARY
+- Pass 1 (all 44): 37 caught, 7 survived.
+- 6 survivors were real gaps. Tests added (same commit as this file):
+    wm refusal for any server / for any blender tool  -> outsideMcpMode.test.ts (the check is for blender's execute_blender_code only)
+    blender with approve 'none' not hooked (x2)       -> outsideMcp.test.ts (outsideMcpHooked), claudeOutsideMcp.test.ts (NEGATIVE hook test)
+    redactValue arrays / keys not walked             -> outsideMcpApproval.test.ts (secret in an array, a nested object and a key)
+- 1 survivor is equivalent, and errs on the safe side: "B4 normal card: hub tools treated as outside" (the regex without
+  (?!pocketrocket__|browser__)). Its only effect is that a browser or hub tool card would also show known secrets
+  redacted, and could name codeField for a tool called execute_blender_code/execute_luau, which those servers do not
+  have. No test asserts that a card shows a secret in clear, and none should. Left as is.
+- Pass 2 (after the new tests): mutants 1 to 31 ran and all 31 were caught, including all 6 former survivors.
+  Claude Code then stopped the run for low system memory, during mutant 32 ("outsideCardInput: not redacted"). That file
+  was restored from git and the tree checked clean. Mutants 32 to 44 were NOT rerun. In pass 1, 32 to 43 were all
+  caught and 44 is the equivalent one. The new tests only add assertions, so those results should still hold, but this
+  file does not prove that with a rerun.
+
+PASS 2 (partial: 31 of 44, stopped for low memory)
+CAUGHT  B3 step: wm refusal dropped  (src/services/outsideMcp.ts)  Tests  8 failed | 47 passed (55)
+        first: src/permissions/outsideMcpMode.test.ts > NEGATIVE: Blender code with bpy.ops.wm. is refused in every mode > under ask, without a card
+CAUGHT  B3 step: wm refusal for any server  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpMode.test.ts > NEGATIVE: Blender code with bpy.ops.wm. is refused in every mode > whatever approve value a server named blender has, and only for execute_blender_code
+CAUGHT  B3 step: wm refusal for any blender tool  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpMode.test.ts > NEGATIVE: Blender code with bpy.ops.wm. is refused in every mode > whatever approve value a server named blender has, and only for execute_blender_code
+CAUGHT  B3 step: wm text check narrowed  (src/services/outsideMcp.ts)  Tests  3 failed | 52 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 step: other approve values take the mode path  (src/services/outsideMcp.ts)  Tests  3 failed | 52 passed (55)
+        first: src/permissions/outsideMcpMode.test.ts > other approve values keep their behaviour > every-call / writes / none, bypass=true
+CAUGHT  B3 step: bypass ignored  (src/services/outsideMcp.ts)  Tests  3 failed | 52 passed (55)
+        first: src/permissions/outsideMcpMode.test.ts > approve: 'mode' under bypass > runs reads and writes with no card
+CAUGHT  B3 step: bypass allows silently  (src/services/outsideMcp.ts)  Tests  4 failed | 51 passed (55)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > under bypass it still runs: no tool is blocked (owner decision 4)
+CAUGHT  B3 step: readTools not allowed  (src/services/outsideMcp.ts)  Tests  8 failed | 47 passed (55)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > under ask, http_get gets the normal card (pass), not a silent allow
+CAUGHT  B3 step: every tool treated as a read tool  (src/services/outsideMcp.ts)  Tests  10 failed | 45 passed (55)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > under ask, http_get gets the normal card (pass), not a silent allow
+CAUGHT  B3 step: read-only refusal dropped  (src/services/outsideMcp.ts)  Tests  3 failed | 52 passed (55)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > in read-only mode, http_get is refused like any other write
+CAUGHT  B3 step: large input not refused  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpMode.test.ts > approve: 'mode' under ask > refuses a write whose input is over 8000 chars, without a card
+CAUGHT  B3 needsCard: mode cards once-only  (src/services/outsideMcp.ts)  Tests  1 failed | 54 passed (55)
+        first: src/services/outsideMcp.test.ts > stdio entries > keeps approve 'mode' in the file and through the settings view, and never cards it from the once-only hook
+CAUGHT  B3 needsCard: writes cards reads too  (src/services/outsideMcp.ts)  Tests  4 failed | 51 passed (55)
+        first: src/permissions/outsideMcpMode.test.ts > other approve values keep their behaviour > every-call / writes / none, bypass=true
+CAUGHT  B3 hooked: blender with approve none not hooked  (src/services/outsideMcp.ts)  Tests  2 failed | 53 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > NEGATIVE: a blender server with approve 'none' is still hooked, so wm code is refused
+CAUGHT  B3 hooked: nothing hooked  (src/services/outsideMcp.ts)  Tests  9 failed | 46 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > gates approve servers under bypass: card per call, readTools skip, answers allow or deny
+CAUGHT  B3 cap: 8000 raised  (src/services/outsideMcp.ts)  Tests  3 failed | 52 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > refuses an input too large to show in full, without a card, under bypass too
+CAUGHT  B3 hook: bypass always on  (src/providers/claude.ts)  Tests  3 failed | 52 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 hook: bypass always off  (src/providers/claude.ts)  Tests  1 failed | 54 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under bypass: no card for reads or writes, wm code still refused
+CAUGHT  B3 hook: read-only not passed  (src/providers/claude.ts)  Tests  1 failed | 54 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > B12: Toki's Blender behind the outside hook > NEGATIVE: under read-only a mode write is refused by the hook, a read still runs
+CAUGHT  B3 hook: pass goes to the once-only gate  (src/providers/claude.ts)  Tests  4 failed | 51 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > gates approve servers under bypass: card per call, readTools skip, answers allow or deny
+CAUGHT  B3 hook: allow goes to the gate  (src/providers/claude.ts)  Tests  1 failed | 54 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 hook: refusal turned into allow  (src/providers/claude.ts)  Tests  4 failed | 51 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 hook: no gate wired allows  (src/providers/claude.ts)  Tests  1 failed | 54 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > denies a gated call when no gate is wired
+CAUGHT  B3 hook: deny decision becomes allow  (src/providers/claude.ts)  Tests  6 failed | 49 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > gates approve servers under bypass: card per call, readTools skip, answers allow or deny
+CAUGHT  B3 hook: blender with approve none not hooked  (src/providers/claude.ts)  Tests  1 failed | 54 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > NEGATIVE: a blender server with approve 'none' is still hooked, so wm code is refused
+CAUGHT  B12 hook: Blender started for a refused call  (src/providers/claude.ts)  Tests  1 failed | 54 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > B12: Toki's Blender behind the outside hook > does not start Blender for a refused call or for another server
+CAUGHT  B12 hook: Blender down not refused  (src/providers/claude.ts)  Tests  1 failed | 54 passed (55)
+        first: src/providers/claudeOutsideMcp.test.ts > B12: Toki's Blender behind the outside hook > starts Blender before a blender tool runs, and refuses the call with its reason when it cannot
+CAUGHT  redactValue: strings kept  (src/providers/redact.ts)  Tests  3 failed | 52 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+CAUGHT  redactValue: arrays not walked  (src/providers/redact.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > redacts a secret inside arrays, nested objects and keys
+CAUGHT  redactValue: keys not redacted  (src/providers/redact.ts)  Tests  1 failed | 54 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > redacts a secret inside arrays, nested objects and keys
+CAUGHT  redactValue: nested values not walked  (src/providers/redact.ts)  Tests  3 failed | 52 passed (55)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+
+PASS 1 (complete: 44 of 44)
+CAUGHT  B3 step: wm refusal dropped  (src/services/outsideMcp.ts)  Tests  7 failed | 45 passed (52)
+        first: src/permissions/outsideMcpMode.test.ts > NEGATIVE: Blender code with bpy.ops.wm. is refused in every mode > under ask, without a card
+SURVIVED  B3 step: wm refusal for any server  (src/services/outsideMcp.ts)  Tests  52 passed (52)
+SURVIVED  B3 step: wm refusal for any blender tool  (src/services/outsideMcp.ts)  Tests  52 passed (52)
+CAUGHT  B3 step: wm text check narrowed  (src/services/outsideMcp.ts)  Tests  2 failed | 50 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 step: other approve values take the mode path  (src/services/outsideMcp.ts)  Tests  3 failed | 49 passed (52)
+        first: src/permissions/outsideMcpMode.test.ts > other approve values keep their behaviour > every-call / writes / none, bypass=true
+CAUGHT  B3 step: bypass ignored  (src/services/outsideMcp.ts)  Tests  2 failed | 50 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under bypass: no card for reads or writes, wm code still refused
+CAUGHT  B3 step: bypass allows silently  (src/services/outsideMcp.ts)  Tests  4 failed | 48 passed (52)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > under bypass it still runs: no tool is blocked (owner decision 4)
+CAUGHT  B3 step: readTools not allowed  (src/services/outsideMcp.ts)  Tests  8 failed | 44 passed (52)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > under ask, http_get gets the normal card (pass), not a silent allow
+CAUGHT  B3 step: every tool treated as a read tool  (src/services/outsideMcp.ts)  Tests  10 failed | 42 passed (52)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > under ask, http_get gets the normal card (pass), not a silent allow
+CAUGHT  B3 step: read-only refusal dropped  (src/services/outsideMcp.ts)  Tests  3 failed | 49 passed (52)
+        first: src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > in read-only mode, http_get is refused like any other write
+CAUGHT  B3 step: large input not refused  (src/services/outsideMcp.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpMode.test.ts > approve: 'mode' under ask > refuses a write whose input is over 8000 chars, without a card
+CAUGHT  B3 needsCard: mode cards once-only  (src/services/outsideMcp.ts)  Tests  1 failed | 51 passed (52)
+        first: src/services/outsideMcp.test.ts > stdio entries > keeps approve 'mode' in the file and through the settings view, and never cards it from the once-only hook
+CAUGHT  B3 needsCard: writes cards reads too  (src/services/outsideMcp.ts)  Tests  4 failed | 48 passed (52)
+        first: src/permissions/outsideMcpMode.test.ts > other approve values keep their behaviour > every-call / writes / none, bypass=true
+SURVIVED  B3 hooked: blender with approve none not hooked  (src/services/outsideMcp.ts)  Tests  52 passed (52)
+CAUGHT  B3 hooked: nothing hooked  (src/services/outsideMcp.ts)  Tests  7 failed | 45 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > gates approve servers under bypass: card per call, readTools skip, answers allow or deny
+CAUGHT  B3 cap: 8000 raised  (src/services/outsideMcp.ts)  Tests  3 failed | 49 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > refuses an input too large to show in full, without a card, under bypass too
+CAUGHT  B3 hook: bypass always on  (src/providers/claude.ts)  Tests  3 failed | 49 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 hook: bypass always off  (src/providers/claude.ts)  Tests  1 failed | 51 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under bypass: no card for reads or writes, wm code still refused
+CAUGHT  B3 hook: read-only not passed  (src/providers/claude.ts)  Tests  1 failed | 51 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > B12: Toki's Blender behind the outside hook > NEGATIVE: under read-only a mode write is refused by the hook, a read still runs
+CAUGHT  B3 hook: pass goes to the once-only gate  (src/providers/claude.ts)  Tests  4 failed | 48 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > gates approve servers under bypass: card per call, readTools skip, answers allow or deny
+CAUGHT  B3 hook: allow goes to the gate  (src/providers/claude.ts)  Tests  1 failed | 51 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 hook: refusal turned into allow  (src/providers/claude.ts)  Tests  3 failed | 49 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > approve 'mode' under ask: read tools allowed with no card, writes left to the normal card, wm code refused
+CAUGHT  B3 hook: no gate wired allows  (src/providers/claude.ts)  Tests  1 failed | 51 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > denies a gated call when no gate is wired
+CAUGHT  B3 hook: deny decision becomes allow  (src/providers/claude.ts)  Tests  5 failed | 47 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > outside MCP servers in the Claude provider > gates approve servers under bypass: card per call, readTools skip, answers allow or deny
+SURVIVED  B3 hook: blender with approve none not hooked  (src/providers/claude.ts)  Tests  52 passed (52)
+CAUGHT  B12 hook: Blender started for a refused call  (src/providers/claude.ts)  Tests  1 failed | 51 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > B12: Toki's Blender behind the outside hook > does not start Blender for a refused call or for another server
+CAUGHT  B12 hook: Blender down not refused  (src/providers/claude.ts)  Tests  1 failed | 51 passed (52)
+        first: src/providers/claudeOutsideMcp.test.ts > B12: Toki's Blender behind the outside hook > starts Blender before a blender tool runs, and refuses the call with its reason when it cannot
+CAUGHT  redactValue: strings kept  (src/providers/redact.ts)  Tests  2 failed | 50 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+SURVIVED  redactValue: arrays not walked  (src/providers/redact.ts)  Tests  52 passed (52)
+SURVIVED  redactValue: keys not redacted  (src/providers/redact.ts)  Tests  52 passed (52)
+CAUGHT  redactValue: nested values not walked  (src/providers/redact.ts)  Tests  2 failed | 50 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+CAUGHT  outsideCardInput: not redacted  (src/services/outsideMcp.ts)  Tests  2 failed | 50 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+CAUGHT  B4 codeField: execute_luau not a code tool  (src/services/outsideMcp.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+CAUGHT  B4 codeField: execute_blender_code not a code tool  (src/services/outsideMcp.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > once-only card: a 3 KB input arrives whole, as an object, with real newlines in code
+CAUGHT  B4 codeField: non-string code named  (src/services/outsideMcp.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > names no code field for other tools, or when code is not a string
+CAUGHT  B4 codeField: any tool  (src/services/outsideMcp.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > names no code field for other tools, or when code is not a string
+CAUGHT  B4 once card: input as a string again  (src/permissions/PermissionBroker.ts)  Tests  3 failed | 49 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > raises a card under bypass, showing server, tool and input
+CAUGHT  B4 once card: codeField dropped  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > once-only card: a 3 KB input arrives whole, as an object, with real newlines in code
+CAUGHT  B4 once card: too-large check dropped  (src/permissions/PermissionBroker.ts)  Tests  2 failed | 50 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > refuses an input too large to show in full, without a card, under bypass too
+CAUGHT  B4 payload: codeField not sent  (src/permissions/PermissionBroker.ts)  Tests  2 failed | 50 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > once-only card: a 3 KB input arrives whole, as an object, with real newlines in code
+CAUGHT  B4 normal card: raw input shown  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+CAUGHT  B4 normal card: codeField dropped  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+CAUGHT  B4 normal card: branch off  (src/permissions/PermissionBroker.ts)  Tests  1 failed | 51 passed (52)
+        first: src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+SURVIVED  B4 normal card: hub tools treated as outside  (src/permissions/PermissionBroker.ts)  Tests  52 passed (52)
+
+37 of 44 mutants caught

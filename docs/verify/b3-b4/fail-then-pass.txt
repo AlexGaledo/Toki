@@ -1,0 +1,47 @@
+B4 fail-then-pass, 2026-11-24, from packages/hub: python -I ../../docs/verify/b3-b4/scripts/b4_revert.py
+B4 = b4d4875. Its source hunks (PermissionBroker.ts: OUTSIDE_TOOL + normal-card branch, object input, codeField on the payload;
+outsideMcp.ts: outsideCodeField) are reversed by exact text on the current tree; its tests (outsideMcpApproval.test.ts) are kept.
+shared/models.ts only adds an optional type field, so it is left as is (no runtime effect).
+
+== B4 source reverted, B4 tests kept (expect fail): exit 1 ==
+  × raises a card under bypass, showing server, tool and input 79ms
+  × shows the whole input on the card, redacted 54ms
+  × once-only card: a 3 KB input arrives whole, as an object, with real newlines in code 47ms
+  × normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable 51ms
+  Test Files  1 failed (1)
+  Tests  4 failed | 6 passed (10)
+  FAIL  src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > raises a card under bypass, showing server, tool and input
+  AssertionError: expected { server: 'runpod', …(2) } to deeply equal { server: 'runpod', …(2) }
+  - Expected
+  + Received
+  -   "input": {
+  -     "count": 2,
+  -     "gpu": "A100",
+  -   },
+  +   "input": "{\"gpu\":\"A100\",\"count\":2}",
+  46|     expect(first(a.cards).toolInput).toEqual({ server: 'runpod', tool:…
+  47|     expect(first(a.cards).codeField).toBeUndefined();
+  FAIL  src/permissions/outsideMcpApproval.test.ts > askOutsideMcp > shows the whole input on the card, redacted
+  AssertionError: expected '{"key":"[redacted]","sql":"xxxxxxxxxx…' to deeply equal { key: '[redacted]', …(1) }
+  - Expected:
+  + Received:
+  88|     const shown = (first(a.cards).toolInput as { input: Record<string,…
+  FAIL  src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > once-only card: a 3 KB input arrives whole, as an object, with real newlines in code
+  AssertionError: expected undefined to be 'code' // Object.is equality
+  - Expected:
+  + Received:
+  116|     expect(card.codeField).toBe('code');
+  117|     const input = (card.toolInput as { input: { code: string; user_pro…
+  FAIL  src/permissions/outsideMcpApproval.test.ts > outside-tool cards show code > normal card (approve: mode under ask): redacted object input and codeField, still "Always" capable
+  AssertionError: expected { studio_id: 's1', …(1) } to deeply equal { studio_id: 's1', …(1) }
+  - Expected
+  + Received
+  - -- [redacted]",
+  + -- studio-secret-token-42",
+  132|     expect(first(a.cards).toolInput).toEqual({ studio_id: 's1', code: …
+  133|     expect(first(a.cards).codeField).toBe('code');
+
+== B4 source restored (expect pass): exit 0 ==
+  Test Files  1 passed (1)
+  Tests  10 passed (10)
+

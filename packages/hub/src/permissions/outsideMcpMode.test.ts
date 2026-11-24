@@ -175,6 +175,11 @@ describe('NEGATIVE: Blender code with bpy.ops.wm. is refused in every mode', () 
     }
     expect(outsideMcpStep(blender, 'execute_blender_code', code, { bypass: true })).toEqual({ kind: 'pass' });
     expect(outsideMcpStep(blender, 'get_scene_info', {}, { bypass: false })).toEqual({ kind: 'allow' });
+    // The text check is for Blender's code tool only: another blender tool, or another server's tool of the same name,
+    // may carry the words without being refused.
+    expect(outsideMcpStep(blender, 'get_scene_info', wm, { bypass: false })).toEqual({ kind: 'allow' });
+    expect(outsideMcpStep(blender, 'search_assets', wm, { bypass: true })).toEqual({ kind: 'pass' });
+    expect(outsideMcpStep({ name: 'my-blender', approve: 'mode', readTools: [] }, 'execute_blender_code', wm, { bypass: true })).toEqual({ kind: 'pass' });
     expect(BLENDER_WM_MESSAGE).toContain('Use toki_save(); the file is opened for you.');
   });
 });

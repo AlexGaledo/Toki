@@ -89,6 +89,19 @@ describe('askOutsideMcp', () => {
     expect(shown).toEqual({ key: '[redacted]', sql: 'x'.repeat(5000) });
   });
 
+  it('redacts a secret inside arrays, nested objects and keys', async () => {
+    clearSecrets();
+    addSecret('supabase-service-key-123');
+    const s = setup();
+    const a = answer(s.broker, 'deny');
+    const input = { args: ['--key', 'supabase-service-key-123'], headers: { 'supabase-service-key-123': 'x', auth: 'Bearer supabase-service-key-123' } };
+    await s.broker.askOutsideMcp(s.ctx, 'supabase', 'execute_sql', input, signal());
+    a.off();
+    clearSecrets();
+    expect((first(a.cards).toolInput as { input: unknown }).input)
+      .toEqual({ args: ['--key', '[redacted]'], headers: { '[redacted]': 'x', auth: 'Bearer [redacted]' } });
+  });
+
   it('refuses an input too large to show in full, without a card, under bypass too', async () => {
     const s = setup({ bypass: true });
     const a = answer(s.broker, 'allow');

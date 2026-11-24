@@ -103,6 +103,15 @@ describe('outside MCP servers in the Claude provider', () => {
     expect(asked).toEqual([]);
   });
 
+  it("NEGATIVE: a blender server with approve 'none' is still hooked, so wm code is refused", async () => {
+    const none: OutsideMcpServer[] = [{ kind: 'stdio', name: 'blender', command: 'C:\tools\mcp-for-blender.exe', args: [], env: {}, approve: 'none', readTools: [], needs: [] }];
+    const { hooks } = await runTurn(true, async () => null, { outsideMcp: none });
+    const hook = hooks.find((h) => h.matcher.startsWith('mcp__('));
+    expect(hook?.matcher).toBe('mcp__(blender)__.*');
+    expect((await firstHook(hook!)({ tool_name: 'mcp__blender__execute_blender_code', tool_input: { code: 'bpy.ops.wm.quit_blender()' } })).hookSpecificOutput)
+      .toMatchObject({ permissionDecision: 'deny', permissionDecisionReason: expect.stringContaining('toki_save()') });
+  });
+
   it('denies a gated call when no gate is wired', async () => {
     const { hooks } = await runTurn(true);
     const hook = hooks.find((h) => h.matcher.startsWith('mcp__('))!;
