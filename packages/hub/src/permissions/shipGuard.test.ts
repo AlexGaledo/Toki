@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { defaultBranchPushDenied, type GitInfo } from './shipGuard.js';
+import { defaultBranchPushDenied, type GitInfo, type PrChecks } from './shipGuard.js';
 
 const on = (branch: string | null, remoteDefault: string | null = null): GitInfo => ({ currentBranch: () => branch, defaultBranch: () => remoteDefault });
 const denied = (cmd: string, info: GitInfo = on('feature')) => defaultBranchPushDenied(cmd, '/repo', info);
@@ -47,9 +47,26 @@ describe('pushing to the default branch', () => {
 });
 
 describe('merging a pull request', () => {
-  it('is left to the owner', () => {
-    expect(denied('gh pr merge 12 --squash')).toMatch(/left to the owner/);
-    expect(denied('gh pr create --fill')).toBeNull();
+  const checks = (state: PrChecks, seen: string[][] = []): GitInfo => ({ ...on('feature'), prChecks: (_dir, args) => { seen.push([...args]); return state; } });
+
+  it('is allowed once its checks pass, asking gh about the same pull request and repo', () => {
+    const seen: string[][] = [];
+    expect(denied('gh pr merge 12 --squash --delete-branch', checks('pass', seen))).toBeNull();
+    expect(denied('gh pr merge -R me/app --merge 7', checks('pass', seen))).toBeNull();
+    expect(denied('gh pr merge --squash -b "done" ', checks('pass', seen))).toBeNull();
+    expect(seen).toEqual([['12'], ['7', '--repo', 'me/app'], []]);
+  });
+  it('is refused while checks run, after they fail, without any, or when gh cannot tell', () => {
+    expect(denied('gh pr merge 12', checks('pending'))).toMatch(/still running/);
+    expect(denied('gh pr merge 12', checks('fail'))).toMatch(/failed/);
+    expect(denied('gh pr merge 12', checks('none'))).toMatch(/no checks/);
+    expect(denied('gh pr merge 12', checks('unknown'))).toMatch(/Could not read/);
+  });
+  it('never skips branch protection with --admin', () => {
+    expect(denied('gh pr merge 12 --admin', checks('pass'))).toMatch(/--admin/);
+  });
+  it('leaves other gh pr commands alone', () => {
+    expect(denied('gh pr create --fill', checks('fail'))).toBeNull();
   });
 });
 

@@ -12,6 +12,46 @@ export interface GitInfo {
   currentBranch: (dir: string) => string | null;
   defaultBranch: (dir: string) => string | null;
   remoteUrl?: (dir: string, remote: string) => string | null;
+  /** State of a pull request's checks, from `gh pr checks <args>` run in dir. */
+  prChecks?: (dir: string, args: readonly string[]) => PrChecks;
+}
+
+export type PrChecks = 'pass' | 'pending' | 'fail' | 'none' | 'unknown';
+
+const ghPrChecks = (dir: string, args: readonly string[]): PrChecks => {
+  try {
+    execFileSync('gh', ['pr', 'checks', ...args], { cwd: dir, encoding: 'utf8', timeout: 20_000, stdio: ['ignore', 'pipe', 'pipe'] });
+    return 'pass';
+  } catch (e) {
+    const err = e as { status?: number | null; stderr?: string; stdout?: string };
+    if (err.status === 8) return 'pending';
+    if (/no checks reported/i.test((err.stderr ?? '') + (err.stdout ?? ''))) return 'none';
+    return err.status === 1 ? 'fail' : 'unknown';
+  }
+};
+
+const MERGE_SELECTOR_FLAGS = new Set(['-R', '--repo']);
+const MERGE_VALUE_FLAGS = new Set(['-b', '--body', '-F', '--body-file', '-t', '--subject', '-A', '--author-email', '--match-head-commit']);
+
+/** Bots may merge their own pull request, but only once its checks have passed, and never past branch protection. */
+function mergeDenied(args: readonly string[], dir: string, info: GitInfo): string | null {
+  if (args.some((a) => a === '--admin')) return 'Merging with --admin skips branch protection, so it is left to the owner.';
+  let pr: string | null = null;
+  const repo: string[] = [];
+  const rest = args[Symbol.iterator]();
+  for (const arg of rest) {
+    if (MERGE_SELECTOR_FLAGS.has(arg)) repo.push('--repo', rest.next().value ?? '');
+    else if (arg.startsWith('--repo=')) repo.push(arg);
+    else if (!arg.startsWith('-') && pr === null) pr = arg;
+    else if (MERGE_VALUE_FLAGS.has(arg)) rest.next();
+  }
+  switch ((info.prChecks ?? ghPrChecks)(dir, [...(pr ? [pr] : []), ...repo])) {
+    case 'pass': return null;
+    case 'pending': return 'The checks on this pull request are still running. Wait with gh pr checks --watch, then merge.';
+    case 'fail': return 'The checks on this pull request failed. Fix them, push, and merge once they pass.';
+    case 'none': return 'This pull request has no checks, so nothing proves it works. Add a CI check, or ask the owner to merge it.';
+    default: return 'Could not read the checks on this pull request (gh pr checks failed). Merge only once they pass.';
+  }
 }
 
 const git = (dir: string, ...args: string[]): string | null => {
@@ -28,7 +68,7 @@ const realGit: GitInfo = {
 };
 
 const clean = (t: string) => t.replace(/^['"(]+|['")]+$/g, '');
-const REFUSED = 'Pushing to the default branch is blocked for this bot. Push a branch and open a pull request for the owner to review.';
+const REFUSED = 'Pushing to the default branch is blocked for this bot. Push a branch, open a pull request, and merge it once its checks pass.';
 
 export function defaultBranchPushDenied(command: string, cwd: string, info: GitInfo = realGit, extraProtected?: (remote: string) => readonly string[]): string | null {
   let dir = cwd;
@@ -38,7 +78,11 @@ export function defaultBranchPushDenied(command: string, cwd: string, info: GitI
     if (!tokens.length) continue;
 
     if (tokens[0] === 'cd' && tokens[1]) { dir = path.resolve(dir, tokens[1]); continue; }
-    if (tokens[0] === 'gh' && tokens[1] === 'pr' && tokens[2] === 'merge') return 'Merging a pull request is left to the owner. Open it and say it is ready.';
+    if (tokens[0] === 'gh' && tokens[1] === 'pr' && tokens[2] === 'merge') {
+      const why = mergeDenied(tokens.slice(3), dir, info);
+      if (why) return why;
+      continue;
+    }
     if (WRAPPERS.has(tokens[0]) && /\bgit\b.*\bpush\b/.test(segment)) return 'Run git push as a plain command, not inside ' + tokens[0] + ', so it can be checked.';
     if (tokens[0] !== 'git') continue;
 

@@ -1,5 +1,5 @@
 export const DEV_TEAM_TEMPLATE = {
-  version: 4,
+  version: 5,
   roles: [
     { source: 'lead-engineer', suffix: 'lead', coordinator: true },
     { source: 'software-engineer', suffix: 'engineer', coordinator: false },
@@ -8,7 +8,7 @@ export const DEV_TEAM_TEMPLATE = {
   skills: ['safe-shipping', 'project-map', 'prove-it'],
   rules: [
     "Never revert, discard, stash away or overwrite changes you did not make, even to tidy up. If someone else's work is in the way, say so and leave it.",
-    'Never commit to or push the default branch. Work on a branch and open a pull request for the owner to review.',
+    'Never commit to or push the default branch. Work on a branch, open a pull request, and merge it yourself once its checks pass; the hub refuses a merge before that.',
     'Back up before changing anything live, and ask before anything destructive or hard to undo.',
     'Say what you verified and what you did not. "It should work" is not a result.',
     'Call each part of the product by the name in features/. When you add or change something a user can see or do, update its feature file in the same piece of work.',
