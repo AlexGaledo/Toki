@@ -1,0 +1,41 @@
+◇ injected env (0) from .env
+00:22:24 data dir: C:\Users\alex\AppData\Local\Temp\toki-s2me-data-28040; web dist: C:\Users\alex\Desktop\claude-grokbot-spec-gamedev\packages\web\dist
+created default bots: @pocketrocket-support, @data-engineer
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data C:\Users\alex\AppData\Local\Temp\toki-s2me-data-28040 · http://127.0.0.1:43531
+[pocketrocket] workspace: C:\Users\alex\AppData\Local\Temp\toki-s2me-data-28040\workspace  (token required)
+[pocketrocket] open: http://127.0.0.1:43531/  (sign in with the token from C:\Users\alex\AppData\Local\Temp\toki-s2me-data-28040\hub-token)
+00:22:25 throwaway hub on 127.0.0.1:43531
+00:22:25 PUT /api/settings -> 200 approvals=ask
+00:22:30 GET /api/game-tools studio={"ok":true,"reason":"ready","mcpBat":true,"studioMcp":true,"setting":"on","running":true,"verified":false,"fix":null}
+00:22:33 POST /api/projects -> 200 setup={"git":"created","studio":"added"}
+00:22:33 builder: @studio-edit-builder; project slug: studio-edit
+(node:21868) [CLAUDE_SDK_CAN_USE_TOOL_SHADOWED] Warning: canUseTool will not be invoked for: WebSearch, WebFetch, mcp__pocketrocket__*. Bare allowedTools entries auto-approve the whole tool before the callback is consulted. To gate every tool call, use a PreToolUse hook; or remove the bare names from allowedTools so they fall through to canUseTool. Allow rules from settings files can also shadow the callback but are not visible here.
+(Use `node --trace-warnings ...` to show where the warning was created)
+00:22:34 POST message -> 200
+00:22:46 CARD 1 mcp__roblox-studio__multi_edit codeField=edits inputKeys=["file_path","className","datamodel_type","studio_id","edits"]
+00:22:46   toolInput: {"file_path":"game.ServerScriptService.TokiEdit","className":"Script","datamodel_type":"Edit","studio_id":"0c614c2c-5284-40bf-8476-4e370358f12b","edits":[{"old_string":"","new_string":"print(\"toki one\")"}]}
+00:22:46 free RAM before Chromium: 1067 MB
+00:22:46   browser capture failed: browserType.launch: Executable doesn't exist at C:\Users\alex\AppData\Local\ms-playwright\chromium_headless_shell-1243\chrome-headless-shell-win64\chrome-headless-shell.exe ╔════════════════════════════════════════════════════════════╗ ║ Looks like Playwright was just installed or updated. ║ ║ Please run the following command to download new browsers: ║ ║ ║ ║ npx playwright install ║ ║ ║ ║ <3 Play
+00:22:46   -> approval.decide "allow" for card 1
+00:22:47 CARD 2 mcp__roblox-studio__multi_edit codeField=edits inputKeys=["file_path","datamodel_type","studio_id","edits"]
+00:22:47   toolInput: {"file_path":"game.ServerScriptService.TokiEdit","datamodel_type":"Edit","studio_id":"0c614c2c-5284-40bf-8476-4e370358f12b","edits":[{"old_string":"print(\"toki one\")","new_string":"print(\"toki two\")"}]}
+00:22:47 free RAM before Chromium: 1048 MB
+00:22:47   browser capture failed: browserType.launch: Executable doesn't exist at C:\Users\alex\AppData\Local\ms-playwright\chromium_headless_shell-1243\chrome-headless-shell-win64\chrome-headless-shell.exe ╔════════════════════════════════════════════════════════════╗ ║ Looks like Playwright was just installed or updated. ║ ║ Please run the following command to download new browsers: ║ ║ ║ ║ npx playwright install ║ ║ ║ ║ <3 Play
+00:22:47   -> approval.decide "allow" for card 2
+00:22:54 turn finished after 20 s
+00:22:54 tool calls, in order:
+  mcp__roblox-studio__list_roblox_studios
+    input: {}
+    output: {"studios":[{"file":"TokiS2ME.rbxl","id":"0c614c2c-5284-40bf-8476-4e370358f12b","mode":"Edit","name":"TokiS2ME.rbxl","persistedToCloud":false,"state":"- Current Studio Mode: Edit\n- Available DataModels: Edit\n- Focused DataModel in the viewport: Edit"}]}
+  mcp__roblox-studio__multi_edit
+    input: {"file_path":"game.ServerScriptService.TokiEdit","className":"Script","datamodel_type":"Edit","studio_id":"0c614c2c-5284-40bf-8476-4e370358f12b","edits":[{"old_string":"","new_string":"print(\"toki one\")"}]}
+    output: Created TokiEdit (Script) with 1 edits applied
+  mcp__roblox-studio__multi_edit
+    input: {"file_path":"game.ServerScriptService.TokiEdit","datamodel_type":"Edit","studio_id":"0c614c2c-5284-40bf-8476-4e370358f12b","edits":[{"old_string":"print(\"toki one\")","new_string":"print(\"toki two\")"}]}
+    output: Modified TokiEdit (Script) with 1 edits applied
+  mcp__roblox-studio__script_read
+    input: {"target_file":"game.ServerScriptService.TokiEdit","studio_id":"0c614c2c-5284-40bf-8476-4e370358f12b"}
+    output:  1→print("toki two")
+00:22:54 cards raised: 2 -> mcp__roblox-studio__multi_edit=allow, mcp__roblox-studio__multi_edit=allow
+00:22:54 approvals rows: [{"tool_name":"mcp__roblox-studio__multi_edit","status":"allow"},{"tool_name":"mcp__roblox-studio__multi_edit","status":"allow"}]
+00:22:54 builder said: Script created, modified, and verified: `print("toki two")` at game.ServerScriptService.TokiEdit.

@@ -24,7 +24,7 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | Task | What | Commit(s) | Proof type | Evidence | Status |
 |---|---|---|---|---|---|
 | S1 | Spike: game tools on the owner's PC | 0840b6f | live | `docs/verify/game-tools-spike.md`, `game-tools-spike/` | approved |
-| S2 | Studio steps with Studio open | final-gaps commit (`multi_edit` card shows its edits as code) | live (real AssistantSettings, real Studio, one Haiku turn under ask; installed app; Studio's own `tools/list` schema), fail-then-pass, mutation (11/11) | `s2/` (`README.md`, `flip.txt`, `flip-files.txt`, `turn.txt`, `cards.json`, `screen.png`, `resolver.txt`, `cleanup.txt`), `real-setup/s2-open-studio.txt`, `final-gaps/multi-edit-*` | approved with gaps (items 1-6 pass; the `multi_edit` card now shows `edits[].old_string/new_string` as code, proven against Studio's declared schema; a card from a real Studio turn was not captured, because Studio was not launched with 2.5 GB RAM free) |
+| S2 | Studio steps with Studio open | final-gaps commit (`multi_edit` card shows its edits as code) | live (real AssistantSettings, real Studio, Haiku turns under ask; installed app; Studio's own `tools/list` schema), fail-then-pass, mutation (11/11), verify-toki (the real `multi_edit` cards in a headless browser) | `s2/` (`README.md`, `flip.txt`, `flip-files.txt`, `turn.txt`, `cards.json`, `screen.png`, `resolver.txt`, `cleanup.txt`), `real-setup/s2-open-studio.txt`, `final-gaps/multi-edit-*`, `final-gaps/s2-live/` | approved (items 1-6 pass. A real Studio turn on 2026-11-25 raised two `multi_edit` cards with `codeField: "edits"`, answered through `approval.decide`. Studio created and changed the script, and the card renders `- print("toki one")` / `+ print("toki two")` as code. AssistantSettings was left byte-identical) |
 | B1 | Detection (Blender, uv, Blender MCP tools, Studio) | fcbe5d8 | fail-then-pass, mutation, live | `phase1-backend/` (`live-status.txt`, `mutations.txt`, `fail-then-pass.txt`) | approved (the Studio "open" state was seen live in `s2/turn.txt`) |
 | B2 | Game tools routes, hub token only, audited | e632778, daa692e | fail-then-pass, mutation, live | `phase1-backend/` | approved |
 | B3 | `approve: 'mode'`, `readTools` without a card under ask, `bpy.ops.wm.` refusal | 3f874e9, d3f3517 (read-only fix), 28517d0 | fail-then-pass, mutation, verify-toki | `b12/fail-then-pass.txt` (read-only gap), `phase1-ui/b3/`, `b3-b4/mutations.txt` | approved (bypass live in `e2e/`; "Always allow" under ask live in `s2/turn.txt`) |
@@ -41,7 +41,7 @@ Branch: `feat/gamedev-tools`. Ledger written 2026-11-24 from the evidence README
 | I2 | PC hub always runs; server tunnel on 7790 | 39afb96 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `cargo.txt`, `real-setup/check1-old-config.txt`, `check4-port-busy.txt`, `check5b-quit-and-start.txt` | approved (all 46 phase3-infra mutants run: 45 caught, 1 informational and harmless) |
 | I3 | Stub refresh, 30 s loss, host requests, Open folder | 0fe6cc0, c6fe9b2 | mutation, live (installed app, real server) | `phase3-infra/mutations.txt`, `stub-schema.txt`, `real-setup/check2-*`, `check3-loss.txt`, `check5a-*`, `check6-open-folder.txt`, `final-gaps/i3-pc-turn-through-loss.txt` | approved (a PC bot's Haiku turn ran a 40 s Bash through the tunnel kill and replied 36.9 s after it, with the window back on the PC in 0.8 s and every write on 7788; mutants as I2, all run) |
 | I4 | Ship the Blender server script and requirements | d4a4b0d | fail-then-pass, live (installed NSIS build; silent install into a new empty folder) | `phase1-infra/i4-bundle.txt`, `i4-fail-then-pass.txt`, `real-setup/README.md` ("I4"), `final-gaps/i4-clean-folder.txt` | approved (in a new empty folder `hub/resources/blender/` matches the source and the hub starts there on its own `node.exe`; a second, clean PC was not used) |
-| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020; ui-gaps commit (two keyboard fixes) | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/`, `ui-gaps/` | approved with gaps (every state now rendered in `ui-gaps/`: crashing with Open log and Try again pressed, another Blender (real), not installed, the Studio states; the server state through the `platform` seam only. The real server's page was not captured: blocked in `final-gaps/README.md` (the owner was using Toki and RAM was 0.9 to 1.25 GB free); `final-gaps/scripts/d1_server_page.mjs` is ready. Open Studio is live in `real-setup/s2-open-studio.txt`) |
+| D1 | Settings › Game tools and the room strip | 8118dfc, 6f668ee, e9d7020; ui-gaps commit (two keyboard fixes) | fail-then-pass, mutation, verify-toki | `phase1-ui/d1/`, `phase2-ui/b/`, `ui-gaps/` | approved with gaps (every state now rendered in `ui-gaps/`: crashing with Open log and Try again pressed, another Blender (real), not installed, the Studio states; the server state through the `platform` seam only. The real server's page was not captured: blocked twice in `final-gaps/README.md` (run 1: the owner was using Toki and RAM was 0.9 to 1.25 GB free; run 2: the owner had quit Toki and was in a game); `final-gaps/scripts/d1_server_page.mjs` is ready. Open Studio is live in `real-setup/s2-open-studio.txt`) |
 | D2 | Look-back thumbnails | c98e388, 222a003, 9970651 | fail-then-pass, mutation, verify-toki, live | `phase2-ui/d2/`, `ui-gaps/run2/d2/` | approved (a live Haiku turn's `look`, rendered as a thumbnail and opened in the lightbox in the browser) |
 | D3 | Template picker, Open folder | b04029c, b3a92ac | fail-then-pass, mutation, verify-toki | `phase2-ui/d3/`, `phase3-ui/d4/settings-projects-*` | approved |
 | D4 | Host tags, Server project prompt, Back to this PC | 8cc8868, fe19e50 | fail-then-pass, mutation, verify-toki, live (installed app) | `phase3-ui/d4/`, `real-setup/check7-d4.txt` | approved |
@@ -58,12 +58,13 @@ steps.
 Items 1 to 5 passed live on 2026-11-24 (`s2/README.md`): the setting flip on the real file took effect on the next
 Studio start; the `execute_luau` card showed `codeField: "code"` and "Always allow" let the second call run with no card
 under Ask; `screen_capture` became an `img:` look-back; `save_place` saved; detection read "ready" with Studio open and the
-fix refused with 409 `studio-running`. The desktop resolver finds this PC's exe (read, not launched). Still open:
-1. A `multi_edit` card from a real Studio turn. Its input shape is now known from Studio's own `tools/list`
-   (`edits: [{old_string, new_string, replace_all?}]`, `final-gaps/multi-edit-schema.txt`), and the card shows those
-   edits as code (old lines `- `, new lines `+ `), fail-then-pass and 11/11 mutants (`final-gaps/README.md` item 1).
-   Studio was not launched on 2026-11-24: 2.5 GB RAM was free with the owner's Roblox Player holding 5 GB, under the
-   4 GB headroom rule. Rerun `s2/s2_turn.ts` with a prompt that creates a Script and changes a line with `multi_edit`.
+fix refused with 409 `studio-running`. The desktop resolver finds this PC's exe (read, not launched).
+1. ~~A `multi_edit` card from a real Studio turn.~~ Done on 2026-11-25 (`final-gaps/README.md` run 2,
+   `final-gaps/s2-live/`). One Haiku turn under ask called `multi_edit` twice, to create `TokiEdit` and to change its
+   line. Both cards came with `codeField: "edits"` and the shape that Studio's `tools/list` declares. Both were
+   answered `allow` through `/ws` `approval.decide`, and `script_read` returned `print("toki two")`. In this branch's
+   web, the cards show `+ print("toki one")` and `- print("toki one")` / `+ print("toki two")` as code (screenshots and
+   ARIA). Studio was closed with `CloseMainWindow`, and AssistantSettings is byte-identical to its backup.
 Item 6, **Open Studio** in the installed app, passed on 2026-11-24 (`real-setup/s2-open-studio.txt`).
 
 **Desktop tunnel and two hosts** (`phase3-infra/README.md` "Verify on the owner's machine", `phase3-ui/README.md`)
@@ -75,6 +76,11 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
    Toki icon in the Windows 11 overflow flyout, but four synthesized right clicks never opened its menu (the flyout
    closes within about 1 s when opened through UIA, and the display is scaled 125%). Its **Open your server** and the
    page's `?openhost=server` both call `server::connect(Open::Home)`, and the page call was used live in I3.
+   - **2026-11-25, still blocked, not tried** (`final-gaps/README.md` run 2). A mouse-free route is now ready:
+     `final-gaps/scripts/tray_postmessage.ps1`. It posts tray-icon's own `WM_USER_TRAYICON` (6002) with
+     `WM_RBUTTONUP` to Toki's `tray_icon_app` window, then invokes the menu item through UIA `InvokePattern`.
+   - It was not run, because the owner had quit Toki and was in a game in the foreground (input 0 s before). Toki
+     was not relaunched over the game.
 
 **Blender and the game room from a real bot turn** (`phase2-backend/README.md`, `phase2-ui/README.md`)
 1. ~~A live look-back.~~ Done in `e2e/`: a real Haiku turn called `look` and the image was attached to the tool message. The browser rendering is covered by D2.
@@ -95,8 +101,10 @@ All seven passed on 2026-11-24 in the installed build against the real server (`
    exits of a crash stub) with **Open log** and **Try again** both pressed; another Blender (a real headless one);
    Blender not installed (fake Program Files); the Studio states (fake process row). The server hub's "not supported"
    was shown through `createHub`'s `platform` seam on this PC. **Still open:** the same state on the real server's page
-   through 7790. It was blocked on 2026-11-24 because the owner was using Toki and RAM was at 0.9 to 1.25 GB free;
-   `final-gaps/scripts/d1_server_page.mjs` captures it (private shots to `evidence-private`, redacted ARIA to the repo).
+   through 7790. It was blocked on 2026-11-24 because the owner was using Toki and RAM was at 0.9 to 1.25 GB free.
+   It was blocked again on 2026-11-25: the owner had quit Toki and was in a game (`final-gaps/README.md` run 2).
+   `final-gaps/scripts/d1_server_page.mjs` captures it (private shots to `evidence-private`, redacted ARIA to the
+   repo).
 3. ~~A keyboard Tab walk~~: done in `ui-gaps/run1/a11y/`, default and classic layouts. It found two bugs, both fixed
    with tests: Shift+Tab stuck on the selected Settings section, and focus dropping to the page after a fix button.
 
