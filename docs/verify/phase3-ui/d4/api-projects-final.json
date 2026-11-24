@@ -1,0 +1,65 @@
+GET /api/projects -> 200
+[
+  {
+    "slug": "arena",
+    "name": "Arena",
+    "dir": "C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\run\\data\\projects\\arena",
+    "memberIds": [
+      "3ATmOKcvrH",
+      "cx5agwUffC",
+      "fVqAWvmsU8"
+    ],
+    "roomId": "I498XpVWSX",
+    "templateVersion": 5,
+    "kind": null,
+    "createdAt": 1795519901798,
+    "host": "pc"
+  },
+  {
+    "slug": "obby-run",
+    "name": "Obby Run",
+    "dir": "C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\run\\data\\projects\\obby-run",
+    "memberIds": [
+      "xEzckxq288"
+    ],
+    "roomId": null,
+    "templateVersion": null,
+    "kind": null,
+    "createdAt": 1795519643911,
+    "host": "pc"
+  },
+  {
+    "slug": "wika",
+    "name": "Wika",
+    "dir": "C:\\Users\\alex\\AppData\\Local\\Temp\\toki-verify-p3ui\\run\\data\\projects\\wika",
+    "memberIds": [
+      "xEzckxq288"
+    ],
+    "roomId": null,
+    "templateVersion": null,
+    "kind": null,
+    "createdAt": 1795519643632,
+    "host": "pc"
+  },
+  {
+    "host": "server",
+    "slug": "crm-sync",
+    "name": "CRM sync",
+    "seenAt": 1795519958504,
+    "connected": true
+  },
+  {
+    "host": "server",
+    "slug": "obby-run",
+    "name": "Obby Run",
+    "seenAt": 1795519958504,
+    "connected": true
+  },
+  {
+    "host": "server",
+    "slug": "tower-climb",
+    "name": "Tower Climb",
+    "seenAt": 1795519958504,
+    "connected": true
+  }
+]

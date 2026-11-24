@@ -1,0 +1,154 @@
+# url=http://127.0.0.1:47006/?desktop=1&caps=localcopy,openfolder,hosts,server title="Toki"
+- complementary:
+  - button "Hide bots"
+  - button "Search every chat"
+  - button "New"
+  - button "Needs you"
+  - button "Tasks"
+  - button "PC sessions"
+  - region "Projects":
+    - heading "Projects" [level=2]
+    - list:
+      - listitem:
+        - button "Arena bots" [expanded]
+        - button "Arena This PC"
+        - list:
+          - listitem:
+            - button "Arena"
+          - listitem:
+            - button "Quality Engineer · Idle Quality Engineer @arena-quality":
+              - img "Quality Engineer · Idle"
+              - text: Quality Engineer @arena-quality
+          - listitem:
+            - button "Lead Engineer · Idle Lead Engineer @arena-lead":
+              - img "Lead Engineer · Idle"
+              - text: Lead Engineer @arena-lead
+          - listitem:
+            - button "Software Engineer · Idle Software Engineer @arena-engineer":
+              - img "Software Engineer · Idle"
+              - text: Software Engineer @arena-engineer
+      - listitem:
+        - button "Obby Run bots"
+        - button "Obby Run This PC"
+      - listitem:
+        - button "Wika bots"
+        - button "Wika This PC"
+      - listitem:
+        - button "CRM sync Server (offline)"
+      - listitem:
+        - button "Obby Run Server (offline)"
+      - listitem:
+        - button "Tower Climb Server (offline)"
+  - button "Bots bots" [expanded]
+  - text: Bots
+  - region "Podium":
+    - list:
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+      - listitem:
+        - button "Add bot"
+    - button "Edit podium"
+  - list:
+    - listitem:
+      - button "Toki Support · Idle Toki Support @pocketrocket-support":
+        - img "Toki Support · Idle"
+        - text: Toki Support @pocketrocket-support
+    - listitem:
+      - button "Data Engineer · Idle Data Engineer @data-engineer":
+        - img "Data Engineer · Idle"
+        - text: Data Engineer @data-engineer
+    - listitem:
+      - button "Lead Engineer · Idle Lead Engineer @lead-engineer":
+        - img "Lead Engineer · Idle"
+        - text: Lead Engineer @lead-engineer
+    - listitem:
+      - button "Software Engineer · Idle Software Engineer @software-engineer":
+        - img "Software Engineer · Idle"
+        - text: Software Engineer @software-engineer
+    - listitem:
+      - button "Quality Engineer · Idle Quality Engineer @quality-engineer":
+        - img "Quality Engineer · Idle"
+        - text: Quality Engineer @quality-engineer
+  - button "Menu for Verifier. Online": Verifier Online
+  - button "Pair a phone"
+- separator "Resize sidebar"
+- main:
+  - heading "Arena" [level=1]
+  - text: No plan yet
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Map"
+    - tab "Tasks"
+  - button "Arena"
+  - button "Open Quality Engineer's page":
+    - img "Quality Engineer · Idle"
+  - button "Open Lead Engineer's page":
+    - img "Lead Engineer · Idle"
+  - button "Open Software Engineer's page":
+    - img "Software Engineer · Idle"
+  - text: coordinator @arena-lead
+  - button "Group details"
+  - button "Files"
+  - button "Screen"
+  - tabpanel "Chat":
+    - text: Nothing here yet
+    - paragraph: Say hi whenever you're ready.
+    - 'textbox "Message #Arena"':
+      - /placeholder: Message @bot or the room…
+    - button "Attach files"
+    - 'button "Permission level for all bots: Approval"': Approval
+    - status
+    - 'button "Model for this chat: Auto"': Auto
+    - button "Send" [disabled]
+  - button "Back to chat"
+  - heading "Usage" [level=1]
+  - paragraph: All bots and chats
+  - region "Plan limits":
+    - heading "Plan limits" [level=2]
+    - paragraph: Nothing near a limit right now. A window shows here once Claude says it is filling up.
+  - paragraph: Your PC and your server both spend from the same Claude subscription, so its usage limits cover the bots on both.
+  - text: Estimated usage, all time ≈$0.00 API-price estimate. Subscription plans aren't charged this. 0 replies By bot
+  - list:
+    - listitem: Toki Support 0 replies $0.00
+    - listitem: Data Engineer 0 replies $0.00
+    - listitem: Lead Engineer 0 replies $0.00
+    - listitem: Software Engineer 0 replies $0.00
+    - listitem: Quality Engineer 0 replies $0.00
+    - listitem: Lead Engineer 0 replies $0.00
+    - listitem: Software Engineer 0 replies $0.00
+    - listitem: Quality Engineer 0 replies $0.00
+  - text: By chat
+  - list:
+    - listitem: Toki Support $0.00
+    - listitem: Data Engineer $0.00
+    - listitem: "# Arena $0.00"
+- separator "Resize overview"
+- complementary "Arena overview":
+  - heading "Needs you" [level=2]
+  - button "Fold overview to icons"
+  - region "Needs you":
+    - paragraph: All caught up.
+  - region "Bots":
+    - heading "Bots" [level=2]
+    - text: "3"
+    - list:
+      - listitem:
+        - button "Quality Engineer · Idle Quality Engineer Arena":
+          - img "Quality Engineer · Idle"
+          - text: Quality Engineer Arena
+      - listitem:
+        - button "Lead Engineer · Idle Lead Engineer Arena":
+          - img "Lead Engineer · Idle"
+          - text: Lead Engineer Arena
+      - listitem:
+        - button "Software Engineer · Idle Software Engineer Arena":
+          - img "Software Engineer · Idle"
+          - text: Software Engineer Arena
+  - region "More about this project":
+    - group "More":
+      - button "Next"
+      - button "Rooms"
+      - button "Done"
+- status
