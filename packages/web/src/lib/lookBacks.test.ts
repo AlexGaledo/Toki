@@ -30,7 +30,8 @@ describe('lookBacksOf', () => {
   });
 
   it('ignores pictures on text messages: those are the attachments the chat already shows', () => {
-    const text: Message = { ...tool('m1', 'x', [IMG]), kind: 'text', payload: null };
+    // A bot's text can carry a payload too (a hand-off result), so the kind decides, not the payload.
+    const text: Message = { ...tool('m1', 'x', [IMG]), kind: 'text', payload: { workRoomId: 'r2' } as Message['payload'] };
     expect(lookBacksOf([text])).toEqual([]);
   });
 });
