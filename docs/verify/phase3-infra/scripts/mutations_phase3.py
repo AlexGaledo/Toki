@@ -4,8 +4,10 @@ Each mutant puts back the behaviour from before the change ("without"), or break
 named tests must FAIL on it. At the end every new test must have failed on at least one mutant: that is the proof that
 each test fails without its change. The unmutated tree must pass first.
 
-From packages/desktop/src-tauri:  python -I ../../../docs/verify/phase3-infra/scripts/mutations_phase3.py [first [last] | --only 5,21,26]
+From packages/desktop/src-tauri:  python -I ../../../docs/verify/phase3-infra/scripts/mutations_phase3.py [first [last] | --only 5,21,26] [--targeted]
 Restores every file after each mutant, also on failure or Ctrl+C. One cargo build at a time, -j 2 (low RAM PC).
+--targeted runs only each mutant's named tests (`--exact`), or its module for an informational mutant; the target dir
+is reused, so each mutant is one incremental build. After each mutant `git diff --stat -- <mutated file>` must be empty, or the run stops.
 """
 import pathlib, re, subprocess, sys, time
 
@@ -213,8 +215,16 @@ MUTANTS = [
 NEW_TESTS = sorted({t for m in MUTANTS for t in m[5]})
 
 
-def run_tests():
-    r = subprocess.run(["cargo", "test", "-j", "2", "--lib"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+TARGETED = "--targeted" in sys.argv
+if TARGETED:
+    sys.argv.remove("--targeted")
+
+
+def run_tests(filters=()):
+    # Full test names run with --exact; a module prefix (ending in "::") runs as a substring filter.
+    exact = ["--exact"] if filters and not filters[0].endswith("::") else []
+    extra = ["--", *exact, *filters] if filters else []
+    r = subprocess.run(["cargo", "test", "-j", "2", "--lib", *extra], capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = r.stdout + r.stderr
     failed = set(re.findall(r"^test (\S+) \.\.\. FAILED", out, re.M))
     summary = (re.findall(r"^test result: .*$", out, re.M) or ["(no test result: build failed)"])[0]
@@ -247,9 +257,15 @@ def main() -> int:
         assert text.count(old) == 1, f"{i} {what}: anchor found {text.count(old)} times"
         try:
             p.write_bytes(text.replace(old, new).encode("utf-8"))
-            code, failed, summary, errors = run_tests()
+            module = {H: "hosts::tests::", S: "server::tests::", F: "folder::tests::", L: "tests::"}[rel]
+            code, failed, summary, errors = run_tests((tuple(expect) or (module,)) if TARGETED else ())
         finally:
             p.write_bytes(src)
+        # Scoped to the mutated file: another agent may be editing other files in this worktree at the same time.
+        dirty = subprocess.run(["git", "diff", "--stat", "--", rel], capture_output=True, text=True).stdout.strip()
+        if dirty:
+            print(f"## tree not clean after mutant {i}: {dirty}")
+            return 1
         missing = [t for t in expect if t not in failed]
         compiled = not (code != 0 and not failed)
         verdict = "CAUGHT" if (failed and not missing) else ("INFO" if not expect else "NOT CAUGHT")
