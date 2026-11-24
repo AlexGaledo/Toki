@@ -1,4 +1,4 @@
-import type { BotPreview } from '@pocketrocket/shared';
+import type { BotPreview, ProjectStub } from '@pocketrocket/shared';
 import { create } from 'zustand';
 import type { Bot, BotState, Message, Room, ServerEvent, UsageTotals, Settings, SettingsPatch, ProvidersResponse, ProviderLimitState, AccountState, SendMode, FailoverState } from '@pocketrocket/shared';
 import { DEFAULT_SETTINGS, MODELS, SIGNED_OUT } from '@pocketrocket/shared';
@@ -13,7 +13,8 @@ import { wsSend } from './lib/ws';
 import { play, setSoundsEnabled } from './lib/sounds';
 import { notifyEvent } from './lib/notifyEvents';
 import { applyFont, applyTheme, watchSystemTheme } from './lib/theme';
-import { isDesktopMode, isDevice } from './lib/auth';
+import { desktopCan, isDesktopMode, isDevice } from './lib/auth';
+import { desktopCall, openStubAction, splitProjects, projectDeepLink, promptStep, withoutProjectParam, type ServerPrompt } from './lib/hosts';
 import { getItem, setItem } from './lib/persist';
 import { newClientId, readJournal, writeJournal, type OutboxEntry } from './lib/outbox';
 import { applyLaneQueue, replaceRoomQueues, type Queues } from './lib/queue';
@@ -188,8 +189,17 @@ interface State {
   queueSendNow: (roomId: string, botId: string) => Promise<string | null>;
   queuePause: (roomId: string, botId: string, paused: boolean) => Promise<string | null>;
   inboxSkills: Skill[] | null;
+  /** This hub's own projects. Never a stub: every `/api/projects/:slug/*` caller reads this list. */
   projects: ProjectInfo[];
+  /** The other host's projects, names only (D4). Opened through the desktop app, never through a slug route. */
+  stubs: ProjectStub[];
   loadProjects: () => Promise<void>;
+  /** `project=<slug>` from the URL (I3 opens the server page with it), until the first project list resolves it. */
+  pendingProject: string | null;
+  serverPrompt: ServerPrompt;
+  openStub: (stub: ProjectStub) => void;
+  promptConnect: () => void;
+  closePrompt: () => void;
   loadOverview: (slug: string) => Promise<void>;
   loadMap: (slug: string) => Promise<void>;
   askForMap: (slug: string, botId: string, text: string) => void;
@@ -336,10 +346,38 @@ export const useStore = create<State>((set, get) => ({
   }),
   inboxSkills: null,
   projects: [],
+  stubs: [],
   loadProjects: async () => {
-    if (get().device) return set({ projects: [] });
-    set({ projects: await fetchProjects(api.projects.list) });
+    if (get().device) return set({ projects: [], stubs: [] });
+    const { local, stubs } = await fetchProjects(api.projects.list);
+    set({ projects: local, stubs });
+    const slug = get().pendingProject;
+    if (slug) {
+      set({ pendingProject: null });
+      try { history.replaceState(null, '', location.pathname + withoutProjectParam(location.search)); } catch { /* no history: nothing to strip */ }
+      const project = local.find((p) => p.slug === slug);
+      if (project?.roomId) {
+        get().openDialog(null);
+        get().closePage();
+        get().setActiveRoom(project.roomId);
+      } else get().toast(project ? project.name + ' has no group chat yet.' : "That project isn't on this hub.", true);
+    }
   },
+  pendingProject: typeof location === 'undefined' ? null : projectDeepLink(location.search),
+  serverPrompt: null,
+  openStub: (stub) => {
+    const act = openStubAction(stub, desktopCan, location.origin);
+    if (act.kind === 'call') window.open(act.url, '_blank');
+    else set({ serverPrompt: promptStep(get().serverPrompt, { type: 'open', stub, phase: act.phase }) });
+  },
+  promptConnect: () => {
+    const cur = get().serverPrompt;
+    const next = promptStep(cur, { type: 'connect' });
+    if (!cur || next === cur || !desktopCan('hosts')) return;
+    set({ serverPrompt: next });
+    window.open(desktopCall.openServerProject(location.origin, cur.stub.slug), '_blank');
+  },
+  closePrompt: () => set({ serverPrompt: null }),
   loadOverview: async (slug) => {
     try {
       const o = await api.projects.overview(slug);
@@ -392,8 +430,13 @@ export const useStore = create<State>((set, get) => ({
     const s = get();
     const loose = ev as unknown as { type: string; projects?: unknown };
     if (loose.type === 'projects.changed') {
-      if (Array.isArray(loose.projects) && !s.device) set({ projects: loose.projects as ProjectInfo[] });
+      if (Array.isArray(loose.projects) && !s.device) { const { local, stubs } = splitProjects(loose.projects); set({ projects: local, stubs }); }
       else void get().loadProjects();
+      return;
+    }
+    if (loose.type === 'hosts.changed') {
+      // Stubs or the server's `connected` flag changed. A working Connect prompt ends here when the host reads offline.
+      void get().loadProjects().then(() => set({ serverPrompt: promptStep(get().serverPrompt, { type: 'hosts', stubs: get().stubs }) }));
       return;
     }
     switch (ev.type) {

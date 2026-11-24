@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, FolderGit2, Map as MapIcon, Plus, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Check, FolderGit2, Map as MapIcon, Plus, Server, TriangleAlert } from 'lucide-react';
+import type { ProjectStub } from '@pocketrocket/shared';
 import { useNewLayout } from '../../lib/newLayout';
 import { useStore } from '../../store';
 import { api, type ProjectInfo, type ProjectLint } from '../../lib/api';
 import { TEMPLATE_CHOICES, createInput, setupLines, templateBlocked, type SetupLine, type TemplateChoice } from '../../lib/projectTemplates';
 import { useGameTools } from '../../lib/useGameTools';
+import { desktopHost } from '../../lib/auth';
+import { hostTag, projectKey, showHostTags, splitProjects } from '../../lib/hosts';
 import { Badge, Button, EmptyState, Input, Label, RadioCard, Switch, cn } from '../ui';
 import { Card, Group, InlineError, SectionHeader, shortPath } from './parts';
 import { ReposEditor } from './ReposEditor';
@@ -12,6 +15,9 @@ import { ReposEditor } from './ReposEditor';
 export function ProjectsSection() {
   const toast = useStore((s) => s.toast);
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null);
+  const stubs = useStore((s) => s.stubs);
+  const pageHost = desktopHost();
+  const tagOf = (p: { slug: string; host?: 'pc' | 'server' }) => (showHostTags(stubs.length, pageHost) ? hostTag(p, pageHost) : null);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [choice, setChoice] = useState<TemplateChoice>('none');
@@ -21,7 +27,11 @@ export function ProjectsSection() {
   const blocked = (c: TemplateChoice) => templateBlocked(c, game);
 
   const load = useCallback(() => {
-    api.projects.list().then((list) => { setProjects(list); useStore.setState({ projects: list }); }, (e: Error) => setError(e.message));
+    api.projects.list().then((list) => {
+      const { local, stubs } = splitProjects(list);
+      setProjects(local);
+      useStore.setState({ projects: local, stubs });
+    }, (e: Error) => setError(e.message));
   }, []);
   useEffect(load, [load]);
 
@@ -76,8 +86,9 @@ export function ProjectsSection() {
         </Card>
       </Group>
       {error && <InlineError>{error}</InlineError>}
-      {projects?.length === 0 && <EmptyState title="No projects yet" className="py-6" />}
-      {projects?.map((p) => <ProjectCard key={p.slug} project={p} onChanged={load} onError={setError} />)}
+      {projects?.length === 0 && !stubs.length && <EmptyState title="No projects yet" className="py-6" />}
+      {projects?.map((p) => <ProjectCard key={projectKey(p)} project={p} tag={tagOf(p)} onChanged={load} onError={setError} />)}
+      {stubs.map((p) => <StubCard key={projectKey(p)} stub={p} tag={tagOf(p)} />)}
     </>
   );
 }
@@ -104,7 +115,27 @@ function SetupResult({ name, lines, onDone }: { name: string; lines: SetupLine[]
   );
 }
 
-function ProjectCard({ project, onChanged, onError }: { project: ProjectInfo; onChanged: () => void; onError: (m: string) => void }) {
+/** A project on the server: a name only. Nothing here calls a `/api/projects/:slug` route, which would reach this hub. */
+export function StubCard({ stub, tag }: { stub: ProjectStub; tag: string | null }) {
+  const openStub = useStore((s) => s.openStub);
+  return (
+    <Group title={stub.name} aside={tag ? <Badge>{tag}</Badge> : undefined}>
+      <Card>
+        <p className="flex min-w-0 items-start gap-1.5 text-hint text-muted">
+          <Server size={13} aria-hidden className="mt-[3px] shrink-0" />
+          <span className="min-w-0">
+            {stub.connected ? 'On your server, which is connected.' : 'On your server, which is offline.'} Last listed {new Date(stub.seenAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.
+          </span>
+        </p>
+        <Button size="sm" className="mt-3" aria-label={'Open ' + stub.name + ' on your server'} onClick={() => openStub(stub)}>
+          Open on server <ArrowRight size={13} aria-hidden />
+        </Button>
+      </Card>
+    </Group>
+  );
+}
+
+export function ProjectCard({ project, tag, onChanged, onError }: { project: ProjectInfo; tag: string | null; onChanged: () => void; onError: (m: string) => void }) {
   const bots = useStore((s) => s.bots);
   const [lint, setLint] = useState<ProjectLint | null>(null);
   const [reposOpen, setReposOpen] = useState(false);
@@ -140,7 +171,7 @@ function ProjectCard({ project, onChanged, onError }: { project: ProjectInfo; on
   return (
     <Group
       title={project.name}
-      aside={badge || open ? <span className="flex items-center gap-2">{badge}{open}</span> : undefined}
+      aside={tag || badge || open ? <span className="flex flex-wrap items-center justify-end gap-2">{tag && <Badge>{tag}</Badge>}{badge}{open}</span> : undefined}
     >
       <Card>
         <p className={cn('flex min-w-0 gap-1.5 text-hint text-muted', fresh ? 'items-start' : 'items-center')}>

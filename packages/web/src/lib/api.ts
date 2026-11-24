@@ -20,6 +20,7 @@ import type { MachineInfo, MachinePolicy, PcRunnerStatus } from '@pocketrocket/s
 import type { BotExportResult, BotImportResult, ContextUsage, LaneQueue, Task, TaskStatus } from '@pocketrocket/shared';
 import type { PcJobRequest, PcJobView } from './pcRun';
 import type { ProjectReposFile, ReposPutBody } from './projectRepos';
+import type { ProjectListItem } from './hosts';
 import { listQuery, PC_ENTRY_PAGE, type PcSessionDetail, type PcSessionQuery, type PcSessionSummary, type PcSeqEntry } from './pcSessions';
 import type { TelegramState } from './telegram';
 import { getToken, reportAuthFailure, clearAuthFailure } from './auth';
@@ -147,7 +148,8 @@ export const api = {
       req<FileChangeResult>('DELETE', filesBase(roomId) + '?path=' + encodeURIComponent(path) + (recursive ? '&recursive=true' : '')),
   },
   projects: {
-    list: () => req<ProjectInfo[]>('GET', '/api/projects'),
+    /** This hub's projects and the other host's stubs (D4). Split with `splitProjects` before using a slug route. */
+    list: () => req<ProjectListItem[]>('GET', '/api/projects'),
     create: (input: ProjectCreateInput) => req<ProjectCreateReply>('POST', '/api/projects', input),
     setMembers: (slug: string, memberIds: string[]) => req<ProjectInfo>('PUT', '/api/projects/' + encodeURIComponent(slug) + '/members', { memberIds }),
     lint: (slug: string) => req<ProjectLint>('GET', '/api/projects/' + encodeURIComponent(slug) + '/lint'),

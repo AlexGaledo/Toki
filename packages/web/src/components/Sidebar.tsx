@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
-import { ChevronRight, Plus, Hand, Settings2, PanelLeftClose, QrCode, Search, UserPlus, MessagesSquare, Inbox, Upload, ListChecks, Monitor } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Plus, Hand, Settings2, PanelLeftClose, QrCode, Search, UserPlus, MessagesSquare, Inbox, Upload, ListChecks, Monitor } from 'lucide-react';
 import { useStore, botById, NARROW_SIDEBAR_QUERY } from '../store';
 import { Avatar, Badge, Button, Menu, MenuContent, MenuItem, SectionLabel, Skeleton, SkeletonGroup, Tooltip, cn } from './ui';
 import { useInbox } from '../lib/useInbox';
@@ -17,7 +17,9 @@ import { useLayout } from '../lib/layout';
 import { useActiveProject } from '../lib/useProject';
 import { buildProjectTree, type ProjectNode } from '../lib/projectTree';
 import type { InboxItem } from '../lib/inbox';
-import type { Bot, Message, ProviderInfo, Room } from '@pocketrocket/shared';
+import { desktopCan, desktopHost } from '../lib/auth';
+import { desktopCall, hostTag, projectKey, showHostTags } from '../lib/hosts';
+import type { Bot, Message, ProjectStub, ProviderInfo, Room } from '@pocketrocket/shared';
 
 const ROUND = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted ring-1 ring-line hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
@@ -230,6 +232,16 @@ export function Sidebar() {
           <span className="flex-1">PC sessions</span>
         </button>
       )}
+      {desktopHost() === 'server' && desktopCan('hosts') && (
+        <button
+          className="mx-2 mb-1 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-ui text-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          title="You are on your server. Go back to the projects on this PC."
+          onClick={() => window.open(desktopCall.backToPc(location.origin), '_blank')}
+        >
+          <ArrowLeft size={15} aria-hidden className="shrink-0" />
+          <span className="flex-1">Back to this PC</span>
+        </button>
+      )}
       {status.label && (
         <button
           className={cn('mx-3 mb-1 flex max-w-[calc(100%-1.5rem)] items-center gap-1.5 self-start rounded-full bg-card2 px-2.5 py-1 text-hint hover:text-fg', status.label && connected ? 'text-warn' : 'text-muted')}
@@ -355,6 +367,8 @@ function ProjectsTree({ inbox, statusOf, podiumBots, dmFor, collapsed, toggle, r
   onRoomSettings?: (room: Room) => void;
 }) {
   const projects = useStore((s) => s.projects);
+  const stubs = useStore((s) => s.stubs);
+  const openStub = useStore((s) => s.openStub);
   const rooms = useStore((s) => s.rooms);
   const bots = useStore((s) => s.bots);
   const activeRoomId = useStore((s) => s.activeRoomId);
@@ -370,6 +384,9 @@ function ProjectsTree({ inbox, statusOf, podiumBots, dmFor, collapsed, toggle, r
 
   if (!helloReceived) return <SkeletonRows count={4} />;
 
+  const pageHost = desktopHost();
+  const tags = showHostTags(stubs.length, pageHost);
+
   const isOpenDm = (b: Bot) => dmFor(b.id)?.id === activeRoomId;
   const shown = (open: boolean, list: Bot[]) => (open ? list : list.filter((b) => isOpenDm(b) || statusOf(b.id) === 'needs_you'));
   const unreadOf = (list: Bot[]) => list.reduce((n, b) => { const dm = dmFor(b.id); return n + (dm ? unread[dm.id] ?? 0 : 0); }, 0);
@@ -383,7 +400,7 @@ function ProjectsTree({ inbox, statusOf, podiumBots, dmFor, collapsed, toggle, r
 
   return (
     <>
-      {tree.projects.length > 0 && (
+      {(tree.projects.length > 0 || stubs.length > 0) && (
         <section aria-labelledby={projectsLabel} className="mb-3">
           <SectionLabel as="h2" id={projectsLabel} className={cn(TREE_LABEL, 'pt-2')}>Projects</SectionLabel>
           <ul className="space-y-0.5">
@@ -392,8 +409,9 @@ function ProjectsTree({ inbox, statusOf, podiumBots, dmFor, collapsed, toggle, r
               const room = node.room;
               return (
                 <ProjectItem
-                  key={node.project.slug}
+                  key={projectKey(node.project)}
                   node={node}
+                  tag={tags ? hostTag(node.project, pageHost) : null}
                   open={open}
                   waiting={waitingIn(room?.id)}
                   unread={room ? unread[room.id] ?? 0 : 0}
@@ -406,6 +424,7 @@ function ProjectsTree({ inbox, statusOf, podiumBots, dmFor, collapsed, toggle, r
                 </ProjectItem>
               );
             })}
+            {stubs.map((stub) => <StubItem key={projectKey(stub)} stub={stub} tag={tags ? hostTag(stub, pageHost) : null} onOpen={() => openStub(stub)} />)}
           </ul>
         </section>
       )}
@@ -461,8 +480,31 @@ function ProjectsTree({ inbox, statusOf, podiumBots, dmFor, collapsed, toggle, r
   );
 }
 
-function ProjectItem({ node, open, waiting, unread, roomActive, onToggle, onOpen, onRoomSettings, children }: {
+/** A Server project (a stub): a name only, opened through the desktop app or the connect prompt (D4). */
+function StubItem({ stub, tag, onOpen }: { stub: ProjectStub; tag: string | null; onOpen: () => void }) {
+  return (
+    <li>
+      <div className="group flex items-center rounded-sm hover:bg-hover">
+        <span aria-hidden className="ml-1 h-6 w-6 shrink-0" />
+        <button
+          className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-1.5 pr-2.5 text-left text-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+          title={stub.connected ? 'Open ' + stub.name + ' on your server' : stub.name + ' is on your server, which is offline'}
+          aria-haspopup={stub.connected ? undefined : 'dialog'}
+          onClick={onOpen}
+        >
+          <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full ring-[1.5px] ring-inset ring-faint" />
+          <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]">{stub.name}</span>
+          {tag && <Badge>{tag}</Badge>}
+          {!stub.connected && <span className="sr-only">(offline)</span>}
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function ProjectItem({ node, tag, open, waiting, unread, roomActive, onToggle, onOpen, onRoomSettings, children }: {
   node: ProjectNode;
+  tag: string | null;
   open: boolean;
   waiting: number;
   unread: number;
@@ -486,6 +528,7 @@ function ProjectItem({ node, open, waiting, unread, roomActive, onToggle, onOpen
         >
           <span aria-hidden className={cn('h-[7px] w-[7px] shrink-0 rounded-full', active ? 'bg-accent' : 'ring-[1.5px] ring-inset ring-faint')} />
           <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]">{project.name}</span>
+          {tag && <Badge>{tag}</Badge>}
           {waiting > 0 && <Badge tone="needs">{waiting}<span className="sr-only"> waiting on you</span></Badge>}
           {unread > 0 && <span className="h-2 w-2 shrink-0 rounded-full bg-accent"><span className="sr-only">{unread} unread</span></span>}
         </button>

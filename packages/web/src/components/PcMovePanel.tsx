@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from 'react';
 import { CloudUpload, CornerDownLeft, GitBranch, Loader2, Send } from 'lucide-react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
+import { splitProjects } from '../lib/hosts';
 import { JOB_STATUS, PC_PROMPT_MAX, jobActive, promptOk, statusLabel } from '../lib/pcRun';
 import {
   appliedNote, continueBlockedReason, jobRepos, moveBadge, moveBlockedReason, moveBody, moveRepoReason, moveResultOf,
@@ -92,7 +93,7 @@ export function MovePanel({ sessionId, links, pcBlocked, onOpenLog }: { sessionI
     for (const slug of slugs.split('\n').filter(Boolean)) {
       api.projects.repos(slug).then((f) => alive && setRepos((c) => ({ ...c, [slug]: f.repos })), () => alive && setRepos((c) => ({ ...c, [slug]: [] })));
     }
-    api.projects.list().then((l) => alive && setProject(l.find((p) => p.slug === slugs.split('\n')[0])), () => undefined);
+    api.projects.list().then((l) => alive && setProject(splitProjects(l).local.find((p) => p.slug === slugs.split('\n')[0])), () => undefined);
     return () => { alive = false; };
   }, [slugs]);
   const choices = roomChoices(project, rooms);

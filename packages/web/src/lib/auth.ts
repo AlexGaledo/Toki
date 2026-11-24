@@ -7,6 +7,7 @@ import { getItem, removeItem, setItem } from './persist';
 const TOKEN_KEY = 'pocketrocket.token';
 const DESKTOP_KEY = 'pocketrocket.desktop';
 const DESKTOP_CAPS_KEY = 'pocketrocket.desktopCaps';
+const DESKTOP_HOST_KEY = 'pocketrocket.desktopHost';
 
 function boot() {
   try {
@@ -20,6 +21,8 @@ function boot() {
     if (params.get('desktop') === '1') {
       setItem(DESKTOP_KEY, '1', 'session');
       setItem(DESKTOP_CAPS_KEY, params.get('caps') ?? '', 'session');
+      // I3 opens the server hub's page with `host=server`; the PC hub's page has no `host`.
+      setItem(DESKTOP_HOST_KEY, params.get('host') === 'server' ? 'server' : 'pc', 'session');
     }
   } catch {
     /* history unavailable (e.g. sandboxed iframe) — fall back to no-auth */
@@ -37,6 +40,11 @@ export function isDesktopMode(): boolean {
 
 export function desktopCan(cap: string): boolean {
   return isDesktopMode() && (getItem(DESKTOP_CAPS_KEY, 'session') ?? '').split(',').includes(cap);
+}
+
+/** Which hub the desktop app opened this page on. Outside the desktop app there is only this hub: `pc`. */
+export function desktopHost(): 'pc' | 'server' {
+  return isDesktopMode() && getItem(DESKTOP_HOST_KEY, 'session') === 'server' ? 'server' : 'pc';
 }
 
 type Listener = () => void;
