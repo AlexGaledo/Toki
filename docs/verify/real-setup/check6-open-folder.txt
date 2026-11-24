@@ -1,0 +1,14 @@
+# check 6: Open folder in the installed build (2026-11-24)
+Explorer windows before: none (Shell.Application.Windows() empty)
+22:32:16 Settings > Projects > 'Open the folder of Toki Verify Tmp' (11-settings-projects.*)
+clicked button Open the folder of Toki Verify Tmp
+22:32:21 Explorer windows now:
+  file:///C:/Users/alex/AppData/Roaming/com.pocketrocket.app/data/projects/toki-verify-tmp  (hwnd 30476746)
+  closed that Explorer window; windows left: 0
+10:32:33 pm renamed projects\toki-verify-tmp -> toki-verify-tmp.away (folder now missing)
+10:32:37 pm pressed Open folder again; Explorer windows: 0; folder recreated: False
+toasts from com.pocketrocket.app (wpndatabase.db copy), newest first:
+  200848 22:32:34 Couldn't open that folder | That project's folder isn't on this PC.
+  200847 22:30:28 Couldn't connect to your server | Port 7790 on this PC is already in use, so the tunnel to crm-agency can't listen there. Close what uses it, or give the server another port.
+PC hub projects after cleanup: none (pc) ; stubs 8
+Result: pass. Explorer opened on projects\toki-verify-tmp; a missing folder gave the notification and opened nothing (and created nothing). Throwaway project deleted through DELETE /api/projects/toki-verify-tmp and its folder removed.

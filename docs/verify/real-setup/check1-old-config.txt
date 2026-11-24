@@ -1,0 +1,11 @@
+# check 1: old remote config, 2026-11-24T22:20:12+08:00
+config.json unchanged after start: 2d3b79733f57044f579db90984f3ecfbaf9760ed10694d9408bcf10a16b6905f
+## right after start (before any connect): see pre-install.txt and 01-pc-hub-start.png
+PC hub: node.exe pid 13012 C:\Users\alex\AppData\Local\PocketRocket\hub\hub.mjs on 127.0.0.1:7788; /api/health approvals=ask (the PC hub, the server runs bypass); no ssh child, nothing on 7790
+## after ?openhost=server (same call as the tray's Open your server: lib.rs 1114 and 1582 both call server::connect(Open::Home))
+requested 22:04:41, window on 7790 by 22:04:46
+window url: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server
+netstat -ano (every listener on 7790, any address):
+  TCP    127.0.0.1:7790         0.0.0.0:0              LISTENING       16640
+tunnel pid 16640 parent 27940 (PocketRocket.exe 27940): "C:\WINDOWS\System32\OpenSSH\ssh.exe" -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ConnectTimeout=15 -N -T -L 127.0.0.1:7790:127.0.0.1:7788 -- crm-agency
+no token prompt: 02-open-your-server.aria.yml is the signed-in app (sidebar, rooms, Back to this PC); its only 'token' matches are chat text

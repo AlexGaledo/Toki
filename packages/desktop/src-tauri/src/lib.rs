@@ -926,6 +926,8 @@ fn lose(app: &AppHandle, state: &AppState, gen: u64, msg: String, kind: Option<&
 /// Consecutive failed health checks before the connection counts as lost (checks are 3 s apart).
 const HEALTH_STRIKES: u32 = 3;
 
+const HUB_STOPPED_HINT: &str = "Open hub log in the tray menu shows why; Retry starts it again.";
+
 /// After connecting: notice a hub that died or stopped answering. A hub process that exits, or HEALTH_STRIKES
 /// failed checks in a row, end the connection with an error on the splash. The server tunnel has its own watch
 /// (server.rs) and never ends this one.
@@ -947,7 +949,7 @@ fn monitor(app: AppHandle, state: AppState, cfg: Config, gen: u64) {
             exited
         };
         if let Some(code) = exited {
-            let msg = format!("The hub stopped unexpectedly ({code}). Open hub log in the tray menu shows why; Restart hub starts it again.");
+            let msg = format!("The hub stopped unexpectedly ({code}). {HUB_STOPPED_HINT}");
             return lose(&app, &state, gen, msg, None);
         }
         if hub_responding(cfg.port, Duration::from_secs(3)) {
@@ -957,7 +959,7 @@ fn monitor(app: AppHandle, state: AppState, cfg: Config, gen: u64) {
         strikes += 1;
         if strikes >= HEALTH_STRIKES {
             let msg = match cfg.mode.as_str() {
-                "local" => "The hub on this PC stopped answering. Open hub log in the tray menu shows why; Restart hub starts it again.".to_string(),
+                "local" => format!("The hub on this PC stopped answering. {HUB_STOPPED_HINT}"),
                 _ => format!("The hub on 127.0.0.1:{} stopped answering.", cfg.port),
             };
             return lose(&app, &state, gen, msg, None);
@@ -1713,6 +1715,17 @@ mod tests {
 
     fn u(s: &str) -> Url {
         Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn the_hub_stopped_hint_names_the_button_the_splash_shows_then() {
+        // The hint shows once the hub is down, when the splash's button reads its disconnected label.
+        let splash = include_str!("../../ui/splash.js");
+        let line = splash.lines().find(|l| l.contains("retry.textContent")).expect("splash sets the retry label");
+        let down = line.rsplit(": '").next().unwrap().split('\'').next().unwrap();
+        assert_eq!(down, "Retry");
+        assert!(HUB_STOPPED_HINT.contains(&format!("{down} starts it again")), "{HUB_STOPPED_HINT}");
+        assert!(HUB_STOPPED_HINT.starts_with("Open hub log in the tray menu"));
     }
 
     #[test]

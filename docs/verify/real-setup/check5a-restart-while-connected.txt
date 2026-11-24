@@ -1,0 +1,18 @@
+# check 5a: restart the PC hub while the server tunnel is up, 2026-11-24T22:21:18+08:00
+PC hub pid 13012; tunnel:   TCP    127.0.0.1:7790         0.0.0.0:0              LISTENING       16640
+22:21:19 stop PC hub node pid 13012 (taskkill /F)
+ERROR: Invalid argument/option - '//PID'.
+Type "TASKKILL /?" for usage.
+22:22:23 window: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+10:22:35 pm retry: stop PC hub node pid 13012 (Stop-Process -Force), tunnel listener pid 16640
+10:22:41 pm window: http://tauri.localhost/index.html
+tunnel still listening: True
+22:23:00 splash alert: see 04-hub-stopped-splash.aria.yml; pressing Retry
+clicked button Retry
+22:23:14 window: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+new PC hub pid: 38472
+22:23:16 GET /api/projects on the new PC hub:
+ status 200 rows 8 hosts ['server'] connected [True]
+tunnel:   TCP    127.0.0.1:7790         0.0.0.0:0              LISTENING       16640
+seenAt values (local): ['22:23:13']
+check2 seenAt: ['22:19:53']

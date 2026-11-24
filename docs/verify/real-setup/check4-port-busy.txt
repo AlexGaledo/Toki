@@ -1,0 +1,10 @@
+# check 4: port 7790 busy, and D4's notification reason on a failed connect (2026-11-24)
+22:30:2x  temp listener: python -I socket bound to 127.0.0.1:7790, pid 21312
+          netstat: TCP 127.0.0.1:7790 0.0.0.0:0 LISTENING 21312
+22:30:27  sidebar "Project A Server (offline)" -> prompt (08-d4b-server-project-prompt.*) -> Connect
+          (the prompt's Connect sends /?openproject=server:project-a)
+22:30:28  toast (wpndatabase.db copy, com.pocketrocket.app, id 200847):
+          "Couldn't connect to your server | Port 7790 on this PC is already in use, so the tunnel to crm-agency can't listen there. Close what uses it, or give the server another port."
++5 s      window still http://127.0.0.1:7788/...; no ssh.exe with 7790 in its command line (count 0); 7790 still held only by 21312
+          prompt: status "Couldn't connect. The desktop notification says why." and Try again (09-port-busy-failed.*)
+Result: pass. Connect refused the busy port (it did not reuse it, so nothing listening there got the server token), and the reason arrived as a desktop notification.

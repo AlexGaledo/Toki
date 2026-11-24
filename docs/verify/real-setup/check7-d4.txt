@@ -1,0 +1,11 @@
+# D4 in the real shell (2026-11-24)
+a) 22:28 PC project offline: 'Toki Verify Tmp This PC' clicked with the server disconnected -> expanded locally, no prompt, window stayed on 7788 (06-offline-list.*, 07-d4a-pc-project-offline.*)
+b) 22:29 'Project A Server (offline)' -> dialog 'This project is on your server. Connect to open it.' Cancel/Connect (08-d4b-server-project-prompt.*)
+d) failed connect reason as a desktop notification: check4-port-busy.txt
+c) Connect opens it:
+22:31:03 Try again (port free now)
+clicked button Try again
+22:31:07 first 7790 url seen: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server
+22:31:11 url after load: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server
+navigation entry: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server&project=project-a#<fragment> (type navigate); location now: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server
+Result: a, b, c, d pass in the installed shell.

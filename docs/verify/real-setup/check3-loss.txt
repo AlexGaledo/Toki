@@ -1,0 +1,23 @@
+# check 3: tunnel loss, 2026-11-24T22:24:31.5177820+08:00
+22:24:36.030 window before: http://127.0.0.1:7790/?desktop=1&caps=hosts&host=server#<fragment>
+22:24:37.023 tunnel ssh pid 16640 parent 27940: "C:\WINDOWS\System32\OpenSSH\ssh.exe" -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ConnectTimeout=15 -N -T -L 127.0.0.1:7790:127.0.0.1:7788 -- crm-agency
+22:24:37.925 VPS hub before (untouched): active 3829701
+22:24:38.042 killed the tunnel ssh (Stop-Process -Force)
+22:24:43.776 window back after 5.8 s: http://127.0.0.1:7788/?desktop=1&caps=localcopy,studio,openfolder,hosts,server
+22:24:44.476 full-screen capture taken but deleted: the primary screen showed the owner's own game, not the toast (see toasts below)
+22:24:46.879 GET /api/projects on the PC hub after 8.9 s: status 200, rows 8, connected values: False
+22:24:47.022 7790 listeners now: 
+22:24:50.594 PC hub still up: 38472
+22:24:51.555 VPS hub after (untouched): active 3829701
+
+## Toasts from com.pocketrocket.app (read-only copy of %LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db, newest first)
+200842 22:24:39 Lost the connection to crm-agency | ssh to crm-agency stopped without saying why. Try `ssh crm-agency` in a terminal.
+200835 21:17:55 Toki | A bot needs you
+
+Result: pass. Window back on the PC hub 5.8 s after the kill, toast 1 s after, every stub connected:false by 8.9 s (well inside 30 s). The VPS hub kept MainPID 3829701 and was never stopped. No PC bot turn ran (the PC hub has no bots yet; optional, skipped).
+
+## The reconnect at 22:24:50 (tunnel ssh 7308, parent Toki), 12 s after the loss
+Not sent by this run, and not reproduced with no input (check3-reconnect-repro.txt: no tunnel for 2 min).
+The web never sends openhost=server or connecthost; only the tray's Open your server or that request makes Open::Home.
+The owner was using the app: his message in an project room reached the server hub at 22:25:26 (vps-after.txt),
+36 s after the tunnel reopened. So this was the owner reopening his server from the tray after the loss toast, not a bug.

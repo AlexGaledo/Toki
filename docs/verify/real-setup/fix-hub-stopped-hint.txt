@@ -1,0 +1,29 @@
+# Bug found live (check 5a): the hub-stopped message names a button that is not on screen
+
+Seen: 04-hub-stopped-splash.aria.yml. After the PC hub stopped, the splash alert said
+"... Open hub log in the tray menu shows why; Restart hub starts it again." and the only button was "Retry".
+splash.js labels that button 'Restart hub' only while the hub is up in local mode; when it is down (the only time
+this message shows) it reads 'Retry'. There is no 'Restart hub' tray item.
+
+Fix: lib.rs HUB_STOPPED_HINT (one constant for both messages) now says 'Retry starts it again'.
+Test: tests::the_hub_stopped_hint_names_the_button_the_splash_shows_then reads splash.js's disconnected label.
+
+## Before the fix (cargo test -j 2 --lib the_hub_stopped_hint)
+
+thread 'tests::the_hub_stopped_hint_names_the_button_the_splash_shows_then' (36692) panicked at src\lib.rs:1727:9:
+Open hub log in the tray menu shows why; Restart hub starts it again.
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::the_hub_stopped_hint_names_the_button_the_splash_shows_then
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
+
+## After the fix (cargo test -j 2 --lib, full, unfiltered)
+test result: ok. 97 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.01s
+cargo check -j 2: Finished, no warnings
+
+Not rebuilt into the installer: the installed build still shows the old text. No check needed the rebuild.
