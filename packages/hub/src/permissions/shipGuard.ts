@@ -62,6 +62,7 @@ export function parseMergeArgs(args: readonly string[]): { pr: string | null; re
     else return 'Name one pull request to merge.';
   }
   if (repo === '') return 'Name the repo after -R.';
+  if (pr === null) return 'Name the pull request to merge: gh pr merge <number>.';
   return { pr, repo };
 }
 
@@ -103,27 +104,28 @@ const realGit: GitInfo = {
 const clean = (t: string) => t.replace(/^['"(]+|['")]+$/g, '');
 const REFUSED = 'Pushing to the default branch is blocked for this bot. Push a branch, open a pull request, and merge it once its checks pass.';
 
+// Fail closed: any mention of gh with pr and merge, in any position or nesting, must be the whole command and plain.
+const MENTIONS_PR_MERGE = /\bgh(?:\.exe)?\b[\s\S]*\bpr\b[\s\S]*\bmerge\b/;
+const API_MERGE = /\bgh(?:\.exe)?\b[\s\S]*\bapi\b[\s\S]*(?:\/merge\b|mergePullRequest|enablePullRequestAutoMerge)/i;
+const PLAIN_PR_MERGE = /^gh pr merge((?: +[\w./:=@-]+)+)$/;
+
+function prMergeDenied(command: string, cwd: string, info: GitInfo): string | null {
+  const plain = PLAIN_PR_MERGE.exec(command.trim());
+  if (!plain?.[1]) return 'Run gh pr merge <number> as the whole command, with plain arguments (no quotes, variables or other commands around it), so it can be checked.';
+  return mergeDenied(plain[1].trim().split(/ +/), cwd, info);
+}
+
 export function defaultBranchPushDenied(command: string, cwd: string, info: GitInfo = realGit, extraProtected?: (remote: string) => readonly string[]): string | null {
+  if (API_MERGE.test(command)) return 'Merging through gh api is left to the owner. Use gh pr merge <number> once its checks pass.';
+  if (MENTIONS_PR_MERGE.test(command)) return prMergeDenied(command, cwd, info);
   let dir = cwd;
-  let changedEarlier = false;
   for (const segment of command.split(/&&|\|\||[;|\n]/)) {
     const tokens = segment.trim().split(/\s+/).map(clean).filter(Boolean);
-    let envPrefix = false;
-    while (tokens[0] && /^\w+=/.test(tokens[0])) { tokens.shift(); envPrefix = true; }
+    while (tokens[0] && /^\w+=/.test(tokens[0])) tokens.shift();
     if (!tokens.length) continue;
     const [head = ''] = tokens;
 
     if (tokens[0] === 'cd' && tokens[1]) { dir = path.resolve(dir, tokens[1]); continue; }
-    if (tokens[0] === 'gh' && tokens[1] === 'pr' && tokens[2] === 'merge') {
-      if (envPrefix) return 'Run gh pr merge without environment settings in front, so the checks read are for the same pull request.';
-      if (changedEarlier) return 'Push first, wait for the checks on that commit, then merge in a separate command.';
-      const why = mergeDenied(tokens.slice(3), dir, info);
-      if (why) return why;
-      continue;
-    }
-    if (tokens[0] === 'git' && tokens.some((t) => t === 'push' || t === 'commit' || t === 'merge' || t === 'rebase')) changedEarlier = true;
-    if (tokens[0] === 'gh' && /\bgh\b.*\bpr\b.*\bmerge\b/.test(segment)) return 'Run gh pr merge as a plain command so it can be checked.';
-    if (WRAPPERS.has(head) && /\bgh\b.*\bpr\b.*\bmerge\b/.test(segment)) return 'Run gh pr merge as a plain command, not inside ' + head + ', so it can be checked.';
     if (WRAPPERS.has(head) && /\bgit\b.*\bpush\b/.test(segment)) return 'Run git push as a plain command, not inside ' + head + ', so it can be checked.';
     if (tokens[0] !== 'git') continue;
 

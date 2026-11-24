@@ -61,11 +61,14 @@ describe('merging a pull request', () => {
     for (const cmd of [
       'gh pr merge 3 --admin=true', 'gh pr merge 3 --admin', 'gh pr merge 3 --unknown', 'gh pr merge 3 4',
       'GH_REPO=other/app gh pr merge 3', 'gh -R other/app pr merge 3', 'bash -c "gh pr merge 3"',
+      'gh pr merge', 'gh pr merge 3 -b "a; b"', 'gh pr merge $(echo 3)', 'gh pr merge 3 & gh pr merge 4', '{ gh pr merge 3; }',
+      'cd ../other && gh pr merge 3', 'echo `gh pr merge 3`', 'gh pr merge 3\nrm -rf x', '/usr/bin/gh pr merge 3',
+      'gh api -X PUT repos/me/app/pulls/3/merge', "gh api graphql -f query='mutation { mergePullRequest(input: {}) { clientMutationId } }'",
     ]) expect(denied(cmd, checks('pass')), cmd).not.toBeNull();
   });
   it('refuses a merge after a push or commit in the same command', () => {
-    expect(denied('git push origin feature && gh pr merge 3', checks('pass'))).toMatch(/separate command/);
-    expect(denied('git commit -am x; gh pr merge 3', checks('pass'))).toMatch(/separate command/);
+    expect(denied('git push origin feature && gh pr merge 3', checks('pass'))).toMatch(/whole command/);
+    expect(denied('git commit -am x; gh pr merge 3', checks('pass'))).toMatch(/whole command/);
   });
   it('refuses a pull request that changes CI, or whose changes cannot be read', () => {
     expect(denied('gh pr merge 3', checks('pass', [], ['src/a.ts', '.github/workflows/ci.yml']))).toMatch(/changes CI/);
@@ -76,8 +79,7 @@ describe('merging a pull request', () => {
     const seen: string[][] = [];
     expect(denied('gh pr merge 12 --squash --delete-branch', checks('pass', seen))).toBeNull();
     expect(denied('gh pr merge -R me/app --merge 7', checks('pass', seen))).toBeNull();
-    expect(denied('gh pr merge --squash -b "done" ', checks('pass', seen))).toBeNull();
-    expect(seen).toEqual([['12'], ['7', '--repo', 'me/app'], []]);
+    expect(seen).toEqual([['12'], ['7', '--repo', 'me/app']]);
   });
   it('is refused while checks run, after they fail, without any, or when gh cannot tell', () => {
     expect(denied('gh pr merge 12', checks('pending'))).toMatch(/still running/);
