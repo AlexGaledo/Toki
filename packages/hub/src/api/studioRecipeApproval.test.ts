@@ -12,7 +12,8 @@ afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 /** The Studio recipe as a turn in its room loads it from mcp-servers.json. */
 function studioAsMounted() {
   const file = path.join(dir, 'mcp-servers.json');
-  writeStudioRecipe(new McpServerStore(file), path.join(dir, 'mcp.bat'), 'room-1', { SystemRoot: 'C:\\Windows' });
+  // SystemRoot under the temp dir: absolute on every OS, so the command passes outsideMcp's absolute-path check on CI too.
+  writeStudioRecipe(new McpServerStore(file), path.join(dir, 'mcp.bat'), 'room-1', { SystemRoot: path.join(dir, 'Windows') });
   const s = outsideMcpFor('artist', { id: 'room-1', name: 'game' }, file).find((x) => x.name === STUDIO_SERVER);
   expect(s).toBeDefined();
   return s!;
