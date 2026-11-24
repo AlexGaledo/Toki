@@ -1,0 +1,82 @@
+=== ca43f26 Hub dir: resolve by package.json, so a vitest cache in src/ no longer hides resources/blender
+tests: src/config.test.ts
+source put back: packages/hub/src/config.ts
+--- without the change
+     × stays put in the bundle layout (hub.mjs next to package.json)
+     × NEGATIVE: a vitest cache under src/node_modules does not make src the hub dir
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/config.test.ts > resolveHubDir > stays put in the bundle layout (hub.mjs next to package.json)
+AssertionError: expected '%USERPROFILE%/AppData\Local\Temp\pr-a…' to be '%USERPROFILE%/AppData\Local\Temp\pr-a…' // Object.is equality
+ FAIL  src/config.test.ts > resolveHubDir > NEGATIVE: a vitest cache under src/node_modules does not make src the hub dir
+AssertionError: expected '%USERPROFILE%/AppData\Local\Temp\pr-h…' to be '%USERPROFILE%/AppData\Local\Temp\pr-h…' // Object.is equality
+ Test Files  1 failed (1)
+      Tests  2 failed | 18 passed (20)
+--- with the change
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+
+=== 4a8ed9f Seed @roblox-builder and @blender-artist with the first game project, not at startup
+tests: src/api/gameSeedOnDemand.test.ts src/api/projects.test.ts
+source put back: packages/hub/src/hub.ts packages/hub/src/services/ProjectService.ts packages/hub/src/services/SeedBots.ts
+--- without the change
+     × NEGATIVE: a Windows hub that seeds its bots does not make them at startup
+     × NEGATIVE: a plain project or a dev team does not make them either
+     × seeds the template source bots on demand: after the skill check, before the bots are looked up
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/api/gameSeedOnDemand.test.ts > the game template's source bots are seeded on demand > NEGATIVE: a Windows hub that seeds its bots does not make them at startup
+AssertionError: expected [ 'pocketrocket-support', …(3) ] to not include 'roblox-builder'
+ FAIL  src/api/gameSeedOnDemand.test.ts > the game template's source bots are seeded on demand > NEGATIVE: a plain project or a dev team does not make them either
+AssertionError: expected [ 'pocketrocket-support', …(3) ] to not include 'roblox-builder'
+ FAIL  src/api/projects.test.ts > the game team template (B7) > seeds the template source bots on demand: after the skill check, before the bots are looked up
+Error: The game team template needs the bot @lead-engineer, which does not exist
+ Test Files  2 failed (2)
+      Tests  3 failed | 41 passed (44)
+--- with the change
+ Test Files  2 passed (2)
+      Tests  44 passed (44)
+
+=== 5c06ec3 B10: other hosts' project stubs (PUT /api/hosts/:host/projects, host tags in GET /api/projects)
+tests: src/agent/stubsNeverReachBots.test.ts src/api/hostStubs.test.ts src/services/RemoteProjects.test.ts
+source put back: packages/hub/src/api/projects.ts packages/hub/src/db/migrations.ts packages/hub/src/hub.ts packages/hub/src/services/RemoteProjects.ts packages/shared/src/hosts.ts packages/shared/src/index.ts packages/shared/src/protocol.ts
+--- without the change
+ FAIL  src/agent/stubsNeverReachBots.test.ts [ src/agent/stubsNeverReachBots.test.ts ]
+Error: Cannot find module '../services/RemoteProjects.js' imported from %USERPROFILE%/Desktop/claude-grokbot-spec-gamedev/packages/hub/src/agent/stubsNeverReachBots.test.ts
+ FAIL  src/api/hostStubs.test.ts [ src/api/hostStubs.test.ts ]
+Error: Cannot find module '../services/RemoteProjects.js' imported from %USERPROFILE%/Desktop/claude-grokbot-spec-gamedev/packages/hub/src/api/hostStubs.test.ts
+ FAIL  src/services/RemoteProjects.test.ts [ src/services/RemoteProjects.test.ts ]
+Error: Cannot find module './RemoteProjects.js' imported from %USERPROFILE%/Desktop/claude-grokbot-spec-gamedev/packages/hub/src/services/RemoteProjects.test.ts
+ Test Files  3 failed (3)
+      Tests  no tests
+--- with the change
+ Test Files  3 passed (3)
+      Tests  18 passed (18)
+
+=== 1847740 B11: the usage reply says both hubs spend from one subscription once a server is known
+tests: src/api/usageNote.test.ts src/services/UsageTracker.test.ts
+source put back: packages/hub/src/api/rest.ts packages/hub/src/hub.ts packages/hub/src/services/UsageTracker.ts packages/shared/src/hosts.ts packages/shared/src/models.ts
+--- without the change
+     × says both hubs spend from one subscription once a server host is known
+     × NEGATIVE: says nothing on a hub that was never told about a server
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/services/UsageTracker.test.ts > UsageTracker shared-subscription note (B11) > says both hubs spend from one subscription once a server host is known
+TypeError: tracker.subscriptionNote is not a function
+ FAIL  src/services/UsageTracker.test.ts > UsageTracker shared-subscription note (B11) > NEGATIVE: says nothing on a hub that was never told about a server
+TypeError: (intermediate value).subscriptionNote is not a function
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 5 passed (7)
+--- with the change
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+
+
+=== 113bb0c B11 test: match the note's words, not only the shared constant
+Run above was on 1847740, before this commit. There src/api/usageNote.test.ts passed with B11 reverted (1 passed file
+in the B11 block): with hosts.ts reverted, SHARED_SUBSCRIPTION_NOTE was undefined on both sides of toBe. After 113bb0c,
+B11's rest.ts, hub.ts and UsageTracker.ts put back to 5c06ec3:
+--- without the change
+     × present once the desktop app has reported the server, even while it is disconnected
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+--- with the change
+ Test Files  1 passed (1)
+      Tests  2 passed (2)

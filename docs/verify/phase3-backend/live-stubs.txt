@@ -1,0 +1,160 @@
+◇ injected env (0) from .env
+data dir: a new folder under %TEMP% (yes)
+created default bots: @pocketrocket-support, @data-engineer
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data %USERPROFILE%/AppData\Local\Temp\toki-phase3-i6DOd · http://127.0.0.1:56566
+[pocketrocket] workspace: %USERPROFILE%/AppData\Local\Temp\toki-phase3-i6DOd\workspace  (token required)
+[pocketrocket] open: http://127.0.0.1:56566/  (sign in with the token from %USERPROFILE%/AppData\Local\Temp\toki-phase3-i6DOd\hub-token)
+throwaway hub on 127.0.0.1:56566 (real startup, seedBots: true)
+
+### bots after startup: @pocketrocket-support, @data-engineer
+
+### GET /api/usage, before any server is known (subscriptionNote only) -> HTTP 200
+{
+  "subscriptionNote": "(absent)"
+}
+
+### POST /api/projects {"name":"PC Notes"} (a local project) -> HTTP 200
+{
+  "project": {
+    "slug": "pc-notes",
+    "name": "PC Notes",
+    "dir": "<DATA>\\projects\\pc-notes",
+    "memberIds": [],
+    "roomId": null,
+    "templateVersion": null,
+    "kind": null,
+    "createdAt": 1795516926096
+  },
+  "bots": [],
+  "room": null
+}
+
+### PUT /api/hosts/server/projects {"connected":true,"projects":[3 fixture stubs]} -> HTTP 200
+{
+  "host": "server",
+  "connected": true,
+  "stubs": 3,
+  "updatedAt": 1795516926106
+}
+
+### GET /api/projects -> HTTP 200
+[
+  {
+    "slug": "pc-notes",
+    "name": "PC Notes",
+    "dir": "<DATA>\\projects\\pc-notes",
+    "memberIds": [],
+    "roomId": null,
+    "templateVersion": null,
+    "kind": null,
+    "createdAt": 1795516926096,
+    "host": "pc"
+  },
+  {
+    "host": "server",
+    "slug": "fishing-sim",
+    "name": "Fishing Sim",
+    "seenAt": 1795516926106,
+    "connected": true
+  },
+  {
+    "host": "server",
+    "slug": "obby-run",
+    "name": "Obby Run",
+    "seenAt": 1795516926106,
+    "connected": true
+  },
+  {
+    "host": "server",
+    "slug": "kart-race",
+    "name": "Kart Race",
+    "seenAt": 1795516926106,
+    "connected": true
+  }
+]
+
+### PUT /api/hosts/server/projects {"connected":false} (tunnel dropped: stubs kept) -> HTTP 200
+{
+  "host": "server",
+  "connected": false,
+  "stubs": 3,
+  "updatedAt": 1795516926113
+}
+
+### GET /api/projects, server stubs only -> HTTP 200
+[
+  {
+    "host": "server",
+    "slug": "fishing-sim",
+    "name": "Fishing Sim",
+    "seenAt": 1795516926106,
+    "connected": false
+  },
+  {
+    "host": "server",
+    "slug": "obby-run",
+    "name": "Obby Run",
+    "seenAt": 1795516926106,
+    "connected": false
+  },
+  {
+    "host": "server",
+    "slug": "kart-race",
+    "name": "Kart Race",
+    "seenAt": 1795516926106,
+    "connected": false
+  }
+]
+
+### GET /api/usage, after (subscriptionNote only) -> HTTP 200
+{
+  "subscriptionNote": "Your PC and your server both spend from the same Claude subscription, so its usage limits cover the bots on both."
+}
+
+### paired a throwaway device -> HTTP 200 (token not shown)
+
+### PUT /api/hosts/server/projects with the paired device token -> HTTP 403
+{
+  "error": "Not available from a paired device; use the desktop app"
+}
+
+### GET /api/projects with the paired device token -> HTTP 403
+{
+  "error": "Not available from a paired device; use the desktop app"
+}
+
+### PUT /api/hosts/server/projects with a bot's per-turn MCP bearer -> HTTP 401
+{
+  "error": "Missing or invalid hub token"
+}
+
+### PUT /api/hosts/server/projects with 501 stubs -> HTTP 400
+{
+  "error": "projects: Too big: expected array to have <=500 items"
+}
+
+### PUT /api/hosts/server/projects with a bidi-override name -> HTTP 400
+{
+  "error": "projects.0.name: has control characters"
+}
+
+### PUT /api/hosts/pc/projects (pc is this hub, not a remote host) -> HTTP 400
+{
+  "error": "Unknown host: use server"
+}
+
+### GET /api/projects after the refusals, server stubs only (unchanged) -> HTTP 200
+[
+  "fishing-sim",
+  "obby-run",
+  "kart-race"
+]
+
+### SQLite
+schema_version 331: {"version":331,"name":"remote_hosts"}
+remote_hosts: [{"host":"server","connected":0}]
+project_stubs: [{"host":"server","slug":"fishing-sim","name":"Fishing Sim"},{"host":"server","slug":"obby-run","name":"Obby Run"},{"host":"server","slug":"kart-race","name":"Kart Race"}]
+projects (local): [{"slug":"pc-notes","name":"PC Notes"}]
+
+### events sent (hosts.changed / projects.changed, in order): ["projects.changed","hosts.changed","hosts.changed"]
+### bots at the end: @pocketrocket-support, @data-engineer

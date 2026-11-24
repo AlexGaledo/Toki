@@ -1,0 +1,17 @@
+PARTIAL RUN: stopped by the Claude Code harness for low system memory during mutant 13 of 27 ("B10 store: replace, not append").
+That mutant's result is unknown; the file it had mutated was restored from git afterwards. Mutants 13-27 did not run.
+
+CAUGHT  B10 handler: a password session may write  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 handler: no principal check  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 handler: any host name  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 handler: PUT only  (src/api/projects.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: 500 cap  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: slug rule  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: slug length  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: name rule (project names)  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: control and bidi characters  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: no extra fields  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 schema: connected required  (../shared/src/hosts.ts)  Tests  1 failed | 9 passed (10)
+CAUGHT  B10 store: connected-only keeps stubs  (src/services/RemoteProjects.ts)  Tests  2 failed | 12 passed (14)
+
+12 of 12 completed mutants caught

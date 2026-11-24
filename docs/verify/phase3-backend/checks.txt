@@ -1,0 +1,18 @@
+Other checks, 2026-11-24, on the final tree (content identical to HEAD; the commits were rebuilt only to make four
+new files LF, see README):
+
+packages/hub  npx tsc --noEmit -p tsconfig.json      -> exit 0, no output
+packages/web  npx tsc --noEmit -p tsconfig.json      -> exit 0, no output (web still types GET /api/projects as ProjectInfo[]; see README, D4)
+npx eslint <the 20 changed hub/shared files>         -> exit 0, no output
+pnpm ts-strict                                        -> ok: 1493 frozen strict-TS errors, none new
+node --test scripts/repo-guards.test.mjs              -> tests 6, pass 6, fail 0 (after the LF rebuild)
+git ls-files --eol on every changed file              -> all i/lf (config.test.ts was CRLF before and stays CRLF)
+
+Targeted vitest runs that passed (no full pnpm test, no pnpm -r build: RAM rule):
+  src/config.test.ts                                   20/20
+  src/api/projects.test.ts, services/SeedBots.test.ts, api/gameProject.test.ts, api/gameSeedOnDemand.test.ts   65/65
+  src/api/hostStubs.test.ts                            10/10
+  src/agent/stubsNeverReachBots.test.ts, services/RemoteProjects.test.ts, db/migrationRules.test.ts,
+    api/deviceAllow.test.ts, db/db.test.ts             21/21
+  src/api/cc.test.ts, contextImport, files, gameProject, projectMap, projects, services/UsageTracker, api/guard   134/134
+  src/services/UsageTracker.test.ts, src/api/usageNote.test.ts   7/7
