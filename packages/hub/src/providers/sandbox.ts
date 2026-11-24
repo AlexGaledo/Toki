@@ -120,6 +120,10 @@ export function sandboxArgv(spec: SandboxSpec, fsx: SandboxFs = realFs): string[
   };
   const gitconfig = path.join(spec.home, '.gitconfig');
   if (fsx.exists(gitconfig)) add('ro', gitconfig, gitconfig, false);
+  // The owner's GitHub CLI login, read-only: .gitconfig sends git's https credentials through `gh auth git-credential`,
+  // so without it a bot can neither push nor open a pull request. Merges stay gated by shipGuard and branch protection.
+  const ghConfig = path.join(spec.home, '.config', 'gh');
+  if (fsx.exists(ghConfig)) add('ro', ghConfig, ghConfig, false);
   const exe = fsx.realpath(spec.executable);
   if (!within('/usr', exe)) add('ro', exe, exe, false);
   for (const p of spec.readOnly) add('ro', p);
@@ -140,6 +144,7 @@ export function sandboxArgv(spec: SandboxSpec, fsx: SandboxFs = realFs): string[
   }
   env.HOME = spec.home;
   env.TMPDIR = '/tmp';
+  env.GH_NO_UPDATE_NOTIFIER = '1';
   env.PATH ??= '/usr/local/bin:/usr/bin:/bin';
   for (const k of Object.keys(env).sort()) out.push('--setenv', k, env[k]);
   return out;
