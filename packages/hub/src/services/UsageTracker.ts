@@ -1,4 +1,4 @@
-import type { CauseKind, ProviderId } from '@pocketrocket/shared';
+import { SHARED_SUBSCRIPTION_NOTE, type CauseKind, type ProviderId } from '@pocketrocket/shared';
 import type { Repos } from '../db/repos.js';
 import { events } from '../events.js';
 
@@ -23,6 +23,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface UsageTrackerDeps {
   alertThresholdUsd?: () => number;
+  /** B11: true once the desktop app has told this hub about a server host (RemoteProjects). */
+  serverHostKnown?: () => boolean;
 }
 
 export class UsageTracker {
@@ -32,6 +34,10 @@ export class UsageTracker {
     this.repos.recordUsage({ botId, roomId, turnId, causeId, ...u, ...meta });
     events.emitEvent({ type: 'usage.updated', botId, roomId, totals: this.repos.usageTotals({ botId, roomId }) });
     this.checkDailyAlert(botId, roomId);
+  }
+  /** B11: both hubs spend from one Claude subscription. Said only once a server host is known. */
+  subscriptionNote(): string | null {
+    return this.deps.serverHostKnown?.() ? SHARED_SUBSCRIPTION_NOTE : null;
   }
   causeCost(causeId: string) {
     return this.repos.usageTotals({ causeId }).costUsd;

@@ -366,6 +366,8 @@ export interface UsageResponse {
   byModel?: UsageGroup[];
   byCause?: UsageGroup[];
   byProvider?: UsageGroup[];
+  /** B11: fixed words, present once a server host is known: both hubs spend from one Claude subscription. */
+  subscriptionNote?: string;
 }
 
 export interface KnowledgeStatus {

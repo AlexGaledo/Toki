@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In Needs you and the Overview, an outside tool's approval now reads like "roblox-studio · execute_luau: local part = Instance.new("Part")": the server, the tool and the first line of its code, instead of the input as escaped JSON. The full script is still on the card.
 - New built-in skills, blender-loop and studio-loop, for game rooms. blender-loop: look at the scene first, end each change with `toki_save()`, `look` after it, export to `exports/`, never use `bpy.ops.wm.*`, and retry a call once after "Connection to Blender lost". studio-loop: get a `studio_id` first, read before writing, play-test before `save_place`, and keep text copies of changed scripts in `studio/`.
 - Groundwork for one app with two hosts: the PC hub can keep a names-only list of your server's projects, sent by the desktop app (`PUT /api/hosts/server/projects`, hub token only, at most 500). `GET /api/projects` now tags each project `pc` or `server`. Nothing is copied or moved between hosts, and bots never see the server's list.
+- Once the desktop app has told the PC hub about your server, the usage reply (`GET /api/usage`, `subscriptionNote`) says that the PC and the server spend from the same Claude subscription, so its limits cover the bots on both.
 
 ## [0.5.4] - 2026-11-21
 

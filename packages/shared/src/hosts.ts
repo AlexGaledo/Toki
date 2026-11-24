@@ -58,3 +58,6 @@ export interface HostState {
   updatedAt: number;
 }
 
+/** B11: shown in the usage view once a server host is known. Fixed words, never remote text. */
+export const SHARED_SUBSCRIPTION_NOTE =
+  'Your PC and your server both spend from the same Claude subscription, so its usage limits cover the bots on both.';

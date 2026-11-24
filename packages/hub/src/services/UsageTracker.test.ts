@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Db } from '../db/db.js';
 import { Repos } from '../db/repos.js';
+import { SHARED_SUBSCRIPTION_NOTE } from '@pocketrocket/shared';
 import { UsageTracker } from './UsageTracker.js';
 
 function setup() {
@@ -37,5 +38,22 @@ describe('UsageTracker daily alert', () => {
     const tracker = new UsageTracker(repos, { alertThresholdUsd: () => 0 });
     tracker.record(bot.id, room.id, 't1', null, { ...usage, costUsd: 999 });
     expect(repos.listMessages(room.id).some((m) => m.kind === 'system')).toBe(false);
+  });
+});
+
+describe('UsageTracker shared-subscription note (B11)', () => {
+  it('says both hubs spend from one subscription once a server host is known', () => {
+    const { repos } = setup();
+    let known = false;
+    const tracker = new UsageTracker(repos, { serverHostKnown: () => known });
+    expect(tracker.subscriptionNote()).toBeNull();
+    known = true;
+    expect(tracker.subscriptionNote()).toBe(SHARED_SUBSCRIPTION_NOTE);
+    expect(tracker.subscriptionNote()).toMatch(/same Claude subscription/);
+  });
+
+  it('NEGATIVE: says nothing on a hub that was never told about a server', () => {
+    const { repos } = setup();
+    expect(new UsageTracker(repos).subscriptionNote()).toBeNull();
   });
 });

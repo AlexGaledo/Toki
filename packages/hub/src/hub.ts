@@ -202,7 +202,7 @@ export function createHub(opts: HubOptions = {}): Hub {
     modelsAsync: (p) => providers.modelsAwaited(p),
   });
   const remoteProjects = new RemoteProjects({ db });
-  const usage = new UsageTracker(repos, { alertThresholdUsd: () => settings.get().spendAlertThresholdUsd });
+  const usage = new UsageTracker(repos, { alertThresholdUsd: () => settings.get().spendAlertThresholdUsd, serverHostKnown: () => remoteProjects.known('server') });
   installSettings(settings);
   repos.renameOwner(settings.get().userName);
   if (opts.seedBots) {
@@ -368,7 +368,7 @@ export function createHub(opts: HubOptions = {}): Hub {
   const rest = createRest({
     busy,
     stop: () => { setImmediate(() => void hub.stop('maintenance stop')); },
-    media, routineInUse: (id) => workflowRepo.forRoutine(id).length > 0,
+    media, usage, routineInUse: (id) => workflowRepo.forRoutine(id).length > 0,
     repos, memory, skills, scheduler, router, runner, settings, secrets, providers, screenSessions, account, knowledge, voice, computers, screenOpener, routing,
     viewOnly: (scope) => control.viewOnly(scope),
   });
