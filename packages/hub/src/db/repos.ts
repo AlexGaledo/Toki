@@ -116,6 +116,7 @@ export class Repos {
       name: r.name as string,
       memberIds: members,
       coordinatorBotId: (r.coordinator_bot_id as string) ?? null,
+      leadMode: r.lead_mode === 1,
       createdAt: r.created_at as number,
       chatModel: (r.chat_model as string) ?? null,
       avatar: (r.avatar as string) || '',
@@ -128,18 +129,19 @@ export class Repos {
     const r = this.db.get('SELECT * FROM rooms WHERE id=?', id);
     return r && this.rowToRoom(r);
   }
-  createRoom(input: { kind: Room['kind']; name: string; memberIds: string[]; coordinatorBotId: string | null; avatar?: string }): Room {
+  createRoom(input: { kind: Room['kind']; name: string; memberIds: string[]; coordinatorBotId: string | null; leadMode?: boolean; avatar?: string }): Room {
     const id = nanoid(10);
     this.db.tx(() => {
       this.db.run(
         'INSERT INTO rooms (id,kind,name,coordinator_bot_id,created_at,avatar) VALUES (?,?,?,?,?,?)',
         id, input.kind, input.name, input.coordinatorBotId, now(), input.avatar ?? '',
       );
+      if (input.leadMode) this.db.run('UPDATE rooms SET lead_mode=1 WHERE id=?', id);
       for (const m of new Set(input.memberIds)) this.db.run('INSERT INTO room_members (room_id,bot_id) VALUES (?,?)', id, m);
     });
     return this.getRoom(id)!;
   }
-  updateRoom(id: string, patch: Partial<{ name: string; memberIds: string[]; coordinatorBotId: string | null; avatar: string }>): Room | undefined {
+  updateRoom(id: string, patch: Partial<{ name: string; memberIds: string[]; coordinatorBotId: string | null; leadMode: boolean; avatar: string }>): Room | undefined {
     const cur = this.getRoom(id);
     if (!cur) return undefined;
     this.db.tx(() => {
@@ -150,6 +152,7 @@ export class Repos {
         patch.avatar ?? cur.avatar ?? '',
         id,
       );
+      if (patch.leadMode !== undefined) this.db.run('UPDATE rooms SET lead_mode=? WHERE id=?', patch.leadMode ? 1 : 0, id);
       if (patch.memberIds) {
         this.db.run('DELETE FROM room_members WHERE room_id=?', id);
         for (const m of new Set(patch.memberIds)) this.db.run('INSERT INTO room_members (room_id,bot_id) VALUES (?,?)', id, m);

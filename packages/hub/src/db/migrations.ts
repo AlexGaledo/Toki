@@ -786,4 +786,5 @@ registerMigrations([310, 319], [
 
 registerMigrations([320, 329], [
   { version: 320, name: 'approval_policies.message', up: (db) => addColumnIfMissing(db, 'approval_policies', 'message', 'TEXT') },
+  { version: 321, name: 'rooms.lead_mode', up: (db) => addColumnIfMissing(db, 'rooms', 'lead_mode', 'INTEGER NOT NULL DEFAULT 0') },
 ]);

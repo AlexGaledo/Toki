@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### A lead can run a group chat, and bots keep their sessions
+
+- New per-chat switch, **The coordinator runs this chat** (group details). When on, only the coordinator gets your messages, even ones that @mention another bot, and only its @mentions and hand-offs wake the others. Each other bot sees only what is addressed to it instead of the whole chat, and pulls more with `read_room` when it needs it, so a busy chat costs far fewer tokens. Whatever a worker passes on goes back to the lead. The lead can read a member's memory. The header shows "runs this chat @lead".
+- Bots no longer start a fresh session at 120k tokens of context or after 30 minutes idle. They keep their whole conversation and the provider compacts it near the window. `ROTATE_CONTEXT_TOKENS` turns the old behaviour back on; a cut-off turn still starts fresh.
+
 ### Bots keep working longer and show their proof
 
 - A bot now gets 100 steps per run instead of 30, and up to 3 continuations instead of 1. When it still runs out, it carries on in the same conversation instead of starting over from a summary, so long design or coding work keeps its place. Only the token limit starts a fresh session.

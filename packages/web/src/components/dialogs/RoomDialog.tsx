@@ -5,7 +5,7 @@ import type { Bot, Room } from '@pocketrocket/shared';
 import { api } from '../../lib/api';
 import { isWorking, useBotStatus } from '../../lib/botStatus';
 import { useStore } from '../../store';
-import { Avatar, Button, Dialog, Field, Input, Label, Select, confirmAction } from '../ui';
+import { Avatar, Button, Dialog, Field, Input, Label, Select, Switch, confirmAction } from '../ui';
 import { BotIconPicker } from './BotIconPicker';
 
 export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () => void }) {
@@ -18,6 +18,7 @@ export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () =
   const [avatar, setAvatar] = useState(room?.avatar ?? '');
   const [members, setMembers] = useState<string[]>(room?.memberIds ?? []);
   const [coord, setCoord] = useState<string>(room?.coordinatorBotId ?? '');
+  const [leadMode, setLeadMode] = useState(!!room?.leadMode);
   const [busy, setBusy] = useState(false);
 
   const inRoom = members.map((id) => bots.find((b) => b.id === id)).filter((b): b is Bot => !!b);
@@ -31,7 +32,7 @@ export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () =
       const base = room?.memberIds ?? [];
       const now = latest?.memberIds ?? base;
       const memberIds = [...now.filter((id) => members.includes(id) || !base.includes(id)), ...members.filter((id) => !base.includes(id) && !now.includes(id))];
-      const body = { name: name.trim(), avatar, memberIds, coordinatorBotId: coord && memberIds.includes(coord) ? coord : null };
+      const body = { name: name.trim(), avatar, memberIds, coordinatorBotId: coord && memberIds.includes(coord) ? coord : null, leadMode: leadMode && memberIds.length >= 2 };
       const r = room ? await api.rooms.update(room.id, body) : await api.rooms.create({ kind: 'group', ...body });
       setActiveRoom(r.id);
       onClose();
@@ -111,6 +112,15 @@ export function RoomDialog({ room, onClose }: { room: Room | null; onClose: () =
           {inRoom.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </Select>
       </Field>
+      <div className="mt-3 flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <span id="lead-mode-label" className="block text-ui">The coordinator runs this chat</span>
+          <span id="lead-mode-hint" className="block text-hint text-muted">
+            Only it gets your messages and wakes the others. The others see only what it hands them, which saves tokens in a busy chat.
+          </span>
+        </div>
+        <Switch aria-labelledby="lead-mode-label" aria-describedby="lead-mode-hint" checked={leadMode && members.length >= 2} disabled={members.length < 2} onChange={setLeadMode} />
+      </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
         <div>{room && <Button variant="danger" size="sm" onClick={remove} disabled={busy}>Delete group chat</Button>}</div>
         <div className="flex gap-2">

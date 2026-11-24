@@ -60,6 +60,35 @@ export function unreadForLane(repos: Repos, botId: string, roomId: string, lastS
   return repos.messagesAfter(roomId, lastSeenSeq).filter((m) => !m.cancelledAt && !hidden.has(m.id));
 }
 
+/** The lead of a room in lead mode, if it is still a member. */
+export function roomLead(room: Room, members: Bot[]): Bot | undefined {
+  if (room.kind !== 'group' || !room.leadMode || !room.coordinatorBotId) return undefined;
+  return members.find((b) => b.id === room.coordinatorBotId);
+}
+
+export const LEAD_NOTE =
+  "(You run this room. Only you get the owner's messages, and only your @mentions and hand-offs wake the others. " +
+  'They see only what you address to them, so give each a complete task with the context it needs. ' +
+  "You can read a member's memory with read_memory({ bot }).)";
+
+export const WORKER_SCOPE_NOTE = (lead: string) =>
+  '(@' + lead + ' runs this room. You see only messages addressed to you; call read_room if you need the rest. Report back to @' + lead + ', who decides who does what next.)';
+
+/**
+ * In lead mode a worker gets only what is addressed to it (a hand-off to it, or a message from the lead or the owner
+ * that @mentions it, or what woke it), not the whole room: it pulls the rest with read_room when it needs it.
+ */
+export function scopeForWorker(room: Room, members: Bot[], bot: Bot, msgs: Message[], triggerSeqs: ReadonlySet<number>): { msgs: Message[]; scoped: Bot | null } {
+  const lead = roomLead(room, members);
+  if (!lead || lead.id === bot.id) return { msgs, scoped: null };
+  const at = new RegExp('@' + bot.handle.replace(/[^\w-]/g, '\\$&') + '(?![\\w-])', 'i');
+  const kept = msgs.filter((m) =>
+    triggerSeqs.has(m.seq) ||
+    (m.kind === 'handoff' && (m.payload as { toBotId?: string } | null)?.toBotId === bot.id) ||
+    ((m.authorId === lead.id || m.authorType === 'user') && at.test(m.text)));
+  return { msgs: kept, scoped: lead };
+}
+
 export function stoppedNote(botName: string, sendNow: boolean): string {
   return botName + ' was stopped by you' + (sendNow ? '; its queued messages run now.' : '.');
 }
@@ -247,7 +276,9 @@ export class RoomRouter {
   private dispatchUser(room: Room, msg: Message, mode?: SendMode): DeliveryPayload | null {
     const members = this.members(room);
     let targets: Bot[];
+    const lead = roomLead(room, members);
     if (room.kind === 'dm' || members.length === 1) targets = members.slice(0, 1);
+    else if (lead) targets = [lead];
     else {
       targets = parseMentions(msg.text, members);
       if (!targets.length) {
@@ -340,7 +371,10 @@ export class RoomRouter {
     const hop = req.hop + 1;
     const room = this.repos.getRoom(req.room.id) ?? req.room;
     const members = this.members(room);
-    const valid = targets.filter((t) => t.id !== req.bot.id && members.some((m) => m.id === t.id));
+    let valid = targets.filter((t) => t.id !== req.bot.id && members.some((m) => m.id === t.id));
+    // In lead mode only the lead wakes others; whatever a worker passes on goes back to the lead to decide.
+    const lead = roomLead(room, members);
+    if (lead && lead.id !== req.bot.id && valid.length) valid = [lead];
     if (!valid.length) return [];
     if (hop > MAX_HOPS) {
       this.note(room, 'Too many hand-offs in a row (' + MAX_HOPS + '). @' + req.bot.handle + ' cannot pass this to ' + valid.map((v) => '@' + v.handle).join(', ') + '. Send a new message to continue.', req.causeId, hop);
@@ -472,14 +506,17 @@ export class RoomRouter {
           startSeq = this.repos.maxSeq(room.id);
           lane.turnStartSeq = startSeq;
           this.emitRoomQueues(roomId, key);
-          const unread = unreadForLane(this.repos, bot.id, room.id, session.lastSeenSeq);
           const members = this.members(room);
+          const scope = scopeForWorker(room, members, bot, unreadForLane(this.repos, bot.id, room.id, session.lastSeenSeq), new Set(items.map((i) => i.triggerSeq)));
+          const unread = scope.msgs;
           const notes = [...new Set(items.map((i) => i.note).filter((n): n is string => !!n))];
           const handBack = this.control?.takeNote(bot.id);
           if (handBack) notes.push(handBackNote(handBack));
           const roster = rosterText(members, bot.id);
           const seen = this.rosterSeen.get(key);
           shownRoster = !session.sdkSessionId || !seen || seen.roster !== roster || seen.sessionId !== session.sdkSessionId ? roster : null;
+          const lead = roomLead(room, members);
+          if (shownRoster && lead) notes.push(lead.id === bot.id ? LEAD_NOTE : WORKER_SCOPE_NOTE(lead.handle));
           const injected = this.buildInjected(bot, room, unread, items.map((i) => i.triggerSeq)) +
             (notes.length ? '\n\n' + notes.join('\n') : '') +
             '\n\n(' + hopBudgetLine(hop) + ')' + (shownRoster ? '\n' + shownRoster : '');

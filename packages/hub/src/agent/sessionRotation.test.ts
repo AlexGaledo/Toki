@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ModelInfo, ProviderCheck, ProviderId } from '@pocketrocket/shared';
 import { Db } from '../db/db.js';
 import { Repos } from '../db/repos.js';
@@ -12,6 +12,9 @@ import type { ProviderRegistry } from '../providers/registry.js';
 import type { PassOutcome } from '../services/AutoMemory.js';
 import { BotRunner } from './BotRunner.js';
 import { ROTATE_CONTEXT_TOKENS, ROTATE_IDLE_MS, ROTATE_SEED_MESSAGES, TURN_CACHE_READ_CAP } from '../config.js';
+
+// Rotation is off by default; these tests cover it switched on at the old 120k default.
+vi.mock('../config.js', async (orig) => ({ ...(await orig<typeof import('../config.js')>()), ROTATE_CONTEXT_TOKENS: 120_000 }));
 
 type Step = Partial<TurnOutcome> & { cacheRead?: number };
 

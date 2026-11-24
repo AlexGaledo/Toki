@@ -27,7 +27,7 @@ export function RoomBadges({ room, members }: { room: Room; members: Bot[] }) {
   const onBackup = members.flatMap((m) => { const a = activeFor(failoverActive, m.id, Date.now()); return a ? [{ m, text: onBackupText(a, providers) }] : []; });
   return (
     <>
-      {coordinator && <Badge tone="accent">coordinator @{coordinator.handle}</Badge>}
+      {coordinator && <Badge tone="accent">{room.leadMode ? 'runs this chat' : 'coordinator'} @{coordinator.handle}</Badge>}
       {held.map((m) => <Badge key={m.id} tone="warn">@{m.handle} {control[m.id]?.control === 'paused' ? 'paused' : 'screen: you'}</Badge>)}
       {queuePaused.map((m) => <Badge key={'q' + m.id} tone="warn">{room.kind === 'dm' ? 'Queue paused' : '@' + m.handle + ' queue paused'}</Badge>)}
       {onBackup.map(({ m, text }) => <Badge key={'b' + m.id}>{room.kind === 'dm' ? text : '@' + m.handle + ' ' + text.charAt(0).toLowerCase() + text.slice(1)}</Badge>)}

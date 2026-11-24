@@ -108,6 +108,11 @@ export function createRest(deps: RestDeps) {
     if (after.coordinatorBotId !== before.coordinatorBotId) {
       lines.push(after.coordinatorBotId ? 'Coordinator is now ' + label(after.coordinatorBotId) + '.' : 'This chat has no coordinator now.');
     }
+    if (!!after.leadMode !== !!before.leadMode) {
+      lines.push(after.leadMode
+        ? 'The coordinator now runs this chat: only it gets your messages and wakes the others, and the others see only what is addressed to them.'
+        : 'Everyone in this chat reads it again, and @mentions reach bots directly.');
+    }
     return lines;
   };
 
