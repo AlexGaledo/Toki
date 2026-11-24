@@ -63,7 +63,7 @@ describe('merging a pull request', () => {
       'GH_REPO=other/app gh pr merge 3', 'gh -R other/app pr merge 3', 'bash -c "gh pr merge 3"',
       'gh pr merge', 'gh pr merge 3 -b "a; b"', 'gh pr merge $(echo 3)', 'gh pr merge 3 & gh pr merge 4', '{ gh pr merge 3; }',
       'cd ../other && gh pr merge 3', 'echo `gh pr merge 3`', 'gh pr merge 3\nrm -rf x', '/usr/bin/gh pr merge 3',
-      'gh api -X PUT repos/me/app/pulls/3/merge', 'g"h" pr merge 3', "gh 'pr' merge 3", 'g\\h p\\r merge 3', 'GH PR MERGE 3', 'gh api -X PUT repos/me/app/pulls/3/m"erge"', "gh api graphql -f query='mutation { mergePullRequest(input: {}) { clientMutationId } }'",
+      'gh api -X PUT repos/me/app/pulls/3/merge', 'g"h" pr merge 3', "gh 'pr' merge 3", 'g\\h p\\r merge 3', 'GH PR MERGE 3', "g$'h' pr merge 3", 'G=gh; $G pr merge 3', '$(echo gh) pr merge 3', 'gh api graphql -F query=@q.graphql', 'gh api graphql --input q.json','gh api -X PUT repos/me/app/pulls/3/m"erge"', "gh api graphql -f query='mutation { mergePullRequest(input: {}) { clientMutationId } }'",
     ]) expect(denied(cmd, checks('pass')), cmd).not.toBeNull();
   });
   it('refuses a merge after a push or commit in the same command', () => {

@@ -120,8 +120,13 @@ const shellish = (command: string) => command.replace(/["'\\]/g, '').toLowerCase
 
 export function defaultBranchPushDenied(command: string, cwd: string, info: GitInfo = realGit, extraProtected?: (remote: string) => readonly string[]): string | null {
   const seen = shellish(command);
-  if (API_MERGE.test(seen)) return 'Merging through gh api is left to the owner. Use gh pr merge <number> once its checks pass.';
-  if (MENTIONS_PR_MERGE.test(seen)) return prMergeDenied(command, cwd, info);
+  // Letters only: survives quotes, escapes, $'..', ${x}, $(echo gh) and the like. Fails closed on anything merge-shaped.
+  const letters = command.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const apiLike = letters.includes('api') && (letters.includes('gh') || /[$`]/.test(command));
+  if (API_MERGE.test(seen) || (apiLike && (letters.includes('merge') || /@|--input\b/.test(command)))) {
+    return 'Merging through gh api (or feeding it a query from a file) is left to the owner. Use gh pr merge <number> once its checks pass.';
+  }
+  if (MENTIONS_PR_MERGE.test(seen) || letters.includes('prmerge')) return prMergeDenied(command, cwd, info);
   let dir = cwd;
   for (const segment of command.split(/&&|\|\||[;|\n]/)) {
     const tokens = segment.trim().split(/\s+/).map(clean).filter(Boolean);
