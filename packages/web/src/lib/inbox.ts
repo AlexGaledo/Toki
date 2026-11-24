@@ -17,7 +17,7 @@ export interface InboxItem {
   workflowCard?: WorkflowApprovalCard;
   failoverCard?: FailoverCard;
   /** Context for the row, never a consent surface. */
-  approval?: Pick<ApprovalPayload, 'toolName' | 'toolInput'>;
+  approval?: Pick<ApprovalPayload, 'toolName' | 'toolInput' | 'codeField'>;
   /** Allowing is never offered here: it goes through the full card. */
   canDeny?: boolean;
 }
@@ -94,7 +94,7 @@ export function selectInbox({ openApprovals, messages, control, skills, workflow
       botId,
       roomId,
       title: p ? 'Wants to ' + toolAsk(p.toolName) : 'Needs your approval',
-      approval: p ? { toolName: p.toolName, toolInput: p.toolInput } : undefined,
+      approval: p ? { toolName: p.toolName, toolInput: p.toolInput, ...(p.codeField ? { codeField: p.codeField } : {}) } : undefined,
       detail: p?.reason ? p.reason : null,
       since: card?.m.createdAt ?? null,
       approvalId,
