@@ -4,7 +4,7 @@ import { KeyRound, Plug, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useStore } from '../../store';
 import { api, type McpServerRow } from '../../lib/api';
 import { Badge, Banner, Button, EmptyState, Input, Label, Select, Skeleton, SkeletonGroup, Textarea, confirmAction } from '../ui';
-import { Card, Group, SectionHeader } from './parts';
+import { Card, Group, Private, SectionHeader, maskHome } from './parts';
 
 const APPROVE_LABEL: Record<McpServerRow['approve'], string> = { 'every-call': 'Ask every time', writes: 'Ask for changes only', none: 'Never ask', mode: 'Follow approval setting' };
 const CHECK_LABEL: Record<string, string> = {
@@ -59,7 +59,7 @@ function ServerCard({ server: s, onChanged }: { server: McpServerRow; onChanged:
         <div className="min-w-0">
           <div className="flex items-center gap-2"><span className="font-mono text-ui font-semibold">{s.name}</span>
             <Badge tone={s.status === 'invalid' ? 'bad' : 'muted'}>{s.kind === 'http' ? 'Web address' : s.kind === 'stdio' ? 'Program' : 'Invalid'}</Badge></div>
-          <div className="mt-0.5 break-all text-hint text-muted">{s.kind === 'http' ? s.url : s.command + (s.args?.length ? ' ' + s.args.join(' ') : '')}</div>
+          <div className="mt-0.5 break-all text-hint text-muted"><ServerTarget server={s} /></div>
         </div>
         <div className="flex gap-1.5">
           <Button size="sm" disabled={busy} onClick={() => void run(() => api.mcpServers.check(s.name))}><RefreshCw size={13} aria-hidden /> Check</Button>
@@ -95,6 +95,14 @@ function ServerCard({ server: s, onChanged }: { server: McpServerRow; onChanged:
       {problem && <Banner tone="error" className="mt-3">{problem}</Banner>}
     </Card>
   );
+}
+
+/** The URL, or the command line with the user folder masked as in Game tools: people share their screen. */
+export function ServerTarget({ server: s }: { server: Pick<McpServerRow, 'name' | 'kind' | 'url' | 'command' | 'args'> }) {
+  if (s.kind === 'http') return <>{s.url}</>;
+  const line = (s.command ?? '') + (s.args?.length ? ' ' + s.args.join(' ') : '');
+  const shown = maskHome(line);
+  return shown === line ? <>{line}</> : <Private value={line} display={shown} label={s.name + ' command'} />;
 }
 
 function AddServer({ onAdded }: { onAdded: () => void }) {

@@ -36,6 +36,14 @@ export function shortPath(path: string): string {
   return path.split(/[\\/]/).pop() || path;
 }
 
+/**
+ * Every home folder in a line of text folded to `~` (a command and its arguments), keeping the rest readable.
+ * Windows paths ignore case, so `c:\users\<name>` is masked too.
+ */
+export function maskHome(text: string): string {
+  return text.replace(/(?:[A-Za-z]:[\\/]Users[\\/]|\/(?:home|Users)\/)[^\\/\s"']+/gi, '~');
+}
+
 export function maskEmail(email: string): string {
   const at = email.lastIndexOf('@');
   if (at < 1) return '•••';
