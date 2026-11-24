@@ -25,3 +25,5 @@ export * from './projectRepos.js';
 export * from './workflows.js';
 
 export * from './projectMap.js';
+
+export * from './gameTools.js';

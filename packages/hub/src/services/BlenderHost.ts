@@ -52,14 +52,17 @@ export function blenderToolPaths(dataDir: string, platform: NodeJS.Platform = pr
 }
 
 /** `POCKETROCKET_BLENDER_EXE`, else the newest `Blender <ver>\blender.exe` under Program Files. B1 refines detection. */
-export function findBlenderExe(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): string | null {
+export function findBlenderExe(
+  env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform,
+  fsx: Pick<typeof fs, 'existsSync' | 'readdirSync'> = fs,
+): string | null {
   const set = env.POCKETROCKET_BLENDER_EXE;
-  if (set && path.isAbsolute(set) && fs.existsSync(set)) return set;
+  if (set && path.isAbsolute(set) && fsx.existsSync(set)) return set;
   if (platform !== 'win32') return null;
   const base = path.join(env.ProgramFiles ?? 'C:\\Program Files', 'Blender Foundation');
   let dirs: string[];
   try {
-    dirs = fs.readdirSync(base).filter((d) => /^Blender \d+(\.\d+)*$/.test(d));
+    dirs = fsx.readdirSync(base).filter((d) => /^Blender \d+(\.\d+)*$/.test(d));
   } catch {
     return null;
   }
@@ -71,7 +74,7 @@ export function findBlenderExe(env: NodeJS.ProcessEnv = process.env, platform: N
   });
   for (const d of dirs) {
     const exe = path.join(base, d, 'blender.exe');
-    if (fs.existsSync(exe)) return exe;
+    if (fsx.existsSync(exe)) return exe;
   }
   return null;
 }
