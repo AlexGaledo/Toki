@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Under Read-only, an `approve: "mode"` server's tools that are not in `readTools` are refused without a card, the same as an `every-call` server's. Before, they could still run.
 - A game project's room gets Toki's own Blender, which runs headless and never opens a window. It starts on the first Blender call and stops after 10 minutes idle, saving first. Only one runs at a time, and it won't start while another Blender is open on the PC. After more than 3 crashes in 10 minutes it stops restarting. Code saves with `toki_save()`, which writes only the project's `art/<slug>.blend`. Toki's Blender tools never read or change your own Blender settings or add-ons.
 - The desktop app and the hub bundle now ship the headless Blender's server script and its pinned, hashed requirements, so game tools work from the installed app and not only from a checkout. The bundle build fails if either file is missing.
+- The Windows app can open Roblox Studio for you ("Open Studio"). The app finds Studio itself, starts it with no arguments, and Studio stays open when you quit Toki. A page can ask only for Studio, never for another program or a path, and at most once every 10 seconds. There is no "Open Blender": Toki's Blender always runs headless.
 
 ## [0.5.4] - 2026-11-21
 

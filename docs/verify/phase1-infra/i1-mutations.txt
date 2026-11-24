@@ -1,0 +1,56 @@
+I1 mutations, 2026-11-24, owner's PC. From packages/desktop/src-tauri: python -I ../../../docs/verify/phase1-infra/scripts/mutations_i1.py
+Each guard broken in turn; cargo test -j 2 --lib -- launch:: tests::hub_url; the file is restored after each.
+
+## blender becomes an app id  (src/launch.rs)
+   - const IDS: &[(&str, App)] = &[("studio", App::Studio)];
+   + const IDS: &[(&str, App)] = &[("studio", App::Studio), ("blender", App::Studio)];
+   CAUGHT: launch::tests::only_the_exact_studio_id_is_an_app, launch::tests::the_page_can_ask_for_studio_and_nothing_else
+   test result: FAILED. 7 passed; 2 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.03s
+## ids compared case-insensitively  (src/launch.rs)
+   - IDS.iter().find(|(id, _)| *id == raw)
+   + IDS.iter().find(|(id, _)| id.eq_ignore_ascii_case(raw.trim()))
+   CAUGHT: launch::tests::only_the_exact_studio_id_is_an_app, launch::tests::the_page_can_ask_for_studio_and_nothing_else
+   test result: FAILED. 7 passed; 2 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.02s
+## extra query parameters (a path) allowed  (src/launch.rs)
+   - [(_, id)] if url.path() == "/" && url.fragment().is_none() => app_id(id),
+   + [(_, id), ..] if url.path() == "/" => app_id(id),
+   CAUGHT: launch::tests::the_page_can_ask_for_studio_and_nothing_else
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.01s
+## any origin may ask  (src/launch.rs)
+   - if !hub || !url.query_pairs().any(|(k, _)| k == "launch") {
+   + let _ = hub;
+    if !url.query_pairs().any(|(k, _)| k == "launch") {
+   CAUGHT: launch::tests::other_origins_and_other_asks_are_not_launches
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.02s
+## no breakaway flag  (src/launch.rs)
+   - pub const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
+   + pub const CREATE_BREAKAWAY_FROM_JOB: u32 = 0;
+   CAUGHT: launch::tests::studio_starts_from_the_found_path_and_breaks_away_from_the_job
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.02s
+## spawn ignores the flags it is given (calls spawn with 0)  (src/launch.rs)
+   - spawn(&exe, CREATE_BREAKAWAY_FROM_JOB)
+   + spawn(&exe, 0)
+   CAUGHT: launch::tests::studio_starts_from_the_found_path_and_breaks_away_from_the_job
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.02s
+## registry path not confined to Roblox\Versions  (src/launch.rs)
+   - let ok = |exe: &Path| under(exe, &versions) && exe.is_file();
+   + let ok = |exe: &Path| exe.is_file();
+   CAUGHT: launch::tests::a_registry_value_pointing_outside_roblox_versions_is_ignored
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.09s
+## '..' allowed in the registry path  (src/launch.rs)
+   - if !p.is_absolute() || p.components().any(|c| matches!(c, Component::ParentDir)) {
+   + if !p.is_absolute() {
+   CAUGHT: launch::tests::a_registry_value_pointing_outside_roblox_versions_is_ignored
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.07s
+## no cooldown  (src/launch.rs)
+   - if last.is_some_and(|t| now.saturating_duration_since(t) < COOLDOWN) {
+   + if false {
+   CAUGHT: launch::tests::one_start_per_cooldown
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.02s
+## studio cap not advertised to the page  (src/lib.rs)
+   - const CAPS: &str = if cfg!(windows) { "localcopy,studio" } else { "localcopy" };
+   + const CAPS: &str = "localcopy";
+   CAUGHT: tests::hub_url_always_says_desktop
+   test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.02s
+
+10 of 10 mutations caught

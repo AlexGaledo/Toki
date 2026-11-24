@@ -1,0 +1,45 @@
+I1: cargo results, 2026-11-24, owner's PC (rustc 1.96.0). Full suite, not filtered, -j 2.
+
+$ cargo check -j 2 --manifest-path packages/desktop/src-tauri/Cargo.toml
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4m 18s
+
+$ cargo test -j 2 --manifest-path packages/desktop/src-tauri/Cargo.toml
+(this re-run, started right after the cargo check above, was stopped by Claude Code because the PC ran low on memory;
+ it was not restarted. The result below is the full `cargo test -j 2` run from packages/desktop/src-tauri earlier the
+ same session, on the same launch.rs / lib.rs / envpath.rs: the mutation run restored each file and nothing changed
+ since. Only the last 80 lines of that run's output were kept; the module totals are complete.)
+
+test envpath::tests::keeps_inherited_order_and_appends_new_folders ... ok
+test envpath::tests::nothing_new_means_no_override ... ok
+test envpath::tests::works_without_an_inherited_path ... ok
+test launch::tests::nothing_starts_when_studio_is_not_found_or_fails ... ok
+test launch::tests::one_start_per_cooldown ... ok
+test launch::tests::only_the_exact_studio_id_is_an_app ... ok
+test launch::tests::studio_starts_from_the_found_path_and_breaks_away_from_the_job ... ok
+test launch::tests::other_origins_and_other_asks_are_not_launches ... ok
+test launch::tests::the_page_can_ask_for_studio_and_nothing_else ... ok
+test launch::tests::a_registry_value_pointing_outside_roblox_versions_is_ignored ... ok
+test launch::tests::studio_is_found_beside_roblox_content_folder_or_as_the_newest_version ... ok
+test localcopy::tests::accepts_a_document_in_the_chat_folder ... ok
+test localcopy::tests::folder_name_keeps_plain_characters ... ok
+test localcopy::tests::refuses_files_that_run ... ok
+test localcopy::tests::refuses_other_hosts_ports_and_paths ... ok
+test tests::a_release_build_runs_the_hub_from_config_json_nowhere ... ok
+test tests::close_to_tray_defaults_follow_the_mode ... ok
+test tests::config_validation ... ok
+test tests::http_and_provider_check_parsing ... ok
+test tests::only_splash_and_hub_stay_in_the_webview ... ok
+test tests::hub_url_always_says_desktop ... ok
+test tests::popout_requests_are_hub_only_and_validated ... ok
+test tests::only_web_and_mail_links_reach_the_os ... ok
+test tests::titles_never_end_in_a_dangling_separator ... ok
+(plus proc, scan, ssh, update and updater_config tests, all ok)
+
+test result: ok. 65 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.75s
+     Running unittests src\main.rs
+test result: ok. 0 passed; 0 failed
+   Doc-tests pocketrocket_desktop_lib
+test result: ok. 0 passed; 0 failed
+
+The mutation run (i1-mutations.txt) also ran `cargo test --lib -- launch:: tests::hub_url` ten times, each time with
+the unmutated file restored afterwards.

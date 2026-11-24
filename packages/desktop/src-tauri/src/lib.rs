@@ -18,6 +18,7 @@ mod scan;
 mod ssh;
 mod term;
 mod localcopy;
+mod launch;
 mod update;
 // pubkey_is_set is used at runtime (update.rs); the rest is the release gate, used by tests only
 #[cfg_attr(not(test), allow(dead_code))]
@@ -200,13 +201,17 @@ fn hub_responding(port: u16, read_timeout: Duration) -> bool {
     }
 }
 
+/// What this shell can do for the page (`desktopCan()` in the web UI): `localcopy` ("Open on my PC"), and on
+/// Windows `studio` ("Open Studio", launch.rs).
+const CAPS: &str = if cfg!(windows) { "localcopy,studio" } else { "localcopy" };
+
 fn hub_url(port: u16, token: &str) -> String {
     // desktop=1 always (the web UI uses it for desktop-only affordances, the token prompt included); the
     // hub only accepts the token in the fragment, which never leaves the webview.
     if token.is_empty() {
-        format!("http://127.0.0.1:{port}/?desktop=1&caps=localcopy")
+        format!("http://127.0.0.1:{port}/?desktop=1&caps={CAPS}")
     } else {
-        format!("http://127.0.0.1:{port}/?desktop=1&caps=localcopy#token={token}")
+        format!("http://127.0.0.1:{port}/?desktop=1&caps={CAPS}#token={token}")
     }
 }
 
@@ -1010,10 +1015,25 @@ fn popout_request(url: &Url) -> Option<(String, Option<String>)> {
     Some((id, room))
 }
 
-/// A new window the hub page asked for that is not a bot pop-out: an "Open on my PC" file copy (see localcopy.rs),
-/// or a web link for the default browser.
+/// A new window the hub page asked for that is not a bot pop-out: "Open Studio" (see launch.rs), an "Open on my
+/// PC" file copy (see localcopy.rs), or a web link for the default browser.
 fn new_window_elsewhere(app: &AppHandle, url: &Url) {
     let port = HUB_PORT.load(Ordering::Relaxed);
+    if let Some(ask) = launch::request(url, port) {
+        match ask {
+            Ok(which) if launch::GATE.pass(Instant::now()) => {
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    if let Err(why) = launch::open(which, &launch::find_installed, &launch::spawn_detached) {
+                        tell(&app, "Couldn't open Roblox Studio", &why);
+                    }
+                });
+            }
+            Ok(_) => {} // asked again within the cooldown: the first start is still coming up
+            Err(why) => tell(app, "Couldn't open that app", why),
+        }
+        return;
+    }
     if let Some(why) = localcopy::refusal(url, port) {
         tell(app, "Couldn't open that file", why);
         return;
@@ -1083,7 +1103,7 @@ fn open_bot_popout(app: &AppHandle, bot_id: &str, room_id: Option<&str>) {
         return;
     }
     // The token rides only in the fragment, as for the main window; the page strips it after reading it.
-    let mut url = format!("http://127.0.0.1:{port}/?desktop=1&caps=localcopy&popout={bot_id}");
+    let mut url = format!("http://127.0.0.1:{port}/?desktop=1&caps={CAPS}&popout={bot_id}");
     if let Some(r) = room_id.filter(|r| valid_bot_id(r)) {
         url.push_str(&format!("&room={r}"));
     }
@@ -1607,8 +1627,9 @@ mod tests {
 
     #[test]
     fn hub_url_always_says_desktop() {
-        assert_eq!(hub_url(7788, ""), "http://127.0.0.1:7788/?desktop=1&caps=localcopy");
-        assert_eq!(hub_url(7788, "abc"), "http://127.0.0.1:7788/?desktop=1&caps=localcopy#token=abc");
+        let caps = if cfg!(windows) { "localcopy,studio" } else { "localcopy" };
+        assert_eq!(hub_url(7788, ""), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}"));
+        assert_eq!(hub_url(7788, "abc"), format!("http://127.0.0.1:7788/?desktop=1&caps={caps}#token=abc"));
     }
 
     #[test]

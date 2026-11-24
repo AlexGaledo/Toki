@@ -57,5 +57,6 @@ changed. Raw evidence is in [`game-tools-spike/`](game-tools-spike/), and the sc
 ## Not verified
 
 - (e) and every live Studio step: `execute_luau` and `multi_edit` cards, `screen_capture`, `save_place`. They need Studio open.
+- **I1, verify when Studio may be opened (S2):** in the installed app, press "Open Studio" (the page calls `window.open(location.origin + '/?launch=studio', '_blank')`). Check that `RobloxStudioBeta.exe` starts from `%LOCALAPPDATA%\Roblox\Versions\version-*`, with no arguments, and that it is not in Toki's job (Process Explorer > Job tab, or `IsProcessInJob`). Then quit Toki from the tray and check Studio is still running. Also press it twice within 10 s and check that only one Studio opens. Unit tests cover the rest (`docs/verify/phase1-infra/`).
 - Whether `look` in viewport mode in a GUI Blender returns the same kind of block: very likely, since it is the same MCP content type, but only the headless server was driven by the hub.
 - RAM used by a persistent headless Blender (not measured).
