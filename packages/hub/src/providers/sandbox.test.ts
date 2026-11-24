@@ -12,7 +12,7 @@ import {
 const D = '/srv/pr/data';
 const HOME = '/home/pr';
 const present = new Set<string>([
-  '/usr', '/etc/resolv.conf', '/etc/hosts', '/etc/ssl', '/etc/passwd', `${HOME}/.gitconfig`,
+  '/usr', '/etc/resolv.conf', '/etc/hosts', '/etc/ssl', '/etc/passwd', `${HOME}/.gitconfig`, `${HOME}/.config/gh`,
   `${D}/bots/botA`, `${D}/bots/botA/.claude-sandbox`, `${D}/projects/projA`, `${D}/workspace`, `${D}/knowledge`, `${D}/computers/botA/files`,
   `${HOME}/.local/share/claude/versions/2.1.9`, `${HOME}/.claude/.credentials.json`,
 ]);
@@ -53,6 +53,12 @@ describe('sandboxArgv', () => {
     expect(argv).not.toContain('--unshare-net');
     expect(argv).not.toContain('--unshare-all');
     expect(argv).toContain('--clearenv');
+  });
+
+  it("lends the owner's GitHub CLI login read-only, so git push and gh work", () => {
+    expect(m).toContainEqual({ flag: '--ro-bind', src: `${HOME}/.config/gh`, dest: `${HOME}/.config/gh` });
+    expect(m.filter((x) => x.dest.startsWith(`${HOME}/.config`)).every((x) => x.flag === '--ro-bind')).toBe(true);
+    expect(sandboxArgv(spec(), { ...fakeFs, exists: (p) => p !== `${HOME}/.config/gh` && present.has(p) }).join(' ')).not.toContain('.config/gh');
   });
 
   it('mounts the bot home, its project and computer folders writable', () => {
