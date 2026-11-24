@@ -176,7 +176,7 @@ describe('studio-mcp-setting', () => {
     const s = setup();
     expect(await s.gt.enableStudioMcp()).toEqual({ ok: true, result: 'enabled', changed: [s.pc.settingsFile] });
     const after = fs.readFileSync(s.pc.settingsFile, 'utf8');
-    expect(after).toBe(SETTINGS.replace(/"enabled": false\n    \}\n\}$/, '"enabled": true\n    }\n}'));
+    expect(after).toBe(SETTINGS.replace(/"enabled": false\n {4}\}\n\}$/, '"enabled": true\n    }\n}'));
     const was = JSON.parse(SETTINGS);
     expect(JSON.parse(after)).toEqual({ ...was, 'mcp-server': { enabled: true } });
     expect(JSON.parse(after)['mcp-prompt-sharing']).toEqual({ enabled: false });

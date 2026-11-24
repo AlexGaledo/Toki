@@ -1,0 +1,79 @@
+## mutation: B1: Blender version asked without -b
+   1 failed | 41 passed (42)
+   FAIL game tools detection: Blender > finds the newest Blender, numerically, and asks its version only with -b --factory-startup, once
+## mutation: B1: a changed add-on still counts as installed
+   1 failed | 41 passed (42)
+   FAIL game tools detection: the Blender MCP environment > NEGATIVE: an add-on changed after install is addon-mismatch, not installed
+## mutation: B1: crash cap not reported
+   2 failed | 40 passed (42)
+   FAIL B5: the Blender state comes from Toki's own BlenderHost > shows starting with the project and port, then crashing past the cap with its log, and stopped after reset
+   FAIL game tools detection: the Blender process > reports crashing past the cap, with the crash log and the reset fix
+## mutation: B1: detection reads the owner's Blender add-ons
+   1 failed | 41 passed (42)
+   FAIL NEGATIVE: detection never touches the owner's Blender config or writes anything > reads nothing under %APPDATA%\Blender Foundation and writes no file
+## mutation: B6: uv zip written before the hash check
+   2 failed | 40 passed (42)
+   FAIL install-uv > NEGATIVE: PATH and the registry are unchanged by an install
+   FAIL install-uv > NEGATIVE: a wrong sha256 leaves nothing on disk and runs nothing
+## mutation: B6: no uv hash check
+   1 failed | 41 passed (42)
+   FAIL install-uv > NEGATIVE: a wrong sha256 leaves nothing on disk and runs nothing
+## mutation: B6: failed unpack leaves staging
+   1 failed | 41 passed (42)
+   FAIL install-uv > cleans up a failed unpack, and reports download failures without writing
+## mutation: B6: uv added to the user PATH
+   2 failed | 40 passed (42)
+   FAIL install-uv > NEGATIVE: PATH and the registry are unchanged by an install
+   FAIL install-uv > downloads the pinned zip, unpacks it with Windows tar into <data>/tools/uv/<version>/, and leaves no staging
+## mutation: B6: add-on hash not checked
+   1 failed | 41 passed (42)
+   FAIL install-blender-mcp > NEGATIVE: an add-on that does not hash to the pin removes the whole environment
+## mutation: B6: Studio edited while it runs
+   2 failed | 40 passed (42)
+   FAIL every write is audited, and nothing else is > refuses the Studio setting while Studio runs, logs the refusal, and changes nothing
+   FAIL studio-mcp-setting > NEGATIVE: refuses while RobloxStudioBeta.exe runs, and writes nothing
+## mutation: B6: no .toki-bak
+   1 failed | 41 passed (42)
+   FAIL studio-mcp-setting > sets only mcp-server.enabled, keeps every other key and the layout, and writes a .toki-bak
+## mutation: B6: setting replaced instead of merged (drops other keys)
+   2 failed | 40 passed (42)
+   FAIL studio-mcp-setting > keeps CRLF, a final newline, and unknown keys inside mcp-server
+   FAIL studio-mcp-setting > sets only mcp-server.enabled, keeps every other key and the layout, and writes a .toki-bak
+## mutation: B6: also turns on prompt sharing
+   2 failed | 40 passed (42)
+   FAIL studio-mcp-setting > keeps CRLF, a final newline, and unknown keys inside mcp-server
+   FAIL studio-mcp-setting > sets only mcp-server.enabled, keeps every other key and the layout, and writes a .toki-bak
+## mutation: B6: a file without the key is rewritten
+   1 failed | 41 passed (42)
+   FAIL studio-mcp-setting > NEGATIVE: changes nothing when a file will not parse or has no mcp-server key, and shows the menu path
+## mutation: B6: settings written in place, not atomically
+   1 failed | 41 passed (42)
+   FAIL studio-mcp-setting > sets only mcp-server.enabled, keeps every other key and the layout, and writes a .toki-bak
+## mutation: B2: fix body not strict (a field could reach a step)
+   2 failed | 40 passed (42)
+   FAIL NEGATIVE: no request field reaches a command, argument or env > downloads only the pinned uv URL, whatever the query string says
+   FAIL NEGATIVE: no request field reaches a command, argument or env > refuses any field a fix step does not take, and runs nothing
+## mutation: B2: Studio setup body not strict
+   2 failed | 40 passed (42)
+   FAIL NEGATIVE: no request field reaches a command, argument or env > refuses command, args or env on the Studio setup, and an unknown room
+   FAIL NEGATIVE: no request field reaches a command, argument or env > writes the fixed Studio recipe for one room, and adds a second room without changing the command
+## mutation: B2: handler lets any principal through (pipeline still guards)
+   42 passed (42)
+## mutation: B2: no one-at-a-time lock
+   1 failed | 41 passed (42)
+   FAIL approval mode does not gate setup (owner decision 2) > runs one step at a time
+## mutation: B2: writes not audited
+   3 failed | 39 passed (42)
+   FAIL approval mode does not gate setup (owner decision 2) > works under ask and under bypass
+   FAIL every write is audited, and nothing else is > records one named row per write, with no generic request row
+   FAIL every write is audited, and nothing else is > refuses the Studio setting while Studio runs, logs the refusal, and changes nothing
+## mutation: B2: generic request row also written
+   1 failed | 41 passed (42)
+   FAIL every write is audited, and nothing else is > records one named row per write, with no generic request row
+## mutation: B5: crash log not redacted
+   1 failed | 41 passed (42)
+   FAIL B5: status checks > serves BlenderHost's crash log for Open log, redacted, and null when there is none
+## mutation: B5: Studio check words dropped
+   1 failed | 41 passed (42)
+   FAIL B5: status checks > reports the Studio recipe with fixed words: setting-off, studio-not-open, then command-found
+## restored: 42 passed (42)

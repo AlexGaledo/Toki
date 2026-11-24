@@ -1,0 +1,349 @@
+## before
+HKCU Environment Path sha256: 8004e9fbeee56fff
+process PATH sha256: 6e1362ad1b7bc900
+AssistantSettings sha256: \2fef68893d7a2fc
+AssistantSettings .toki-bak present: 0
+APPDATA Blender Foundation newest mtime: 0 files changed in the last hour
+blender.exe running: 0
+
+data dir: C:\Users\alex\AppData\Local\Temp\toki-phase1-P4pn
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data C:\Users\alex\AppData\Local\Temp\toki-phase1-P4pn · http://127.0.0.1:28700
+throwaway hub on 127.0.0.1:28700
+
+### GET /api/game-tools -> HTTP 200 in 1.7 s
+{
+  "supported": true,
+  "blender": {
+    "ok": true,
+    "reason": "found",
+    "exe": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
+    "version": "5.2.2",
+    "fix": null
+  },
+  "uv": {
+    "ok": true,
+    "reason": "system",
+    "path": "C:\\Users\\alex\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\uv.exe",
+    "version": "0.11.15",
+    "pinned": "0.11.15",
+    "fix": null
+  },
+  "blenderMcp": {
+    "version": "2.3.1",
+    "ok": false,
+    "reason": "not-installed",
+    "addonSha256": null,
+    "fix": "install-blender-mcp"
+  },
+  "blenderProcess": {
+    "project": null,
+    "pid": null,
+    "port": null,
+    "idleMs": null,
+    "exe": null,
+    "crashes": 0,
+    "crashLog": false,
+    "fix": null,
+    "state": "stopped"
+  },
+  "studio": {
+    "ok": false,
+    "reason": "not-running",
+    "mcpBat": true,
+    "studioMcp": true,
+    "setting": "on",
+    "running": false,
+    "verified": false,
+    "fix": null
+  }
+}
+
+### POST /api/game-tools/fix/install-uv -> HTTP 200 in 6.2 s
+{
+  "ok": true,
+  "step": "install-uv",
+  "result": "installed",
+  "changed": [
+    "C:\\Users\\alex\\AppData\\Local\\Temp\\toki-phase1-P4pn\\tools\\uv\\0.11.15"
+  ],
+  "status": {
+    "supported": true,
+    "blender": {
+      "ok": true,
+      "reason": "found",
+      "exe": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
+      "version": "5.2.2",
+      "fix": null
+    },
+    "uv": {
+      "ok": true,
+      "reason": "system",
+      "path": "C:\\Users\\alex\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\uv.exe",
+      "version": "0.11.15",
+      "pinned": "0.11.15",
+      "fix": null
+    },
+    "blenderMcp": {
+      "version": "2.3.1",
+      "ok": false,
+      "reason": "not-installed",
+      "addonSha256": null,
+      "fix": "install-blender-mcp"
+    },
+    "blenderProcess": {
+      "project": null,
+      "pid": null,
+      "port": null,
+      "idleMs": null,
+      "exe": null,
+      "crashes": 0,
+      "crashLog": false,
+      "fix": null,
+      "state": "stopped"
+    },
+    "studio": {
+      "ok": false,
+      "reason": "not-running",
+      "mcpBat": true,
+      "studioMcp": true,
+      "setting": "on",
+      "running": false,
+      "verified": false,
+      "fix": null
+    }
+  }
+}
+
+### POST /api/game-tools/fix/install-blender-mcp -> HTTP 200 in 19.3 s
+{
+  "ok": true,
+  "step": "install-blender-mcp",
+  "result": "installed",
+  "changed": [
+    "C:\\Users\\alex\\AppData\\Local\\Temp\\toki-phase1-P4pn\\tools\\blender-mcp\\2.3.1"
+  ],
+  "status": {
+    "supported": true,
+    "blender": {
+      "ok": true,
+      "reason": "found",
+      "exe": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
+      "version": "5.2.2",
+      "fix": null
+    },
+    "uv": {
+      "ok": true,
+      "reason": "system",
+      "path": "C:\\Users\\alex\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\uv.exe",
+      "version": "0.11.15",
+      "pinned": "0.11.15",
+      "fix": null
+    },
+    "blenderMcp": {
+      "version": "2.3.1",
+      "ok": true,
+      "reason": "installed",
+      "addonSha256": "b363e5b4765ec53895c92bc98f34335242065a164d95b673f1f843322ac4e03b",
+      "fix": null
+    },
+    "blenderProcess": {
+      "project": null,
+      "pid": null,
+      "port": null,
+      "idleMs": null,
+      "exe": null,
+      "crashes": 0,
+      "crashLog": false,
+      "fix": null,
+      "state": "stopped"
+    },
+    "studio": {
+      "ok": false,
+      "reason": "not-running",
+      "mcpBat": true,
+      "studioMcp": true,
+      "setting": "on",
+      "running": false,
+      "verified": false,
+      "fix": null
+    }
+  }
+}
+
+### POST /api/game-tools/studio/setup -> HTTP 200 in 1.6 s
+{
+  "server": {
+    "name": "roblox-studio",
+    "status": "configured",
+    "problems": [],
+    "rooms": [
+      "jN-6SosT69"
+    ],
+    "bots": [],
+    "approve": "mode",
+    "readTools": [
+      "search_game_tree",
+      "script_search",
+      "script_read",
+      "script_grep",
+      "inspect_instance",
+      "get_console_output",
+      "get_studio_state",
+      "screen_capture",
+      "list_roblox_studios",
+      "list_skills",
+      "skill",
+      "wait_job_finished",
+      "search_asset",
+      "http_get"
+    ],
+    "needs": [],
+    "kind": "stdio",
+    "command": "C:\\WINDOWS\\System32\\cmd.exe",
+    "args": [
+      "/d",
+      "/c",
+      "C:\\Users\\alex\\AppData\\Local\\Roblox\\mcp.bat"
+    ],
+    "argsMasked": false,
+    "envKeys": []
+  }
+}
+
+### POST /api/mcp-servers/roblox-studio/check -> HTTP 200 in 1.6 s
+{
+  "ok": false,
+  "result": "studio-not-open",
+  "at": 1795509460385
+}
+
+### GET /api/game-tools/blender/crash-log -> HTTP 200 in 0.0 s
+{
+  "log": null
+}
+
+### GET /api/game-tools (after) -> HTTP 200 in 1.6 s
+{
+  "supported": true,
+  "blender": {
+    "ok": true,
+    "reason": "found",
+    "exe": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
+    "version": "5.2.2",
+    "fix": null
+  },
+  "uv": {
+    "ok": true,
+    "reason": "system",
+    "path": "C:\\Users\\alex\\AppData\\Local\\Programs\\Python\\Python313\\Scripts\\uv.exe",
+    "version": "0.11.15",
+    "pinned": "0.11.15",
+    "fix": null
+  },
+  "blenderMcp": {
+    "version": "2.3.1",
+    "ok": true,
+    "reason": "installed",
+    "addonSha256": "b363e5b4765ec53895c92bc98f34335242065a164d95b673f1f843322ac4e03b",
+    "fix": null
+  },
+  "blenderProcess": {
+    "project": null,
+    "pid": null,
+    "port": null,
+    "idleMs": null,
+    "exe": null,
+    "crashes": 0,
+    "crashLog": false,
+    "fix": null,
+    "state": "stopped"
+  },
+  "studio": {
+    "ok": false,
+    "reason": "not-running",
+    "mcpBat": true,
+    "studioMcp": true,
+    "setting": "on",
+    "running": false,
+    "verified": false,
+    "fix": null
+  }
+}
+
+### audit rows
+  {
+    "action": "game_tools.uv_installed",
+    "target": "tools/uv/0.11.15",
+    "detail": "0.11.15",
+    "actor_kind": "hub-token"
+  },
+  {
+    "action": "game_tools.blender_mcp_installed",
+    "target": "tools/blender-mcp/2.3.1",
+    "detail": "2.3.1 b363e5b4765ec53895c92bc98f34335242065a164d95b673f1f843322ac4e03b",
+    "actor_kind": "hub-token"
+  },
+  {
+    "action": "game_tools.studio_setup",
+    "target": "jN-6SosT69",
+    "detail": "roblox-studio",
+    "actor_kind": "hub-token"
+  }
+]
+
+### C:\Users\alex\AppData\Local\Temp\toki-phase1-P4pn\mcp-servers.json
+{
+  "roblox-studio": {
+    "command": "C:\\WINDOWS\\System32\\cmd.exe",
+    "args": [
+      "/d",
+      "/c",
+      "C:\\Users\\alex\\AppData\\Local\\Roblox\\mcp.bat"
+    ],
+    "approve": "mode",
+    "readTools": [
+      "search_game_tree",
+      "script_search",
+      "script_read",
+      "script_grep",
+      "inspect_instance",
+      "get_console_output",
+      "get_studio_state",
+      "screen_capture",
+      "list_roblox_studios",
+      "list_skills",
+      "skill",
+      "wait_job_finished",
+      "search_asset",
+      "http_get"
+    ],
+    "rooms": [
+      "jN-6SosT69"
+    ]
+  }
+}
+
+## after
+HKCU Environment Path sha256: 8004e9fbeee56fff
+process PATH sha256: 6e1362ad1b7bc900
+AssistantSettings sha256: \2fef68893d7a2fc
+AssistantSettings .toki-bak present: 0
+APPDATA Blender Foundation newest mtime: 0 files changed in the last hour
+blender.exe running: 0
+
+## temp data dir tools tree
+uv:
+0.11.15
+
+uv/0.11.15:
+uv.exe
+uvw.exe
+uvx.exe
+CACHEDIR.TAG
+Lib
+Scripts
+pyvenv.cfg
+toki-install.json
+mcp-for-blender.exe
+mcp.exe
+{"version":"2.3.1","addonSha256":"b363e5b4765ec53895c92bc98f34335242065a164d95b673f1f843322ac4e03b","at":"2026-11-24T08:37:37.095Z"}

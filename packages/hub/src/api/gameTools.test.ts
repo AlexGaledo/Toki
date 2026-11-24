@@ -2,12 +2,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import type { GameToolsStatus, Room } from '@pocketrocket/shared';
 import { createHub, type Hub } from '../hub.js';
 import { listAudit } from '../services/AuditLog.js';
 import { STUDIO_PROCESS, UV_URL, UV_VERSION, sha256, type ProcessRow, type RunFn } from '../services/gameTools.js';
 import { SETTINGS, cleanupFixtures, fixturePc } from '../services/__fixtures__/gamePc.js';
-import { STUDIO_READ_TOOLS, STUDIO_SERVER } from './gameTools.js';
+import { STUDIO_READ_TOOLS, STUDIO_SERVER, createGameToolsApi } from './gameTools.js';
+import { setPrincipal } from './guard.js';
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -64,6 +66,7 @@ afterAll(async () => {
 function request(method: string, p: string, opts: { body?: unknown; raw?: string; token?: string | null } = {}) {
   const headers: Record<string, string> = { host: '127.0.0.1:' + port, 'content-type': 'application/json' };
   if (opts.token !== null) headers.authorization = 'Bearer ' + (opts.token ?? TOKEN);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the helper reads whatever JSON each route replies with
   return new Promise<{ status: number; json: any }>((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port, method, path: p, headers }, (res) => {
       const chunks: Buffer[] = [];
@@ -239,7 +242,7 @@ describe('B5: status checks', () => {
     fs.writeFileSync(cmd, '');
     fs.writeFileSync(pc.settingsFile, SETTINGS);
     expect(await check()).toMatchObject({ ok: false, result: 'setting-off' });
-    fs.writeFileSync(pc.settingsFile, SETTINGS.replace(/false\n    \}\n\}$/, 'true\n    }\n}'));
+    fs.writeFileSync(pc.settingsFile, SETTINGS.replace(/false\n {4}\}\n\}$/, 'true\n    }\n}'));
     expect(await check()).toMatchObject({ ok: false, result: 'studio-not-open' });
     procs = [{ name: STUDIO_PROCESS, pid: 812 }];
     try {
@@ -263,5 +266,27 @@ describe('B5: status checks', () => {
     expect(r.json.log).toContain('EXCEPTION_ACCESS_VIOLATION');
     expect(r.json.log).not.toContain(TOKEN);
     expect((await request('GET', '/api/game-tools')).json.blenderProcess).toMatchObject({ state: 'stopped', crashLog: true });
+  });
+});
+
+describe('NEGATIVE: the handler itself refuses anything but the hub token (defence behind the pipeline)', () => {
+  it('403s a device, runner or missing principal even if the pipeline let one through', async () => {
+    const tools = { status: async () => { throw new Error('must not run'); }, toolsDir: path.join(pc.data, 'tools') };
+    const handler = createGameToolsApi({
+      tools: tools as never, blender: { resetCrashes: () => { throw new Error('must not run'); } },
+      store: {} as never, repos: { getRoom: () => undefined }, db: {} as never,
+    });
+    const principals: (Parameters<typeof setPrincipal>[1] | null)[] = [{ kind: 'device', deviceId: 'phone' }, { kind: 'runner' }, null];
+    for (const p of principals) {
+      for (const [method, url] of [['GET', '/api/game-tools'], ['POST', '/api/game-tools/fix/blender-reset']] as const) {
+        const req = Object.assign(new PassThrough(), { method, url, headers: {}, socket: { remoteAddress: '127.0.0.1' } }) as unknown as http.IncomingMessage;
+        if (p) setPrincipal(req, p);
+        let status = 0;
+        const res = { writeHead: (s: number) => { status = s; }, end: () => undefined } as unknown as http.ServerResponse;
+        (req as unknown as PassThrough).end('{}');
+        expect(await handler(req, res)).toBe(true);
+        expect(status, (p?.kind ?? 'none') + ' ' + method + ' ' + url).toBe(403);
+      }
+    }
   });
 });
