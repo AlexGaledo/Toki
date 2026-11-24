@@ -199,13 +199,13 @@
   }
   let remoteClaudeFor = null;
   async function loadRemoteClaude(s) {
-    const key = s.sshHost + ':' + s.port;
+    const key = s.serverHost;
     if (remoteClaudeFor === key) return;
     remoteClaudeFor = key;
     try {
       const c = await invoke('remote_claude_status');
       if (!c) { remoteClaudeFor = null; return; }
-      const where = 'On ' + s.sshHost + ': ';
+      const where = 'On ' + s.serverHost + ': ';
       if (c.ok) setClaudeLine($('remote-claude'), 'ok', where + [planName(c.plan), c.account].filter(Boolean).join(' · '));
       else setClaudeLine($('remote-claude'), 'warn', where + (c.error || 'Claude Code is not ready'));
     } catch (e) {
@@ -232,8 +232,9 @@
       }
       if (s.firstRun || s.connected || s.error) loadLocalClaude();
       if (s.firstRun && !discoverOpenedOnce) openDiscover();
-      if (s.connected && s.mode === 'remote') loadRemoteClaude(s);
-      else if (!s.connected) { remoteClaudeFor = null; setClaudeLine($('remote-claude'), '', ''); }
+      // I2: the server has its own tunnel next to this PC's hub; ask it once that tunnel is up.
+      if (s.serverConnected) loadRemoteClaude(s);
+      else { remoteClaudeFor = null; setClaudeLine($('remote-claude'), '', ''); }
       render();
     } catch {
       $('dot').className = 'dot';

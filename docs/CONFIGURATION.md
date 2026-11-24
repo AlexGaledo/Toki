@@ -89,9 +89,10 @@ Keys: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`. `GET` returns only `
 
 | Key | Default | Notes |
 |---|---|---|
-| `mode` | `local` | `local` (app spawns the hub) · `remote` (`ssh -N -L` tunnel) · `attach` (hub already on the port). |
-| `sshHost` | `""` | Host alias from `~/.ssh/config` for `remote`. |
-| `port` | `7788` | Hub port for all modes. |
+| `mode` | `local` | `local` (app spawns the hub) · `attach` (hub already on the port). An older `remote` loads as `local` plus `server` (below): the PC hub on 7788, and the server tunnelled from 7790 to the hub port it used. |
+| `sshHost` | `""` | Mirrors `server.sshHost` (the Server terminal uses it). |
+| `port` | `7788` | This PC's hub port. |
+| `server` | unset | The optional second host: `{"sshHost": "<alias>", "localPort": 7790, "hubPort": 7788}`. Its tunnel (`ssh -N -L 127.0.0.1:<localPort>:127.0.0.1:<hubPort>`, BatchMode) opens only when asked and never replaces the PC hub. `localPort` must differ from `port`, and a port already in use is refused rather than shared. |
 | `hubDir` | unset | Dev override: run the hub from a repo checkout with `tsx` instead of the bundled `hub/hub.mjs`. **Debug builds only** — a released app ignores the key (it would be arbitrary code execution for anything that can write this file) and logs that it did. Set `POCKETROCKET_HUB_DIR` in the environment to point a released build at a checkout. |
 | `skippedUpdate` | unset | Written when you answer **Later** to an update: the automatic daily check does not notify about that version again (the tray item still offers it). |
 

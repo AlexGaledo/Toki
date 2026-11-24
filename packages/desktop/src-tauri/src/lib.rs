@@ -15,6 +15,7 @@
 mod envpath;
 mod proc;
 mod scan;
+mod server;
 mod ssh;
 mod term;
 mod localcopy;
@@ -54,12 +55,87 @@ pub struct Config {
     /// A4: the update version the person answered "Later" to; the automatic check does not notify about it again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skipped_update: Option<String>,
+    /// I2: the optional second host. The hub on this PC always runs; this server is reached through its own tunnel,
+    /// opened only when asked (server.rs). `ssh_host` mirrors `server.ssh_host` for the Server terminal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server: Option<ServerEntry>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { mode: "local".into(), ssh_host: "".into(), port: 7788, hub_dir: None, close_to_tray: None, skipped_update: None }
+        Self { mode: "local".into(), ssh_host: "".into(), port: DEFAULT_PORT, hub_dir: None, close_to_tray: None, skipped_update: None, server: None }
     }
+}
+
+/// The PC hub's port, and the hub's port on the server (`deploy/pocketrocket.service`).
+const DEFAULT_PORT: u16 = 7788;
+/// I2: the local end of the server tunnel, so it never takes the PC hub's port.
+const DEFAULT_SERVER_PORT: u16 = 7790;
+
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerEntry {
+    pub ssh_host: String,
+    /// Where the tunnel listens on this PC.
+    #[serde(default = "default_server_port")]
+    pub local_port: u16,
+    /// The hub's port on the server.
+    #[serde(default = "default_port")]
+    pub hub_port: u16,
+}
+
+fn default_server_port() -> u16 { DEFAULT_SERVER_PORT }
+fn default_port() -> u16 { DEFAULT_PORT }
+
+/// I2: decision 6 says the PC hub is primary, so `mode` is only ever `local` or `attach` once loaded. An old
+/// `{"mode":"remote","sshHost":h,"port":p}` (one tunnel on p, to the hub on p) becomes the local hub on the default port
+/// plus the server `h`, tunnelled from 7790 to its hub on p. Idempotent, and run on every load and save.
+fn migrate_config(mut c: Config) -> Config {
+    if c.mode == "remote" {
+        let host = c.ssh_host.trim().to_string();
+        if !host.is_empty() {
+            let keep = c.server.as_ref().filter(|s| s.ssh_host == host).cloned();
+            c.server = Some(keep.unwrap_or(ServerEntry { ssh_host: host, local_port: DEFAULT_SERVER_PORT, hub_port: c.port }));
+        }
+        c.mode = "local".into();
+        c.port = DEFAULT_PORT;
+    }
+    if let Some(s) = c.server.as_mut() {
+        s.ssh_host = s.ssh_host.trim().to_string();
+        // Two listeners can't share a port: the PC hub keeps its own and the tunnel moves.
+        if s.local_port == c.port {
+            s.local_port = if c.port == DEFAULT_SERVER_PORT { DEFAULT_SERVER_PORT + 1 } else { DEFAULT_SERVER_PORT };
+        }
+    }
+    c.ssh_host = c.server.as_ref().map(|s| s.ssh_host.clone()).unwrap_or_default();
+    c
+}
+
+/// What the Connection settings page saved, as a config. Its `remote` means "this PC and a server" (see [`splash_view`]):
+/// `port` is the PC hub's, and the tunnel ports already set for the same host are kept. `local` alone drops the server;
+/// `attach` keeps it. Unlike an old file's `remote` ([`migrate_config`]), nothing here moves the PC hub's port.
+fn from_settings_page(mut c: Config, current: Option<ServerEntry>) -> Config {
+    match c.mode.as_str() {
+        "remote" => {
+            let host = c.ssh_host.trim().to_string();
+            let keep = current.filter(|s| s.ssh_host == host);
+            c.server = Some(keep.unwrap_or(ServerEntry { ssh_host: host, local_port: DEFAULT_SERVER_PORT, hub_port: DEFAULT_PORT }));
+            c.mode = "local".into();
+        }
+        "attach" => c.server = c.server.or(current),
+        _ => c.server = None,
+    }
+    migrate_config(c)
+}
+
+/// What the Connection settings page edits: its "Server over SSH" card stands for "this PC and a server".
+fn splash_view(c: &Config) -> Config {
+    let mut v = c.clone();
+    if let Some(s) = &c.server {
+        v.mode = "remote".into();
+        v.ssh_host = s.ssh_host.clone();
+    }
+    v
 }
 
 /// Whether closing the window keeps the app (and so the hub) running in the tray.
@@ -96,6 +172,12 @@ pub struct Status {
     pub first_run: bool,
     /// Local mode found the port taken by something that answers /api/health (offer to attach).
     pub port_has_hub: bool,
+    /// I2: the configured server's SSH host, "" when there is none.
+    pub server_host: String,
+    pub server_connected: bool,
+    pub server_connecting: bool,
+    /// Why the last server connection failed or ended.
+    pub server_error: Option<String>,
 }
 
 struct Inner {
@@ -109,8 +191,10 @@ struct Inner {
     token: String,
     connect_started: Instant,
     first_run: bool,
-    /// `remote_claude_status` result for this connection generation.
+    /// `remote_claude_status` result for this server connection generation.
     remote_claude: Option<(u64, RemoteClaude)>,
+    /// I2: the server tunnel, apart from `child` (the PC hub) and with its own token.
+    server: server::Link,
 }
 
 #[derive(Clone)]
@@ -136,7 +220,7 @@ fn data_dir(app: &AppHandle) -> PathBuf {
 fn load_config(app: &AppHandle) -> (Config, bool) {
     let p = config_path(app);
     match std::fs::read_to_string(&p) {
-        Ok(s) => (serde_json::from_str(&s).unwrap_or_default(), false),
+        Ok(s) => (migrate_config(serde_json::from_str(&s).unwrap_or_default()), false),
         Err(_) => {
             let c = Config::default();
             let _ = std::fs::write(&p, serde_json::to_string_pretty(&c).unwrap());
@@ -154,6 +238,15 @@ fn validate_config(c: &Config) -> Result<(), String> {
     }
     if c.mode == "remote" {
         ssh::validate_host(&c.ssh_host)?;
+    }
+    if let Some(s) = &c.server {
+        ssh::validate_host(&s.ssh_host)?;
+        if s.local_port < 1024 || s.local_port == c.port {
+            return Err("The server tunnel needs its own port between 1024 and 65535.".into());
+        }
+        if s.hub_port == 0 {
+            return Err("The server's hub port can't be 0.".into());
+        }
     }
     Ok(())
 }
@@ -215,14 +308,23 @@ fn hub_url(port: u16, token: &str) -> String {
     }
 }
 
-fn spawn_tunnel(cfg: &Config, tail: &Tail) -> Result<Child, String> {
-    ssh::validate_host(&cfg.ssh_host)?;
-    let fwd = format!("{}:127.0.0.1:{}", cfg.port, cfg.port);
-    let mut cmd = Command::new(ssh::ssh_exe());
-    cmd.args([
+/// The ssh arguments for the server tunnel: 127.0.0.1:`local_port` here to 127.0.0.1:`hub_port` on the server.
+/// The local side is bound to 127.0.0.1 explicitly, so the tunnel is never open to the network.
+fn tunnel_args(ssh_host: &str, local_port: u16, hub_port: u16) -> Vec<String> {
+    let fwd = format!("127.0.0.1:{local_port}:127.0.0.1:{hub_port}");
+    [
         "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30",
-        "-o", "ServerAliveCountMax=3", "-o", "ConnectTimeout=15", "-N", "-T", "-L", &fwd, "--", &cfg.ssh_host,
-    ]);
+        "-o", "ServerAliveCountMax=3", "-o", "ConnectTimeout=15", "-N", "-T", "-L", &fwd, "--", ssh_host,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
+}
+
+fn spawn_tunnel(ssh_host: &str, local_port: u16, hub_port: u16, tail: &Tail) -> Result<Child, String> {
+    ssh::validate_host(ssh_host)?;
+    let mut cmd = Command::new(ssh::ssh_exe());
+    cmd.args(tunnel_args(ssh_host, local_port, hub_port));
     cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
     no_window(&mut cmd);
     let mut child = cmd
@@ -245,22 +347,26 @@ fn spawn_tunnel(cfg: &Config, tail: &Tail) -> Result<Child, String> {
 /// this still runs on each connect so a rotated or first-run token is picked up either way.
 /// Tries the paths a deploy can leave behind, newest layout first. Killed after 8 s: ConnectTimeout
 /// bounds only the TCP connect, not a login or remote command that hangs.
-fn fetch_remote_token(cfg: &Config, cancel: &dyn Fn() -> bool) -> Option<String> {
+fn fetch_remote_token(ssh_host: &str, cancel: &dyn Fn() -> bool) -> Option<String> {
     let script = "for d in /home/pocketrocket/pocketrocket; do if [ -r \"$d/data/hub-token\" ]; then cat \"$d/data/hub-token\"; exit 0; fi; done; exit 1";
-    ssh::validate_host(&cfg.ssh_host).ok()?;
+    ssh::validate_host(ssh_host).ok()?;
     let mut cmd = Command::new(ssh::ssh_exe());
     cmd.args([
         "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ClearAllForwardings=yes", "-o", "PermitLocalCommand=no",
-        "-o", "RequestTTY=no", "-o", "LogLevel=ERROR", "--", &cfg.ssh_host, script,
+        "-o", "RequestTTY=no", "-o", "LogLevel=ERROR", "--", ssh_host, script,
     ]);
     let out = proc::run_capture(cmd, Duration::from_secs(8), 256, cancel).ok()?;
     if !out.status.is_some_and(|s| s.success()) {
         return None;
     }
-    let token = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    // Hex, 32 chars. Anything else means we read the wrong file and must not treat it as a credential.
+    remote_token(&String::from_utf8_lossy(&out.stdout))
+}
+
+/// Hex, 32 chars. Anything else means we read the wrong file and must not treat it as a credential.
+fn remote_token(out: &str) -> Option<String> {
+    let token = out.trim();
     let ok = token.len() == 32 && token.chars().all(|c| c.is_ascii_hexdigit());
-    if ok { Some(token) } else { None }
+    ok.then(|| token.to_string())
 }
 
 /// What the remote hub's Claude provider check says (plan comes from the hub's `ProviderCheck.plan`).
@@ -550,18 +656,26 @@ fn may_open_externally(url: &Url) -> bool {
 /// Port of the hub the main webview may show. Outside `AppState`'s mutex on purpose: the navigation
 /// handler runs on the UI thread for every navigation and must never wait on that lock.
 static HUB_PORT: AtomicU16 = AtomicU16::new(0);
+/// I2: the local end of the server tunnel while it is up, else 0. Same reason to live outside the lock.
+static SERVER_PORT: AtomicU16 = AtomicU16::new(0);
 
-/// What the main webview may load itself: the bundled splash page and the hub's own origin. The hub is
-/// always 127.0.0.1:<port> from here, remote mode included (that is where the SSH tunnel listens).
+/// `url` is plain http on 127.0.0.1 or localhost, on `port` (never 0).
+fn on_loopback_port(url: &Url, port: u16) -> bool {
+    port != 0
+        && url.scheme() == "http"
+        && matches!(url.host_str(), Some("127.0.0.1" | "localhost"))
+        && url.port_or_known_default() == Some(port)
+}
+
+/// What the main webview may load itself: the bundled splash page, the PC hub's origin, and the server hub's origin
+/// while its tunnel is up. Both hubs are 127.0.0.1:<port> from here (the server's is the tunnel's local end).
 fn stays_in_webview(url: &Url) -> bool {
     let splash = match url.scheme() {
         "tauri" => url.host_str() == Some("localhost"),
         "http" | "https" => url.host_str() == Some("tauri.localhost"),
         _ => false,
     };
-    let hub = url.scheme() == "http"
-        && matches!(url.host_str(), Some("127.0.0.1" | "localhost"))
-        && url.port_or_known_default() == Some(HUB_PORT.load(Ordering::Relaxed));
+    let hub = on_loopback_port(url, HUB_PORT.load(Ordering::Relaxed)) || on_loopback_port(url, SERVER_PORT.load(Ordering::Relaxed));
     splash || hub
 }
 
@@ -673,32 +787,13 @@ fn run_connection(app: AppHandle, state: AppState, cfg: Config, gen: u64, old: O
     if is_stale(&state, gen) {
         return;
     }
-    let tail = Tail::default();
     let mut spawned: Option<(Child, &'static str, String)> = None;
     let mut token = String::new();
     let mut error: Option<String> = None;
-    let mut error_kind: Option<&'static str> = None;
+    let error_kind: Option<&'static str> = None;
     let mut port_has_hub = false;
+    // I2: there is no "remote" mode left (migrate_config); the server has its own tunnel in server.rs.
     match cfg.mode.as_str() {
-        "remote" => {
-            if let Err(e) = ssh::validate_host(&cfg.ssh_host) {
-                // Nothing to connect to: leave the person on the settings page with the reason.
-                error = Some(e);
-                error_kind = Some("needsHost");
-            } else {
-                if !port_open(cfg.port) {
-                    match spawn_tunnel(&cfg, &tail) {
-                        Ok(c) => spawned = Some((c, "ssh", String::new())),
-                        Err(e) => error = Some(e),
-                    }
-                }
-                if error.is_none() {
-                    // Same SSH access the tunnel uses; without this the UI shows a token prompt after every
-                    // remote hub restart. Failing is fine — the prompt is still there as the fallback.
-                    token = fetch_remote_token(&cfg, &|| is_stale(&state, gen)).unwrap_or_default();
-                }
-            }
-        }
         "local" => {
             if port_open(cfg.port) {
                 port_has_hub = hub_responding(cfg.port, Duration::from_millis(1500));
@@ -733,8 +828,8 @@ fn run_connection(app: AppHandle, state: AppState, cfg: Config, gen: u64, old: O
             }
             return;
         }
-        // local: the token we handed the hub we spawned. remote: the one we just read over SSH.
-        // attach: someone else's hub on this machine, so we have nothing and the UI asks.
+        // local: the token we handed the hub we spawned. attach: someone else's hub on this machine, so we have
+        // nothing and the UI asks.
         inner.token = token.clone();
         if let Some((c, kind, runtime)) = spawned {
             inner.child = Some(c);
@@ -760,19 +855,12 @@ fn run_connection(app: AppHandle, state: AppState, cfg: Config, gen: u64, old: O
                 return;
             }
             inner.status.attempts += 1;
-            let kind = inner.child_kind;
             let exited = inner.child.as_mut().and_then(|c| c.try_wait().ok().flatten());
             if let Some(code) = exited {
                 inner.child = None;
                 inner.child_kind = "";
                 inner.status.child_running = false;
-                if kind == "hub" {
-                    inner.status.error = Some(format!("The hub exited ({code}). Open hub log in the tray menu shows why."));
-                } else {
-                    let err = tail.text();
-                    inner.status.error = Some(ssh::explain(&err, &cfg.ssh_host, cfg.port));
-                    inner.status.error_kind = Some(ssh_kind(&err));
-                }
+                inner.status.error = Some(format!("The hub exited ({code}). Open hub log in the tray menu shows why."));
                 return;
             }
         }
@@ -794,25 +882,14 @@ fn run_connection(app: AppHandle, state: AppState, cfg: Config, gen: u64, old: O
                 return;
             }
             inner.status.error = Some(match cfg.mode.as_str() {
-                "remote" => format!("No answer from the hub through the tunnel after 60s. On the server: systemctl status pocketrocket. From a terminal: ssh {}", cfg.ssh_host),
-                "local" => "The hub did not come up within 60s. Open hub log in the tray menu shows why.".to_string(),
+                "local" =>"The hub did not come up within 60s. Open hub log in the tray menu shows why.".to_string(),
                 _ => format!("No hub on 127.0.0.1:{}. Start one with `pnpm start` and retry.", cfg.port),
             });
             return;
         }
         std::thread::sleep(Duration::from_millis(500));
     }
-    monitor(app, state, cfg, gen, tail);
-}
-
-fn ssh_kind(stderr: &str) -> &'static str {
-    match ssh::classify_failure(stderr) {
-        ssh::SshFailure::HostKeyChanged => "hostKeyChanged",
-        ssh::SshFailure::HostKeyUnknown => "hostKeyUnknown",
-        ssh::SshFailure::AuthFailed => "authFailed",
-        ssh::SshFailure::ForwardFailed => "portInUse",
-        _ => "ssh",
-    }
+    monitor(app, state, cfg, gen);
 }
 
 /// The connection is gone: say why, stop claiming to be connected, and put the settings page up.
@@ -833,63 +910,29 @@ fn lose(app: &AppHandle, state: &AppState, gen: u64, msg: String, kind: Option<&
 /// Consecutive failed health checks before the connection counts as lost (checks are 3 s apart).
 const HEALTH_STRIKES: u32 = 3;
 
-/// After connecting: notice a hub or tunnel that died or stopped answering. An ssh tunnel that drops is
-/// restarted (also one we skipped because the port was already open, once that port closes); a tunnel that
-/// dies again within 30 s of a restart, a hub process that exits, or HEALTH_STRIKES failed checks in a row
-/// end the connection with an error on the splash.
-fn monitor(app: AppHandle, state: AppState, cfg: Config, gen: u64, mut tail: Tail) {
-    let host = cfg.ssh_host.clone();
+/// After connecting: notice a hub that died or stopped answering. A hub process that exits, or HEALTH_STRIKES
+/// failed checks in a row, end the connection with an error on the splash. The server tunnel has its own watch
+/// (server.rs) and never ends this one.
+fn monitor(app: AppHandle, state: AppState, cfg: Config, gen: u64) {
     let mut strikes = 0u32;
-    let mut last_restart: Option<Instant> = None;
     loop {
         std::thread::sleep(Duration::from_secs(3));
-        let (exited, has_child) = {
+        let exited = {
             let mut inner = state.0.lock().unwrap();
             if inner.quitting || inner.generation != gen {
                 return;
             }
-            let kind = inner.child_kind;
-            let exited = inner.child.as_mut().and_then(|c| c.try_wait().ok().flatten()).map(|code| (code, kind));
+            let exited = inner.child.as_mut().and_then(|c| c.try_wait().ok().flatten());
             if exited.is_some() {
                 inner.child = None;
                 inner.child_kind = "";
                 inner.status.child_running = false;
             }
-            (exited, inner.child.is_some())
+            exited
         };
-        if let Some((code, kind)) = exited {
-            if kind == "hub" {
-                let msg = format!("The hub stopped unexpectedly ({code}). Open hub log in the tray menu shows why; Restart hub starts it again.");
-                return lose(&app, &state, gen, msg, None);
-            }
-            if last_restart.is_some_and(|t| t.elapsed() < Duration::from_secs(30)) {
-                let err = tail.text();
-                let msg = format!("Lost the tunnel to {host}. {}", ssh::explain(&err, &host, cfg.port));
-                return lose(&app, &state, gen, msg, Some(ssh_kind(&err)));
-            }
-        }
-        if cfg.mode == "remote" && !has_child && !port_open(cfg.port) {
-            tail = Tail::default();
-            match spawn_tunnel(&cfg, &tail) {
-                Ok(mut c) => {
-                    let mut inner = state.0.lock().unwrap();
-                    if inner.quitting || inner.generation != gen {
-                        drop(inner);
-                        kill_tree(&mut c);
-                        return;
-                    }
-                    inner.child = Some(c);
-                    inner.child_kind = "ssh";
-                    inner.status.child_running = true;
-                    last_restart = Some(Instant::now());
-                    strikes = 0;
-                }
-                Err(e) => return lose(&app, &state, gen, format!("Lost the tunnel to {host} and couldn't reopen it: {e}"), None),
-            }
-        }
-        // give a freshly restarted tunnel time to log in before judging the hub behind it
-        if last_restart.is_some_and(|t| t.elapsed() < Duration::from_secs(20)) {
-            continue;
+        if let Some(code) = exited {
+            let msg = format!("The hub stopped unexpectedly ({code}). Open hub log in the tray menu shows why; Restart hub starts it again.");
+            return lose(&app, &state, gen, msg, None);
         }
         if hub_responding(cfg.port, Duration::from_secs(3)) {
             strikes = 0;
@@ -899,7 +942,6 @@ fn monitor(app: AppHandle, state: AppState, cfg: Config, gen: u64, mut tail: Tai
         if strikes >= HEALTH_STRIKES {
             let msg = match cfg.mode.as_str() {
                 "local" => "The hub on this PC stopped answering. Open hub log in the tray menu shows why; Restart hub starts it again.".to_string(),
-                "remote" => format!("Lost contact with the hub on {host}. If the server is up, check it with: ssh {host} systemctl status pocketrocket"),
                 _ => format!("The hub on 127.0.0.1:{} stopped answering.", cfg.port),
             };
             return lose(&app, &state, gen, msg, None);
@@ -908,19 +950,26 @@ fn monitor(app: AppHandle, state: AppState, cfg: Config, gen: u64, mut tail: Tai
 }
 
 #[tauri::command]
-fn get_config(state: State<AppState>) -> Config { state.0.lock().unwrap().config.clone() }
+fn get_config(state: State<AppState>) -> Config { splash_view(&state.0.lock().unwrap().config) }
 
 #[tauri::command]
 fn get_status(state: State<AppState>) -> Status {
     let inner = state.0.lock().unwrap();
     let mut s = inner.status.clone();
     s.elapsed_secs = inner.connect_started.elapsed().as_secs();
+    s.server_host = inner.config.server.as_ref().map(|e| e.ssh_host.clone()).unwrap_or_default();
+    s.server_connected = inner.server.connected;
+    s.server_connecting = inner.server.connecting;
+    s.server_error = inner.server.error.clone();
     s
 }
 
 #[tauri::command]
 async fn save_config(app: AppHandle, state: State<'_, AppState>, mut config: Config) -> Result<(), String> {
     config.ssh_host = config.ssh_host.trim().to_string();
+    validate_config(&config)?;
+    let current = state.0.lock().unwrap().config.server.clone();
+    config = from_settings_page(config, current);
     validate_config(&config)?;
     // The connection form does not send the close behaviour; keep the one already chosen.
     if config.close_to_tray.is_none() {
@@ -934,6 +983,10 @@ async fn save_config(app: AppHandle, state: State<'_, AppState>, mut config: Con
     let mode = config.mode.clone();
     {
         let mut inner = state.0.lock().unwrap();
+        // A different (or no) server: drop the tunnel to the old one; the next Connect opens the new one.
+        if inner.config.server != config.server {
+            server::stop(&mut inner);
+        }
         inner.config = config;
         inner.first_run = false;
     }
@@ -1243,6 +1296,20 @@ async fn open_hub(app: AppHandle, state: State<'_, AppState>) -> Result<(), Stri
     Ok(())
 }
 
+/// The main window back on this PC's hub (or the splash when that isn't up). Takes the lock only to read.
+fn show_pc_hub(app: &AppHandle, state: &AppState) {
+    let (connected, port, token) = {
+        let inner = state.0.lock().unwrap_or_else(|e| e.into_inner());
+        (inner.status.connected, inner.config.port, inner.token.clone())
+    };
+    show_main_window(app);
+    if connected {
+        navigate(app, &hub_url(port, &token));
+    } else {
+        show_splash(app);
+    }
+}
+
 fn open_log_file(app: &AppHandle) {
     let log = config_dir(app).join("hub.log");
     if !log.exists() {
@@ -1272,14 +1339,15 @@ async fn open_log(app: AppHandle, state: State<'_, AppState>) -> Result<(), Stri
     Ok(())
 }
 
-/// The Claude account on the remote hub, asked through the tunnel. None when not connected to a server.
+/// The Claude account on the server's hub, asked through its tunnel. None when the server tunnel is not up.
 #[tauri::command]
 async fn remote_claude_status(state: State<'_, AppState>, refresh: Option<bool>) -> Result<Option<RemoteClaude>, String> {
-    let (connected, mode, port, token, gen, cached) = {
+    let (connected, port, token, gen, cached) = {
         let inner = state.0.lock().unwrap();
-        (inner.status.connected, inner.config.mode.clone(), inner.config.port, inner.token.clone(), inner.generation, inner.remote_claude.clone())
+        let port = inner.config.server.as_ref().map(|s| s.local_port).unwrap_or(0);
+        (inner.server.connected, port, inner.server.token.clone(), inner.server.gen, inner.remote_claude.clone())
     };
-    if !connected || mode != "remote" || token.is_empty() {
+    if !connected || port == 0 || token.is_empty() {
         return Ok(None);
     }
     if let Some((g, c)) = cached {
@@ -1300,7 +1368,7 @@ async fn remote_claude_status(state: State<'_, AppState>, refresh: Option<bool>)
         None => return Err("The hub didn't answer.".into()),
     };
     let mut inner = state.0.lock().unwrap();
-    if inner.generation == gen {
+    if inner.server.gen == gen {
         inner.remote_claude = Some((gen, check.clone()));
     }
     Ok(Some(check))
@@ -1327,6 +1395,7 @@ pub fn run() {
     let state = AppState(Arc::new(Mutex::new(Inner {
         config: Config::default(), status: Status::default(), child: None, child_kind: "", generation: 0, quitting: false,
         token: String::new(), connect_started: Instant::now(), first_run: false, remote_claude: None,
+        server: server::Link::default(),
     })));
     let menu_state = state.clone();
 
@@ -1429,6 +1498,8 @@ pub fn run() {
             let m_fullscreen = MenuItem::with_id(app, "toggle_fullscreen", "Full screen on or off (Alt+Enter)", true, None::<&str>)?;
             let m_settings = MenuItem::with_id(app, "settings", "Connection settings", true, None::<&str>)?;
             let m_term = MenuItem::with_id(app, "terminal", "Server terminal (Alt+T)", true, None::<&str>)?;
+            // I2: the server's own page, through its tunnel (opened now if it isn't up). The PC hub keeps running.
+            let m_server = MenuItem::with_id(app, "open_server", "Open your server", true, None::<&str>)?;
             let m_reload = MenuItem::with_id(app, "reload", "Reload", true, None::<&str>)?;
             let m_data = MenuItem::with_id(app, "open_data", "Open data folder", true, None::<&str>)?;
             let m_log = MenuItem::with_id(app, "open_log", "Open hub log", true, None::<&str>)?;
@@ -1437,7 +1508,7 @@ pub fn run() {
             let t_keep = CheckMenuItem::with_id(app, "tray_keep", "Keep running when window closes", true, keep, None::<&str>)?;
             let t_quit = MenuItem::with_id(app, "tray_quit", "Quit", true, None::<&str>)?;
             let tray_menu = Menu::with_items(app, &[
-                &t_show, &m_fullscreen, &m_settings, &m_term, &m_reload,
+                &t_show, &m_fullscreen, &m_settings, &m_term, &m_server, &m_reload,
                 &PredefinedMenuItem::separator(app)?,
                 &m_data, &m_log,
                 &PredefinedMenuItem::separator(app)?,
@@ -1460,6 +1531,7 @@ pub fn run() {
                 .on_menu_event(move |app, event| match event.id().as_ref() {
                     "tray_show" => show_main_window(app),
                     "terminal" => open_terminal(app),
+                    "open_server" => server::connect(app.clone(), tray_state.clone(), server::Open::Home),
                     "tray_keep" => {
                         let on = !close_to_tray(&tray_state.0.lock().unwrap().config);
                         set_close_behaviour(app, &tray_state, on);
@@ -1581,6 +1653,7 @@ pub fn run() {
                     let mut inner = st.0.lock().unwrap();
                     inner.quitting = true;
                     kill_child(&mut inner);
+                    server::stop(&mut inner);
                 }
             }
         });
@@ -1693,6 +1766,169 @@ mod tests {
         assert!(!may_open_externally(&u("ms-settings:privacy")));
         assert!(!may_open_externally(&u("about:blank")));
         assert!(!may_open_externally(&u("data:text/html,hi")));
+    }
+
+    /// Tests that set SERVER_PORT take turns (the test harness runs them on parallel threads).
+    pub(crate) static SERVER_PORT_TESTS: Mutex<()> = Mutex::new(());
+
+    fn load(json: &str) -> Config {
+        migrate_config(serde_json::from_str(json).unwrap())
+    }
+
+    fn entry(host: &str, local_port: u16, hub_port: u16) -> Option<ServerEntry> {
+        Some(ServerEntry { ssh_host: host.into(), local_port, hub_port })
+    }
+
+    #[test]
+    fn an_old_server_mode_config_loads_as_this_pc_plus_that_server() {
+        // The tunnel used to listen on `port` here and reach the hub on `port` there.
+        let c = load(r#"{"mode":"remote","sshHost":"crm","port":7788}"#);
+        assert_eq!(c.mode, "local");
+        assert_eq!(c.port, 7788);
+        assert_eq!(c.server, entry("crm", 7790, 7788));
+        assert_eq!(c.ssh_host, "crm", "the Server terminal still finds the host");
+        assert!(validate_config(&c).is_ok());
+        // A custom port was the server hub's port; this PC's hub gets the default.
+        let c = load(r#"{"mode":"remote","sshHost":" crm ","port":7800,"closeToTray":false}"#);
+        assert_eq!((c.mode.as_str(), c.port, c.server.clone()), ("local", 7788, entry("crm", 7790, 7800)));
+        assert_eq!(c.close_to_tray, Some(false), "other settings survive");
+        // No host: nothing to add.
+        let c = load(r#"{"mode":"remote","sshHost":"","port":7788}"#);
+        assert_eq!((c.mode.as_str(), c.server.clone()), ("local", None));
+    }
+
+    #[test]
+    fn config_migration_is_idempotent_and_round_trips() {
+        for json in [
+            r#"{"mode":"remote","sshHost":"crm","port":7788}"#,
+            r#"{"mode":"local","sshHost":"","port":7788}"#,
+            r#"{"mode":"local","sshHost":"crm","port":7788,"server":{"sshHost":"crm","localPort":7795,"hubPort":7788}}"#,
+            r#"{"mode":"attach","sshHost":"","port":7788,"server":{"sshHost":"crm"}}"#,
+        ] {
+            let once = load(json);
+            let again = migrate_config(once.clone());
+            let saved = serde_json::to_string(&once).unwrap();
+            assert_eq!(serde_json::to_value(&again).unwrap(), serde_json::to_value(&once).unwrap(), "{json}");
+            assert_eq!(serde_json::to_value(load(&saved)).unwrap(), serde_json::to_value(&once).unwrap(), "{json}");
+            assert_ne!(once.mode, "remote");
+        }
+        // Missing tunnel ports take the defaults.
+        assert_eq!(load(r#"{"mode":"local","sshHost":"","port":7788,"server":{"sshHost":"crm"}}"#).server, entry("crm", 7790, 7788));
+    }
+
+    #[test]
+    fn a_leftover_host_on_a_local_config_is_not_a_server() {
+        let c = load(r#"{"mode":"local","sshHost":"old-vps","port":7788}"#);
+        assert_eq!(c.server, None);
+        assert_eq!(c.ssh_host, "");
+    }
+
+    #[test]
+    fn the_tunnel_never_takes_the_pc_hubs_port() {
+        let c = load(r#"{"mode":"local","sshHost":"","port":7790,"server":{"sshHost":"crm","localPort":7790}}"#);
+        assert_eq!(c.server, entry("crm", 7791, 7788));
+        let c = load(r#"{"mode":"local","sshHost":"","port":7788,"server":{"sshHost":"crm","localPort":7788}}"#);
+        assert_eq!(c.server, entry("crm", 7790, 7788));
+        // A hand-written clash the migration didn't see is refused, as are bad hosts and low ports.
+        let mut c = Config { server: entry("crm", 7788, 7788), ..Default::default() };
+        assert!(validate_config(&c).is_err());
+        c.server = entry("-oProxyCommand=calc", 7790, 7788);
+        assert!(validate_config(&c).is_err());
+        c.server = entry("crm host", 7790, 7788);
+        assert!(validate_config(&c).is_err());
+        c.server = entry("crm", 80, 7788);
+        assert!(validate_config(&c).is_err());
+        c.server = entry("crm", 7790, 7788);
+        assert!(validate_config(&c).is_ok());
+    }
+
+    #[test]
+    fn the_settings_page_adds_and_drops_the_server_without_moving_the_pc_hub() {
+        let page = |mode: &str, host: &str, port: u16| Config { mode: mode.into(), ssh_host: host.into(), port, ..Default::default() };
+        // "Server over SSH" with port 7800 means: this PC's hub on 7800, plus the server.
+        let c = from_settings_page(page("remote", "crm", 7800), None);
+        assert_eq!((c.mode.as_str(), c.port, c.server.clone()), ("local", 7800, entry("crm", 7790, 7788)));
+        // Saving the same host again keeps its tunnel ports; a new host starts from the defaults.
+        assert_eq!(from_settings_page(page("remote", "crm", 7788), entry("crm", 7795, 7801)).server, entry("crm", 7795, 7801));
+        assert_eq!(from_settings_page(page("remote", "other", 7788), entry("crm", 7795, 7801)).server, entry("other", 7790, 7788));
+        // "This PC" alone drops it; attach keeps it.
+        assert_eq!(from_settings_page(page("local", "crm", 7788), entry("crm", 7790, 7788)).server, None);
+        assert_eq!(from_settings_page(page("attach", "", 7788), entry("crm", 7790, 7788)).server, entry("crm", 7790, 7788));
+        // And the page sees "remote" again for a config with a server, so its card stays selected.
+        let v = splash_view(&from_settings_page(page("remote", "crm", 7800), None));
+        assert_eq!((v.mode.as_str(), v.ssh_host.as_str(), v.port), ("remote", "crm", 7800));
+        assert_eq!(splash_view(&Config::default()).mode, "local");
+    }
+
+    #[test]
+    fn both_hubs_stay_in_the_webview_and_nothing_else_does() {
+        let _g = SERVER_PORT_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        HUB_PORT.store(7788, Ordering::Relaxed);
+        SERVER_PORT.store(0, Ordering::Relaxed);
+        // No tunnel up: the server port is just another port.
+        assert!(!stays_in_webview(&u("http://127.0.0.1:7790/?desktop=1&host=server")));
+        SERVER_PORT.store(7790, Ordering::Relaxed);
+        assert!(stays_in_webview(&u("http://127.0.0.1:7788/?desktop=1")));
+        assert!(stays_in_webview(&u("http://127.0.0.1:7790/?desktop=1&host=server#token=abc")));
+        assert!(stays_in_webview(&u("http://localhost:7790/")));
+        for bad in [
+            "http://127.0.0.1:7789/",
+            "http://127.0.0.1:7791/",
+            "https://127.0.0.1:7790/",
+            "http://127.0.0.1.evil.com:7790/",
+            "http://evil.com:7790/",
+            "http://10.0.0.5:7790/",
+            "http://[::1]:7790/",
+            "http://127.0.0.1/",
+            "ws://127.0.0.1:7790/",
+        ] {
+            assert!(!stays_in_webview(&u(bad)), "{bad}");
+        }
+        SERVER_PORT.store(0, Ordering::Relaxed);
+        assert!(!stays_in_webview(&u("http://127.0.0.1:7790/")));
+        // Port 0 is "none", never a match.
+        assert!(!on_loopback_port(&u("http://127.0.0.1:0/"), 0));
+    }
+
+    #[test]
+    fn the_server_tunnel_listens_on_loopback_only_and_never_relaxes_host_keys() {
+        let a = tunnel_args("crm", 7790, 7788);
+        let fwd = a.iter().position(|x| x == "-L").map(|i| a[i + 1].as_str());
+        assert_eq!(fwd, Some("127.0.0.1:7790:127.0.0.1:7788"));
+        assert!(a.windows(2).any(|w| w == ["-o", "BatchMode=yes"]));
+        assert!(a.windows(2).any(|w| w == ["-o", "ExitOnForwardFailure=yes"]));
+        assert!(!a.iter().any(|x| x.to_ascii_lowercase().contains("stricthostkeychecking")));
+        assert_eq!(&a[a.len() - 2..], ["--", "crm"]);
+    }
+
+    #[test]
+    fn only_a_32_hex_token_is_taken_from_the_server() {
+        let t = "0123456789abcdef0123456789ABCDEF";
+        assert_eq!(remote_token(&format!("{t}\n")).as_deref(), Some(t));
+        for bad in ["", "0123456789abcdef0123456789abcde", "0123456789abcdef0123456789abcdef0", "0123456789abcdef 123456789abcdef", "zz23456789abcdef0123456789abcdef", "Permission denied"] {
+            assert_eq!(remote_token(bad), None, "{bad:?}");
+        }
+    }
+
+    fn inner_with(pc_token: &str) -> Inner {
+        Inner {
+            config: Config { server: entry("crm", 7790, 7788), ..Default::default() }, status: Status::default(), child: None,
+            child_kind: "hub", generation: 5, quitting: false, token: pc_token.into(), connect_started: Instant::now(), first_run: false,
+            remote_claude: None, server: server::Link::default(),
+        }
+    }
+
+    #[test]
+    fn dropping_the_server_never_touches_the_pc_hub_or_its_token() {
+        let _g = SERVER_PORT_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = inner_with("pc-token");
+        inner.server.token = "server-token".into();
+        inner.server.connected = true;
+        SERVER_PORT.store(7790, Ordering::Relaxed);
+        server::stop(&mut inner);
+        assert_eq!((inner.token.as_str(), inner.generation, inner.child_kind), ("pc-token", 5, "hub"));
+        assert_eq!((inner.server.token.as_str(), inner.server.connected), ("", false));
+        assert_eq!(SERVER_PORT.load(Ordering::Relaxed), 0, "the webview stops allowing the server port");
     }
 
     #[test]
