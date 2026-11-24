@@ -4,6 +4,8 @@ import { CHAT_MODELS, MODELS } from '@pocketrocket/shared';
 import { TokiMark } from './TokiMark';
 import { ChatHeader } from './ChatHeader';
 import { GameToolsStrip } from './GameToolsStrip';
+import { ApprovalCodeView } from './ApprovalCode';
+import { approvalCode } from '../lib/approvalCode';
 import type { ApprovalPayload, Bot, HandoffPayload, HandoffResultPayload, Message, Room, RoutinePayload, TakeoverPayload, TurnFailurePayload, VerificationPayload } from '@pocketrocket/shared';
 import type { Approvals, TriggerPayload } from '@pocketrocket/shared';
 import { useStore, selectActiveRoom, botById } from '../store';
@@ -556,6 +558,7 @@ function ApprovalCard({ m }: { m: Message }) {
   const words = yesOrNo ? cardWords(p) : null;
   const once = !!p.once || p.toolName === 'run_on_pc';
   const pcJob = p.toolName === 'run_on_pc' ? pcJobInput(p) : null;
+  const script = pcJob || words ? null : approvalCode(p);
   const outcome = p.status === 'allow' ? (handoff ? 'Sent' : proposal ? 'Added' : 'Allowed once') : p.status === 'always' ? (once ? 'Allowed once' : 'Allowed for that session') : p.status === 'deny' ? (handoff ? 'Kept here' : proposal ? 'Not added' : 'Denied') : p.status === 'timeout' ? 'Timed out, denied' : p.status === 'expired' ? 'Expired after restart. Ask the bot to retry.' : null;
   return (
     <ActionCard tone={p.danger ? 'danger' : pending ? 'warn-soft' : 'quiet'} className="max-w-[640px]">
@@ -575,6 +578,8 @@ function ApprovalCard({ m }: { m: Message }) {
           {words.main}
           {words.more && <div className="mt-1.5 text-muted">{words.more}</div>}
         </div>
+      ) : script ? (
+        <ApprovalCodeView code={script} label={script.field + ' for ' + p.toolName.replace(/^mcp__.+?__/, '')} />
       ) : (
         <pre className="mx-4 mb-3 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-card2 p-2.5 font-mono text-hint">{fmtInput(p.toolInput)}</pre>
       )}

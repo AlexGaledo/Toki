@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The desktop app and the hub bundle now ship the headless Blender's server script and its pinned, hashed requirements, so game tools work from the installed app and not only from a checkout. The bundle build fails if either file is missing.
 - The Windows app can open Roblox Studio for you ("Open Studio"). The app finds Studio itself, starts it with no arguments, and Studio stays open when you quit Toki. A page can ask only for Studio, never for another program or a path, and at most once every 10 seconds. There is no "Open Blender": Toki's Blender always runs headless.
 - New **Settings › Game tools** lists Blender, uv, the Blender MCP tools and Roblox Studio, each with its status in words, its version and one button: Install uv, Install Blender tools, Turn on Studio MCP (only while Studio is closed), Try again after crashes with Open log, or Open Studio in the desktop app. Downloads and settings changes ask first in the app. Studio items say "Unverified" until its live steps are checked. A game room shows a one-line strip, for example "Blender stopped · Studio not open". Settings › Tools shows `approve: "mode"` as "Follow approval setting".
+- On an approval card for `execute_luau` or `execute_blender_code`, the script now reads as code: monospace, real line breaks and indentation, in a taller scroll area you can scroll with the keyboard. The other fields show as a short list.
 
 ## [0.5.4] - 2026-11-21
 
