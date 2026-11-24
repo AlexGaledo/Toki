@@ -1,0 +1,304 @@
+◇ injected env (0) from .env
+data dir: C:\Users\alex\AppData\Local\Temptoki-phase2-28651
+created default bots: @pocketrocket-support, @data-engineer, @roblox-builder, @blender-artist
+Toki hub v0.5.4 · node 26.3.0 · provider claude · data C:\Users\alex\AppData\Local\Temptoki-phase2-28651 · http://127.0.0.1:44983
+[pocketrocket] workspace: C:\Users\alex\AppData\Local\Temptoki-phase2-28651\workspace  (token required)
+[pocketrocket] open: http://127.0.0.1:44983/  (sign in with the token from C:\Users\alex\AppData\Local\Temptoki-phase2-28651\hub-token)
+throwaway hub on 127.0.0.1:44983
+
+### skills in the pool after startup
+blender-loop (approved)
+project-map (approved)
+prove-it (approved)
+studio-loop (approved)
+
+### bots after startup
+@pocketrocket-support - App help and improvements
+@data-engineer - Keeps files clean and indexed
+@roblox-builder - Builds the game in Roblox Studio
+@blender-artist - Models the game's art in Blender
+
+### POST /api/bots (the owner's @lead-engineer) -> HTTP 200 in 0.08 s
+{
+  "name": "Lead Engineer",
+  "handle": "lead-engineer",
+  "title": "Leads the team",
+  "description": "Splits the work and reviews it.",
+  "avatar": "compass",
+  "model": "claude-sonnet-5",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "maxBudgetUsd": 50,
+  "autoMemory": true,
+  "autoMemoryEvery": 10,
+  "provider": null,
+  "backup": null,
+  "id": "4DLI6jdUjQ",
+  "createdAt": 1795513654245
+}
+
+### POST /api/projects {"name":"Obby Run","template":"game"} -> HTTP 200 in 3.47 s
+{
+  "project": {
+    "slug": "obby-run",
+    "name": "Obby Run",
+    "dir": "C:\\Users\\alex\\AppData\\Local\\Temptoki-phase2-28651\\projects\\obby-run",
+    "memberIds": [
+      "301-NNcBDm",
+      "DBIJ1gWGfa",
+      "M8WnOx1EYO"
+    ],
+    "roomId": "DD0M-prfBb",
+    "templateVersion": 1,
+    "kind": "game",
+    "createdAt": 1795513654304
+  },
+  "bots": [
+    {
+      "name": "Lead Engineer",
+      "handle": "obby-run-lead",
+      "title": "Obby Run",
+      "description": "Splits the work and reviews it. [... 1119 chars]",
+      "avatar": "compass",
+      "model": "auto",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "WebSearch",
+        "WebFetch"
+      ],
+      "maxBudgetUsd": 50,
+      "autoMemory": true,
+      "autoMemoryEvery": 10,
+      "provider": null,
+      "backup": null,
+      "id": "M8WnOx1EYO",
+      "createdAt": 1795513654281
+    },
+    {
+      "name": "Roblox Builder",
+      "handle": "obby-run-builder",
+      "title": "Obby Run",
+      "description": "Builds and scripts the game in Roblox Studio through the roblox-studio tools, and checks each change in a play test. [... 1684 chars]",
+      "avatar": "hammer",
+      "model": "auto",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "WebSearch",
+        "WebFetch"
+      ],
+      "maxBudgetUsd": 2,
+      "autoMemory": true,
+      "autoMemoryEvery": 10,
+      "provider": null,
+      "backup": null,
+      "id": "301-NNcBDm",
+      "createdAt": 1795513654287
+    },
+    {
+      "name": "Blender Artist",
+      "handle": "obby-run-artist",
+      "title": "Obby Run",
+      "description": "Models, textures and exports the game's art in Toki's own headless Blender through the blender tools. [... 1627 chars]",
+      "avatar": "palette",
+      "model": "auto",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "WebSearch",
+        "WebFetch"
+      ],
+      "maxBudgetUsd": 2,
+      "autoMemory": true,
+      "autoMemoryEvery": 10,
+      "provider": null,
+      "backup": null,
+      "id": "DBIJ1gWGfa",
+      "createdAt": 1795513654293
+    }
+  ],
+  "room": {
+    "id": "DD0M-prfBb",
+    "kind": "group",
+    "name": "Obby Run",
+    "memberIds": [
+      "301-NNcBDm",
+      "DBIJ1gWGfa",
+      "M8WnOx1EYO"
+    ],
+    "coordinatorBotId": "M8WnOx1EYO",
+    "leadMode": false,
+    "createdAt": 1795513654302,
+    "chatModel": null,
+    "avatar": ""
+  },
+  "setup": {
+    "git": "created",
+    "studio": "added"
+  }
+}
+
+### POST /api/projects {"name":"Plain Notes","team":false} (control) -> HTTP 200 in 0.01 s
+{
+  "project": {
+    "slug": "plain-notes",
+    "name": "Plain Notes",
+    "dir": "C:\\Users\\alex\\AppData\\Local\\Temptoki-phase2-28651\\projects\\plain-notes",
+    "memberIds": [],
+    "roomId": null,
+    "templateVersion": null,
+    "kind": null,
+    "createdAt": 1795513657740
+  },
+  "bots": [],
+  "room": null
+}
+
+### folder tree: C:\Users\alex\AppData\Local\Temptoki-phase2-28651\projects\obby-run
+.gitignore  (20 B)
+archive/
+art/
+  .gitkeep  (0 B)
+current.md  (111 B)
+exports/
+  .gitkeep  (0 B)
+features/
+  README.md  (728 B)
+places/
+  .gitkeep  (0 B)
+studio/
+  .gitkeep  (0 B)
+TEMPLATE.md  (1325 B)
+
+### .gitignore
+*.toki-tmp
+*.blend1
+
+### git log --stat
+001de47 Toki <toki@localhost> Tue Nov 24 17:47:34 2026 +0800
+    Start Obby Run from the game team template
+
+ .gitignore         |  2 ++
+ TEMPLATE.md        | 23 +++++++++++++++++++++++
+ art/.gitkeep       |  0
+ current.md         |  8 ++++++++
+ exports/.gitkeep   |  0
+ features/README.md | 22 ++++++++++++++++++++++
+ places/.gitkeep    |  0
+ studio/.gitkeep    |  0
+ 8 files changed, 55 insertions(+)
+
+### git status --short (empty = clean)
+
+
+### C:\Users\alex\AppData\Local\Temptoki-phase2-28651\mcp-servers.json
+{
+  "roblox-studio": {
+    "command": "C:\\WINDOWS\\System32\\cmd.exe",
+    "args": [
+      "/d",
+      "/c",
+      "C:\\Users\\alex\\AppData\\Local\\Roblox\\mcp.bat"
+    ],
+    "approve": "mode",
+    "readTools": [
+      "search_game_tree",
+      "script_search",
+      "script_read",
+      "script_grep",
+      "inspect_instance",
+      "get_console_output",
+      "get_studio_state",
+      "screen_capture",
+      "list_roblox_studios",
+      "list_skills",
+      "skill",
+      "wait_job_finished",
+      "search_asset",
+      "http_get"
+    ],
+    "rooms": [
+      "DD0M-prfBb"
+    ]
+  }
+}
+
+
+game room id:     DD0M-prfBb
+other group room: fFkQob0Dtm
+
+### audit rows
+[
+  {
+    "action": "game_tools.studio_setup",
+    "target": "DD0M-prfBb",
+    "detail": "roblox-studio",
+    "actor_kind": "hub-token"
+  }
+]
+
+### projects table
+[
+  {
+    "slug": "obby-run",
+    "kind": "game",
+    "template_version": 1,
+    "room_id": "DD0M-prfBb"
+  },
+  {
+    "slug": "plain-notes",
+    "kind": null,
+    "template_version": null,
+    "room_id": null
+  }
+]
+
+### events seen
+["projects.changed","game-tools.changed","projects.changed"]
+
+### TEMPLATE.md
+---
+status: current
+updated: 2026-11-24
+---
+
+# Team template for Obby Run
+
+Cloned from game team template v1 on 2026-11-24. General practice comes from the template; what is true about this project belongs in current.md.
+
+## Team
+
+- @obby-run-lead: safe-shipping, project-map, prove-it, studio-loop, blender-loop
+- @obby-run-builder: safe-shipping, project-map, prove-it, studio-loop, blender-loop
+- @obby-run-artist: safe-shipping, project-map, prove-it, studio-loop, blender-loop
+
+## Rules
+
+- Never revert, discard, stash away or overwrite changes you did not make, even to tidy up. If someone else's work is in the way, say so and leave it.
+- Game files stay in this project folder: art/ holds the one Blender scene Toki opens for you, exports/ the .fbx and .glb files for Studio, studio/ text copies of the place's scripts, and places/ any .rbxl the owner saves.
+- Blender runs headless and never on screen. Never use bpy.ops.wm.*; end each Blender change with toki_save().
+- After a verified change, commit a checkpoint of art/, exports/ and studio/ in this folder's git repo. Say so when the .blend is over 50 MB.
+- Back up before changing anything live, and ask before anything destructive or hard to undo.
+- Say what you verified and what you did not. "It should work" is not a result; a look or a screen capture is.
+
