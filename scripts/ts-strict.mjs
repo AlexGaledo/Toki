@@ -20,6 +20,13 @@ export function countErrors(output, pkg) {
   return counts;
 }
 
+// A missing tsc or missing dependencies must not read as "no new errors".
+export function setupProblem(output, status) {
+  if (/error TS2307: Cannot find module/.test(output)) return 'a dependency is missing (TS2307)';
+  if (status !== 0 && !/error TS\d+/.test(output)) return 'tsc did not run (' + (output.trim().split(/\r?\n/)[0] || 'exit ' + status) + ')';
+  return null;
+}
+
 export function compare(baseline, now) {
   const worse = [];
   const better = [];
@@ -40,7 +47,13 @@ function run() {
     const tsc = join(dir, 'node_modules', 'typescript', 'bin', 'tsc');
     const r = spawnSync(process.execPath, [tsc, '--noEmit', '-p', 'tsconfig.json', ...FLAGS], { cwd: dir, encoding: 'utf8' });
     if (r.error) throw r.error;
-    Object.assign(now, countErrors(r.stdout + r.stderr, pkg));
+    const out = r.stdout + r.stderr;
+    const problem = setupProblem(out, r.status);
+    if (problem) {
+      console.error(`ts-strict could not typecheck ${pkg}: ${problem}. Run pnpm install first.`);
+      return 2;
+    }
+    Object.assign(now, countErrors(out, pkg));
   }
   const total = Object.values(now).reduce((a, b) => a + b, 0);
   if (process.argv.includes('--update')) {
