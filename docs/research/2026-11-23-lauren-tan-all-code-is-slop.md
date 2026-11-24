@@ -138,10 +138,18 @@ The plan was reviewed before work started and changed:
 | B2 propose_rule + B3 prompt cut (10.5k → 8.8k chars) | #229 | merged |
 | A6 control-toki + verify-toki + feature map, and the sidebar click-freeze it found | #231 | merged |
 | A3 AGENTS.md rule → enforcer table, agent notes 4,163 → 979 words | #233 | merged |
-| Recorder Chromium test (flaky nav, retry + diagnostics) | #230, #232 | merged; root cause open |
-| A5 comment cleanup, per package | in progress | |
-| A8 formal verification, C other projects | later | |
+| A5 comment cleanup (code-identical; ~9.7k comment lines cut, 375 security invariants kept as one-liners) | #235–#238 | merged |
+| A8 TLA+ model of the cut-off retry, run in CI (`pnpm formal`); a known-bad config must fail | #239 | merged |
+| B5 `features/` map seeded in projects; template v4 rule | #242 | merged, added to the 9 existing projects |
+| A7 stricter tsconfig | — | dropped in review |
+| C other projects (owner's own repos only) | mimegen#22, wika-saas#68, wika-outreach#8, dialecto-offline#1 | open for owner review; Contributor-Hub-Frontend skipped (Wika-PH org) |
+| Recorder Chromium flake | #230, #232, #241, this PR | see below |
 
-Owner decisions still open:
+Deployed: eacd312 on 2026-11-24.
+
+**Recorder flake.** The flake: on 2026-11-23, the first attempt of the test missed the checkout navigation; retries passed. With retries off, it passed all 32 Linux CI runs: 12 alone, 15 alone under 6 CPU hogs, 4 full hub suites and 1 normal run (#240, closed). The one code path that fits the symptom is a browser tab whose attach failed, which the recorder ignored. #241 records that in `info.error`, and the test's failure message prints it. This PR removes `retry: 2`, so the next failure fails CI with its cause instead of passing on a retry. The root cause is unconfirmed until it happens again.
+
+Owner decisions still open (current defaults):
 - B1 stays a label, not a block.
 - Agents do not merge their own PRs.
+- Whether to merge the C PRs.

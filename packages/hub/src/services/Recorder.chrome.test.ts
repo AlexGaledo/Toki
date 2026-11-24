@@ -63,7 +63,7 @@ describe.skipIf(!CHROME)('Recorder against a real Chromium', () => {
     }
   });
 
-  it('records the checkout with no password, card number or code in the trace or a kept frame', { timeout: 30_000, retry: 2 }, async () => {
+  it('records the checkout with no password, card number or code in the trace or a kept frame', { timeout: 30_000 }, async () => {
     expect(cdpUrl).not.toBe('');
     const state = new Map<string, ControlStatus>();
     const control = {
