@@ -5,7 +5,9 @@ import { execFile } from 'node:child_process';
 import type {
   GameToolsBlender, GameToolsBlenderMcp, GameToolsBlenderProcess, GameToolsStatus, GameToolsStudio, GameToolsUv,
 } from '@pocketrocket/shared';
-import { BLENDER_MCP_VERSION, MAX_CRASHES, blenderToolPaths, findBlenderExe, type BlenderStatus } from './BlenderHost.js';
+import {
+  BLENDER_MCP_VERSION, MAX_CRASHES, blenderServerScript, blenderToolPaths, findBlenderExe, type BlenderStatus,
+} from './BlenderHost.js';
 import { baseChildEnv } from '../providers/env.js';
 
 /**
@@ -17,9 +19,14 @@ import { baseChildEnv } from '../providers/env.js';
 /** The uv release `install-uv` fetches, and the sha256 of its Windows zip (from the release's `.sha256`). */
 export const UV_VERSION = '0.11.15';
 export const UV_SHA256 = '04b98d414a9000e25e5e0e7c9f53749e66b790cdaffc582829e6f58c544ee11c';
+export const UV_URL = 'https://github.com/astral-sh/uv/releases/download/' + UV_VERSION + '/uv-x86_64-pc-windows-msvc.zip';
+/** The 0.11.15 zip is 22.9 MB. */
+export const UV_MAX_BYTES = 64 * 1024 * 1024;
 /** The add-on `mcp-for-blender==2.3.1` ships (`blender_mcp/bundled/addon.py`), as B12 measured it. */
 export const BLENDER_ADDON_SHA256 = 'b363e5b4765ec53895c92bc98f34335242065a164d95b673f1f843322ac4e03b';
 export const STUDIO_PROCESS = 'RobloxStudioBeta.exe';
+/** Shown when the settings file cannot be changed safely. Unverified until S2 opens Studio. */
+export const STUDIO_MENU_PATH = 'Open Roblox Studio, open the Assistant, open its settings, and turn on the MCP server option. Then restart Studio.';
 /** Written beside the pinned environment when its install finishes; detection trusts nothing without it. */
 export const INSTALL_MARKER = 'toki-install.json';
 
@@ -41,7 +48,15 @@ export interface GameToolsDeps {
   /** `HKCU\...` value lookup. There is no registry write anywhere in game tools. */
   registry?: (key: string, value: string) => Promise<string | null>;
   blender?: { status(): BlenderStatus };
+  fetch?: typeof fetch;
+  /** The hashed requirements file; defaults to `requirements.txt` beside Toki's Blender server script. */
+  requirements?: string;
+  /** Tests only: stand-ins for the pinned hashes. Never reachable from a request. */
+  pins?: { uvSha256?: string; addonSha256?: string };
 }
+
+/** What a fix step did. `result` is a fixed word; `changed` lists what it wrote. */
+export interface FixOutcome { ok: boolean; result: string; changed: string[]; detail?: string }
 
 /** `tasklist /FO CSV /NH`: every row's image name and pid. */
 export function parseTasklistAll(out: string): ProcessRow[] {
@@ -96,6 +111,9 @@ export class GameTools {
   get robloxDir() { return path.join(this.env.LOCALAPPDATA ?? '', 'Roblox'); }
   get studioSettingsDir() { return path.join(this.robloxDir, 'AssistantSettings'); }
   get mcpBat() { return path.join(this.robloxDir, 'mcp.bat'); }
+  get requirements() { return this.deps.requirements ?? path.join(path.dirname(blenderServerScript()), 'requirements.txt'); }
+  /** Windows' own bsdtar unpacks the uv zip; nothing from a request reaches its arguments. */
+  get tarExe() { return path.join(this.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe'); }
 
   async status(): Promise<GameToolsStatus> {
     if (this.platform !== 'win32') return unsupported();
@@ -218,6 +236,126 @@ export class GameTools {
       ok: reason === 'ready', reason, mcpBat, studioMcp, setting, running, verified: false,
       fix: setting === 'off' ? 'studio-mcp-setting' : null,
     };
+  }
+
+  /**
+   * `install-uv`: the pinned zip, checked against the sha256 compiled in before anything is written, unpacked into
+   * `<data>/tools/uv/<version>/` through a staging folder. PATH and the registry are never changed.
+   */
+  async installUv(): Promise<FixOutcome> {
+    if (this.platform !== 'win32') return { ok: false, result: 'unsupported', changed: [] };
+    if (this.exists(this.tokiUvExe)) return { ok: true, result: 'already-installed', changed: [] };
+    let buf: Buffer;
+    try {
+      const r = await (this.deps.fetch ?? fetch)(UV_URL, { redirect: 'follow', signal: AbortSignal.timeout(180_000) });
+      if (!r.ok) {
+        void r.body?.cancel().catch(() => undefined);
+        return { ok: false, result: 'download-failed', changed: [] };
+      }
+      if (Number(r.headers.get('content-length') ?? 0) > UV_MAX_BYTES) {
+        void r.body?.cancel().catch(() => undefined);
+        return { ok: false, result: 'too-large', changed: [] };
+      }
+      buf = Buffer.from(await r.arrayBuffer());
+    } catch {
+      return { ok: false, result: 'download-failed', changed: [] };
+    }
+    if (buf.length > UV_MAX_BYTES) return { ok: false, result: 'too-large', changed: [] };
+    // Checked in memory: a wrong file never reaches the disk.
+    if (sha256(buf) !== (this.deps.pins?.uvSha256 ?? UV_SHA256)) return { ok: false, result: 'hash-mismatch', changed: [] };
+    const stage = path.join(this.toolsDir, 'uv', '.staging-' + crypto.randomBytes(6).toString('hex'));
+    try {
+      this.fs.mkdirSync(stage, { recursive: true });
+      const zip = path.join(stage, 'uv.zip');
+      this.fs.writeFileSync(zip, buf);
+      const r = await this.run(this.tarExe, ['-x', '-f', zip, '-C', stage], { env: baseChildEnv(), cwd: stage, timeoutMs: 120_000 });
+      if (r.code !== 0 || !this.exists(path.join(stage, 'uv.exe'))) throw new Error('unpack');
+      this.fs.rmSync(zip, { force: true });
+      this.fs.renameSync(stage, this.uvDir);
+    } catch {
+      this.fs.rmSync(stage, { recursive: true, force: true });
+      return { ok: false, result: 'unpack-failed', changed: [] };
+    }
+    return { ok: true, result: 'installed', changed: [this.uvDir], detail: UV_VERSION };
+  }
+
+  /**
+   * `install-blender-mcp`: `uv venv` at `<data>/tools/blender-mcp/2.3.1`, then `uv pip install --require-hashes` from
+   * the hub's own requirements file. The add-on must hash to the pinned value, or the whole folder is removed.
+   */
+  async installBlenderMcp(): Promise<FixOutcome> {
+    if (this.platform !== 'win32') return { ok: false, result: 'unsupported', changed: [] };
+    if (this.detectBlenderMcp().ok) return { ok: true, result: 'already-installed', changed: [] };
+    const uv = this.findUv();
+    if (!uv) return { ok: false, result: 'uv-missing', changed: [] };
+    const req = this.requirements;
+    if (!this.exists(req)) return { ok: false, result: 'requirements-missing', changed: [] };
+    const { root, mcpExe, addon } = this.blenderMcp;
+    const env = baseChildEnv({ UV_NO_CONFIG: '1' });
+    const fail = (result: string): FixOutcome => {
+      this.fs.rmSync(root, { recursive: true, force: true });
+      return { ok: false, result, changed: [] };
+    };
+    // Only ever Toki's own folder: an incomplete or changed install starts over.
+    this.fs.rmSync(root, { recursive: true, force: true });
+    const venv = await this.run(uv.path, ['venv', '--no-config', '--python', '>=3.10', root], { env, timeoutMs: 300_000 });
+    if (venv.code !== 0) return fail('venv-failed');
+    const py = path.join(root, 'Scripts', 'python.exe');
+    const pip = await this.run(uv.path, [
+      'pip', 'install', '--no-config', '--python', py, '--require-hashes', '--only-binary', ':all:',
+      '--index-url', 'https://pypi.org/simple', '-r', req,
+    ], { env, timeoutMs: 600_000 });
+    if (pip.code !== 0 || !this.exists(mcpExe) || !this.exists(addon)) return fail('install-failed');
+    const addonSha256 = sha256(this.fs.readFileSync(addon));
+    if (addonSha256 !== (this.deps.pins?.addonSha256 ?? BLENDER_ADDON_SHA256)) return fail('addon-mismatch');
+    this.fs.writeFileSync(path.join(root, INSTALL_MARKER), JSON.stringify({ version: BLENDER_MCP_VERSION, addonSha256, at: new Date().toISOString() }) + '\n');
+    return { ok: true, result: 'installed', changed: [root], detail: BLENDER_MCP_VERSION + ' ' + addonSha256 };
+  }
+
+  /**
+   * `studio-mcp-setting`: only while Studio is closed. Each `<userId>.json` is backed up to `.toki-bak`, gets only
+   * `mcp-server.enabled = true`, keeps every other key and its own layout, and is replaced atomically. A file that
+   * does not parse, or has no `mcp-server` object, is left as it is. `mcp-prompt-sharing` is never touched.
+   */
+  async enableStudioMcp(): Promise<FixOutcome> {
+    if (this.platform !== 'win32') return { ok: false, result: 'unsupported', changed: [] };
+    const procs = await this.processes();
+    if (procs.some((p) => p.name.toLowerCase() === STUDIO_PROCESS.toLowerCase())) return { ok: false, result: 'studio-running', changed: [] };
+    const changed: string[] = [];
+    let already = 0;
+    let skipped = 0;
+    for (const file of this.studioSettingFiles()) {
+      let raw: string;
+      let v: unknown;
+      try {
+        raw = this.fs.readFileSync(file, 'utf8');
+        v = JSON.parse(raw);
+      } catch {
+        skipped++;
+        continue;
+      }
+      if (!isObj(v) || !isObj(v['mcp-server'])) { skipped++; continue; }
+      if (v['mcp-server'].enabled === true) { already++; continue; }
+      const next = { ...v, 'mcp-server': { ...v['mcp-server'], enabled: true } };
+      const crlf = raw.includes('\r\n');
+      let text = JSON.stringify(next, null, /^\{\r?\n([ \t]+)"/.exec(raw)?.[1]);
+      if (crlf) text = text.replace(/\n/g, '\r\n');
+      if (/\n$/.test(raw)) text += crlf ? '\r\n' : '\n';
+      const tmp = file + '.toki-tmp';
+      try {
+        this.fs.copyFileSync(file, file + '.toki-bak');
+        this.fs.writeFileSync(tmp, text);
+        this.fs.renameSync(tmp, file);
+      } catch {
+        this.fs.rmSync(tmp, { force: true });
+        skipped++;
+        continue;
+      }
+      changed.push(file);
+    }
+    if (changed.length) return { ok: true, result: 'enabled', changed };
+    if (already && !skipped) return { ok: true, result: 'already-on', changed };
+    return { ok: false, result: 'menu-path', changed, detail: STUDIO_MENU_PATH };
   }
 }
 
