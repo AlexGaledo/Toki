@@ -91,10 +91,11 @@ steps.
 
 **Blender and the game room from a real bot turn** (`phase2-backend/README.md`, `phase2-ui/README.md`)
 1. ~~A live look-back.~~ Done in `e2e/`: a real Haiku turn called `look` and the image was attached to the tool message. The browser rendering is covered by D2.
-2. ~~A game-room turn mounts `blender` and Blender starts on the first call~~ (done in `e2e/`). Still open: another room of the same bot gets no
-   `blender` live (unit-tested in `blenderTurn.test.ts`).
+2. ~~A game-room turn mounts `blender` and Blender starts on the first call~~ (done in `e2e/`). Another room of the same bot gets no `blender`: done
+   live in `e2e/strip-and-dm.txt`.
 3. ~~The skills' A/B trap test.~~ Done in `e2e/ab-skill.txt` (blender-loop; studio-loop waits for S2). Before the fix: with the skill 1/3, without 0/3, so it failed. Fixed structurally (save after every Blender command batch, plus a checkpoint pre-commit hook that stages `art/*.blend`). After the fix: 3/3 with and 3/3 without.
-4. The room strip updating live on `game-tools.changed` as Blender starts and stops.
+4. ~~The room strip updating live~~: the hub sends `game-tools.changed` live on start, ready and stop
+   (`e2e/strip-and-dm.txt`), and the strip's re-read on that event is unit-tested. Not driven in a browser.
 
 **Install and UI states** (`phase1-infra/README.md`, `phase1-ui/README.md`, `phase2-ui/README.md`)
 1. The NSIS installer contains `hub/resources/blender/` on a clean install.
