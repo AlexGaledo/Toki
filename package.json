@@ -11,6 +11,7 @@
     "start": "pnpm --filter @pocketrocket/hub start",
     "test": "pnpm -r test && node --test \"scripts/*.test.mjs\"",
     "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ .",
+    "ts-strict": "node scripts/ts-strict.mjs",
     "formal": "node scripts/formal.mjs",
     "lint:prune": "eslint --cache --cache-location node_modules/.cache/eslint/ --prune-suppressions .",
     "hub:bundle": "node scripts/build-hub.mjs",

@@ -123,7 +123,7 @@ The plan was reviewed before work started and changed:
 - **Added A0:** turn the owner's prose corrections into checks first.
 - **Lint tool:** ESLint bulk suppressions replace oxlint, since oxlint has no built-in ratchet.
 - **A3 after A4:** prose is cut only once a check exists.
-- **A7 dropped:** stricter TypeScript costs too much.
+- **A7 deferred, then built as a ratchet:** a full cleanup costs too much (1,496 errors), so new errors are blocked and existing ones are frozen per file.
 - **B1 is mechanical:** edits with no later test, build or screenshot.
 - **Other projects deferred:** C waits until the Toki template is proven.
 - **No license issue:** pstack is MIT, so it is adapted with credit.
@@ -141,7 +141,7 @@ The plan was reviewed before work started and changed:
 | A5 comment cleanup (code-identical; ~9.7k comment lines cut, 375 security invariants kept as one-liners) | #235–#238 | merged |
 | A8 TLA+ model of the cut-off retry, run in CI (`pnpm formal`); a known-bad config must fail | #239 | merged |
 | B5 `features/` map seeded in projects; template v4 rule | #242 | merged, added to the 9 existing projects |
-| A7 stricter tsconfig | — | dropped in review |
+| A7 stricter tsconfig (`noUncheckedIndexedAccess`) behind a per-file ratchet, 1,496 frozen | this PR | merged |
 | C other projects (owner's own repos only) | mimegen#22, wika-saas#68, wika-outreach#8, dialecto-offline#1 | open for owner review; Contributor-Hub-Frontend skipped (Wika-PH org) |
 | Recorder Chromium flake | #230, #232, #241, this PR | see below |
 

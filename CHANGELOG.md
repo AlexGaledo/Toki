@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/control-toki.mjs` and the verify-toki skill run a throwaway Toki, drive the UI and keep screenshots as evidence.
 - AGENTS.md pairs each rule with the check that enforces it; the agent notes shrank from about 4,200 words to under 1,000.
 - The cut-off retry logic is model-checked with TLA+ in CI (`pnpm formal`), including a known-bad version that must fail.
+- Stricter TypeScript (`noUncheckedIndexedAccess`) is on as a ratchet: today's 1,496 cases are frozen per file and CI fails on any new one (`pnpm ts-strict`).
 
 ### Connections are shared by every bot
 
