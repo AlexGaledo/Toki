@@ -1,0 +1,25 @@
+Task 1 (security): http_get off the Studio recipe's readTools. Run 2026-11-24 from packages/hub.
+Test: src/api/studioRecipeApproval.test.ts (new). It writes the real recipe with writeStudioRecipe, loads it with outsideMcpFor, and asks outsideMcpStep.
+
+== http_get off Studio readTools: test with the source unchanged (expect fail) ==
+     × lists none of them on readTools 7ms
+     × under ask, http_get gets the normal card (pass), not a silent allow 48ms
+     × in read-only mode, http_get is refused like any other write 46ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > lists none of them on readTools
+AssertionError: expected [ 'search_game_tree', …(13) ] to not include 'http_get'
+ FAIL  src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > under ask, http_get gets the normal card (pass), not a silent allow
+AssertionError: expected { kind: 'allow' } to deeply equal { kind: 'pass' }
+- Expected
++ Received
+ FAIL  src/api/studioRecipeApproval.test.ts > Studio recipe: tools that can reach the network are not read tools > in read-only mode, http_get is refused like any other write
+AssertionError: expected 'allow' to be 'refuse' // Object.is equality
+Expected: "refuse"
+Received: "allow"
+      Tests  3 failed | 1 passed (4)
+
+== with the fix (gameTools.ts: http_get removed from STUDIO_READ_TOOLS) ==
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+
+Also: src/api/gameTools.test.ts + studioRecipeApproval.test.ts: Test Files 2 passed (2), Tests 19 passed (19). tsc --noEmit (hub): clean.

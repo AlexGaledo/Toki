@@ -13,10 +13,13 @@ import { logError, redact } from '../providers/redact.js';
 
 /** The Studio recipe's name in mcp-servers.json. */
 export const STUDIO_SERVER = 'roblox-studio';
-/** Studio's read-only tools (`readOnlyHint`): under `ask` they run with no card (approve: 'mode'). */
+/**
+ * Studio's read-only tools (`readOnlyHint`): under `ask` they run with no card (approve: 'mode'). `http_get` is
+ * marked read-only by Studio but is left off: a GET to any URL can carry data out in its query string, so it cards.
+ */
 export const STUDIO_READ_TOOLS = [
   'search_game_tree', 'script_search', 'script_read', 'script_grep', 'inspect_instance', 'get_console_output', 'get_studio_state',
-  'screen_capture', 'list_roblox_studios', 'list_skills', 'skill', 'wait_job_finished', 'search_asset', 'http_get',
+  'screen_capture', 'list_roblox_studios', 'list_skills', 'skill', 'wait_job_finished', 'search_asset',
 ];
 
 /** B5: what a Studio recipe check adds once its command is found. Fixed words only. */

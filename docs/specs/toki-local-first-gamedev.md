@@ -188,6 +188,8 @@ marked "verify when Studio is open")
 - Read-only tools (`readOnlyHint`): `search_game_tree`, `script_search`, `script_read`, `script_grep`,
   `inspect_instance`, `get_console_output`, `get_studio_state`, `screen_capture`, `list_roblox_studios`, `list_skills`,
   `skill`, `wait_job_finished`, `search_asset`, `http_get`.
+  Toki leaves `http_get` off the recipe's `readTools` anyway: a GET to any URL can carry data out in its query string,
+  so under `ask` it gets the normal card. Under bypass it runs, as every tool does (decision 4).
 - Write tools: `execute_luau`, `multi_edit`, `save_place`, `start_stop_play`, `insert_asset`, input and navigation
   tools, and the `generate_*` tools.
 - Tools that reach outside the PC: `open_cloud_invoke`, `upload_image`, `submit_feedback`, `create_skill`,
@@ -270,7 +272,7 @@ One process manager in the hub owns every Blender that Toki starts.
 
 Studio is a fixed recipe written into `mcp-servers.json`, scoped to the game room:
 `C:\Windows\System32\cmd.exe /d /c <abs>\mcp.bat`, with `approve: 'mode'` and `readTools` set to the read-only list
-above. A stdio command must be an absolute path (`outsideMcp.ts:50-54`), and `cmd.exe` is one. It is mounted per room
+above, minus `http_get`. A stdio command must be an absolute path (`outsideMcp.ts:50-54`), and `cmd.exe` is one. It is mounted per room
 (`outsideMcp.ts:67-124`).
 
 #### Approval behaviour (decision 2, spike item 2): `approve: 'mode'`
