@@ -346,6 +346,29 @@ describe('the game team template (B7)', () => {
     expect(fs.existsSync(path.join(root, 'half'))).toBe(false);
   });
 
+  it('seeds the template source bots on demand: after the skill check, before the bots are looked up', () => {
+    const repos = new Repos(new Db(':memory:'));
+    const seen: string[] = [];
+    const projects = new ProjectService({
+      db: repos.db, repos, memory: new MemoryService(), root: path.join(tmp, 'svc' + counter++),
+      seedSources: (t) => {
+        seen.push(t.id);
+        for (const role of t.roles) if (!repos.getBotByHandle(role.source)) makeBot(repos, role.source, SOURCE);
+      },
+    });
+    projects.create({ name: 'Plain' });
+    expect(seen).toEqual([]);
+    expect(() => projects.create({ name: 'Early', template: 'game' })).toThrow('needs the skill');
+    expect(seen).toEqual([]);
+    expect(repos.listBots()).toEqual([]);
+    for (const name of GAME_TEAM_TEMPLATE.skills) {
+      repos.upsertSkill({ name, description: '', path: '/x/' + name, source: 'authored', reviewStatus: 'approved', createdByBot: null });
+    }
+    const { bots } = projects.create({ name: 'Obby Run', template: 'game' });
+    expect(seen).toEqual(['game']);
+    expect(bots.map((b) => b.handle)).toEqual(['obby-run-lead', 'obby-run-builder', 'obby-run-artist']);
+  });
+
   it('turns the folder into a git repo with one first commit, and leaves a repo already there alone', async () => {
     const { projects } = withGameSources();
     const { project } = projects.create({ name: 'Obby Run', template: 'game' });

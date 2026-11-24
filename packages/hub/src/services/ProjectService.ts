@@ -69,7 +69,14 @@ function chunk(text: string): string[] {
 
 export class ProjectService {
   private reposCache = new Map<string, { mtimeMs: number; size: number; file: ProjectReposFile }>();
-  constructor(private deps: { db: Db; repos: Repos; memory: MemoryService; root: string; now?: () => number; git?: GitRunner }) {}
+  constructor(private deps: {
+    db: Db; repos: Repos; memory: MemoryService; root: string; now?: () => number; git?: GitRunner;
+    /**
+     * Seeds a template's source bots the first time a project uses it, so a hub that never makes a game project never
+     * gets @roblox-builder or @blender-artist. Runs after the skill check, before the source bots are looked up.
+     */
+    seedSources?: (template: TeamTemplate) => unknown;
+  }) {}
 
   private get db() { return this.deps.db; }
   private now() { return (this.deps.now ?? Date.now)(); }
@@ -171,6 +178,7 @@ export class ProjectService {
       if (!skill) throw new ProjectError(409, 'The ' + template.label + ' template needs the skill ' + skillName + ', which does not exist');
       return skill.id;
     });
+    this.deps.seedSources?.(template);
     return template.roles.map((role) => {
       const source = this.deps.repos.getBotByHandle(role.source);
       if (!source) throw new ProjectError(409, 'The ' + template.label + ' template needs the bot @' + role.source + ', which does not exist');

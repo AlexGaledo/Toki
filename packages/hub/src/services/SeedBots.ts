@@ -203,6 +203,8 @@ function gameDefinitions(): BotDefinition[] {
 /**
  * Seeds the game template's source bots once, on a Windows PC hub only: game tools exist nowhere else. No DM: they are
  * templates. A bot the owner deleted, or a handle he already uses, is left alone (same markers as seedDefaultBots).
+ * Called by the first game project (ProjectService `seedSources`), never at startup, so a hub with no game project
+ * never gets them. A hub that got them at startup before this change keeps them.
  */
 export function seedGameBots(
   repos: Repos, memory: Pick<MemoryService, 'ensureHome' | 'writeIdentity'>, opts: { dataDir?: string; platform?: NodeJS.Platform } = {},

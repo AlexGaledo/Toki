@@ -204,7 +204,8 @@ export function createHub(opts: HubOptions = {}): Hub {
   installSettings(settings);
   repos.renameOwner(settings.get().userName);
   if (opts.seedBots) {
-    const seeded = [...seedDefaultBots(repos, memory), ...seedGameBots(repos, memory)];
+    // The game template's source bots are seeded by the first game project instead (ProjectService seedSources).
+    const seeded = seedDefaultBots(repos, memory);
     if (seeded.length) console.log('created default bots: ' + seeded.map((b) => '@' + b.handle).join(', '));
   }
   const providers = createProviders({ settings, enabled: ENABLED_PROVIDERS });
@@ -371,7 +372,13 @@ export function createHub(opts: HubOptions = {}): Hub {
   });
   const handleMcp = createMcpHandler(turns);
   const contextRepo = new ContextRepo(db);
-  const projects = new ProjectService({ db, repos, memory, root: opts.projectsDir ?? PROJECTS_DIR });
+  const projects = new ProjectService({
+    db, repos, memory, root: opts.projectsDir ?? PROJECTS_DIR,
+    // Only a hub that seeds its own bots makes @roblox-builder and @blender-artist, and only for the first game project.
+    seedSources: opts.seedBots
+      ? (t) => (t.id === 'game' ? seedGameBots(repos, memory, { dataDir: opts.gameTools?.dataDir, platform: opts.gameTools?.platform }) : [])
+      : undefined,
+  });
   runner.projects = projects;
   const gameToolsChanged = () => events.emitEvent({ type: 'game-tools.changed' });
   const blender = new BlenderHost({ dataDir: opts.gameTools?.dataDir ?? DATA_DIR, onChange: gameToolsChanged });
