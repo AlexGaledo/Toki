@@ -45,7 +45,9 @@ function setup(o: { others?: RunningBlender[]; ports?: number[]; idleMs?: number
   const others = o.others ?? [];
   const ports = [...(o.ports ?? [50123, 50124, 50125])];
   const logs: string[] = [];
+  let changes = 0;
   const host = new BlenderHost({
+    onChange: () => { changes++; },
     dataDir: data, exe: () => 'C:\\Blender\\blender.exe', script,
     spawn: (_cmd, args, opts) => {
       const c = new FakeChild(1000 + children.length, args, opts);
@@ -67,7 +69,7 @@ function setup(o: { others?: RunningBlender[]; ports?: number[]; idleMs?: number
     if (c?.alive) c.ready();
     return r;
   };
-  return { host, children, data, tools, script, others, logs, project, up, maxAlive: () => maxAlive };
+  return { host, children, data, tools, script, others, logs, project, up, maxAlive: () => maxAlive, changes: () => changes };
 }
 
 beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); });
@@ -294,6 +296,34 @@ describe('BlenderHost: crashes', () => {
     await flush();
     s.children[0]!.die(1);
     expect(await r).toMatch(/stopped before it was ready \(exit code 1\)/);
+  });
+});
+
+describe('BlenderHost: game-tools.changed', () => {
+  it('reports a start, READY, a stop and a crash, and the reset after crashes', async () => {
+    const s = setup();
+    const r = s.host.ensure(s.project('alpha'));
+    await flush();
+    expect(s.changes()).toBe(1);
+    s.children[0]!.ready();
+    expect(await r).toBeNull();
+    expect(s.changes()).toBe(2);
+    void s.host.stop('idle');
+    s.children[0]!.exitClean();
+    await flush();
+    expect(s.changes()).toBe(3);
+    await s.up('alpha');
+    s.children.at(-1)!.die(3221225477);
+    await flush();
+    expect(s.changes()).toBe(6);
+    s.host.resetCrashes();
+    expect(s.changes()).toBe(7);
+  });
+
+  it('NEGATIVE: a start refused because another Blender runs changes nothing and reports nothing', async () => {
+    const s = setup({ others: [{ exe: 'blender.exe', pid: 77 }] });
+    expect(await s.host.ensure(s.project('alpha'))).toMatch(/Another Blender is running/);
+    expect(s.changes()).toBe(0);
   });
 });
 

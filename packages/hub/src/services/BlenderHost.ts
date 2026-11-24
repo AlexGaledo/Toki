@@ -140,6 +140,8 @@ export interface BlenderHostDeps {
   idleMs?: () => number;
   log?: (line: string) => void;
   platform?: NodeJS.Platform;
+  /** Blender started, became ready, stopped or crashed, or the crash count was reset: the hub sends `game-tools.changed`. */
+  onChange?: () => void;
 }
 
 export type BlenderStatus =
@@ -176,6 +178,7 @@ export class BlenderHost {
 
   private now() { return (this.deps.now ?? Date.now)(); }
   private log(line: string) { (this.deps.log ?? console.log)('[blender] ' + line); }
+  private changed() { this.deps.onChange?.(); }
   private exists(p: string) { return (this.deps.exists ?? fs.existsSync)(p); }
   private get tools() { return blenderToolPaths(this.deps.dataDir, this.deps.platform); }
   get runDir() { return path.join(this.deps.dataDir, 'run', 'blender'); }
@@ -221,6 +224,7 @@ export class BlenderHost {
   /** "Try again" after the crash cap. */
   resetCrashes(): void {
     this.crashes = [];
+    this.changed();
   }
 
   private recentCrashes(): number {
@@ -296,6 +300,7 @@ export class BlenderHost {
       settle(why);
     };
     this.proc = proc;
+    this.changed();
     this.log('starting for ' + project.slug + ' on 127.0.0.1:' + port + ' (pid ' + (child.pid ?? '?') + ')');
     const readyTimer = setTimeout(() => {
       if (settled || this.proc !== proc) return;
@@ -316,6 +321,7 @@ export class BlenderHost {
         proc.settle(null);
         // Idle time counts from here: a cold start can take longer than the idle time.
         this.touch();
+        this.changed();
         this.log('ready for ' + project.slug + ' after ' + ((this.now() - proc.startedAt) / 1000).toFixed(1) + ' s');
       } else if (tag === 'RAM') {
         proc.peakBytes = Math.max(proc.peakBytes, Number(rest) || 0);
@@ -368,6 +374,7 @@ export class BlenderHost {
         ? 'Blender\'s port was taken by another program. Try again.'
         : 'Blender stopped before it was ready (' + (err ? err.message : 'exit code ' + code) + '). Try again.');
       exitedDone();
+      this.changed();
     };
     child.on('exit', (code) => onGone(code));
     child.on('error', (e) => onGone(null, e));

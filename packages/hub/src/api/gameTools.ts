@@ -81,6 +81,8 @@ export function createGameToolsApi(deps: {
   db: Db;
   /** For the Studio recipe's `cmd.exe`. */
   env?: NodeJS.ProcessEnv;
+  /** After a step that may change the status: the hub sends `game-tools.changed`. */
+  onChange?: () => void;
 }) {
   const { tools, store, repos, db } = deps;
   let running: GameToolFix | null = null;
@@ -140,6 +142,7 @@ export function createGameToolsApi(deps: {
         } else if (!out.ok) {
           recordAudit(db, actor, 'game_tools.fix_failed', step, out.result);
         }
+        if (out.changed.length) deps.onChange?.();
         const reply: GameToolFixResult = { ok: out.ok, step, result: out.result, changed: out.changed, status: await tools.status() };
         return send(res, out.ok ? 200 : 409, out.detail && !out.ok ? { ...reply, detail: out.detail } : reply);
       }
@@ -156,6 +159,7 @@ export function createGameToolsApi(deps: {
         }
         const server = studioRecipe(room.id);
         recordAudit(db, actor, 'game_tools.studio_setup', room.id, STUDIO_SERVER);
+        deps.onChange?.();
         return send(res, 200, { server });
       }
 

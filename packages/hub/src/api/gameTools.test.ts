@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
-import type { GameToolsStatus, Room } from '@pocketrocket/shared';
+import type { GameToolsStatus, Room, ServerEvent } from '@pocketrocket/shared';
+import { events } from '../events.js';
 import { createHub, type Hub } from '../hub.js';
 import { listAudit } from '../services/AuditLog.js';
 import { STUDIO_PROCESS, UV_URL, UV_VERSION, sha256, type ProcessRow, type RunFn } from '../services/gameTools.js';
@@ -287,6 +288,24 @@ describe('NEGATIVE: the handler itself refuses anything but the hub token (defen
         expect(await handler(req, res)).toBe(true);
         expect(status, (p?.kind ?? 'none') + ' ' + method + ' ' + url).toBe(403);
       }
+    }
+  });
+});
+
+describe('game-tools.changed', () => {
+  it('is sent after a Studio setup and a blender-reset, carries nothing, and not for a refused call', async () => {
+    const seen: ServerEvent[] = [];
+    const off = events.onEvent((ev) => { if (ev.type === 'game-tools.changed') seen.push(ev); });
+    try {
+      expect((await request('POST', '/api/game-tools/studio/setup', { body: { roomId: dm.id } })).status).toBe(400);
+      expect((await request('POST', '/api/game-tools/fix/nope', { body: {} })).status).toBe(404);
+      expect(seen).toEqual([]);
+      expect((await request('POST', '/api/game-tools/studio/setup', { body: { roomId: group.id } })).status).toBe(200);
+      expect(seen).toEqual([{ type: 'game-tools.changed' }]);
+      expect((await request('POST', '/api/game-tools/fix/blender-reset', { body: {} })).status).toBe(200);
+      expect(seen).toHaveLength(2);
+    } finally {
+      off();
     }
   });
 });

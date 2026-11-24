@@ -373,7 +373,8 @@ export function createHub(opts: HubOptions = {}): Hub {
   const contextRepo = new ContextRepo(db);
   const projects = new ProjectService({ db, repos, memory, root: opts.projectsDir ?? PROJECTS_DIR });
   runner.projects = projects;
-  const blender = new BlenderHost({ dataDir: opts.gameTools?.dataDir ?? DATA_DIR });
+  const gameToolsChanged = () => events.emitEvent({ type: 'game-tools.changed' });
+  const blender = new BlenderHost({ dataDir: opts.gameTools?.dataDir ?? DATA_DIR, onChange: gameToolsChanged });
   runner.blender = blender;
   const roomFiles = new RoomFiles({ projects, roomsDir: opts.roomsDir ?? ROOMS_DIR, dmDir: opts.dmFilesDir ?? botFilesDir });
   runner.roomFiles = roomFiles;
@@ -445,13 +446,17 @@ export function createHub(opts: HubOptions = {}): Hub {
   const gameTools = new GameTools({ dataDir: DATA_DIR, ...opts.gameTools, blender });
   const projectsApi = createProjectsApi({
     projects, repos, db,
-    studioForRoom: (roomId, actor) => studioForGameRoom({ tools: gameTools, store: mcpStore, db, env: opts.gameTools?.env }, roomId, actor),
+    studioForRoom: async (roomId, actor) => {
+      const word = await studioForGameRoom({ tools: gameTools, store: mcpStore, db, env: opts.gameTools?.env }, roomId, actor);
+      if (word === 'added') gameToolsChanged();
+      return word;
+    },
   });
   const mcpServersApi = createMcpServersApi({
     store: mcpStore, db, fetch: opts.mcpServers?.fetch,
     runtimeCheck: async (name) => (name === STUDIO_SERVER ? studioCheckWord((await gameTools.status()).studio) : null),
   });
-  const gameToolsApi = createGameToolsApi({ tools: gameTools, blender, store: mcpStore, repos, db, env: opts.gameTools?.env });
+  const gameToolsApi = createGameToolsApi({ tools: gameTools, blender, store: mcpStore, repos, db, env: opts.gameTools?.env, onChange: gameToolsChanged });
   const credentials = new CredentialStore(db, opts.credentials);
   runner.credentials = credentials;
   const credentialsApi = createCredentialsApi({ store: credentials, db });
