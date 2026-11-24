@@ -122,7 +122,7 @@ export function defaultBranchPushDenied(command: string, cwd: string, info: GitI
   const seen = shellish(command);
   // Letters only: survives quotes, escapes, $'..', ${x}, $(echo gh) and the like. Fails closed on anything merge-shaped.
   const letters = command.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (letters.includes('ghalias') && letters.includes('merge')) return 'A gh alias that merges is left to the owner. Use gh pr merge <number> once its checks pass.';
+  if (letters.includes('ghalias')) return 'Changing gh aliases is left to the owner, so a merge cannot hide behind one.';
   const apiLike =letters.includes('api') && (letters.includes('gh') || /[$`]/.test(command));
   if (API_MERGE.test(seen) || (apiLike && (letters.includes('merge') || /@|--input\b/.test(command)))) {
     return 'Merging through gh api (or feeding it a query from a file) is left to the owner. Use gh pr merge <number> once its checks pass.';
