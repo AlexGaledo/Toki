@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Checks instead of written rules (development)
 
+- Project repos on a server stay current: an hourly job (`deploy/room-repo-sync.sh`) fast-forwards each one that is clean and on its default branch, so bots see today's AGENTS.md and checks. Bots' wip branches and uncommitted work are skipped.
 - ESLint runs in CI with today's issues frozen, so only new ones fail; each custom rule's message names what to use instead. Web and shared code can't import hub internals.
 - Tests now enforce what the contributor notes only asked for: additive migrations, the phone route allowlist, design tokens matching across app, splash and site, WCAG AA contrast, pinned CI actions, SSH host-key checking.
 - `scripts/deploy.sh` refuses to deploy anything but a clean, current origin/main. CI refuses edits to released CHANGELOG sections and newly mixed line endings.

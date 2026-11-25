@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-time (idempotent) VPS setup for Toki's screen: creates the unprivileged service
-# user, X virtual display, VNC, noVNC, Chromium, the daily backup and hourly Claude CLI update
-# cron jobs, and the screen unit.
+# user, X virtual display, VNC, noVNC, Chromium, the daily backup, hourly Claude CLI update and
+# hourly project repo sync cron jobs, and the screen unit.
 #
 # Security model: the hub (127.0.0.1:7788), noVNC (127.0.0.1:6080), the VNC server
 # (127.0.0.1:5900) and Chromium's CDP (127.0.0.1:9222) all bind loopback only, and so does every per-bot
@@ -103,6 +103,9 @@ install -m 755 -o root -g root deploy/backup.sh /etc/cron.daily/pocketrocket-bac
 echo "==> hourly Claude Code CLI update (new models need a minimum CLI version)"
 install -m 755 -o root -g root deploy/claude-update.sh /etc/cron.hourly/pocketrocket-claude-update
 /etc/cron.hourly/pocketrocket-claude-update || echo "   (claude update failed; see: journalctl -t pocketrocket-claude-update)"
+
+echo "==> hourly fast-forward of project repos (clean, on the default branch, no local commits)"
+install -m 755 -o root -g root deploy/room-repo-sync.sh /etc/cron.hourly/pocketrocket-room-repo-sync
 
 echo "==> keep the service user's Claude Code transcripts (the CLI deletes them after 30 days; bots resume from them)"
 # Bot turns already pass cleanupPeriodDays as flag settings (providers/cliRetention.ts); the hub never edits this
